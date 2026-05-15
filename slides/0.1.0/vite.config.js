@@ -6,7 +6,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         { src: "src/lib.typ", dest: "", rename: { stripBase: 1 } },
-        { src: "src/index.css", dest: "" }
+        { src: "src/index.css", dest: "", rename: { stripBase: 1 } }
       ]
     })
   ],
