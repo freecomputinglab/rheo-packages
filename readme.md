@@ -7,7 +7,7 @@ A collection of [Rheo](https://rheo.ohrg.org) packages.
 Clone this repo into your Typst package cache:
 
 ```sh
-git clone git@github.com:freecomputinglab/rheo-packages.git "$(typst info --format json | jq -r '.package-cache-path')/rheo"
+git clone git@github.com:freecomputinglab/rheo-packages.git "$(typst info 2>&1 | grep 'Package cache path' | awk '{print $NF}')/rheo"
 ```
 
 Run `typst info` to see your package cache path.
