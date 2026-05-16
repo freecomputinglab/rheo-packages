@@ -24,8 +24,25 @@ function applyStyles() {
   document.head.appendChild(style);
 }
 
+function setupSlideTitle() {
+  const reveal = document.querySelector('.reveal') as HTMLElement | null;
+  if (!reveal) return;
+  const header = document.createElement('div');
+  header.className = 'slide-title-bar';
+  reveal.appendChild(header);
+  const update = () => {
+    const current = document.querySelector('.reveal .slides section.present') as HTMLElement | null;
+    const title = current?.dataset.slideTitle ?? '';
+    header.textContent = title;
+    header.style.display = title ? '' : 'none';
+  };
+  Reveal.on('ready', update);
+  Reveal.on('slidechanged', update);
+}
+
 function init() {
   applyStyles();
+  setupSlideTitle();
   Reveal.initialize({ hash: true });
 }
 

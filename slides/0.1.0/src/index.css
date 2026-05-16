@@ -4,6 +4,19 @@
 }
 
 .reveal .slides section[role="doc-bibliography"],
-.reveal .slides section[role="doc-endnotes"] {
+.reveal .slides section[role="doc-endnotes"],
+section[role="doc-endnotes"]
+{
   display: none !important;
-  }
+}
+
+.reveal .slide-title-bar {
+  position: absolute;
+  top: 0.75em;
+  left: 1em;
+  z-index: 20;
+  font-size: 0.9em;
+  font-variant: small-caps;
+  opacity: 0.7;
+  pointer-events: none;
+}
