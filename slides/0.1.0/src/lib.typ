@@ -1,4 +1,4 @@
-#let slide(body) = {
+#let slide(inline: false, body) = {
   context if target() == "html" {
     html.elem("section", body)
   } else {
@@ -9,6 +9,7 @@
       radius: 4pt,
       text(fill: white, weight: "bold", size: 0.9em)[SLIDE],
     )
+    if inline { body }
   }
 }
 
