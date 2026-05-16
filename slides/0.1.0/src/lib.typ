@@ -13,10 +13,38 @@
   }
 }
 
-#let template(doc) = {
+#let _themes = (
+  "beige",
+  "black",
+  "black-contrast",
+  "blood",
+  "dracula",
+  "league",
+  "moon",
+  "night",
+  "serif",
+  "simple",
+  "sky",
+  "solarized",
+  "white",
+  "white-contrast",
+)
+
+#let template(theme: "black", first-slide: none, doc) = {
+  assert(theme in _themes, message: "Unknown slides theme: " + theme)
+  assert(first-slide != none, message: "`first-slide` is required")
   context if target() == "html" {
-    html.elem("div", attrs: (class: "reveal"), html.elem("div", attrs: (class: "slides"), doc))
+    html.elem(
+      "div",
+      attrs: (class: "reveal", "data-theme": theme),
+      html.elem(
+        "div",
+        attrs: (class: "slides"),
+        slide(first-slide) + doc,
+      ),
+    )
   } else {
+    slide(first-slide)
     doc
   }
 }

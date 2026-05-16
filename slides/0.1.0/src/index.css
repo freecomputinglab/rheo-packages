@@ -1,6 +1,6 @@
 /* Reveal.js controls layout; keep this minimal */
 .slides > :not(section) {
-  display: none;
+  display: none !important;
 }
 
 .reveal .slides section[role="doc-bibliography"],
