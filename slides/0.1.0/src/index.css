@@ -2,3 +2,8 @@
 .slides > :not(section) {
   display: none;
 }
+
+.reveal .slides section[role="doc-bibliography"],
+.reveal .slides section[role="doc-endnotes"] {
+  display: none !important;
+  }
