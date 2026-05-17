@@ -10,6 +10,12 @@ section[role="doc-endnotes"]
   display: none !important;
 }
 
+.reveal blockquote {
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+
 .reveal .slide-title-bar {
   position: absolute;
   top: 0.75em;
