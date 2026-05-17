@@ -41,9 +41,11 @@ function setupSlideTitle() {
 }
 
 function init() {
+  const reveal = document.querySelector('.reveal') as HTMLElement | null;
   applyStyles();
   setupSlideTitle();
-  Reveal.initialize({ hash: true });
+  const transition = reveal?.dataset.transition;
+  Reveal.initialize({ hash: true, ...(transition ? { transition } : {}) });
 }
 
 if (document.readyState === 'loading') {

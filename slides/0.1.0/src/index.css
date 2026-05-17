@@ -15,8 +15,8 @@ section[role="doc-endnotes"]
   top: 0.75em;
   left: 1em;
   z-index: 20;
-  font-size: 0.9em;
-  font-variant: small-caps;
+  font-size: 0.4em;
+  font-variant: normal;
   opacity: 0.7;
   pointer-events: none;
 }
