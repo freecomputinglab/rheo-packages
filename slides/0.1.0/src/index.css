@@ -3,6 +3,19 @@
   display: none !important;
 }
 
+/* Typst emits prose outside of #slide[] as bare text nodes directly inside
+   .slides. CSS can't display:none text nodes, so collapse them via font-size
+   and restore inside actual <section> slides. */
+.reveal .slides {
+  font-size: 0;
+  line-height: 0;
+}
+.reveal .slides > section {
+  font-size: var(--r-main-font-size, initial);
+  line-height: var(--r-block-margin, normal);
+  line-height: normal;
+}
+
 .reveal .slides section[role="doc-bibliography"],
 .reveal .slides section[role="doc-endnotes"],
 section[role="doc-endnotes"]
@@ -14,6 +27,11 @@ section[role="doc-endnotes"]
   background: none;
   box-shadow: none;
   color: inherit;
+}
+
+.reveal blockquote {
+  text-align: left;
+  margin-left: 1em;
 }
 
 .reveal .slide-title-bar {

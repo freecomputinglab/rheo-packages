@@ -32,9 +32,9 @@ function setupSlideTitle() {
   reveal.appendChild(header);
   const update = () => {
     const current = document.querySelector('.reveal .slides section.present') as HTMLElement | null;
-    const title = current?.dataset.slideTitle ?? '';
-    header.textContent = title;
-    header.style.display = title ? '' : 'none';
+    const titleEl = current?.querySelector(':scope > .rheo-slide-title') as HTMLElement | null;
+    header.innerHTML = titleEl?.innerHTML ?? '';
+    header.style.display = titleEl ? '' : 'none';
   };
   Reveal.on('ready', update);
   Reveal.on('slidechanged', update);

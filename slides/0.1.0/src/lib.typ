@@ -12,11 +12,14 @@
   }
   context if target() == "html" {
     let current = _slide-title.get()
-    let attrs = if current != none { ("data-slide-title": current) } else { (:) }
+    let title-elem = if current != none {
+      html.elem("div", attrs: (class: "rheo-slide-title", hidden: ""), current)
+    } else { [] }
+    let attrs = (:)
     if transition != auto and transition != none {
       attrs.insert("data-transition", transition)
     }
-    html.elem("section", attrs: attrs, body)
+    html.elem("section", attrs: attrs, title-elem + body)
   } else {
     box(
       fill: rgb("#ff4444"),
