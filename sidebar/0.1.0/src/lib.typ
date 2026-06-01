@@ -27,6 +27,7 @@
   title: "",
   home-url: "/",
   logo: none,
+  accent-color: none,
   doc,
 ) = {
   // Flatten all clickable items in nav order for prev/next computation
@@ -71,6 +72,11 @@
   } else { none }
 
   context if target() == "html" {
+    if accent-color != none {
+      let css = ":root { --accent-color: " + accent-color + "; }"
+      html.elem("style")[#css]
+    }
+
     div("topbar")[
       #button("sidebar-toggle", "Toggle sidebar")[
         #span("hamburger")
