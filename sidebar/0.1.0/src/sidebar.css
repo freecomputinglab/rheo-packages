@@ -1,0 +1,445 @@
+/* ============================================
+   CSS Variables — override in your project's style.css
+   ============================================ */
+:root {
+  --sidebar-width: 260px;
+  --topbar-height: 40px;
+  --sidebar-bg: #f9f6f0;
+  --border-color: #3d2645;
+  --text-color: #333;
+  --accent-color: #b893c7;
+  --arrow-bg: #f9f6f0;
+  --arrow-color: #3d2645;
+  --sidebar-link-color: #555;
+  --background-color: #f9f6f0;
+}
+
+/* ============================================
+   Base Reset
+   ============================================ */
+body {
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* ============================================
+   Sidebar Backdrop
+   ============================================ */
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================
+   Topbar
+   ============================================ */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--topbar-height);
+  background-color: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 98;
+  transition: left 0.3s ease;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  position: absolute;
+  left: 15px;
+  display: none;
+  transition: left 0.3s ease;
+}
+
+.hamburger {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-color);
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.hamburger::before,
+.hamburger::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-color);
+  left: 0;
+  transition: transform 0.3s ease, top 0.3s ease;
+}
+
+.hamburger::before {
+  top: -6px;
+}
+
+.hamburger::after {
+  top: 6px;
+}
+
+.topbar-title {
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-title img {
+  height: 24px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.topbar > a {
+  text-decoration: none;
+}
+
+/* ============================================
+   Sidebar Navigation
+   ============================================ */
+nav.sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 99;
+  transition: transform 0.3s ease;
+}
+
+.banner {
+  height: var(--topbar-height);
+}
+
+.banner a {
+  display: flex;
+  flex-direction: row;
+  margin: 0 1em;
+  height: 100%;
+}
+
+.banner img {
+  padding-top: 8px;
+  height: 50%;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-nav li {
+  margin-bottom: 2px;
+}
+
+/* Group header (non-clickable) */
+.sidebar-nav li.section-label {
+  margin-top: 1.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0.5rem 12px 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--border-color);
+  pointer-events: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.sidebar-nav li.section-label:first-child {
+  margin-top: 0;
+  border-top: none;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 4px 12px;
+  color: var(--sidebar-link-color);
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.subsection-nav {
+  list-style: none;
+  padding-left: 20px;
+  margin: 0;
+  pointer-events: auto;
+}
+
+.subsection-nav a {
+  padding: 2px 12px;
+}
+
+.sidebar-nav a:hover {
+  background-color: #e8e8e8;
+  color: #000;
+}
+
+/* Active item */
+.sidebar-nav li.active > a,
+.sidebar-nav li.active > p > a {
+  background-color: var(--accent-color);
+  color: #000;
+  font-weight: 500;
+}
+
+/* Parent of active item (chapter containing the active subsection) */
+.sidebar-nav li.active-parent > a {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+/* Chapter number span */
+.chapter-num {
+  font-weight: 700;
+}
+
+/* ============================================
+   Content Area
+   ============================================ */
+.content {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--topbar-height);
+  min-height: calc(100vh - var(--topbar-height) - 14rem);
+  transition: margin-left 0.3s ease;
+}
+
+[role="doc-endnotes"] {
+  margin-left: var(--sidebar-width);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+/* Desktop: show hamburger, enable sidebar collapse */
+@media (min-width: 769px) {
+  .sidebar-toggle {
+    display: block;
+  }
+
+  nav.sidebar.hidden {
+    transform: translateX(-100%);
+  }
+
+  .topbar.sidebar-closed {
+    left: 0;
+  }
+
+  .sidebar-closed ~ .content,
+  .sidebar-closed ~ [role="doc-endnotes"] {
+    margin-left: 0;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .topbar {
+    left: 0;
+    z-index: 100;
+  }
+
+  .topbar.sidebar-open {
+    z-index: 102;
+    background-color: transparent;
+    border-bottom: none;
+  }
+
+  .topbar.sidebar-open .topbar-title {
+    opacity: 0;
+  }
+
+  .sidebar-toggle {
+    display: block;
+    position: fixed;
+    top: 11px;
+    left: 15px;
+    z-index: 1;
+  }
+
+  .topbar.sidebar-open .sidebar-toggle {
+    position: fixed;
+    left: 15px;
+  }
+
+  /* Hamburger → X animation */
+  .sidebar-open .hamburger {
+    background-color: transparent;
+  }
+
+  .sidebar-open .hamburger::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
+  .sidebar-open .hamburger::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  .content {
+    margin-left: 0;
+  }
+
+  nav.sidebar {
+    transform: translateX(-100%);
+    z-index: 101;
+  }
+
+  nav.sidebar:not(.hidden) {
+    transform: translateX(0);
+  }
+
+  [role="doc-endnotes"] {
+    margin-left: 0;
+  }
+}
+
+/* ============================================
+   Navigation Arrows
+   ============================================ */
+.nav-arrows {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3rem;
+  margin-left: var(--sidebar-width);
+  padding: 0 2rem 2rem 2rem;
+  transition: margin-left 0.3s ease;
+}
+
+.nav-arrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--arrow-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.nav-arrow:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.nav-arrow .arrow-icon {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--arrow-color);
+}
+
+.nav-arrow .arrow-text {
+  font-size: 0.9rem;
+  color: var(--arrow-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prev-arrow {
+  justify-content: flex-start;
+  margin-right: auto;
+  margin-left: 2rem;
+}
+
+.next-arrow {
+  justify-content: flex-end;
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.desktop-nav {
+  display: flex;
+}
+
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none;
+  }
+
+  .mobile-nav {
+    display: flex;
+  }
+
+  .nav-arrows {
+    margin-left: 0;
+    padding: 0 1rem 2rem 1rem;
+  }
+
+  .mobile-nav .nav-arrow {
+    flex: 1;
+    min-width: auto;
+  }
+
+  .mobile-nav .arrow-text {
+    font-size: 0.85rem;
+  }
+
+  .prev-arrow {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-closed ~ .nav-arrows {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .desktop-nav .arrow-text {
+    max-width: 250px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .desktop-nav .arrow-text {
+    max-width: 350px;
+  }
+}
