@@ -1,0 +1,17 @@
+{
+  "name": "rheo-justify",
+  "version": "1.0.0",
+  "main": "dist/lib.js",
+  "scripts": {
+    "build": "vite build"
+  },
+  "packageManager": "pnpm@10.21.0",
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.5",
+    "vite-plugin-static-copy": "^4.0.1"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.5"
+  }
+}
