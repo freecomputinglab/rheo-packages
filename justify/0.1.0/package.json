@@ -5,7 +5,7 @@
   "main": "dist/lib.js",
   "scripts": {
     "build": "vite build",
-    "test": "node --experimental-strip-types --test test/kp.test.ts"
+    "test": "node --experimental-strip-types --test test/kp.test.ts test/encode.test.ts"
   },
   "packageManager": "pnpm@10.21.0",
   "devDependencies": {
