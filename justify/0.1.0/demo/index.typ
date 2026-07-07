@@ -1,7 +1,7 @@
 #import "@rheo/justify:0.1.0": template
 
 #show: template
-#set text(font: "DejaVu Serif", size: 18pt)
+#set text(font: "DejaVu Serif", size: 22pt)
 #set par(justify: true)
 
 // The passage is defined once and rendered in both columns, so the two sides
@@ -63,7 +63,7 @@ its spacing even.
     // `text-align: justify`, giving the browser's own greedy justification.
     html.elem("div", attrs: (class: "col native"), {
       set par(justify: false)
-      heading(level: 3)[Native browser `justify: true`]
+      heading(level: 3)[Native browser]
       for p in paragraphs {
         html.elem("p", p)
       }

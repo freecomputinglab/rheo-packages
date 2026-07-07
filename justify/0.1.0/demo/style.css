@@ -3,11 +3,14 @@
  * browser renders in exactly the font the client-side runtime measures with —
  * otherwise the Knuth-Plass spacing would be computed against the wrong metrics. */
 body {
-  max-width: 70rem;
+  /* Deliberately narrow columns at a large size: fewer words per line makes
+   * the greedy rivers (right) and the KP packing win (left) obvious. The
+   * font-size must match the Typst `text.size` (data-size) the runtime measures. */
+  max-width: 60rem;
   margin: 2rem auto;
   padding: 0 1rem;
   font-family: "DejaVu Serif", serif;
-  font-size: 18pt;
+  font-size: 22pt;
   line-height: 1.6;
 }
 
