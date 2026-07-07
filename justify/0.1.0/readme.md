@@ -39,8 +39,32 @@ The template reads `par.justification-limits` via `context` and forwards the
 Typst default, the package substitutes its own book-quality default
 (`spacing 0.83 .. 1.5`).
 
-**Honored in v1:** word spacing (`spacing`). **Deferred:** letter tracking
-(`tracking`) — parsed but not yet applied; it would need CSS `letter-spacing`.
+**Honored in v1:** the word-space **stretch** bound (`spacing.max`). The
+**shrink** bound (`spacing.min`) does not apply on the HTML target: within-line
+gaps are encoded as non-breaking spaces, which the browser stretches under
+`text-align: justify` but never shrinks below their natural width — so KP plans
+lines that only ever stretch. **Deferred:** letter tracking (`tracking`) —
+parsed but not yet applied; it would need CSS `letter-spacing`.
+
+## Hyphenation
+
+The client hyphenates justified paragraphs so Knuth-Plass can break long words
+at syllable boundaries — packing more text per line, so the column runs shorter
+with tighter spacing. It honors the standard Typst knob:
+
+```typ
+#set text(hyphenate: true)    // force on
+#set text(hyphenate: false)   // force off
+#set text(hyphenate: auto)    // default: on when the paragraph is justified
+```
+
+Because the package only touches justified paragraphs, the default `auto`
+hyphenates them — matching what Typst's native justification does for PDF/EPUB,
+so the three targets stay consistent. Language is taken from `text.lang`.
+
+**v1 covers English only** (`lang: "en"`). Other languages are justified without
+hyphenation until their patterns are bundled. Words that already contain a
+hyphen are left to break at that hyphen and are not split further.
 
 ## Opting a block out
 
@@ -67,8 +91,7 @@ Wrap content in `no-justify` to leave it to the browser / Typst native flow:
 - **Text-only paragraphs in v1.** A paragraph containing inline markup (links,
   emphasis) is left to the browser; per-node encoding that preserves element
   boundaries is a documented follow-up.
-- **No client-side hyphenation in v1.** Breaks are chosen at word boundaries;
-  existing hard hyphens are held non-breaking. A hyphenation dictionary is a
-  follow-up.
+- **English hyphenation only in v1** (see above); other languages justify
+  without word breaks.
 - **Graceful degradation.** With JavaScript disabled the browser renders the
   plain paragraph text as normal.

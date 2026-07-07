@@ -5,7 +5,7 @@
   "main": "dist/lib.js",
   "scripts": {
     "build": "vite build",
-    "test": "node --experimental-strip-types --test test/kp.test.ts test/encode.test.ts test/limits.test.ts"
+    "test": "node --experimental-strip-types --test test/kp.test.ts test/encode.test.ts test/limits.test.ts test/hyphenate.test.ts"
   },
   "packageManager": "pnpm@10.21.0",
   "devDependencies": {
@@ -14,6 +14,8 @@
     "vite-plugin-static-copy": "^4.0.1"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.5"
+    "@chenglou/pretext": "^0.0.5",
+    "hypher": "^0.2.5",
+    "hyphenation.en-us": "^0.2.1"
   }
 }

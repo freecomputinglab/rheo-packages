@@ -11,6 +11,12 @@ importers:
       '@chenglou/pretext':
         specifier: ^0.0.5
         version: 0.0.5
+      hyphenation.en-us:
+        specifier: ^0.2.1
+        version: 0.2.1
+      hypher:
+        specifier: ^0.2.5
+        version: 0.2.5
     devDependencies:
       typescript:
         specifier: ^6.0.2
@@ -181,6 +187,12 @@ packages:
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
     engines: {node: '>= 6'}
+
+  hyphenation.en-us@0.2.1:
+    resolution: {integrity: sha512-ItXYgvIpfN8rfXl/GTBQC7DsSb5PPsKh9gGzViK/iWzCS5mvjDebFJ6xCcIYo8dal+nSp2rUzvTT7BosrKlL8A==}
+
+  hypher@0.2.5:
+    resolution: {integrity: sha512-kUTpuyzBWWDO2VakmjHC/cxesg4lKQP+Fdc+7lrK4yvjNjkV9vm5UTZMDAwOyyHTOpbkYrAMlNZHG61NnE9vYQ==}
 
   is-binary-path@2.1.0:
     resolution: {integrity: sha512-ZMERYes6pDydyuGidse7OsHxtbI7WVeUEozgR/g7rd0xUimYNlvZRE/K2MgZTjWy725IfelLeVcEM97mmtRGXw==}
@@ -498,6 +510,12 @@ snapshots:
   glob-parent@5.1.2:
     dependencies:
       is-glob: 4.0.3
+
+  hyphenation.en-us@0.2.1:
+    dependencies:
+      hypher: 0.2.5
+
+  hypher@0.2.5: {}
 
   is-binary-path@2.1.0:
     dependencies:
