@@ -1,4 +1,25 @@
-/* rheo-justify: client-side Knuth-Plass justification for HTML.
+/* rheo-justify: styling for client-side Knuth-Plass justified paragraphs.
  *
- * This is a stub. Styling for justified lines lives here (see issue
- * rheo-packages-k36). */
+ * The client script (dist/lib.js) rewrites each .rheo-kp block's text so the
+ * browser's native line breaker reproduces the chosen Knuth-Plass breaks (see
+ * src/encode.ts). These rules make the browser honor those breaks:
+ *   - text-align: justify stretches the U+0020 spaces at chosen break points;
+ *     the U+00A0 no-break spaces inside a line stay rigid.
+ *   - native hyphenation is disabled — hyphenation points are inserted by the
+ *     encoder as U+00AD soft hyphens, so the browser must not add its own.
+ * See issue rheo-packages-k36. */
+
+.rheo-kp {
+  text-align: justify;
+  /* The last line is set ragged, as in conventional justified text. */
+  text-align-last: left;
+  /* We insert our own soft hyphens; suppress the browser's automatic ones. */
+  hyphens: none;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+}
+
+/* Opted-out blocks (via the `no-justify` helper) keep normal flow. */
+.rheo-kp-skip {
+  text-align: inherit;
+}
