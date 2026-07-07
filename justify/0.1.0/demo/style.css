@@ -1,0 +1,43 @@
+/* Demo chrome. The paragraph font-family and size are pinned to match the
+ * `data-font` / `data-size` the template emits ("DejaVu Serif", 18pt), so the
+ * browser renders in exactly the font the client-side runtime measures with —
+ * otherwise the Knuth-Plass spacing would be computed against the wrong metrics. */
+body {
+  max-width: 70rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: "DejaVu Serif", serif;
+  font-size: 18pt;
+  line-height: 1.6;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+/* Two equal columns holding the same passage: Knuth-Plass (left) vs the
+ * browser's greedy justification (right), so the difference is side by side. */
+.compare {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.compare .col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.compare .col h3 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666;
+  margin: 0 0 0.75rem;
+}
+
+/* The right-hand column: plain browser (greedy) CSS justification on the
+ * identical passage, so the uneven spacing / rivers stand out next to KP. */
+.native p {
+  text-align: justify;
+}
