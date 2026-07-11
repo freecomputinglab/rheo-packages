@@ -1,0 +1,8 @@
+version = "0.3.0"
+formats = ["html"]
+
+[html.spine]
+vertebrae = ["index.typ"]
+
+[html.assets]
+css_stylesheet = "style.css"
