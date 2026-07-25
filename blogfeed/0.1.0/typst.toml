@@ -1,0 +1,12 @@
+[package]
+name = "blogfeed"
+version = "0.1.0"
+entrypoint = "dist/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "A Rheo plugin that derives a blog index/feed from the spine, with optional tag filtering"
+repository = "https://github.com/freecomputinglab/rheo-packages"
+
+[tool.rheo.html]
+js_scripts = "dist/lib.js"
+css_stylesheet = "dist/blogfeed.css"

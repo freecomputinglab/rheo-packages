@@ -1,0 +1,19 @@
+/* Minimal host chrome for the demo. blogfeed ships its own post-list/filter
+   styles; this just gives the page a readable column and a couple of the
+   variables blogfeed's stylesheet looks for. */
+:root {
+  --text-color: #1a1a1a;
+  --grey-color: #e2e2e2;
+  --dark-grey-color: rgb(128, 128, 128);
+  --primary-color: #9abddc;
+}
+
+body {
+  max-width: 36em;
+  margin: 0 auto;
+  padding: 50px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16pt;
+  line-height: 1.4;
+  color: var(--text-color);
+}
