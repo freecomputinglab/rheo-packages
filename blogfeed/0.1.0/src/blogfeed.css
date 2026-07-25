@@ -1,0 +1,187 @@
+/* blogfeed — styles for the spine-derived post list and optional tag filter.
+   Themeable colors read the host site's variables when present, falling back to
+   neutral defaults so the package looks right on its own. Override any
+   `--blogfeed-*` (or the underlying host variable) in your project's stylesheet. */
+:root {
+  --blogfeed-text: var(--text-color, #1a1a1a);
+  --blogfeed-muted: var(--dark-grey-color, rgb(128, 128, 128));
+  --blogfeed-grey: var(--grey-color, #e2e2e2);
+  --blogfeed-accent: var(--primary-color, #9abddc);
+  --blogfeed-card-bg: #f8f8f8;
+  --blogfeed-card-border: #eeeeee;
+  --blogfeed-card-hover: #f0f0f0;
+}
+
+/* ============================================
+   Filter bar (optional; wired up by the bundled JS)
+   ============================================ */
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 1.5em 0;
+}
+
+.filter-btn {
+  position: relative;
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 4px solid var(--blogfeed-grey);
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  color: var(--blogfeed-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  background-color: #e0e0e0;
+  border-color: var(--blogfeed-accent);
+}
+
+.filter-btn.active {
+  font-weight: bold;
+  color: #fff;
+  background-color: var(--blogfeed-accent);
+  border-color: var(--blogfeed-accent);
+}
+
+/* Tooltip bubble the JS attaches inside each filter button. */
+.filter-btn .tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #333;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+  pointer-events: none;
+}
+
+.filter-btn .tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent #333 transparent;
+}
+
+.filter-btn:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============================================
+   Post list
+   ============================================ */
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+
+.post-item {
+  margin: 0 0 8px 0;
+  padding: 0;
+  background-color: var(--blogfeed-card-bg);
+  border: 1px solid var(--blogfeed-card-border);
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.post-item:hover {
+  background-color: var(--blogfeed-card-hover);
+}
+
+.post-item.hidden {
+  display: none;
+}
+
+.post-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: var(--blogfeed-text);
+}
+
+/* The card's background shift is the hover affordance; cancel any global
+   `a:hover` underline/opacity inherited from the host stylesheet. */
+.post-link:hover {
+  text-decoration: none;
+  color: var(--blogfeed-text);
+  opacity: 1;
+}
+
+.post-title {
+  flex: 1;
+}
+
+/* Right-hand meta column — a muted date/label … */
+.post-date {
+  margin-left: 12px;
+  color: var(--blogfeed-muted);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* … or a row of tag pills. */
+.post-tags {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.tag-label {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  font-weight: bold;
+  border-radius: 3px;
+  background-color: var(--blogfeed-grey);
+  color: var(--blogfeed-muted);
+}
+
+.tag-label.active {
+  background-color: var(--blogfeed-accent);
+  color: #fff;
+}
+
+/* ============================================
+   Mobile
+   ============================================ */
+@media (max-width: 600px) {
+  .post-link {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .post-date,
+  .post-tags {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .filter-container {
+    gap: 6px;
+  }
+
+  .filter-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
