@@ -30,7 +30,10 @@ arbitrary span use `date-range(start, end)`.
 ## Tagged feed with filtering (e.g. a research index)
 
 Give each post `keywords`, then render a filter bar plus tag pills. The bundled
-JS toggles posts by their `data-tags`:
+JS toggles posts by their `data-tags`, and colors each active filter (and its
+matching tag pills) by click order — 1st clicked, 2nd clicked, etc., cycling
+through 6 slots. Pass `colors:` to `filter-bar` to override that palette with
+your own hex strings, in click-order:
 
 ```typst
 #import "@rheo/blogfeed:0.1.0": feed, filter-bar, tags-cell, post-tags
@@ -41,7 +44,7 @@ JS toggles posts by their `data-tags`:
 )
 
 #context if target() == "html" {
-  filter-bar(tags)
+  filter-bar(tags, colors: ("#1976d2", "#e63946"))
   feed(
     meta: e => tags-cell(post-tags(e)),
     data-tags: e => post-tags(e).join(" "),
@@ -55,7 +58,7 @@ JS toggles posts by their `data-tags`:
 | --- | --- |
 | `posts()` | Dated spine vertebrae, newest-first. Call inside `context`. |
 | `feed(entries:, title:, href:, meta:, data-tags:)` | Render `<ul class="post-list">`. HTML target only; all params are `entry => …` callbacks with sensible defaults. |
-| `filter-bar(tags)` | Render the `.filter-btn` bar from `(id, tooltip)` records. |
+| `filter-bar(tags, colors:)` | Render the `.filter-btn` bar from `(id, tooltip)` records. `colors` optionally overrides the click-order palette with hex strings. |
 | `tags-cell(tags)` / `date-cell(body)` | Right-hand meta cells (tag pills / muted label). |
 | `post-date(entry)` / `post-tags(entry)` | Read an entry's `date` / `keywords`. |
 | `week-range(monday)` / `date-range(start, end)` | Human date-range strings. |

@@ -73,7 +73,20 @@
 /// The optional filter bar. `tags` is an array of `(id: "WiG", tooltip: "…")`.
 /// Renders `.filter-btn`s that the bundled JS wires up to toggle `.post-item`
 /// visibility by their `data-tags`. HTML target only.
-#let filter-bar(tags) = context if target() == "html" {
+///
+/// `colors`: optional array of hex strings (e.g. `("#1976d2", "#e63946")`)
+/// overriding the default click-order palette, in order — `colors.at(0)`
+/// replaces the 1st-click color, `colors.at(1)` the 2nd, and so on. There
+/// are 6 click-order slots in total; pass fewer than 6 to leave the rest at
+/// their default color, more than 6 and the extras are unused.
+#let filter-bar(tags, colors: none) = context if target() == "html" {
+  if colors != none and colors.len() > 0 {
+    let decls = colors
+      .enumerate()
+      .map(((i, c)) => "--blogfeed-order-" + str(i + 1) + ": " + c + ";")
+      .join(" ")
+    html.elem("style")[#(":root { " + decls + " }")]
+  }
   div("filter-container")[
     #for t in tags {
       button("filter-btn tag-" + t.id, t.id, t.at("tooltip", default: t.id))[#t.id]
