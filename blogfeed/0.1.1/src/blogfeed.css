@@ -10,6 +10,27 @@
   --blogfeed-card-bg: #f8f8f8;
   --blogfeed-card-border: #eeeeee;
   --blogfeed-card-hover: #f0f0f0;
+
+  /* Active filters are colored by click order, not identity: 1st click is
+     always blue, 2nd red, and so on — cycling if more than 6 are active.
+     Bright, saturated base tones read as car-paint colors once the gloss
+     gradient (below) lays a specular highlight over them. */
+  --blogfeed-order-1: #1976d2; /* blue */
+  --blogfeed-order-2: #e63946; /* red */
+  --blogfeed-order-3: #ff8c00; /* orange */
+  --blogfeed-order-4: #ffd60a; /* yellow */
+  --blogfeed-order-5: #9d4edd; /* purple */
+  --blogfeed-order-6: #22c55e; /* green */
+
+  /* Glossy specular sheen: a bright diagonal band near the top edge fading
+     into the base color — the standard "glossy button" trick, tuned to
+     look like clear-coated paint, without any drop shadow. */
+  --blogfeed-gloss: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.25) 18%,
+    rgba(255, 255, 255, 0) 45%
+  );
 }
 
 /* ============================================
@@ -48,6 +69,17 @@
   background-color: var(--blogfeed-accent);
   border-color: var(--blogfeed-accent);
 }
+
+.filter-btn.active[class*="order-"] {
+  background-image: var(--blogfeed-gloss);
+}
+
+.filter-btn.active.order-1 { background-color: var(--blogfeed-order-1); border-color: var(--blogfeed-order-1); }
+.filter-btn.active.order-2 { background-color: var(--blogfeed-order-2); border-color: var(--blogfeed-order-2); }
+.filter-btn.active.order-3 { background-color: var(--blogfeed-order-3); border-color: var(--blogfeed-order-3); }
+.filter-btn.active.order-4 { background-color: var(--blogfeed-order-4); border-color: var(--blogfeed-order-4); color: #1a1a1a; }
+.filter-btn.active.order-5 { background-color: var(--blogfeed-order-5); border-color: var(--blogfeed-order-5); }
+.filter-btn.active.order-6 { background-color: var(--blogfeed-order-6); border-color: var(--blogfeed-order-6); }
 
 /* Tooltip bubble the JS attaches inside each filter button. */
 .filter-btn .tooltip {
@@ -160,6 +192,17 @@
   background-color: var(--blogfeed-accent);
   color: #fff;
 }
+
+.tag-label.active[class*="order-"] {
+  background-image: var(--blogfeed-gloss);
+}
+
+.tag-label.active.order-1 { background-color: var(--blogfeed-order-1); }
+.tag-label.active.order-2 { background-color: var(--blogfeed-order-2); }
+.tag-label.active.order-3 { background-color: var(--blogfeed-order-3); }
+.tag-label.active.order-4 { background-color: var(--blogfeed-order-4); color: #1a1a1a; }
+.tag-label.active.order-5 { background-color: var(--blogfeed-order-5); }
+.tag-label.active.order-6 { background-color: var(--blogfeed-order-6); }
 
 /* ============================================
    Mobile
