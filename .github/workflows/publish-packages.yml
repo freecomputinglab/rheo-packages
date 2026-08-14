@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: extractions/setup-just@v3
+
       - name: Build and release new package versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +42,24 @@ jobs:
             fi
 
             echo "build: $name $version"
-            (cd "$dir" && pnpm install --frozen-lockfile && pnpm run build)
+            if [ -f "$dir/package.json" ]; then
+              (cd "$dir" && pnpm install --frozen-lockfile && pnpm run build)
+            elif grep -qE '^build:' "$dir/Justfile" 2>/dev/null; then
+              (cd "$dir" && just build)
+            else
+              echo "no build step for $name — entrypoint ships straight from src/"
+            fi
 
+            # A JS package, or a pure-Typst one with its own `build` recipe,
+            # produces dist/; a dist-less pure-Typst package (no package.json,
+            # no `build` recipe) has its manifest entrypoint pointing straight
+            # at src/ instead — ship whichever actually exists.
             archive="${tag}.tar.gz"
-            tar -czf "$archive" -C "$dir" typst.toml dist/
+            if [ -d "$dir/dist" ]; then
+              tar -czf "$archive" -C "$dir" typst.toml dist/
+            else
+              tar -czf "$archive" -C "$dir" typst.toml src/
+            fi
 
             gh release create "$tag" \
               --repo "$GITHUB_REPOSITORY" \
