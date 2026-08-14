@@ -1,0 +1,34 @@
+/* rookery — minimal structural CSS. No colors, borders, or hover states —
+   the package provides HTML structure (classes to hook into), not a look.
+   Style `.idea`, `.idea-box`, `.idea-label`, `.idea-label-<tag>`, `.idea-view`,
+   `.idea-folded-*` in your own stylesheet. Nothing here is load-bearing for
+   functionality: linking, transclusion, the <details>/<summary> fold toggle,
+   and tooltips (a separate package) all work via native HTML/Typst semantics
+   with zero CSS. What's left below is layout only, not decoration. */
+
+/* [note:id] permalink beside a note's heading. `white-space: nowrap` keeps
+   "[note:etal]" from breaking mid-id. */
+.idea-label {
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+
+/* `#view(..., folded: true)`: `.idea-folded-link` is the <summary> that
+   toggles the native <details> disclosure; `.idea-folded-body` is what it
+   reveals. The list reset turns the index into plain rows, not bullets. */
+.idea-folded-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* The title/date split is the row's actual structure, not a color choice —
+   without it the two would run together with no separation. */
+.idea-folded-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+}
+.idea-folded-date {
+  white-space: nowrap;
+}

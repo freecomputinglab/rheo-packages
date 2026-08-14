@@ -1,0 +1,9 @@
+default:
+    @echo "demo/rheo: run 'just watch' to live-rebuild this rheo project"
+
+# The package must be resolvable from the Typst package cache or rheo fails
+# with "package not found (@rheo/rookery:0.1.0)". rookery/0.1.0/.envrc sets up
+# that symlink automatically on cd, so raw `rheo watch`/`rheo compile` work
+# here too, not just this recipe.
+watch:
+    rheo watch . --open --html
