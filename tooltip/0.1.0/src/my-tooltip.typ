@@ -10,7 +10,16 @@
     }
 }
 
-#let tooltip(placement: "top-end", body) = html-element(body, name: "my-tooltip", attrs: (placement: placement))
+// `max-width`, when given, is forwarded verbatim as the `max-width` attribute
+// (a CSS length string, e.g. "480px" or "60vw") the web component reads to
+// cap its popper box — `none` (the default) omits the attribute entirely, so
+// the component's own default width applies. Non-breaking: existing calls
+// with no `max-width` argument are unaffected.
+#let tooltip(placement: "top-end", max-width: none, body) = html-element(
+  body,
+  name: "my-tooltip",
+  attrs: (placement: placement) + (if max-width == none { (:) } else { ("max-width": max-width) }),
+)
 
 #let tooltip-modal(body) = context {
   if target() == "html" or target() == "epub" {
