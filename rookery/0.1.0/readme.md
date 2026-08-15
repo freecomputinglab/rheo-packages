@@ -30,6 +30,7 @@ does all of it in a line, and is the only place anything is configurable:
 #import "@rheo/rookery:0.1.0": rookery, idea, window
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
+  window-depth: 1,                // a window inside a window unfurls one level
   theme: (
     link-color: "rgba(230, 140, 0, 0.16)",  // hover background on any link
     fold-color: "rgba(255, 190, 40, 0.07)", // ...and on a foldable block
@@ -38,8 +39,8 @@ does all of it in a line, and is the only place anything is configurable:
 )
 ```
 
-`#show: rookery` does exactly three things: it publishes the id prefix and the
-theme, and it installs `link-to-page` (see below and "Referencing a note") so
+`#show: rookery` does exactly four things: it publishes the id prefix, the
+nested-window depth and the theme, and it installs `link-to-page` (see below and "Referencing a note") so
 `@note:etal` renders the note rather than a bare figure number. It sets no
 other styles, wraps `doc` in nothing, and emits nothing of its own — on a
 document with no notes in it, it is a no-op, and even the `ref` rule passes
@@ -55,6 +56,29 @@ for it to configure.
 
 `prefix` must be a non-empty string with no `:` in it (the separator is added
 for you).
+
+### Nested windows, and `window-depth`
+
+A note you transclude may itself contain a `#window`. By default that nested
+window does **not** unfurl: it collapses to its `[idea:etal]` permalink, so
+the block you opened shows one note rather than a tree of them. A nested
+`#idea` — one note written literally inside another's body — is a different
+thing and always renders in full, whatever the depth.
+
+`window-depth: n` (default `0`) unfurls `n` levels of nested windows as real
+windows, collapsing at the `n+1`th; `#window(..., depth: n)` overrides it for
+one call site. Per call site because both readings are reasonable on the same
+page: an index of forty backlinks wants the collapse, a homepage showing one
+note in full may want a level or two.
+
+The budget is what makes this safe. A note that windows itself, or two notes
+that window each other, would otherwise expand forever; with a depth they
+bottom out at the collapsed permalink, and there is no configuration that can
+make them not.
+
+Depth is not free — each level re-renders the transcluded note's body, so `n`
+levels over a fan-out of `k` windows is `k^n` blocks in the page. Small
+numbers.
 
 ### The theme
 
@@ -175,6 +199,10 @@ Three ways, pick by how much ceremony you want:
   `show-date: true` shows the note's minted date beside the permalink — off
   by default. See "Dates" below.
 
+  `depth: n` unfurls `n` levels of `#window`s written inside the transcluded
+  note; `auto` (the default) takes the document-wide `window-depth`, itself
+  `0`. See "Nested windows, and `window-depth`" above.
+
   See "The click budget" below for what clicking each part does.
 - `@idea:etal` — the terse form, but on its own it renders as a bare figure
   NUMBER (Typst's stock `@` rendering for a labeled figure — a note's id
@@ -229,8 +257,10 @@ whole of it fits in two rules:
   goes to the note's own page. It sits beside the title, or alone at the top
   of the window when the note has no title (the id doing double duty as its
   name). `#idea` renders the identical affordance beside its own heading, and
-  a `#window` nested inside a transcluded body collapses to it too — so the rule
-  holds at every depth.
+  a `#window` nested inside a transcluded body collapses to it once the depth
+  budget runs out — so the rule holds at every depth. Where the budget does
+  reach, the nested window is a full window, summary and all, identical to the
+  same `#window` written at the top level: still one link, still the permalink.
 
 The disclosure is a native `<details>`/`<summary>`; the package ships no JS.
 An `<a>` inside a `<summary>` does not break the toggle — only an `<a>` around

@@ -64,7 +64,7 @@
 // thing this package can see and it holds notes, not pages. That is also why
 // the list can be rendered as `#window`s at all — every entry is by construction
 // a thing there is a note to show.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, window
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, window
 
 #context {
   let registry = _registry.final()
@@ -115,7 +115,12 @@
         })
           + _permalink(id, href: "#" + id),
       )
-      #rec.body
+      // `_body-at`, not `rec.body`: a document that set `window-depth` wants a
+      // `#window` nested inside this note to unfurl the same way here as it
+      // does wherever the note is windowed. `depth: auto` takes that
+      // document-wide default, and at the default of 0 returns `rec.body`
+      // unchanged.
+      #_body-at(rec)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
@@ -161,12 +166,19 @@
         }
 
         let backlinks-part = if back.len() == 0 and back-pages.len() == 0 { [] } else {
-          // FOLDED, always: a backlink list is an index of what points here,
-          // and a reader following one wants to see which notes those are
-          // before reading any of them in full. `window` takes bare names and
-          // re-adds the prefix itself, hence the trim.
+          // FOLDED and `depth: 0`, always: a backlink list is an index of what
+          // points here, and a reader following one wants to see which notes
+          // those are before reading any of them in full. `depth` is pinned
+          // for the same reason `folded` is, and NOT left at `auto` — a
+          // document that set `window-depth` to unfurl its prose would
+          // otherwise unfurl every entry of every index too, several levels
+          // into notes the reader has not chosen yet. MEASURED on a
+          // `window-depth: 2` project: `notes/leaf.html`'s Backlinks showed
+          // its one entry (Mid) unfurled down to a window of Leaf — the very
+          // page it was on. `window` takes bare names and re-adds the prefix
+          // itself, hence the trim.
           let note-rows = if back.len() == 0 { [] } else {
-            window(back.map(b => b.trim(_pfx(), at: start)), folded: true)
+            window(back.map(b => b.trim(_pfx(), at: start)), folded: true, depth: 0)
           }
           // Pages come after the notes: a note is the more specific answer to
           // "what points here", and a page entry means only that the link was

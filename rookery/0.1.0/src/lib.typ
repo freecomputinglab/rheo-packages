@@ -164,6 +164,20 @@
   if s == none { attrs } else { attrs + (style: s) }
 }
 
+// ---- Window depth — how far a nested `#window` unfurls ---------------------
+//
+// A `#window` nested inside a transcluded body collapses to a bare permalink
+// by default (see `_flatten`'s WK rule): expanding it is what makes a cycle —
+// a self-window, or A-windows-B/B-windows-A — re-expand forever. This is the
+// budget that makes bounded expansion safe: `0` (the default) is the collapse,
+// `n` unfurls n levels of nested windows and collapses at the n+1th.
+//
+// Document-wide state for the same reason `_prefix` is (`#show: rookery` is
+// applied per FILE, and a note written in one vertebra can be windowed from
+// another), read with `.final()` so every reader agrees. `#window`'s own
+// `depth:` argument overrides it per call site.
+#let _window-depth = state("rheo-idea-window-depth", 0)
+
 // ---- Note page URLs -------------------------------------------------------
 //
 // `.marrow.typ` mints one standalone page per note (see that file). Links
@@ -474,7 +488,162 @@
 #let _edge(edge, container) = metadata((rookery-edge: edge, rookery-container: container))
 #let _bracket(body, container) = _edge("open", container) + body + _edge("close", container)
 
-#let _flatten(body) = {
+// Split a body into block-level chunks for `limit:` truncation. A naive
+// `body.children.slice(0, limit)` is WRONG: whitespace (`space`/`parbreak`)
+// children make it select nothing, and list items are bare `item` children
+// with no wrapping `list` element, so a naive slice also cuts lists in half.
+// This groups consecutive `item`s into one block and drops whitespace.
+// Compares `repr(c.func())` against "space"/"parbreak" because there is no
+// public element function to compare those against directly.
+//
+// MEASURED REGRESSION FIX: every registry body has been through `_flatten`
+// since v6y.7, which wraps it in a `show`-rule scope — Typst represents that
+// as a `styled` node with `.has("children") == false`, not the `sequence` it
+// wraps. Without unwrapping, `_blocks` always fell into the single-block
+// fallback below, silently disabling `limit:` truncation for every note.
+// `styled` (like `space`/`parbreak`) has no public function value to compare
+// against directly, hence `repr(...)`. A `styled` node exposes the wrapped
+// content as `.child` — verified this stays a single layer even with two
+// `show` rules in the scope (`_flatten` sets exactly two), but loop anyway
+// in case that ever changes.
+//
+// Defined HERE, above `_flatten`, rather than beside `#window` where it is
+// also used: `_flatten`'s WK rule applies `limit:` too when it expands a
+// nested window, and a `#let` closure captures the scope visible AT
+// DEFINITION time.
+#let _blocks(body) = {
+  let body = body
+  while repr(body.func()) == "styled" { body = body.child }
+  if not body.has("children") { return (body,) }
+  let out = ()
+  let prev-item = false
+  for c in body.children {
+    let f = repr(c.func())
+    if f == "space" or f == "parbreak" { prev-item = false; continue }
+    if f == "item" and prev-item {
+      out.at(-1) = out.at(-1) + c
+    } else {
+      out.push(c)
+      prev-item = f == "item"
+    }
+  }
+  out
+}
+
+// ONE rendering of ONE window — summary row, disclosure, body — shared by
+// `#window` itself and by `_flatten`'s WK rule when `depth` lets it expand a
+// nested window instead of collapsing it. Shared so the two cannot drift: an
+// expanded nested window must be indistinguishable from the same `#window`
+// written at the top level, or `depth:` would introduce a second, lesser
+// rendering of the same thing.
+//
+// Takes `shown` already truncated (the caller owns `limit:`) and emits NO
+// `figure`/`_bracket` wrapper — the two callers wrap differently. `#window`
+// needs the `figure(kind: WK)` so an enclosing `_flatten` can find and
+// collapse it; the expansion deliberately emits no such figure, since it has
+// already been claimed.
+//
+// `folded` sets only the INITIAL disclosure state — `false` (the default)
+// renders `<details open>`, `true` renders it closed. It is not a second
+// layout: a folded window and an unfolded one are the same block, so a reader
+// who opens one sees exactly what a `#window` beside it already shows.
+// `limit:` is therefore meaningful in both (it truncates the body that folding
+// hides) and the two are orthogonal.
+//
+// CLICK BUDGET (HTML/EPUB) — the whole point of this shape, modelled on
+// Forester (www.forester-notes.org, whose `tree.xsl` renders every transcluded
+// tree as a `<details>` whose `<summary>` holds the title and an
+// `<a class="slug">[tfmt-0006]</a>`):
+//
+//   - clicking ANYWHERE in the summary — title, date, the whitespace between
+//     them — folds or unfolds, and does nothing else;
+//   - clicking the `[idea:etal]` permalink, and only that, opens the note's
+//     own page.
+//
+// So the transcluded body is NOT a link and there is no trailing arrow. Both
+// were tried and removed. An outer <a> around the body is invalid the moment
+// that body contains its own link (MEASURED: browsers and typst's HTML export
+// both truncate the outer anchor where the inner one starts and never resume
+// it, so only "the first bit" stays clickable), and the arrow was a second
+// navigational affordance competing with the permalink for the same click.
+//
+// The disclosure is native `<details>`/`<summary>`: this package ships no JS,
+// and a `:target`/checkbox CSS hack would need a unique control id per window.
+// An `<a>` INSIDE `<summary>` does not break the toggle — only an `<a>` around
+// the whole summary does, which is what the earlier folded-row design got
+// wrong. The permalink navigates on its own click; the summary keeps the rest.
+//
+// `show-date` is OFF by default, same as `#idea`'s own — a date is always
+// RESOLVED and stored on the note's registry record regardless, so passing
+// `show-date: true` here can surface it even for a note whose own `#idea`
+// call left it hidden; the two are independent per call site, not one shared
+// setting.
+//
+// Must be called from inside a `context` block: `_permalink` reads the page
+// handle and the prefix state. Both callers already are.
+#let _window-content(id, rec, shown, folded, show-date) = {
+  let date = if show-date and rec.minted != none {
+    rec.minted.display("[year]-[month]-[day]")
+  } else { none }
+
+  if _target() == "html" or _target() == "epub" {
+    // A titleless note contributes no title span at all, so the permalink
+    // comes first in the summary — "at the top of the window", the id doing
+    // double duty as the note's name. `#idea`'s own heading does the same.
+    let title-span = if rec.title == none { [] } else {
+      html.elem("span", attrs: (class: "idea-window-title"), rec.title)
+    }
+    let date-span = if date == none { [] } else {
+      html.elem("span", attrs: (class: "idea-window-date"), date)
+    }
+    let summary = html.elem(
+      "summary",
+      attrs: (class: "idea-window-summary"),
+      title-span + _permalink(id) + date-span,
+    )
+    // `open` is a BOOLEAN html attribute: present means open and there is no
+    // value meaning closed, so the attrs dictionary itself has to differ
+    // between the two states. `open: "false"` would read as open.
+    let d-attrs = if folded { (class: "idea-window-details") } else {
+      (class: "idea-window-details", open: "open")
+    }
+    html.elem("div", attrs: _themed((class: "idea-window")),
+      html.elem("details", attrs: d-attrs,
+        summary + html.elem("div", attrs: (class: "idea-window-body"), shown)))
+  } else {
+    // No disclosure in a paged target — nothing to click, so a fold that
+    // could not be opened would just hide the body: `folded` is ignored
+    // here and the body always shows. The head still renders and the
+    // permalink is still the only link, so both targets read the same.
+    let head = {
+      if rec.title != none { strong(rec.title); [ ] }
+      _permalink-paged(id)
+      if date != none { [ ]; text(gray, date) }
+    }
+    block[#head#parbreak()#shown]
+  }
+}
+
+// `depth` is the nested-window budget described at `_window-depth`: how many
+// further levels of `#window` the returned content may unfurl before falling
+// back to the collapsed permalink. It is a CLOSURE-CAPTURED CONSTANT, not
+// state, and that is the whole termination argument — each expansion below
+// recurses with `depth - 1` baked into a fresh scope, so a self-window or an
+// A-windows-B/B-windows-A cycle bottoms out at 0 rather than re-expanding
+// forever. (The `state` depth counter this supersedes is REFUTED and must not
+// come back: measured failing on typst 0.14.2 AND 0.15.1, where a self-window
+// still hit the nesting cap before the state timeline converged.)
+//
+// MEASURED, the second half of the termination argument: when both an outer
+// `_flatten(.., depth: n)` scope and an inner `_flatten(.., depth: n-1)` scope
+// carry a rule for the same selector, the INNER one wins and the outer does
+// NOT re-fire on content the inner already claimed. Verified on typst 0.15.1
+// with a two-level `show figure.where(kind: K)` reproduction: output was
+// `OUTER(INNER)`, not a "maximum show rule depth exceeded". Since every
+// expansion below wraps its body in a fresh `_flatten` scope — including at
+// `depth: 0`, where the rule collapses — every generated WK figure is always
+// claimed by a strictly smaller budget.
+#let _flatten(body, depth: 0) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
   // as a bare figure number ("2") on the note's minted page, while rendering
   // correctly in situ. `show ref: hyperlink` is installed by `#show:
@@ -524,22 +693,77 @@
       }, IK)
     }
   }
-  // A `#window` nested inside a transcluded body collapses to the SAME
-  // permalink affordance the window's own summary would have carried — so the
-  // one-link rule holds at every depth: the id navigates, nothing else does.
-  // (It used to collapse to a `[window of idea:x]` link on the label anchor,
-  // which was a second, differently-styled navigational form for the same
-  // destination.) Wrapped in `context` for `_permalink`, which reads the page
-  // handle and the prefix state.
+  // A `#window` nested inside a transcluded body. With no budget left
+  // (`depth: 0`, the default) it collapses to the SAME permalink affordance
+  // the window's own summary would have carried — so the one-link rule holds
+  // at every depth: the id navigates, nothing else does. (It used to collapse
+  // to a `[window of idea:x]` link on the label anchor, which was a second,
+  // differently-styled navigational form for the same destination.)
+  //
+  // With budget left, it renders as a real window instead, identical to the
+  // same `#window` written at the top level — same summary, same disclosure,
+  // same `folded`/`limit`/`show-date`, which is why `#window` records all four
+  // on the WK marker rather than the bare id it used to carry.
+  //
+  // Bracketed as a WINDOW, not left bare: the expanded body's links belong to
+  // the note it came from, and its nested `#idea`s are echoes rather than this
+  // page's own structure (`_page-links`, `_ideas-outline-data`). On a minted
+  // note page there is no enclosing window bracket to inherit that from.
+  //
+  // Emits NO `figure(kind: WK)` of its own — nothing needs to match the
+  // expansion again, and the inner `_flatten` below has already claimed
+  // whatever it contains.
+  //
+  // Wrapped in `context` for `_permalink`/`_pfx`, which read the page handle
+  // and the prefix state.
   show figure.where(kind: WK): it => context {
     let m = it.body.children.find(c => c.func() == metadata)
-    if _target() == "html" or _target() == "epub" {
-      _permalink(m.value)
+    let v = m.value
+    let id = v.rookery-window-id
+    if depth <= 0 {
+      if _target() == "html" or _target() == "epub" {
+        _permalink(id)
+      } else {
+        _permalink-paged(id)
+      }
     } else {
-      _permalink-paged(m.value)
+      let rec = _registry.final().at(id)
+      // The nested `#window` has already run in full by the time this rule
+      // sees its figure — including building a body at ITS budget, which is
+      // then thrown away for the one built here at the ENCLOSING budget. That
+      // is the right answer (the enclosing scope owns how deep its own
+      // transclusion goes) at the cost of one discarded body per level; free
+      // at the default, where both sides are the cached `rec.body`. `_flatten`
+      // is pure — no counter steps, no registration — so discarding it costs
+      // nothing but the work.
+      //
+      // `depth == 1` reuses the record's already-flattened body rather than
+      // re-flattening at the same budget: `rec.body` IS `_flatten(raw)` at
+      // depth 0, computed once at registration.
+      let inner = if depth == 1 { rec.body } else {
+        _flatten(rec.raw, depth: depth - 1)
+      }
+      let bs = _blocks(inner)
+      let shown = if v.limit != none and bs.len() > v.limit {
+        bs.slice(0, v.limit).join() + [#text(gray)[ ... ]]
+      } else {
+        inner
+      }
+      _bracket(_window-content(id, rec, shown, v.folded, v.show-date), WK)
     }
   }
   body
+}
+
+// A note's body at a given nested-window budget. `auto` takes the
+// document-wide default (`#show: rookery.with(window-depth: n)`), which is
+// what makes a `#window` and a minted note page agree on how far a nested
+// window unfurls without either of them naming a number.
+//
+// Must be called from inside `context`: `.final()` on both states.
+#let _body-at(rec, depth: auto) = {
+  let d = if depth == auto { _window-depth.final() } else { depth }
+  if d <= 0 { rec.body } else { _flatten(rec.raw, depth: d) }
 }
 
 // ---- Outbound links, for backlinks ----------------------------------------
@@ -689,8 +913,14 @@
         .filter(t => t.starts-with(_pfx()) and t != id)
         .dedup()
 
+      // `raw` is the body BEFORE flattening, kept alongside the flattened one
+      // so a `#window` with a nested-window budget can re-flatten at a smaller
+      // depth (see `_body-at`). Re-flattening the FLATTENED body would be
+      // wrong: its WK markers have already been reduced to permalinks by the
+      // depth-0 rule baked into it, so there would be nothing left to expand.
       let rec = (
         title: title,
+        raw: body,
         body: _flatten(body),
         minted: resolved-minted,
         updated: resolved-updated,
@@ -795,43 +1025,20 @@
 // counter, and never re-registers a nested `#idea`. That guarantee is
 // delivered by `_flatten` (defined above, next to `IK`/`WK`), not by any
 // suppression logic here.
-
-// Split a body into block-level chunks for `limit:` truncation. A naive
-// `body.children.slice(0, limit)` is WRONG: whitespace (`space`/`parbreak`)
-// children make it select nothing, and list items are bare `item` children
-// with no wrapping `list` element, so a naive slice also cuts lists in half.
-// This groups consecutive `item`s into one block and drops whitespace.
-// Compares `repr(c.func())` against "space"/"parbreak" because there is no
-// public element function to compare those against directly.
 //
-// MEASURED REGRESSION FIX: every registry body has been through `_flatten`
-// since v6y.7, which wraps it in a `show`-rule scope — Typst represents that
-// as a `styled` node with `.has("children") == false`, not the `sequence` it
-// wraps. Without unwrapping, `_blocks` always fell into the single-block
-// fallback below, silently disabling `limit:` truncation for every note.
-// `styled` (like `space`/`parbreak`) has no public function value to compare
-// against directly, hence `repr(...)`. A `styled` node exposes the wrapped
-// content as `.child` — verified this stays a single layer even with two
-// `show` rules in the scope (`_flatten` sets exactly two), but loop anyway
-// in case that ever changes.
-#let _blocks(body) = {
-  let body = body
-  while repr(body.func()) == "styled" { body = body.child }
-  if not body.has("children") { return (body,) }
-  let out = ()
-  let prev-item = false
-  for c in body.children {
-    let f = repr(c.func())
-    if f == "space" or f == "parbreak" { prev-item = false; continue }
-    if f == "item" and prev-item {
-      out.at(-1) = out.at(-1) + c
-    } else {
-      out.push(c)
-      prev-item = f == "item"
-    }
-  }
-  out
-}
+// `depth:` is the nested-window budget (see `_window-depth`): `0` collapses a
+// `#window` written inside the transcluded note to its bare permalink, `n`
+// unfurls n levels of them as real windows. `auto`, the default, takes the
+// document-wide setting from `#show: rookery.with(window-depth: n)` — which
+// itself defaults to 0, so nothing changes for a document that never asks.
+// Per call site, because "unfurl the whole tree here" and "just point at it"
+// are both reasonable on the same page: an index that shows one note in full
+// wants depth, a backlinks list of forty does not.
+//
+// Nesting counts WINDOWS only. A `#idea` written inside a transcluded note is
+// always rebuilt in full whatever the budget (that is `_flatten`'s IK rule,
+// and it cannot cycle — an idea's body is finite and literally contains its
+// nested ones), so `depth` measures exactly the thing that can cycle.
 
 // ONE rendering, whatever `folded` says. `folded` sets only the INITIAL
 // disclosure state — `false` (the default) renders `<details open>`, `true`
@@ -868,7 +1075,12 @@
 // `show-date: true` here can surface it even for a note whose own `#idea`
 // call left it hidden; the two are independent per call site, not one shared
 // setting.
-#let window(names, limit: none, folded: false, show-date: false) = {
+#let window(names, limit: none, folded: false, show-date: false, depth: auto) = {
+  assert(
+    depth == auto or (type(depth) == int and depth >= 0),
+    message: "@rheo/rookery: #window's `depth` must be auto or a non-negative "
+      + "integer — got " + repr(depth),
+  )
   let ids = (if type(names) == array { names } else { (names,) }).map(_norm)
 
   // A transclusion is a way of pointing at a note, so it has to show up in the
@@ -893,55 +1105,38 @@
     }
     let rec = reg.at(id)
 
-    let bs = _blocks(rec.body)
+    let body = _body-at(rec, depth: depth)
+    let bs = _blocks(body)
     let shown = if limit != none and bs.len() > limit {
       bs.slice(0, limit).join() + [#text(gray)[ ... ]]
     } else {
-      rec.body
+      body
     }
-    let date = if show-date and rec.minted != none {
-      rec.minted.display("[year]-[month]-[day]")
-    } else { none }
 
-    if _target() == "html" or _target() == "epub" {
-      // A titleless note contributes no title span at all, so the permalink
-      // comes first in the summary — "at the top of the window", the id doing
-      // double duty as the note's name. `#idea`'s own heading does the same.
-      let title-span = if rec.title == none { [] } else {
-        html.elem("span", attrs: (class: "idea-window-title"), rec.title)
-      }
-      let date-span = if date == none { [] } else {
-        html.elem("span", attrs: (class: "idea-window-date"), date)
-      }
-      let summary = html.elem(
-        "summary",
-        attrs: (class: "idea-window-summary"),
-        title-span + _permalink(id) + date-span,
-      )
-      // `open` is a BOOLEAN html attribute: present means open and there is no
-      // value meaning closed, so the attrs dictionary itself has to differ
-      // between the two states. `open: "false"` would read as open.
-      let d-attrs = if folded { (class: "idea-window-details") } else {
-        (class: "idea-window-details", open: "open")
-      }
-      let content = html.elem("div", attrs: _themed((class: "idea-window")),
-        html.elem("details", attrs: d-attrs,
-          summary + html.elem("div", attrs: (class: "idea-window-body"), shown)))
-      // Bracketed: the body being shown belongs to the note it came from, so
-      // its links must not read as links from whatever page is showing it.
-      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#content]), WK)
-    } else {
-      // No disclosure in a paged target — nothing to click, so a fold that
-      // could not be opened would just hide the body: `folded` is ignored
-      // here and the body always shows. The head still renders and the
-      // permalink is still the only link, so both targets read the same.
-      let head = {
-        if rec.title != none { strong(rec.title); [ ] }
-        _permalink-paged(id)
-        if date != none { [ ]; text(gray, date) }
-      }
-      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]), WK)
-    }
+    // The marker an ENCLOSING `_flatten` reads when this window turns out to
+    // be nested inside a transcluded body. It carries the presentation
+    // arguments as well as the id, so the collapse-or-expand decision up
+    // there can rebuild this exact window rather than a default one. NOT
+    // `depth`, though — the budget belongs to the scope doing the expanding,
+    // not to the call site being expanded.
+    //
+    // The key is `rookery-window-id`, not `rookery-window`: that name is
+    // taken by the announce marker above, and `_outbound`/`_page-links` both
+    // test for it by exact key on any dictionary-valued metadata they walk.
+    let marker = metadata((
+      rookery-window-id: id,
+      folded: folded,
+      show-date: show-date,
+      limit: limit,
+    ))
+    // Bracketed: the body being shown belongs to the note it came from, so
+    // its links must not read as links from whatever page is showing it.
+    _bracket(
+      figure(kind: WK, supplement: none, [
+        #marker#_window-content(id, rec, shown, folded, show-date)
+      ]),
+      WK,
+    )
   }
   }
 }
@@ -1202,11 +1397,16 @@
 //     theme: (link-color: rgb("#ffe08a"), fold-color: rgb("#fffbe8")),
 //   )
 //
-// Does exactly three things, and deliberately nothing else:
+// Does exactly four things, and deliberately nothing else:
 //
 //   1. publishes `prefix` (so `#idea("etal")` mints `<note:etal>`);
-//   2. publishes the theme — every colour the package will set for you;
-//   3. installs `show ref: hyperlink` (or `hyperlink.with(link-to:
+//   2. publishes `window-depth`, the document-wide default for how far a
+//      `#window` nested inside a transcluded note unfurls (see
+//      `_window-depth`; `0`, the default, collapses it to its permalink,
+//      which is the behaviour every existing document already has). A
+//      `#window(..., depth: n)` overrides it per call site;
+//   3. publishes the theme — every colour the package will set for you;
+//   4. installs `show ref: hyperlink` (or `hyperlink.with(link-to:
 //      "anchor")`, see `ref-target:` below), so `@note:etal` renders the
 //      note rather than a bare figure number.
 //
@@ -1264,6 +1464,7 @@
 // visible AT DEFINITION time — `hyperlink` must already exist.
 #let rookery(
   prefix: "idea",
+  window-depth: 0,
   theme: (:),
   link-color: none,
   fold-color: none,
@@ -1279,6 +1480,11 @@
     message: "@rheo/rookery: `prefix` must be a non-empty string containing no `:` "
       + "(the `:` between prefix and name is added for you) — got "
       + repr(prefix),
+  )
+  assert(
+    type(window-depth) == int and window-depth >= 0,
+    message: "@rheo/rookery: `window-depth` must be a non-negative integer — got "
+      + repr(window-depth),
   )
   assert(
     type(theme) == dictionary,
@@ -1323,6 +1529,7 @@
   }
 
   _prefix.update(prefix)
+  _window-depth.update(window-depth)
   _theme.update(resolved)
   if refs {
     show ref: if ref-target == "anchor" { hyperlink.with(link-to: "anchor") } else { hyperlink }
