@@ -84,7 +84,8 @@
      .idea-label   the [idea:etal] permalink, in a heading or a window summary;
      .idea-ref a   an `@idea:other` reference rendered by `ref-rule`;
      .idea-box a   an author's own link inside a note;
-     .idea-window a  ...and inside a transcluded copy of one.
+     .idea-window a  ...and inside a transcluded copy of one;
+     .idea-outline a a row of a page's own table of contents.
 
    Deliberately NOT a bare `a:hover`: this stylesheet is injected into every
    page of a rheo project, and a package has no business restyling a site's
@@ -93,6 +94,7 @@
 .idea-ref a:hover,
 .idea-box a:hover,
 .idea-window a:hover,
+.idea-outline a:hover,
 .idea-footer a:hover {
   background-color: var(--idea-link-color, rgba(128, 0, 255, 0.12));
 }
@@ -103,6 +105,7 @@
 .idea-ref a,
 .idea-box a,
 .idea-window a,
+.idea-outline a,
 .idea-footer a {
   border-radius: 3px;
 }
@@ -309,4 +312,66 @@ figure:has(> .idea-window) {
 
 .idea-window-details[open] {
   margin-bottom: 1em;
+}
+
+/* ---- #ideas-outline — a page's own notes, as a tree ------------------------
+   Wears the same left rule as `.idea-box`/`.idea-window`, from the same
+   custom property, so a page's table of contents reads as part of the same
+   apparatus as the notes it lists rather than as a stray browser list above
+   them. Nesting works the way it does for notes, too: each level adds its own
+   rule at the previous level's content edge — one more rule per level, not
+   one ever-growing indent.
+
+   The theme reaches this via inline custom properties on the OUTERMOST <ul>
+   only (see `_nest-outline` in lib.typ). An outline is a sibling of the
+   notes, not a descendant of one, so it is the only thing this package emits
+   that has no themed ancestor to inherit from.
+
+   `padding-left` is larger than `.idea-box`'s `.75em` because the row's
+   marker lives in it: 0.75em of hairline plus 0.5em of gap before the text. */
+.idea-outline {
+  list-style: none;
+  margin: 0.4em 0;
+  padding-left: 1.25em;
+  border-left: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+}
+
+/* A nested list is already indented by its parent row; it needs separating
+   from the row above it, not from the list as a whole. */
+.idea-outline-row > .idea-outline {
+  margin: 0.25em 0 0.4em 0;
+}
+
+.idea-outline-row {
+  margin-bottom: 0.25em;
+}
+
+/* THE BULLET, at every level: a hairline rather than a disc, in the same
+   colour as the rule it grows out of. The negative `margin-left` is the
+   negation of the list's `padding-left`, which puts the hairline's own left
+   end exactly ON that rule — so the marker reads as a tick off the rule, the
+   two cannot drift apart when the padding changes, and a row that wraps hangs
+   its later lines at the text edge rather than under the marker.
+
+   Drawn as a `border-top` on a zero-height box rather than as a glyph in
+   `::marker`: a "hairline" is 1px whatever the font, `::marker` accepts
+   `content` in far fewer readers than `::before`, and a disc scaled down to
+   look like a rule is at the mercy of the font's own bullet metrics. Where
+   `::before` is unsupported the rows simply lose their markers — the rule and
+   the indent still carry the structure.
+
+   IN FLOW, not `position: absolute`, and that is what `vertical-align:
+   middle` buys: it puts a zero-height box at the parent's baseline plus half
+   its x-height, i.e. exactly through the middle of a lowercase letter, from
+   the FONT's metrics rather than from a guessed `top` offset that a host
+   page's line-height would throw off. */
+.idea-outline-row::before {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  width: 0.75em;
+  height: 0;
+  margin-left: -1.25em;
+  margin-right: 0.5em;
+  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }

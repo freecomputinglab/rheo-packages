@@ -1303,8 +1303,15 @@
 // list container (`html.elem("ul", ..., ..)` or Typst's own `list`); `item`
 // wraps one entry's own content plus its (possibly none) nested sublist.
 // Shared by both targets so the tree-walk itself cannot drift between them.
+//
+// `wrap` is called as `wrap(items, root)`, `root` being true for the OUTERMOST
+// list only. The theme's custom properties have to go on that one and inherit
+// down: an outline is page-level chrome, a sibling of the notes rather than a
+// descendant of any of them, so unlike everything else this package emits it
+// has no `.idea-box`/`.idea-window` ancestor to inherit from. Putting them on
+// every level instead would re-declare the same values once per nesting depth.
 #let _nest-outline(entries, wrap, item) = {
-  let build(entries) = {
+  let build(entries, root: false) = {
     let items = ()
     let i = 0
     while i < entries.len() {
@@ -1319,9 +1326,9 @@
       items.push(item(entries.at(i), sub))
       i = j
     }
-    wrap(items)
+    wrap(items, root)
   }
-  build(entries)
+  build(entries, root: true)
 }
 
 // `title`/`depth` mirror Typst's own `outline()`
@@ -1358,14 +1365,25 @@
   let list-content = if _target() == "html" or _target() == "epub" {
     _nest-outline(
       entries,
-      items => html.elem("ul", attrs: (class: "idea-outline"), items.join()),
+      (items, root) => html.elem(
+        "ul",
+        attrs: if root { _themed((class: "idea-outline")) } else { (class: "idea-outline") },
+        items.join(),
+      ),
+      // The title in a span of its own, so the hairline marker and the row's
+      // left rule can be positioned against the ROW while the link keeps the
+      // hover treatment every other rookery link has.
       (e, sub) => html.elem("li", attrs: (class: "idea-outline-row"),
         link(e.loc, e.title) + if sub == none { [] } else { sub }),
     )
   } else {
+    // No theme container and no marker styling on the paged target: `#idea`
+    // renders as a plain `heading` there with no `.idea-box` rule to be in
+    // line with, so an outline that grew rules and hairlines would be the
+    // only thing on the page wearing them. Typst's own list, unchanged.
     _nest-outline(
       entries,
-      items => list(..items),
+      (items, root) => list(..items),
       (e, sub) => list.item(link(e.loc, e.title) + if sub == none { [] } else { sub }),
     )
   }

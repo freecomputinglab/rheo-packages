@@ -295,10 +295,23 @@ note, so the rule sits at the text margin with the body indented from it. That
 needs `figure:has(> .idea-box)`, since Typst emits a bare `<figure>` with no
 class to hook; where `:has()` is unsupported the note simply sits further in.
 
+`#ideas-outline` wears the same rule from the same property, one more rule per
+nesting level, so a page's table of contents reads as part of the same
+apparatus as the notes it lists. Its bullets are hairlines in that colour
+rather than discs — drawn as a `border-top` on a zero-height `::before` (1px
+whatever the font, and supported far more widely than `content` in `::marker`),
+sitting on the font's own x-height via `vertical-align: middle` rather than a
+guessed offset. This is the one thing the package emits with no themed
+ancestor to inherit from, being a sibling of the notes rather than a
+descendant, so the properties go inline on the outermost `<ul>`. Paged targets
+get Typst's plain nested `list()` instead: there is no `.idea-box` rule there
+for an outline to be in line with.
+
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-title`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
 `.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
-`.idea-window-body`, `.idea-window-details`, and on a minted note page
+`.idea-window-body`, `.idea-window-details`, `.idea-outline`,
+`.idea-outline-row`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
 `.idea-page-list`, `.idea-page-row`.
 
