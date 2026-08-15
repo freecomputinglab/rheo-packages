@@ -19,7 +19,7 @@
 // `@rheo/tooltip` from inside THIS package would need every consuming project
 // to import `@rheo/tooltip` directly too, just to get its JS auto-injected.
 // That leaky requirement (REJECTED 2026-08-14) is worse than not having the
-// feature; `#link`/`#window` cover referencing a note without it.
+// feature; `#hyperlink`/`#window` cover referencing a note without it.
 
 // ---- Target detection — the only rheo-specific read ------------------------
 //
@@ -96,7 +96,7 @@
 //
 // EVERY caller of `_pfx` is therefore inside a `context` block already —
 // `#idea`'s deferred body, `#window`, `_note-href` via `#idea`/`#window`/
-// `_ref-rule`, and `.marrow.typ`'s own `#context`.
+// `#hyperlink`, and `.marrow.typ`'s own `#context`.
 #let _prefix = state("rheo-idea-prefix", "idea")
 #let _pfx() = _prefix.final() + ":"
 
@@ -200,6 +200,18 @@
   prefix + _note-file(id)
 }
 
+// Shared href resolution for a "page" vs "anchor" link-to mode: `"page"`
+// prefers the note's own minted page, falling back to the in-context Typst
+// label when none is minted (plain `typst compile`, the combined-PDF
+// target) or when `link-to` is `"anchor"`, which forces that fallback
+// unconditionally. Used by `_permalink-paged` (always `"page"`) and by
+// `#hyperlink` (both its explicit-call and `show ref:` forms), so the two
+// cannot drift on what either mode means.
+#let _resolve-dest(id, link-to) = {
+  let href = if link-to == "anchor" { none } else { _note-href(id) }
+  if href == none { label(id) } else { href }
+}
+
 // ---- The permalink — the ONE navigational affordance ----------------------
 //
 // `[idea:etal]`, rendered beside a note's title (or alone, where there is no
@@ -246,9 +258,22 @@
 // Paged counterpart: no `html.elem`, and the fallback is the Typst label
 // rather than an HTML fragment.
 #let _permalink-paged(id) = {
-  let href = _note-href(id)
-  let dest = if href == none { label(id) } else { href }
-  link(dest, text(gray, raw("[" + id + "]")))
+  link(_resolve-dest(id, "page"), text(gray, raw("[" + id + "]")))
+}
+
+// Normalise a name (string or Typst label) to its bare string form, with no
+// prefix. Strips a leading "prefix:" when present, so the bare form
+// ("etal", <etal>) and the full id ("idea:etal", <idea:etal> — the same id
+// `@idea:etal` resolves) name the same note either way: whichever is closer
+// to hand — a fresh name to pin, or a full id copied from elsewhere — just
+// works. Shared by `#idea` (pinning an explicit id), `#window` (looking one
+// up), and `#hyperlink` (linking to one). Defined before the registry below
+// because `hyperlink` needs both and must come before `_flatten`, which
+// installs it as a `show ref:` rule.
+#let _norm(name) = {
+  let s = if type(name) == label { str(name) } else { name }
+  let i = s.position(":")
+  if i == none { s } else { s.slice(i + 1) }
 }
 
 // ---- #idea — marker, idea:<id> label, anchor, flattened registration -----
@@ -260,24 +285,48 @@
 // perturb that counter. Either way the note gets: an `idea:<id>` Typst label on
 // a hidden referenceable anchor, an HTML heading (only when `title` is given)
 // carrying that id and an `idea`/`idea-tag-<tag>` class list, and a registry
-// entry other beads (#window, link-to-page/link-to-anchor) read from.
+// entry other beads (#window, #hyperlink) read from.
 #let _registry = state("rheo-ideas", (:))
 #let IK = "rheo-idea" // marker for an idea
 #let WK = "rheo-idea-window" // marker for a window; defined here (not next to
 // `#window` below) because `_flatten` needs both marker kinds and must be
 // defined before `#idea`, which calls it at registration time.
 
-// ---- link-to-page / link-to-anchor — @idea:x renders the note -------------
+// ---- #hyperlink — a plain link to a note, page-or-anchor -------------------
 //
-// A note's label lives on a hidden anchor FIGURE, so a bare `@idea:etal`
-// resolves to that figure and renders as a bare figure NUMBER by default —
-// useless to a reader. This package installs no document template by design
-// (the author just imports and calls `#idea`/`#window`), so there is nowhere to
-// put a `show ref:` rule implicitly; it must be an exported rule the author
-// opts into:
+// `#hyperlink("etal")[see this]` links to note "etal"'s own minted page when
+// one exists, falling back to its in-context anchor otherwise (same
+// preference the permalink and `#window` already carry, via
+// `_resolve-dest`). `link-to: "anchor"` forces the anchor unconditionally —
+// pass it per call, or `.with()` it for a whole-document default (see
+// below). Name resolution is `_norm`'s: bare or full, string or label —
+// `"etal"`, `"idea:etal"`, `<etal>`, `<idea:etal>` all reach the same note.
+// Existence is checked eagerly, so a typo'd name fails at the call site
+// rather than producing a dangling link.
 //
-//   #import "@rheo/rookery:0.1.0": idea, window, link-to-page
-//   #show ref: link-to-page
+// THE SAME FUNCTION is also `@idea:x`'s renderer. A note's label lives on a
+// hidden anchor FIGURE, so a bare `@idea:etal` would otherwise resolve to
+// that figure and render as a bare figure NUMBER, useless to a reader. This
+// package installs no document template by design (the author just imports
+// and calls `#idea`/`#window`/`#hyperlink`), so there is nowhere to put a
+// `show ref:` rule implicitly; it must be an exported rule the author opts
+// into:
+//
+//   #import "@rheo/rookery:0.1.0": idea, window, hyperlink
+//   #show ref: hyperlink                          // the default: the note's own minted page
+//   #show ref: hyperlink.with(link-to: "anchor")   // in-context anchor, like #hyperlink(..., link-to: "anchor")
+//
+// ONE function serves both call shapes via an argument sink, the same way
+// `#idea[body]`/`#idea("name")[body]` do: Typst's `show ref:` always calls
+// its rule with exactly the `ref` element as the sole argument, so a single
+// `content` positional whose `.func()` is `ref` means "installed as a show
+// rule" — an author can never construct that value by hand (`@label` is
+// markup-only syntax, not a callable `ref(...)` constructor), so the two
+// shapes cannot collide. That also lets `link-to:` double as the one knob
+// for both an explicit `#hyperlink(...)` call and the `show ref:` rule,
+// where the previous two-functions-not-one design (`link-to-page`/
+// `link-to-anchor`, each a thin wrapper choosing a hardcoded mode) needed a
+// separate export per mode instead.
 //
 // References to anything else (an ordinary figure, a heading, ...) pass
 // through untouched via the `else { it }` branch below — checking
@@ -288,67 +337,87 @@
 // can't do this instead — `.where()` matches a static field value (one exact
 // label), not "resolves to a rookery anchor", which is only knowable by
 // resolving the reference. Without the rule, `@idea:x` still compiles — it
-// just shows a number; `#link(label("idea:x"))[text]` remains the
-// anchor-only alternative, unaffected by either of these either way (they
-// only touch `ref`, never `link`).
+// just shows a number; an explicit `#hyperlink("x")[text]` remains
+// unaffected either way (a `show ref:` rule only ever touches `ref`
+// elements, never the `link` a direct call like this one produces).
 //
 // CUSTOM TEXT: `@idea:x[custom text]` (or `#ref(<idea:x>, supplement: [...])`)
-// sets `it.supplement`, which both rules prefer over the note's own title
-// whenever it is not `auto` — `auto` is what an unadorned `@idea:x` leaves it
-// at, which is the signal to fall back to the title/raw-id default.
-//
-// TWO RULES, not one function with a parameter, so each reads at its `show
-// ref:` call site with nothing to look up elsewhere:
-//
-//   #show ref: link-to-page      // the default: the note's own minted page
-//   #show ref: link-to-anchor    // in-context anchor, like #link(label(...))
-//
-// `link-to-page` falls back to the in-context anchor when no page is minted
-// (plain compile, or the combined-PDF target) — same fallback `_note-href`
-// always had. `#show: rookery` installs `link-to-page` when `refs: true` (its
-// default; see `ref-target:` there); an author wanting `link-to-anchor`
-// everywhere combines `refs: false` with their own
-// `show ref: link-to-anchor`.
+// sets `it.supplement`, which the ref-mode branch prefers over the note's
+// own title whenever it is not `auto` — `auto` is what an unadorned
+// `@idea:x` leaves it at, the signal to fall back to the title/raw-id
+// default. An explicit call has no such fallback chain: its body is
+// whatever the caller wrote, always.
 //
 // MEASURED CORRECTION to this bead's own sketch: it assumed the registry
 // stored a dict with a `.title` field directly. It stores `(title:, body:)`
 // now (added by this bead, since nothing previously persisted the title) —
 // see `#idea`'s registration step. A note with no title (the common
 // frictionless case) falls back to the bare id text, not a blank link.
-#let _ref-rule(it, target: "page") = context {
-  let e = it.element
-  if e != none and e.func() == figure and e.kind == "rheo-idea-anchor" {
-    let id = str(it.target)
-    let reg = _registry.final()
-    let shown = if it.supplement != auto {
-      it.supplement
-    } else if id in reg and reg.at(id).title != none {
-      reg.at(id).title
-    } else {
-      raw(id)
-    }
-    // Same convention as #window/the permalink: go to the note's own page when
-    // one is minted, falling back to the label anchor when not — unless
-    // `target: "anchor"` forces the fallback branch unconditionally.
-    let href = if target == "anchor" { none } else { _note-href(id) }
-    let linked = if href == none { link(it.target, shown) } else { link(href, shown) }
-    // Wrapped so `@idea:other` is reachable from CSS and carries the theme.
-    // A SPAN around Typst's own `link()`, not a hand-rolled `<a>`: the
-    // label-fallback branch above has no href to hand-roll WITH, since only
-    // Typst can resolve a label to the `#loc-N` it ends up at. And the wrapper
-    // has to carry the theme itself — a reference sits in ordinary prose, with
-    // no `.idea-box`/`.idea-window` ancestor to inherit from.
-    if _target() == "html" or _target() == "epub" {
-      html.elem("span", attrs: _themed((class: "idea-ref")), linked)
-    } else {
-      linked
+#let hyperlink(..args) = {
+  let pos = args.pos()
+  let link-to = args.named().at("link-to", default: "page")
+  assert(
+    link-to == "page" or link-to == "anchor",
+    message: "@rheo/rookery: #hyperlink's link-to must be \"page\" or "
+      + "\"anchor\" — got " + repr(link-to),
+  )
+
+  if pos.len() == 1 and type(pos.at(0)) == content and pos.at(0).func() == ref {
+    // Installed as `show ref: hyperlink` (or `.with(link-to: "anchor")`):
+    // Typst hands us the resolved `ref` element itself.
+    let it = pos.at(0)
+    context {
+      let e = it.element
+      if e != none and e.func() == figure and e.kind == "rheo-idea-anchor" {
+        let id = str(it.target)
+        let reg = _registry.final()
+        let shown = if it.supplement != auto {
+          it.supplement
+        } else if id in reg and reg.at(id).title != none {
+          reg.at(id).title
+        } else {
+          raw(id)
+        }
+        let linked = link(_resolve-dest(id, link-to), shown)
+        // Wrapped so `@idea:other` is reachable from CSS and carries the
+        // theme. A SPAN around Typst's own `link()`, not a hand-rolled
+        // `<a>`: the label-fallback branch has no href to hand-roll WITH,
+        // since only Typst can resolve a label to the `#loc-N` it ends up
+        // at. And the wrapper has to carry the theme itself — a reference
+        // sits in ordinary prose, with no `.idea-box`/`.idea-window`
+        // ancestor to inherit from.
+        if _target() == "html" or _target() == "epub" {
+          html.elem("span", attrs: _themed((class: "idea-ref")), linked)
+        } else {
+          linked
+        }
+      } else {
+        it
+      }
     }
   } else {
-    it
+    assert(
+      pos.len() == 2,
+      message: "@rheo/rookery: #hyperlink wants a name and a body — "
+        + "#hyperlink(\"etal\")[text] — got " + str(pos.len()) + " argument(s).",
+    )
+    let (name, body) = (pos.at(0), pos.at(1))
+    let n = _norm(name)
+    // Announced up front, in an invisible `metadata` element, the same
+    // reason `#window` does: this is a way of pointing at a note, so it has
+    // to show up in the target's backlinks, and the `link()` below renders
+    // inside a `context` block that is not a concrete element yet at
+    // registration time / page-walk time (see `_outbound`/`_page-links`).
+    metadata((rookery-link: n))
+    context {
+      let id = _pfx() + n
+      if id not in _registry.final() {
+        panic("@rheo/rookery: #hyperlink unknown note '" + id + "'")
+      }
+      link(_resolve-dest(id, link-to), body)
+    }
   }
 }
-#let link-to-page(it) = _ref-rule(it, target: "page")
-#let link-to-anchor(it) = _ref-rule(it, target: "anchor")
 
 // Flatten a note's body ONCE, at registration, so `#window` is pure
 // presentation (any number of windows cost nothing) and cycles are safe (a
@@ -402,24 +471,24 @@
 #let _flatten(body) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
   // as a bare figure number ("2") on the note's minted page, while rendering
-  // correctly in situ. `show ref: link-to-page` is installed by `#show:
+  // correctly in situ. `show ref: hyperlink` is installed by `#show:
   // rookery` on the VERTEBRA, and a minted page is a separate `#document`
   // that `.marrow.typ` contributes at the bundle root — outside every
   // vertebra's show-rule scope. So the stored body has to carry the rule
-  // with it, the same way it carries the IK/WK rules below. Always
-  // `link-to-page` here regardless of what the vertebra's own `show ref:`
-  // was configured to — a nested reference inside a transcluded/minted body
-  // has no access to that outer choice, so it gets the same default an
-  // unconfigured document would.
+  // with it, the same way it carries the IK/WK rules below. Always the
+  // page-preferring default here regardless of what the vertebra's own
+  // `show ref:` was configured to — a nested reference inside a
+  // transcluded/minted body has no access to that outer choice, so it gets
+  // the same default an unconfigured document would.
   //
   // Attaching it here also covers a `#window` rendered anywhere else the
   // document-level rule happens not to reach, and cannot double-apply: the
   // inner rule turns the `ref` into a `link`, so an outer `show ref:` no
   // longer matches it.
   //
-  // (`link-to-page` is defined ABOVE this function for exactly this reason —
+  // (`hyperlink` is defined ABOVE this function for exactly this reason —
   // a `#let` closure captures the scope visible at definition time.)
-  show ref: link-to-page
+  show ref: hyperlink
   show figure.where(kind: IK): it => context {
     let m = it.body.children.find(c => c.func() == metadata)
     let v = m.value
@@ -478,12 +547,13 @@
 // a backlink asks. Here, the containing note is not in question: it is the one
 // being registered.
 //
-// Three things count as pointing at a note, all of which a reader would call a
+// Four things count as pointing at a note, all of which a reader would call a
 // link to it:
 //
 //   #link(label("idea:etal"))[...]   an explicit jump
 //   @idea:etal                        a reference
 //   #window("etal")                   a transclusion
+//   #hyperlink("etal")[...]           an explicit call, `link-to:` page or anchor
 //
 // A link to something that is not a note (a URL, an author's own label, a
 // heading) is ignored, by testing the target against the current prefix.
@@ -513,17 +583,23 @@
     return node.value.rookery-window.map(n => _pfx() + n)
   }
 
+  // A nested `#hyperlink(...)` explicit call — same reason as `#window`
+  // above: at registration its `link()` is still hidden inside an
+  // unevaluated `context` block (needed to resolve `link-to: "page"`'s
+  // href), so it announces its target the same way. `@idea:etal`/`#window`
+  // don't need this: a `ref` is already a concrete element here, and
+  // `#hyperlink` used AS the `show ref:` rule never runs at registration
+  // time at all (it renders when the ref itself is shown, later).
+  if f == metadata and type(node.value) == dictionary and "rookery-link" in node.value {
+    return (_pfx() + node.value.rookery-link,)
+  }
+
   let out = ()
   if f == link and type(node.dest) == label { out.push(str(node.dest)) }
   if f == ref { out.push(str(node.target)) }
   for (_, v) in node.fields() { out += _outbound(v) }
   out
 }
-
-// Normalise a name (string or Typst label) to its bare string form, with no
-// prefix. Shared by `#idea` (pinning an explicit id) and `#window`
-// (looking one up).
-#let _norm(name) = if type(name) == label { str(name) } else { name }
 
 #let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
   let pos = args.pos()
@@ -594,8 +670,8 @@
 
       // Store the FLATTENED body plus the title, resolved dates and origin, so
       // a #window is pure presentation and any number of windows cost nothing, and
-      // link-to-page/link-to-anchor can render a note's title without
-      // re-deriving it. A duplicate EXPLICIT id only errors if something
+      // `#hyperlink`'s ref-mode can render a note's title without re-deriving
+      // it. A duplicate EXPLICIT id only errors if something
       // observes the registry (e.g. #window or a ref) — an identical
       // re-insertion is a re-emission, not a collision.
       // Outbound links, filtered to real note ids and deduped, with a
@@ -703,9 +779,11 @@
 //
 // `#window("etal")` transcludes the target note: its title, its permalink, and
 // its stored (flattened) body, as one foldable block. `names` accepts a
-// string, a label, or an array of either. Reads the registry via `.final()`,
-// not `.get()` — that is what lets a note defined in ANOTHER vertebra
-// resolve, since the whole spine compiles as one Typst document.
+// string, a label, or an array of either — bare (`"etal"`, `<etal>`) or full
+// id (`"idea:etal"`, `<idea:etal>` — the same id `@idea:etal` resolves), see
+// `_norm`. Reads the registry via `.final()`, not `.get()` — that is what
+// lets a note defined in ANOTHER vertebra resolve, since the whole spine
+// compiles as one Typst document.
 //
 // A `#window` is pure presentation: it never registers, never advances the
 // counter, and never re-registers a nested `#idea`. That guarantee is
@@ -874,11 +952,21 @@
 // DOCUMENT ORDER (measured), which is what makes a single left-to-right pass
 // with a depth counter sufficient; no tree, no ancestry API needed.
 //
-// Three shapes count, the same three `_outbound` counts inside a note:
+// Four shapes count, the same four `_outbound` counts inside a note:
 //
 //   #link(label("idea:etal"))   a `link` element whose dest is a label
 //   @idea:etal                   a `ref` element
 //   #window("etal")               the `rookery-window` marker `#window` emits
+//   #hyperlink("etal")[...]       the `rookery-link` marker `#hyperlink` emits
+//
+// `#hyperlink` needs its own marker, like `#window`, because its `link-to:
+// "page"` default resolves to a plain href STRING (not a label) whenever a
+// page is minted — invisible to the `f == link and type(el.dest) == label`
+// check below. `link-to: "anchor"` would have stayed a label link and been
+// caught by that check anyway, but the marker covers both modes uniformly
+// rather than depending on which one was passed. `#hyperlink` used AS the
+// `show ref:` rule needs no marker of its own: it renders a `ref` element,
+// already the second shape above.
 //
 // A `ref` also renders INTO a link, so it can be seen twice; the result is a
 // set per page, so seeing it twice costs nothing.
@@ -896,10 +984,17 @@
       let edge = v.at("rookery-edge", default: none)
       if edge == "open" { depth += 1; continue }
       if edge == "close" { depth -= 1; continue }
-      if depth != 0 or "rookery-window" not in v { continue }
+      if depth != 0 { continue }
+      let names = if "rookery-window" in v {
+        v.rookery-window
+      } else if "rookery-link" in v {
+        (v.rookery-link,)
+      } else {
+        continue
+      }
       let handle = state("rheo-handle").at(el.location())
       if type(handle) != str or not _is-vertebra(handle) { continue }
-      for name in v.rookery-window {
+      for name in names {
         let seen = out.at(handle, default: ())
         if pfx + name not in seen { out.insert(handle, seen + (pfx + name,)) }
       }
@@ -952,17 +1047,17 @@
 //
 //   1. publishes `prefix` (so `#idea("etal")` mints `<note:etal>`);
 //   2. publishes the theme — every colour the package will set for you;
-//   3. installs `show ref: link-to-page` (or `link-to-anchor`, see
-//      `ref-target:` below), so `@note:etal` renders the note rather than a
-//      bare figure number.
+//   3. installs `show ref: hyperlink` (or `hyperlink.with(link-to:
+//      "anchor")`, see `ref-target:` below), so `@note:etal` renders the
+//      note rather than a bare figure number.
 //
 // It does NOT transform the document. It sets no page/text/heading style,
 // wraps `doc` in no container, and emits nothing of its own — `#show:
 // rookery` on a document with no notes in it is a no-op. The blast radius is
 // exactly one element type: `ref`. Even there the installed rule passes every
 // reference that is NOT a rookery note straight through untouched (its `else
-// { it }` branch — see `link-to-page`/`link-to-anchor` above), so an ordinary
-// `@fig:x` in the same document is unaffected.
+// { it }` branch — see `#hyperlink` above), so an ordinary `@fig:x` in the
+// same document is unaffected.
 //
 // WHY NOT NARROWER — i.e. a rule scoped to `#idea` alone. The prefix cannot
 // ride on a show rule over idea markers, because `#window` and `.marrow.typ`
@@ -997,17 +1092,17 @@
 // wrapping `doc` there: a `show` in an `if` block's body scopes to that block,
 // so hoisting it out of the branch would scope it to nothing at all.
 //
-// `ref-target: "page"` (the default) picks `link-to-page`; `"anchor"` picks
-// `link-to-anchor` instead, making every `@idea:etal` in the document behave
-// like `#link(label("idea:etal"))` rather than jumping to the note's minted
-// page. Only meaningful alongside `refs: true`; ignored (with no error) when
-// `refs: false`, since there is then no installed rule for it to configure —
-// an author who set `refs: false` already opted into supplying their own
-// `show ref` rule, `link-to-anchor` or not.
+// `ref-target: "page"` (the default) installs plain `hyperlink`; `"anchor"`
+// installs `hyperlink.with(link-to: "anchor")` instead, making every
+// `@idea:etal` in the document behave like `#hyperlink("idea:etal", ...,
+// link-to: "anchor")` rather than jumping to the note's minted page. Only
+// meaningful alongside `refs: true`; ignored (with no error) when `refs:
+// false`, since there is then no installed rule for it to configure — an
+// author who set `refs: false` already opted into supplying their own
+// `show ref` rule, anchor-targeted or not.
 //
 // Defined last in this file because a `#let` closure captures the scope
-// visible AT DEFINITION time — `link-to-page`/`link-to-anchor` must already
-// exist.
+// visible AT DEFINITION time — `hyperlink` must already exist.
 #let rookery(
   prefix: "idea",
   theme: (:),
@@ -1071,7 +1166,7 @@
   _prefix.update(prefix)
   _theme.update(resolved)
   if refs {
-    show ref: if ref-target == "anchor" { link-to-anchor } else { link-to-page }
+    show ref: if ref-target == "anchor" { hyperlink.with(link-to: "anchor") } else { hyperlink }
     doc
   } else {
     doc

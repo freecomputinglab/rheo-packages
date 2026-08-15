@@ -17,11 +17,10 @@
 //
 // Deliberately does NOT re-declare the note's `<prefix>:<id>` Typst label on the
 // minted page. Two elements sharing one label break every #link/#window/
-// link-to-page/link-to-anchor resolution to it as soon as either is
-// referenced (labels only error on ambiguous lookup, not on declaration —
-// see the epic's "Verified facts"). The label stays owned by the anchor
-// #idea creates at the note's original call site; #link/#window/
-// link-to-page/link-to-anchor keep resolving there. The
+// #hyperlink resolution to it as soon as either is referenced (labels only
+// error on ambiguous lookup, not on declaration — see the epic's "Verified
+// facts"). The label stays owned by the anchor #idea creates at the note's
+// original call site; #link/#window/#hyperlink keep resolving there. The
 // permalink on the minted page is a plain same-page HTML fragment
 // (`href="#" + id` against this page's own heading `id` attribute), not a
 // second declaration of the Typst label.
