@@ -64,8 +64,12 @@
      (`.idea-window-title` and a heading's own text both stay at their
      ambient size), rather than differing only by weight/colour as before.
      `.idea-window-date`/`.idea-date` match this exact value, so a window's
-     date reads as the same kind of thing as the id it follows. */
-  font-size: 0.85em;
+     date reads as the same kind of thing as the id it follows.
+
+     `em`, so it stays proportionate in all three of the places an id turns
+     up: an `#idea` heading, a `#window` summary, and a minted page's `<h1>`,
+     each with a different ambient size. */
+  font-size: 0.57em;
   text-decoration: none;
   border-radius: 3px;
 }
@@ -124,7 +128,16 @@
 
    Ruled off and set small: apparatus, not part of the note. The date colour is
    reused rather than given a knob of its own, since both are the same kind of
-   thing — muted metadata about the note rather than the note. */
+   thing — muted metadata about the note rather than the note.
+
+   That colour goes on the footer's OWN parts (below), never on this box. A
+   `#window` in Backlinks is a NOTE, and has to read as one — the same thing it
+   is anywhere else — but an inherited `color` here reaches inside the
+   transcluded copy and tints its title. MEASURED on rookery.ohrg.org: backlink
+   titles came out `--idea-date-color` amber where every other window's title
+   is the ambient text colour. Per-part is also the only fix that stays theme
+   agnostic: a package cannot name the colour a window's title should revert
+   TO, only decline to override it. */
 .idea-footer {
   margin-top: 2em;
   padding-top: 0.5em;
@@ -132,7 +145,6 @@
      a dark page as well as a light one. */
   border-top: 1px solid rgba(128, 128, 128, 0.3);
   font-size: 0.85em;
-  color: var(--idea-date-color, gray);
 }
 
 /* Both sections have the same shape — a heading, then rows flowing down from
@@ -166,6 +178,7 @@
   border-left: 1px solid rgba(128, 128, 128, 0.4);
   padding: 2px 10px 2px 1.25em;
   margin-bottom: 0.4em;
+  color: var(--idea-date-color, gray);
 }
 
 /* Typst wraps every `#window` in a <figure>, and the browser default for that is
@@ -189,6 +202,7 @@
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--idea-date-color, gray);
 }
 
 /* ---- #idea — a note where it was written ---------------------------------
@@ -285,7 +299,7 @@ figure:has(> .idea-window) {
 .idea-date {
   color: var(--idea-date-color, gray);
   font-weight: 200;
-  font-size: 0.85em;
+  font-size: 0.57em;
   white-space: nowrap;
 }
 

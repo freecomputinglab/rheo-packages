@@ -39,8 +39,9 @@ does all of it in a line, and is the only place anything is configurable:
 )
 ```
 
-`#show: rookery` does exactly four things: it publishes the id prefix, the
-nested-window depth and the theme, and it installs `link-to-page` (see below and "Referencing a note") so
+`#show: rookery` does exactly five things: it publishes the id prefix, the
+nested-window depth, the minted-page template (`idea-page-template`, see
+"Standalone note pages") and the theme, and it installs `link-to-page` (see below and "Referencing a note") so
 `@note:etal` renders the note rather than a bare figure number. It sets no
 other styles, wraps `doc` in nothing, and emits nothing of its own — on a
 document with no notes in it, it is a no-op, and even the `ref` rule passes
@@ -245,6 +246,69 @@ Three ways, pick by how much ceremony you want:
   when you're using the template rather than importing `link-to-anchor`
   directly.
 
+## Outlining notes
+
+`#ideas-outline()` lists the current page's own notes as a nested tree.
+
+```typst
+#import "@rheo/rookery:0.1.0": ideas-outline
+#ideas-outline()
+#ideas-outline(title: none, depth: 2)
+#ideas-outline(title: [Everything], rookery-wide: true)
+```
+
+Typst's own `#outline()` cannot do this: it lists `heading` elements, and a
+note only becomes one on the paged target — on HTML/EPUB its title is a raw
+`html.elem("h…")` with no Typst heading behind it. So `#outline()` would find
+every note in a PDF and none in the primary targets. This is built off the
+same query-time machinery backlinks already use, and works identically
+everywhere.
+
+`title` and `depth` mirror `#outline()`'s so the two read as one family:
+`title: auto` prints "Contents", `none` omits it, anything else replaces it;
+`depth` caps how many levels show, counting from 1 like Typst's heading
+levels.
+
+**Nesting is real containment** — one `#idea` written inside another's body —
+not the author-set `level:`, which is a heading-size knob most notes never
+touch. So the tree is right with no ceremony, matching `#idea`'s own "hatch
+without ceremony" design. Untitled notes are omitted: an outline entry is a
+title, and there is nothing to label an auto-numbered note with.
+
+**`rookery-wide: true`** lists every note in the rookery instead of only this
+page's — one tree, nested by the same real containment. The whole spine
+compiles as one Typst document, so this is the per-page filter being lifted
+rather than a second pass, and entries link straight across pages. `depth`
+composes with it and still means containment levels, not pages.
+
+Pages come in **spine order** — the order you configured, via the directory
+scan and `[[spine.section]]`, not the order the files happen to be named in —
+with **`index.typ` first** wherever it exists. rheo already puts a nested
+directory's `index.typ` first, as that directory's landing page; at the root
+it treats `index.typ` as an ordinary leaf, so a rookery whose front door sorts
+into the middle of the alphabet would otherwise have its index of everything
+start somewhere in the middle. Hoisting it makes both levels read the same
+way: landing page first.
+
+Neither applies to a single-document target — the combined PDF, or plain
+`typst compile`. There the outline follows the document, because reordering it
+against the page sequence a reader is holding would be a lie, and it is also
+why the two forms agree there rather than disagreeing about an order only one
+of them applied.
+
+It is deliberately not grouped under per-page headings. A note's id is flat
+and travels between files precisely so a reader never has to know which file
+holds it (see "Flat ids, and why"); an index that led with filenames would put
+that back.
+
+Notes transcluded onto the page by a `#window` are never listed, at any depth
+of nesting — they are echoes of notes stored (and usually written) elsewhere,
+not this page's structure.
+
+Where the output is a single document — the combined PDF, or plain `typst
+compile` with no rheo — the two forms agree and both list everything. That is
+the same set: there is only one page.
+
 ## The click budget
 
 Interaction is modelled on [Forester](https://www.forester-notes.org), and the
@@ -385,7 +449,7 @@ versa — nothing links the two settings together beyond both defaulting off.
 ## Standalone note pages (rheo only)
 
 Importing this package mints one output page per note automatically, at
-`notes/<id>.html` — e.g. `notes/etal.html` for `<idea:etal>`, the prefix
+`ideas/<id>.html` — e.g. `ideas/etal.html` for `<idea:etal>`, the prefix
 stripped off whatever it is set to — via a package
 `.marrow.typ` that rheo inlines at the bundle root. No `rheo.toml` entry and
 no project file needed. Typst will print `warning: bundle export is
@@ -394,6 +458,47 @@ experimental` — expected, not a sign anything is wrong.
 Each minted page shows the note's title and permalink id, then its body, then
 a footer with two parts — each omitted, rather than left empty, when it has
 nothing to say.
+
+### Giving minted pages your own chrome
+
+A minted page is a separate document spliced in at the bundle root, *outside*
+every vertebra — so it inherits nothing from the `#show:` your project applies
+to its own pages, and by default has no site header or nav.
+`idea-page-template` is how you hand one over:
+
+```typst
+// One named, top-level function...
+#let idea-page(id: none, note: (:), doc) = {
+  show: chrome.with(current-page: id)
+  doc
+}
+
+// ...registered once, in the template every vertebra applies.
+#show: rookery.with(idea-page-template: idea-page)
+```
+
+It is called once per note, wrapping the **whole** minted page — heading, body
+and footer — so it sees exactly what a vertebra's own `#show:` would.
+
+- `id` is the note's full id (`idea:etal`), the same string `#window` and
+  `@idea:etal` name it by, and the natural "which page am I on" key.
+- `note` is the note's registry record — `title`, `minted`, `updated`,
+  `origin` (the handle of the page it was written in) and `links` — so a
+  richer idea-page header needs no query.
+
+Make it a **named top-level binding**, not a closure written inline inside the
+template that registers it. The package holds it on a document-wide state, and
+a fresh closure per vertebra puts a different value on that state's timeline
+for each one; a named binding is one value however many vertebrae reference
+it.
+
+Apply your *chrome* from it rather than your whole page template, and split
+that chrome out of the template if you have not already — otherwise the two
+have to reference each other. A minted page also has no need to re-apply
+`#show: rookery`: every vertebra has already set the prefix, theme and window
+depth by the time one is minted.
+
+Left unset, minted pages are bare, exactly as before.
 
 **Context** is the page the note was *written* in:
 
@@ -458,7 +563,7 @@ since all three are the same affordance. The same-page `#id` fragment a
 permalink would otherwise carry is a no-op for a reader already looking at
 that heading; the minted page is what they actually want.
 
-Hrefs are depth-relative to the page doing the linking (`../notes/etal.html`
+Hrefs are depth-relative to the page doing the linking (`../ideas/etal.html`
 from a nested vertebra), and fall back to the note's in-page anchor when no
 page is minted — under plain `typst compile`, or for the combined PDF.
 

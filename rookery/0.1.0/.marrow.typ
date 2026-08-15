@@ -1,4 +1,4 @@
-// Mints one output page per registered note, at notes/<id>.html, so a note
+// Mints one output page per registered note, at ideas/<id>.html, so a note
 // gets a real URL instead of only an in-page fragment anchor on whatever page
 // it happens to be written in. Reachable purely by importing this package —
 // no rheo.toml entry, no project file needed — because rheo inlines a
@@ -33,10 +33,10 @@
 // value — rheo's cross-vertebra link rule, and lib.typ's `_note-href`.
 // MEASURED on this package's own demo: the bare form happens to emit the same
 // `../` prefix, because the inherited handle is one level deep just as
-// `notes/<slug>` is. That is a coincidence of this spine's shape, not a
+// `ideas/<slug>` is. That is a coincidence of this spine's shape, not a
 // guarantee. Passing the handle makes the depth this page's own property. It
-// mirrors the path — `notes/<slug>.html` <-> `notes:<slug>` — with the path
-// itself coming from `_note-file`, so minting and linking cannot drift.
+// mirrors the path — `ideas/<slug>.html` <-> `ideas:<slug>` — with both halves
+// coming from `_IDEA-DIR`/`_note-file`, so minting and linking cannot drift.
 // The permalink comes from lib.typ's `_permalink`, with the href forced to
 // this page's own fragment — a minted page must not link to itself. Building
 // the <a> by hand here instead is how it came to miss the configurable hover
@@ -64,10 +64,16 @@
 // thing this package can see and it holds notes, not pages. That is also why
 // the list can be rendered as `#window`s at all — every entry is by construction
 // a thing there is a note to show.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, window
+// PAGE TEMPLATE. A minted page is a `#document` spliced in HERE, at the bundle
+// root, so it is outside every vertebra and inherits none of the project's own
+// `#show:` chrome — no site header, no nav. `#show: rookery.with(
+// idea-page-template: ...)` is how a project hands one over; this file applies
+// applied. `none` (the default) mints the bare page this always produced.
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _idea-page-template, _IDEA-DIR, window
 
 #context {
   let registry = _registry.final()
+  let tpl = _idea-page-template.final()
 
   // NOTE backlinks: the inverse of every note's recorded outbound links.
   let backlinks = (:)
@@ -95,12 +101,10 @@
 
   for (id, rec) in registry.pairs() {
     let slug = id.trim(_pfx(), at: start)
-    rheo-document(
-      _note-file(id),
-      handle: "notes:" + slug,
-      format: "html",
-      title: if rec.title == none { slug } else { rec.title },
-    )[
+    // Built as a value rather than passed straight to `rheo-document`, so the
+    // project's template can wrap the WHOLE page — heading, body and footer —
+    // and see exactly what a vertebra's own `#show:` would.
+    let page = [
       #html.elem(
         "h1",
         // The <h1> is this page's theme container — there is no `.idea-box`
@@ -173,7 +177,7 @@
           // document that set `window-depth` to unfurl its prose would
           // otherwise unfurl every entry of every index too, several levels
           // into notes the reader has not chosen yet. MEASURED on a
-          // `window-depth: 2` project: `notes/leaf.html`'s Backlinks showed
+          // `window-depth: 2` project: `ideas/leaf.html`'s Backlinks showed
           // its one entry (Mid) unfurled down to a window of Leaf — the very
           // page it was on. `window` takes bare names and re-adds the prefix
           // itself, hence the trim.
@@ -188,7 +192,7 @@
           // and out here — in the loop that BUILDS the pages, at the bundle
           // root — that state still holds the last spine vertebra's handle,
           // not the minted page's. MEASURED: computed eagerly it emitted
-          // `index.html` from `notes/rookery.html`, one level short. A nested
+          // `index.html` from `ideas/rookery.html`, one level short. A nested
           // context resolves after `rheo-document` has published this page's
           // own handle, which is why `#window`'s permalinks were right all along.
           let page-rows = if back-pages.len() == 0 { [] } else {
@@ -212,5 +216,18 @@
         }
       }
     ]
+
+    // `id` is the note's full id (`idea:rookery`), which is what a template
+    // wants as its "which page am I on" key — the same string `#window` and
+    // `@idea:rookery` name it by. `note` is the registry record, so a template
+    // can reach the title, dates, origin and outbound links without querying
+    // anything.
+    rheo-document(
+      _note-file(id),
+      handle: _IDEA-DIR + ":" + slug,
+      format: "html",
+      title: if rec.title == none { slug } else { rec.title },
+      if tpl == none { page } else { tpl(id: id, note: rec, page) },
+    )
   }
 }
