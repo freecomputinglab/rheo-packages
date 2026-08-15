@@ -91,11 +91,18 @@
 // Each key maps to exactly one custom property, and `rookery.css` reads each
 // through `var(--x, <default>)`. Adding a knob means adding a line here and a
 // `var()` there — nothing else.
+// The two that carry the look are `link-color` and `fold-color`, and the
+// contrast between them is the point: BOTH are hover backgrounds, so they
+// compare like with like, and the lighter one belongs to the fold (a block
+// that only opens and closes) while the stronger one belongs to every link
+// (which actually goes somewhere). Forester makes the same split with one blue
+// at two alphas; rookery defaults to two hues, a light blue and a purple, so
+// the difference survives being read quickly.
 #let _THEME-KEYS = (
-  "id-color": "--idea-label-color",
-  "id-hover": "--idea-label-hover",
-  "date-color": "--idea-view-date-color",
-  "fold-hover": "--idea-view-hover",
+  "link-color": "--idea-link-color",
+  "fold-color": "--idea-fold-color",
+  "id-color": "--idea-id-color",
+  "date-color": "--idea-date-color",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -564,7 +571,18 @@
     // Same convention as #view/the permalink: go to the note's own page when
     // one is minted, falling back to the label anchor when not.
     let href = _note-href(id)
-    if href == none { link(it.target, shown) } else { link(href, shown) }
+    let linked = if href == none { link(it.target, shown) } else { link(href, shown) }
+    // Wrapped so `@idea:other` is reachable from CSS and carries the theme.
+    // A SPAN around Typst's own `link()`, not a hand-rolled `<a>`: the
+    // label-fallback branch above has no href to hand-roll WITH, since only
+    // Typst can resolve a label to the `#loc-N` it ends up at. And the wrapper
+    // has to carry the theme itself — a reference sits in ordinary prose, with
+    // no `.idea-box`/`.idea-view` ancestor to inherit from.
+    if _target() == "html" or _target() == "epub" {
+      html.elem("span", attrs: _themed((class: "idea-ref")), linked)
+    } else {
+      linked
+    }
   } else {
     it
   }
@@ -575,7 +593,7 @@
 //   #import "@rheo/rookery:0.1.0": rookery, idea, view
 //   #show: rookery.with(
 //     prefix: "note",
-//     theme: (id-hover: rgb("#ffe08a"), fold-hover: rgb("#fffbe8")),
+//     theme: (link-color: rgb("#ffe08a"), fold-color: rgb("#fffbe8")),
 //   )
 //
 // Does exactly three things, and deliberately nothing else:
@@ -603,7 +621,7 @@
 // THEME. `theme:` takes the whole set at once; the granular parameters named
 // after each key take one at a time and WIN over `theme`, so the two compose:
 //
-//   #show: rookery.with(theme: DARK, id-hover: rgb("#ff0"))
+//   #show: rookery.with(theme: DARK, link-color: rgb("#ff0"))
 //
 // reads as "the dark theme, but that one colour". Precedence, least specific
 // first: `rookery.css`'s own default -> `theme:` -> the granular parameter.
@@ -630,10 +648,10 @@
 #let rookery(
   prefix: "idea",
   theme: (:),
+  link-color: none,
+  fold-color: none,
   id-color: none,
-  id-hover: none,
   date-color: none,
-  fold-hover: none,
   refs: true,
   doc,
 ) = {
@@ -649,8 +667,8 @@
       + _THEME-KEYS.keys().join(", ") + " — got " + repr(theme),
   )
 
-  // One converter for both sources, so `theme: (id-hover: c)` and
-  // `id-hover: c` cannot disagree about what a value may be.
+  // One converter for both sources, so `theme: (link-color: c)` and
+  // `link-color: c` cannot disagree about what a value may be.
   let css(key, value) = {
     assert(
       type(value) == color or type(value) == str,
@@ -671,10 +689,10 @@
   }
   // Granular arguments last: they override whatever `theme:` set.
   for (key, value) in (
+    link-color: link-color,
+    fold-color: fold-color,
     id-color: id-color,
-    id-hover: id-hover,
     date-color: date-color,
-    fold-hover: fold-hover,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }

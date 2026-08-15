@@ -31,8 +31,8 @@ does all of it in a line, and is the only place anything is configurable:
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
   theme: (
-    id-hover: rgb("#ffe9a3"),     // the permalink's hover background
-    fold-hover: "rgba(255, 190, 40, 0.07)",
+    link-color: "rgba(230, 140, 0, 0.16)",  // hover background on any link
+    fold-color: "rgba(255, 190, 40, 0.07)", // ...and on a foldable block
     date-color: rgb("#a08a5a"),
   ),
 )
@@ -55,16 +55,28 @@ Four colours, the whole of what the package will style for you:
 
 | key | what it colours | default |
 | --- | --- | --- |
+| `link-color` | hover background on **any** rookery link | `rgba(128, 0, 255, .12)` |
+| `fold-color` | hover background on a foldable view block | `rgba(0, 100, 255, .05)` |
 | `id-color` | the `[idea:etal]` permalink's text | `gray` |
-| `id-hover` | ...and its hover background | `rgba(0, 100, 255, .1)` |
 | `date-color` | the date in a view's summary | `gray` |
-| `fold-hover` | a view block's hover tint | `rgba(0, 100, 255, .04)` |
 
-Each is also a granular parameter of its own, and the granular form **wins**
-over `theme:` — so the two compose:
+The first two are the look, and the contrast between them is the point. Both
+are hover *backgrounds*, so they compare like with like: the lighter blue
+belongs to the fold — a block that only opens and closes — and the stronger
+purple to every link, which actually goes somewhere. (Forester makes the same
+split with one blue at two alphas; two hues survive being read quickly.)
+
+`link-color` reaches every link rookery is responsible for, not just the
+permalink: an `@idea:other` reference, and an author's own link inside a note
+or a transcluded copy of one. It is deliberately *not* a bare `a:hover` — this
+stylesheet is injected into every page of a rheo project, and a package has no
+business restyling a site's nav.
+
+Each key is also a granular parameter of its own, and the granular form
+**wins** over `theme:` — so the two compose:
 
 ```typst
-#show: rookery.with(theme: MY-THEME, id-hover: rgb("#ffd166"))
+#show: rookery.with(theme: MY-THEME, link-color: rgb("#ffd166"))
 ```
 
 reads as "my theme, but that one colour". Precedence, least specific first:

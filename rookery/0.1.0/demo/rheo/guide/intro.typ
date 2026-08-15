@@ -7,8 +7,8 @@
 #show: rookery.with(
   prefix: "note",
   theme: (
-    id-hover: rgb("#ffe9a3"),
-    fold-hover: "rgba(255, 190, 40, 0.07)",
+    link-color: "rgba(230, 140, 0, 0.16)",
+    fold-color: "rgba(255, 190, 40, 0.07)",
     date-color: rgb("#a08a5a"),
   ),
 )

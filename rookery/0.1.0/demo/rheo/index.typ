@@ -1,16 +1,16 @@
 // This demo overrides the default `idea:` prefix, so every id below is
 // `note:<name>` — the template has to be applied in EVERY vertebra that uses
 // the package (see guide/intro.typ), since imports are per-file.
-// A whole theme, replacing the stylesheet's Forester blues with an amber set.
-// Hover a `[note:...]` for the id colour, and a view's summary for the fold
-// tint. `fold-hover` is deliberately much fainter than `id-hover`: the block
-// is not a link, the id is.
+// A whole theme, replacing the default light-blue/purple pair with an amber
+// one. Hover a link or a `[note:...]` for `link-color`, and a view's summary
+// for `fold-color`; the fold stays deliberately fainter, since the block only
+// opens and closes while a link goes somewhere.
 #import "@rheo/rookery:0.1.0": idea, note, rookery, todo, view
 #show: rookery.with(
   prefix: "note",
   theme: (
-    id-hover: rgb("#ffe9a3"),
-    fold-hover: "rgba(255, 190, 40, 0.07)",
+    link-color: "rgba(230, 140, 0, 0.16)",
+    fold-color: "rgba(255, 190, 40, 0.07)",
     date-color: rgb("#a08a5a"),
   ),
 )
