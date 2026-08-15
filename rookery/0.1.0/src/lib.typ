@@ -465,8 +465,14 @@
 //
 // Defined BEFORE `_flatten`: its IK rule brackets a reconstructed nested
 // header+box itself now, so it needs `_bracket` in scope at definition time.
-#let _edge(kind) = metadata((rookery-edge: kind))
-#let _bracket(body) = _edge("open") + body + _edge("close")
+//
+// `container` (IK or WK) rides along on top of `edge` ("open"/"close") so a
+// reader of the marker (currently just `#ideas-outline`) can tell an IDEA's
+// own bracket apart from a WINDOW's — `_page-links`/`_outbound` don't care
+// which, only "how deep", so this is purely additive: an extra key on the
+// same dict, ignored by every existing reader.
+#let _edge(edge, container) = metadata((rookery-edge: edge, rookery-container: container))
+#let _bracket(body, container) = _edge("open", container) + body + _edge("close", container)
 
 #let _flatten(body) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
@@ -510,12 +516,12 @@
         }) + (if id == none { [] } else { _permalink(id) }),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
-      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + v.body))
+      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + v.body), IK)
     } else {
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
         v.body
-      })
+      }, IK)
     }
   }
   // A `#window` nested inside a transcluded body collapses to the SAME
@@ -740,13 +746,13 @@
         let box-cls = ("idea-box",) + tags.map(l => "idea-tag-" + l)
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.
-        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + body))
+        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + body), IK)
       } else {
         _bracket({
           if ttl != none { heading(depth: level, ttl) }
           if date != none { text(gray, date); linebreak() }
           body
-        })
+        }, IK)
       }
     }
   ])
@@ -923,7 +929,7 @@
           summary + html.elem("div", attrs: (class: "idea-window-body"), shown)))
       // Bracketed: the body being shown belongs to the note it came from, so
       // its links must not read as links from whatever page is showing it.
-      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#content]))
+      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#content]), WK)
     } else {
       // No disclosure in a paged target — nothing to click, so a fold that
       // could not be opened would just hide the body: `folded` is ignored
@@ -934,7 +940,7 @@
         _permalink-paged(id)
         if date != none { [ ]; text(gray, date) }
       }
-      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]))
+      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]), WK)
     }
   }
   }
@@ -1016,6 +1022,159 @@
     if target not in seen { out.insert(handle, seen + (target,)) }
   }
   out
+}
+
+// ---- #ideas-outline — a table of contents for THIS page's own ideas -------
+//
+// Typst's own `#outline()` can't see ideas: it lists `heading` elements, and
+// an idea only ever becomes one on the PAGED target (`heading(depth: level,
+// ...)`, inside `#idea`'s `else` branch) — never on html/epub, where the
+// title renders as a raw `html.elem("h" + ..., ...)`, a plain HTML tag with
+// no Typst-level `heading` behind it at all. `#outline()` would therefore
+// see every idea on PDF but NONE on the primary html/epub targets. Built
+// instead off the same query-time machinery `_page-links` already uses (the
+// `rookery-edge` open/close markers `_bracket` wraps every idea AND window
+// in), so it works identically on every target.
+//
+// Nesting is the idea's LITERAL containment depth in the document (one
+// `#idea` written inside another's body) — not the author-set `level:`
+// (a heading-level knob authors are free to leave untouched regardless of
+// nesting, and usually do; concepts.typ's own nested ideas never set it).
+// Depth from real nesting means the outline is correct with zero ceremony,
+// matching `#idea`'s own "hatch without ceremony" design.
+//
+// MEASURED, the reason this tracks TWO separate depths (`idea-depth`,
+// `window-depth`) instead of one: a `show figure.where(kind: ...): ...`
+// rule (which is all `_flatten`'s IK rule is) does NOT remove the original
+// figure from `query()` — exactly like `show ref: hyperlink` leaves a `ref`
+// still queryable as one (see `_page-links`'s own comment, "a ref also
+// renders into a link, so it can be seen twice"). So a note windowed
+// (possibly transitively, A-windows-B-windows-C) onto THIS page re-exposes
+// every `figure(kind: IK)` its stored body ever contained, each a REAL
+// match here, indistinguishable by `kind` alone from one actually hatched
+// on this page. Confirmed by a two-page reproduction with mutual
+// transclusion (rookery.ohrg.org's index.typ <-> concepts.typ, via
+// `#window((<rookery>, <idea>), ...)`): without this check, ideas authored
+// elsewhere surfaced nested under the WRONG local idea, several levels deep
+// and wrongly attributed. A note is only ever counted at `window-depth ==
+// 0`, i.e. not currently inside ANY `#window`'s content, cascaded through
+// any number of levels — `idea-depth` (recorded before ITS OWN bracket
+// opens) is then a clean count of real enclosing `#idea`s alone.
+//
+// Scoped to the CURRENT page (`origin`, in `_page-links` terms): `query()`
+// sees the whole spine (it compiles as one Typst document), so without the
+// `state("rheo-handle").at(...)` check below this would list every idea
+// anywhere, not this page's table of contents.
+//
+// Untitled ideas (the bare `#idea[body]` form, auto-numbered) are omitted —
+// nothing to label them with, and an outline entry is a heading text, not
+// an id. Each entry links to `el.location()` directly: same-page, so no
+// href/label reconstruction needed at all, unlike the permalink or
+// `#hyperlink`, both of which may cross pages.
+#let _ideas-outline-data() = {
+  let here = state("rheo-handle").get()
+  if type(here) != str { return () }
+  let idea-depth = 0
+  let window-depth = 0
+  let out = ()
+  for el in query(selector(metadata).or(selector(figure.where(kind: IK)))) {
+    let f = el.func()
+    if f == metadata {
+      let v = el.value
+      if type(v) != dictionary { continue }
+      let edge = v.at("rookery-edge", default: none)
+      let container = v.at("rookery-container", default: none)
+      if edge == "open" and container == IK { idea-depth += 1 }
+      if edge == "close" and container == IK { idea-depth -= 1 }
+      if edge == "open" and container == WK { window-depth += 1 }
+      if edge == "close" and container == WK { window-depth -= 1 }
+      continue
+    }
+    // Inside a `#window`, at any cascade depth: an echo of a note stored
+    // (and possibly authored) elsewhere, not this page's own structure.
+    if window-depth > 0 { continue }
+    if state("rheo-handle").at(el.location()) != here { continue }
+    let m = el.body.children.find(c => c.func() == metadata)
+    if m == none { continue }
+    let v = m.value
+    if v.title == none { continue }
+    out.push((depth: idea-depth, title: v.title, loc: el.location()))
+  }
+  out
+}
+
+// Rebuilds a nested list from the flat `(depth, title, loc)` sequence above
+// — a standard depth-tagged-list-to-tree pass. `wrap` builds ONE level's
+// list container (`html.elem("ul", ..., ..)` or Typst's own `list`); `item`
+// wraps one entry's own content plus its (possibly none) nested sublist.
+// Shared by both targets so the tree-walk itself cannot drift between them.
+#let _nest-outline(entries, wrap, item) = {
+  let build(entries) = {
+    let items = ()
+    let i = 0
+    while i < entries.len() {
+      let base = entries.at(i).depth
+      let children = ()
+      let j = i + 1
+      while j < entries.len() and entries.at(j).depth > base {
+        children.push(entries.at(j))
+        j += 1
+      }
+      let sub = if children.len() == 0 { none } else { build(children) }
+      items.push(item(entries.at(i), sub))
+      i = j
+    }
+    wrap(items)
+  }
+  build(entries)
+}
+
+// `title`/`depth` mirror Typst's own `outline()`
+// (https://typst.app/docs/reference/model/outline/) so the two feel like
+// one family: `title: auto` (the default) prints "Contents" — the same
+// text Typst's own `#outline()` defaults to (MEASURED: `#outline()`'s
+// title heading has `body: "Contents"` — there is no localization anywhere
+// else in this package, so this doesn't attempt any either); `none` omits
+// it entirely; any other content replaces it outright. Rendered as a real
+// `heading`, `outlined: false` + `numbering: none` — the exact two
+// properties MEASURED on Typst's own outline title — so it neither
+// self-lists in a LATER `#outline()` targeting headings nor picks up the
+// document's own heading numbering.
+//
+// `depth` (`none` or a positive integer) caps how many nesting LEVELS show,
+// counting the same way Typst's own heading `level` does: top-level ideas
+// are level 1. `_ideas-outline-data`'s `depth` field is 0-indexed (a
+// top-level idea is `0`), so the comparison adds 1 to match.
+#let ideas-outline(title: auto, depth: none) = context {
+  assert(
+    depth == none or (type(depth) == int and depth >= 1),
+    message: "@rheo/rookery: #ideas-outline's `depth` must be none or a "
+      + "positive integer — got " + repr(depth),
+  )
+  let title-content = if title == auto { [Contents] } else { title }
+  let entries = _ideas-outline-data()
+  if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
+
+  let title-heading = if title-content == none { none } else {
+    heading(depth: 1, outlined: false, numbering: none, title-content)
+  }
+  if entries.len() == 0 { return title-heading }
+
+  let list-content = if _target() == "html" or _target() == "epub" {
+    _nest-outline(
+      entries,
+      items => html.elem("ul", attrs: (class: "idea-outline"), items.join()),
+      (e, sub) => html.elem("li", attrs: (class: "idea-outline-row"),
+        link(e.loc, e.title) + if sub == none { [] } else { sub }),
+    )
+  } else {
+    _nest-outline(
+      entries,
+      items => list(..items),
+      (e, sub) => list.item(link(e.loc, e.title) + if sub == none { [] } else { sub }),
+    )
+  }
+  if title-heading == none { list-content } else { title-heading + list-content }
 }
 
 // Depth-relative href from the CURRENT page to another vertebra's page — the
