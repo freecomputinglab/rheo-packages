@@ -2,9 +2,9 @@
 //
 // A note exists only where the author writes `#idea("name")[...]` — there is
 // no document show rule and no "every heading is a note" behaviour. Notes are
-// flat: there is no kind/type taxonomy, only a free-form set of labels an
+// flat: there is no kind/type taxonomy, only a free-form set of tags an
 // author attaches to a note. `#note`/`#todo` are pure sugar over that same
-// labels array (see below), not a taxonomy of their own. Note ids are flat
+// tags array (see below), not a taxonomy of their own. Note ids are flat
 // Typst labels (`<idea:name>`), not handle-prefixed, so a note can move
 // between files without breaking inbound links.
 //
@@ -40,6 +40,40 @@
   if c != none and "target" in c { c.target } else { std.target() }
 }
 
+// The human title of the vertebra a handle names — "Rookery under Rheo" for
+// `index`. Read from `rheo-context`'s `spine-flat`, which every vertebra and
+// every marrow contribution sees identically (it is spine-wide, not per-file),
+// so this works from package scope with no `ctx:` parameter and no `query()`.
+//
+// Falls back to the handle itself: a handle is always something a reader can
+// place, and this must never be the reason a build fails.
+#let _handle-title(handle) = {
+  let c = _rheo-ctx()
+  if c == none { return handle }
+  for v in c.at("spine-flat", default: ()) {
+    if v.at("handle", default: none) == handle {
+      return v.at("title", default: handle)
+    }
+  }
+  handle
+}
+
+// Is this handle one of the project's OWN pages?
+//
+// `spine-flat` lists the vertebrae the author wrote. It does NOT list the
+// per-note pages `.marrow.typ` mints, whose handles are `notes:<slug>` — and
+// that distinction is load-bearing for backlinks. A minted page carries links
+// of its own (its permalink, its context link, the views in its own backlinks
+// list), all of which would otherwise be harvested as "this page links to that
+// note" and every note would list every other note's page. MEASURED: without
+// this filter, `notes/rookery.html` claimed six page backlinks, four of them
+// other minted pages.
+#let _is-vertebra(handle) = {
+  let c = _rheo-ctx()
+  if c == none { return false }
+  c.at("spine-flat", default: ()).any(v => v.at("handle", default: none) == handle)
+}
+
 // ---- Label prefix — configurable, document-wide ---------------------------
 //
 // A note's id is `<prefix>:<name>`, `idea:` by default; `#show: rookery` (at
@@ -62,7 +96,7 @@
 //
 // EVERY caller of `_pfx` is therefore inside a `context` block already —
 // `#idea`'s deferred body, `#view`, `_note-href` via `#idea`/`#view`/
-// `ref-rule`, and `.marrow.typ`'s own `#context`.
+// `_ref-rule`, and `.marrow.typ`'s own `#context`.
 #let _prefix = state("rheo-idea-prefix", "idea")
 #let _pfx() = _prefix.final() + ":"
 
@@ -98,11 +132,17 @@
 // (which actually goes somewhere). Forester makes the same split with one blue
 // at two alphas; rookery defaults to two hues, a light blue and a purple, so
 // the difference survives being read quickly.
+//
+// `border-color` (the `.idea-box`/`.idea-view` left rule) has no default of
+// its own — `rookery.css` falls it back to `link-color` first, so a note's
+// rule and its links read as one colour until a theme sets `border-color`
+// apart from `link-color` deliberately.
 #let _THEME-KEYS = (
   "link-color": "--idea-link-color",
   "fold-color": "--idea-fold-color",
   "id-color": "--idea-id-color",
   "date-color": "--idea-date-color",
+  "border-color": "--idea-border-color",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -219,13 +259,96 @@
 // resulting sequence number as its id; a named note is pinned and does not
 // perturb that counter. Either way the note gets: an `idea:<id>` Typst label on
 // a hidden referenceable anchor, an HTML heading (only when `title` is given)
-// carrying that id and an `idea`/`idea-label-<tag>` class list, and a registry
-// entry other beads (#view, ref-rule) read from.
+// carrying that id and an `idea`/`idea-tag-<tag>` class list, and a registry
+// entry other beads (#view, link-to-page/link-to-anchor) read from.
 #let _registry = state("rheo-ideas", (:))
 #let IK = "rheo-idea" // marker for an idea
 #let VK = "rheo-idea-view" // marker for a view; defined here (not next to
 // `#view` below) because `_flatten` needs both marker kinds and must be
 // defined before `#idea`, which calls it at registration time.
+
+// ---- link-to-page / link-to-anchor — @idea:x renders the note -------------
+//
+// A note's label lives on a hidden anchor FIGURE, so a bare `@idea:etal`
+// resolves to that figure and renders as a bare figure NUMBER by default —
+// useless to a reader. This package installs no document template by design
+// (the author just imports and calls `#idea`/`#view`), so there is nowhere to
+// put a `show ref:` rule implicitly; it must be an exported rule the author
+// opts into:
+//
+//   #import "@rheo/rookery:0.1.0": idea, view, link-to-page
+//   #show ref: link-to-page
+//
+// References to anything else (an ordinary figure, a heading, ...) pass
+// through untouched via the `else { it }` branch below — checking
+// `e.kind == "rheo-idea-anchor"` on the RESOLVED element, not the label's
+// text, is what makes this safe to install as a document-wide `show ref:`
+// with no narrower selector: it already only touches rookery refs, whatever
+// `prefix:` the document is using. A selector-level scope (`ref.where(...)`)
+// can't do this instead — `.where()` matches a static field value (one exact
+// label), not "resolves to a rookery anchor", which is only knowable by
+// resolving the reference. Without the rule, `@idea:x` still compiles — it
+// just shows a number; `#link(label("idea:x"))[text]` remains the
+// anchor-only alternative, unaffected by either of these either way (they
+// only touch `ref`, never `link`).
+//
+// CUSTOM TEXT: `@idea:x[custom text]` (or `#ref(<idea:x>, supplement: [...])`)
+// sets `it.supplement`, which both rules prefer over the note's own title
+// whenever it is not `auto` — `auto` is what an unadorned `@idea:x` leaves it
+// at, which is the signal to fall back to the title/raw-id default.
+//
+// TWO RULES, not one function with a parameter, so each reads at its `show
+// ref:` call site with nothing to look up elsewhere:
+//
+//   #show ref: link-to-page      // the default: the note's own minted page
+//   #show ref: link-to-anchor    // in-context anchor, like #link(label(...))
+//
+// `link-to-page` falls back to the in-context anchor when no page is minted
+// (plain compile, or the combined-PDF target) — same fallback `_note-href`
+// always had. `#show: rookery` installs `link-to-page` when `refs: true` (its
+// default; see `ref-target:` there); an author wanting `link-to-anchor`
+// everywhere combines `refs: false` with their own
+// `show ref: link-to-anchor`.
+//
+// MEASURED CORRECTION to this bead's own sketch: it assumed the registry
+// stored a dict with a `.title` field directly. It stores `(title:, body:)`
+// now (added by this bead, since nothing previously persisted the title) —
+// see `#idea`'s registration step. A note with no title (the common
+// frictionless case) falls back to the bare id text, not a blank link.
+#let _ref-rule(it, target: "page") = context {
+  let e = it.element
+  if e != none and e.func() == figure and e.kind == "rheo-idea-anchor" {
+    let id = str(it.target)
+    let reg = _registry.final()
+    let shown = if it.supplement != auto {
+      it.supplement
+    } else if id in reg and reg.at(id).title != none {
+      reg.at(id).title
+    } else {
+      raw(id)
+    }
+    // Same convention as #view/the permalink: go to the note's own page when
+    // one is minted, falling back to the label anchor when not — unless
+    // `target: "anchor"` forces the fallback branch unconditionally.
+    let href = if target == "anchor" { none } else { _note-href(id) }
+    let linked = if href == none { link(it.target, shown) } else { link(href, shown) }
+    // Wrapped so `@idea:other` is reachable from CSS and carries the theme.
+    // A SPAN around Typst's own `link()`, not a hand-rolled `<a>`: the
+    // label-fallback branch above has no href to hand-roll WITH, since only
+    // Typst can resolve a label to the `#loc-N` it ends up at. And the wrapper
+    // has to carry the theme itself — a reference sits in ordinary prose, with
+    // no `.idea-box`/`.idea-view` ancestor to inherit from.
+    if _target() == "html" or _target() == "epub" {
+      html.elem("span", attrs: _themed((class: "idea-ref")), linked)
+    } else {
+      linked
+    }
+  } else {
+    it
+  }
+}
+#let link-to-page(it) = _ref-rule(it, target: "page")
+#let link-to-anchor(it) = _ref-rule(it, target: "anchor")
 
 // Flatten a note's body ONCE, at registration, so `#view` is pure
 // presentation (any number of views cost nothing) and cycles are safe (a
@@ -252,6 +375,26 @@
 // fails with `space does not have field "value"`. Use
 // `.children.find(c => c.func() == metadata)`.
 #let _flatten(body) = {
+  // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
+  // as a bare figure number ("2") on the note's minted page, while rendering
+  // correctly in situ. `show ref: link-to-page` is installed by `#show:
+  // rookery` on the VERTEBRA, and a minted page is a separate `#document`
+  // that `.marrow.typ` contributes at the bundle root — outside every
+  // vertebra's show-rule scope. So the stored body has to carry the rule
+  // with it, the same way it carries the IK/VK rules below. Always
+  // `link-to-page` here regardless of what the vertebra's own `show ref:`
+  // was configured to — a nested reference inside a transcluded/minted body
+  // has no access to that outer choice, so it gets the same default an
+  // unconfigured document would.
+  //
+  // Attaching it here also covers a `#view` rendered anywhere else the
+  // document-level rule happens not to reach, and cannot double-apply: the
+  // inner rule turns the `ref` into a `link`, so an outer `show ref:` no
+  // longer matches it.
+  //
+  // (`link-to-page` is defined ABOVE this function for exactly this reason —
+  // a `#let` closure captures the scope visible at definition time.)
+  show ref: link-to-page
   show figure.where(kind: IK): it => {
     let m = it.body.children.find(c => c.func() == metadata)
     m.value.body
@@ -274,12 +417,87 @@
   body
 }
 
+// ---- Outbound links, for backlinks ----------------------------------------
+//
+// Every note this note points at, walked out of its body ONCE at registration.
+// Backlinks are the inverse of this map, computed by `.marrow.typ`.
+//
+// Registration is the only place this can happen. A link is an element buried
+// in a content tree, and `query()` returns a flat list of elements with no way
+// to ask which note a given one sits inside — which is precisely the question
+// a backlink asks. Here, the containing note is not in question: it is the one
+// being registered.
+//
+// Three things count as pointing at a note, all of which a reader would call a
+// link to it:
+//
+//   #link(label("idea:etal"))[...]   an explicit jump
+//   @idea:etal                        a reference
+//   #view("etal")                     a transclusion
+//
+// A link to something that is not a note (a URL, an author's own label, a
+// heading) is ignored, by testing the target against the current prefix.
+//
+// Does NOT descend into a nested `#idea`: that note registers itself and owns
+// its own links, so recursing would attribute them to the outer note as well.
+// It DOES descend through everything else by walking `fields()` generically,
+// rather than special-casing `body`/`children`/`child` — a `styled` node (any
+// `show` rule scope) wraps content in `.child`, a sequence in `.children`, and
+// most elements in `.body`, and missing one silently loses every link beneath
+// it.
+#let _outbound(node) = {
+  if type(node) == array { return node.map(_outbound).flatten() }
+  if type(node) != content { return () }
+
+  let f = node.func()
+  let kind = node.at("kind", default: none)
+
+  // A nested note: its links are its own.
+  if f == figure and kind == IK { return () }
+
+  // A nested `#view`. NOT the `VK` figure — at registration `#view` is still
+  // an unevaluated `context` block and that figure does not exist yet, which
+  // is exactly why `#view` announces its targets in a `metadata` element up
+  // front (see `view`). Bare names, so the prefix goes back on here.
+  if f == metadata and type(node.value) == dictionary and "rookery-view" in node.value {
+    return node.value.rookery-view.map(n => _pfx() + n)
+  }
+
+  let out = ()
+  if f == link and type(node.dest) == label { out.push(str(node.dest)) }
+  if f == ref { out.push(str(node.target)) }
+  for (_, v) in node.fields() { out += _outbound(v) }
+  out
+}
+
+// ---- Depth markers, for page-level links ----------------------------------
+//
+// A link that sits DIRECTLY in a page — in its prose, or a page-level `#view`
+// — is a backlink from that page. A link inside a note is a backlink from the
+// note, and must not also be counted for the page or for any note enclosing
+// it. So the question is only ever "how deep am I", and these two invisible
+// markers answer it: `#idea` brackets its rendered body with them, `#view`
+// brackets each note it transcludes, and `_page-links` walks the document in
+// order keeping a depth count. Depth 0 is the page itself.
+//
+// Bracketing `#view` is what makes a TRANSCLUDED body behave: a note shown on
+// five pages renders its links on all five, and without the brackets each of
+// those pages would look like it linked directly to whatever the note links
+// to. Inside the brackets they are at depth 1 and belong to the note.
+//
+// REFUTED ALTERNATIVE, do not retry: `show metadata: none` inside `_flatten`,
+// to strip a stored body's markers instead of nesting them. MEASURED — a
+// metadata element hidden by a show rule is STILL returned by `query`, so it
+// strips nothing that matters and the duplicates survive.
+#let _edge(kind) = metadata((rookery-edge: kind))
+#let _bracket(body) = _edge("open") + body + _edge("close")
+
 // Normalise a name (string or Typst label) to its bare string form, with no
 // prefix. Shared by `#idea` (pinning an explicit id) and `#view`
 // (looking one up).
 #let _norm(name) = if type(name) == label { str(name) } else { name }
 
-#let idea(level: 1, title: none, labels: (), minted: none, updated: none, ..args) = {
+#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
   let pos = args.pos()
   let (name, body) = if pos.len() == 1 {
     (none, pos.at(0))
@@ -319,17 +537,51 @@
       let resolved-minted = if minted != none { minted } else { doc-date }
       let resolved-updated = if updated != none { updated } else { resolved-minted }
 
-      // Store the FLATTENED body plus the title and resolved dates, so a
-      // #view is pure presentation and any number of views cost nothing, and
-      // ref-rule can render a note's title without re-deriving it. A
-      // duplicate EXPLICIT id only errors if something observes the registry
-      // (e.g. #view/ref-rule) — an identical re-insertion is a
-      // re-emission, not a collision.
+      // `show-date` gates display only — the date is always RESOLVED and
+      // stored on the registry record above, so a #view of this note can
+      // still show it even when the note's own heading (here) does not.
+      let date = if show-date and resolved-minted != none {
+        resolved-minted.display("[year]-[month]-[day]")
+      } else { none }
+
+      // The note's CONTEXT: the handle of the page this `#idea` was written
+      // in, captured HERE because this is the only moment anything knows it.
+      // A minted note page is a separate `#document` and inherits nothing from
+      // its origin, and `#view` can transclude a note into any number of other
+      // pages — so "where was this written" has to be recorded at the call
+      // site or it is gone.
+      //
+      // `state("rheo-handle")` is published per page by rheo's own
+      // `rheo-page-init`. `.get()`, not `.final()`: the point is the handle
+      // HERE, at this position in the spine, not wherever the document ends.
+      // Non-str (a plain `typst compile`, where nothing publishes it) means no
+      // context to record — `.marrow.typ`, the only reader, does not run there
+      // anyway.
+      let handle = state("rheo-handle").get()
+      let origin = if type(handle) == str { handle } else { none }
+
+      // Store the FLATTENED body plus the title, resolved dates and origin, so
+      // a #view is pure presentation and any number of views cost nothing, and
+      // link-to-page/link-to-anchor can render a note's title without
+      // re-deriving it. A duplicate EXPLICIT id only errors if something
+      // observes the registry (e.g. #view or a ref) — an identical
+      // re-insertion is a re-emission, not a collision.
+      // Outbound links, filtered to real note ids and deduped, with a
+      // self-link dropped — a note is not its own backlink. Walked from the
+      // RAW body, before `_flatten`: flattening rewrites `#view` markers into
+      // permalinks, which would turn every transclusion into an
+      // indistinguishable `link` and lose the ones nested inside other notes.
+      let links = _outbound(body)
+        .filter(t => t.starts-with(_pfx()) and t != id)
+        .dedup()
+
       let rec = (
         title: title,
         body: _flatten(body),
         minted: resolved-minted,
         updated: resolved-updated,
+        origin: origin,
+        links: links,
       )
       _registry.update(r => {
         if id in r and r.at(id) != rec {
@@ -350,7 +602,7 @@
       }
 
       let ttl = if title == none { none } else { title }
-      let cls = ("idea",) + labels.map(l => "idea-label-" + l)
+      let cls = ("idea",) + tags.map(l => "idea-tag-" + l)
       if _target() == "html" or _target() == "epub" {
         // The permalink is the ONLY way to discover an auto-generated id —
         // there is no `show heading` rule and no template to hook into, so
@@ -358,45 +610,62 @@
         // the FULL `idea:name` id so it is copy-pasteable straight into
         // `#view("...")`. `#view` renders the identical affordance in its own
         // summary; both go through `_permalink`.
+        // The title goes in a span even though nothing styles it by default,
+        // so that `.idea-label:first-child` can mean "this note has no title".
+        // A bare title is a TEXT node, and CSS `:first-child` counts elements
+        // only — so without the span the permalink is the first element child
+        // either way, and the rule that un-indents a titleless note would
+        // strip the separating margin from a titled one too. `#view`'s summary
+        // has always wrapped its title for the same reason.
+        let date-span = if date == none { [] } else {
+          html.elem("span", attrs: (class: "idea-date"), date)
+        }
         let header = html.elem("h" + str(level + 1), attrs: (id: id, class: cls.join(" ")),
-                  (if ttl == none { [] } else { ttl }) + _permalink(id))
+                  (if ttl == none { [] } else {
+                    html.elem("span", attrs: (class: "idea-title"), ttl)
+                  }) + _permalink(id) + date-span)
         // Header and body wrap together in one card, HTML/EPUB only — no box
-        // for a paged target. The box classes mirror `cls` (labels included)
-        // so a label can style the whole card, not just the heading; the
+        // for a paged target. The box classes mirror `cls` (tags included)
+        // so a tag can style the whole card, not just the heading; the
         // heading's own class list (above) is untouched for existing
         // stylesheets.
-        let box-cls = ("idea-box",) + labels.map(l => "idea-label-" + l)
-        html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + body)
+        let box-cls = ("idea-box",) + tags.map(l => "idea-tag-" + l)
+        // Bracketed so a link written INSIDE this note counts as the note's,
+        // not as its page's — see `_edge`.
+        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + body))
       } else {
-        if ttl != none { heading(depth: level, ttl) }
-        body
+        _bracket({
+          if ttl != none { heading(depth: level, ttl) }
+          if date != none { text(gray, date); linebreak() }
+          body
+        })
       }
     }
   ])
 }
 
-// ---- #note / #todo — sugar over labels, NOT a kind/type axis --------------
+// ---- #note / #todo — sugar over tags, NOT a kind/type axis --------------
 //
-// Pure sugar: each PREPENDS its own tag to whatever `labels` the caller
-// passed, so `#note("x")[...]` is exactly `#idea("x", labels: ("note",))[...]`
+// Pure sugar: each PREPENDS its own tag to whatever `tags` the caller
+// passed, so `#note("x")[...]` is exactly `#idea("x", tags: ("note",))[...]`
 // — no new parameter on `#idea`, no recognised set of tags, no subclassing.
 // Forwards every other argument (level, title, minted, updated) and the
 // positional sink untouched, so `#note[body]`, `#note("name")[body]` and
 // `#note(<name>)[body]` all work exactly as the `#idea` forms do.
 //
-// THE TRAP, do not reintroduce: `#let note = idea.with(labels: ("note",))`.
-// An explicit `labels:` argument at the call site OVERRIDES a value bound by
-// `.with()`, so `#note("x", labels: ("draft",))` would silently drop "note" —
+// THE TRAP, do not reintroduce: `#let note = idea.with(tags: ("note",))`.
+// An explicit `tags:` argument at the call site OVERRIDES a value bound by
+// `.with()`, so `#note("x", tags: ("draft",))` would silently drop "note" —
 // the tag the caller chose `#note` for in the first place.
 //
-// Prepends `tag`, unless the caller already passed it — `#todo("x", labels:
+// Prepends `tag`, unless the caller already passed it — `#todo("x", tags:
 // ("todo",))` must yield `("todo",)`, not `("todo", "todo")`, or the heading
 // gets a duplicated CSS class. Defined before `note`/`todo` below: a `#let`
 // closure captures the scope visible AT DEFINITION time, so a forward
 // reference to a not-yet-defined name fails at call time.
-#let _dedup-label(tag, labels) = if tag in labels { labels } else { (tag,) + labels }
-#let note(labels: (), ..args) = idea(labels: _dedup-label("note", labels), ..args)
-#let todo(labels: (), ..args) = idea(labels: _dedup-label("todo", labels), ..args)
+#let _dedup-tag(tag, tags) = if tag in tags { tags } else { (tag,) + tags }
+#let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
+#let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
 
 // ---- #view — transclusion, array form, working limit ----------------------
 //
@@ -477,12 +746,32 @@
 // An `<a>` INSIDE `<summary>` does not break the toggle — only an `<a>` around
 // the whole summary does, which is what the earlier folded-row design got
 // wrong. The permalink navigates on its own click; the summary keeps the rest.
-#let view(names, limit: none, folded: false) = context {
+//
+// `show-date` is OFF by default, same as `#idea`'s own — a date is always
+// RESOLVED and stored on the note's registry record regardless, so passing
+// `show-date: true` here can surface it even for a note whose own `#idea`
+// call left it hidden; the two are independent per call site, not one shared
+// setting.
+#let view(names, limit: none, folded: false, show-date: false) = {
+  let ids = (if type(names) == array { names } else { (names,) }).map(_norm)
+
+  // A transclusion is a way of pointing at a note, so it has to show up in the
+  // target's backlinks. `_outbound` walks a note's RAW body at registration,
+  // where everything below is still an unevaluated `context` block with
+  // nothing inspectable in it — so the names are announced up front, in an
+  // invisible `metadata` element, where the walk can see them without
+  // rendering anything.
+  //
+  // Bare names, not full ids: this runs outside `context`, so `_pfx()` is not
+  // available here. `_outbound` re-adds the prefix, which it can.
+  metadata((rookery-view: ids))
+
+  context {
   let reg = _registry.final()
-  let ids = if type(names) == array { names } else { (names,) }
 
   for n in ids {
-    let id = _pfx() + _norm(n)
+    // Already normalised above, where the marker was emitted.
+    let id = _pfx() + n
     if id not in reg {
       panic("@rheo/rookery: #view unknown note '" + id + "'")
     }
@@ -494,7 +783,9 @@
     } else {
       rec.body
     }
-    let date = if rec.minted != none { rec.minted.display("[year]-[month]-[day]") } else { none }
+    let date = if show-date and rec.minted != none {
+      rec.minted.display("[year]-[month]-[day]")
+    } else { none }
 
     if _target() == "html" or _target() == "epub" {
       // A titleless note contributes no title span at all, so the permalink
@@ -520,7 +811,9 @@
       let content = html.elem("div", attrs: _themed((class: "idea-view")),
         html.elem("details", attrs: d-attrs,
           summary + html.elem("div", attrs: (class: "idea-view-body"), shown)))
-      figure(kind: VK, supplement: none, [#metadata(id)#content])
+      // Bracketed: the body being shown belongs to the note it came from, so
+      // its links must not read as links from whatever page is showing it.
+      _bracket(figure(kind: VK, supplement: none, [#metadata(id)#content]))
     } else {
       // No disclosure in a paged target — nothing to click, so a fold that
       // could not be opened would just hide the body: `folded` is ignored
@@ -531,61 +824,88 @@
         _permalink-paged(id)
         if date != none { [ ]; text(gray, date) }
       }
-      figure(kind: VK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]])
+      _bracket(figure(kind: VK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]))
     }
+  }
   }
 }
 
-// ---- ref-rule — @idea:x renders the note, not a figure number -------------
+// ---- Page-level links ------------------------------------------------------
 //
-// A note's label lives on a hidden anchor FIGURE, so a bare `@idea:etal`
-// resolves to that figure and renders as a bare figure NUMBER by default —
-// useless to a reader. This package installs no document template by design
-// (the author just imports and calls `#idea`/`#view`), so there is nowhere to
-// put a `show ref:` rule implicitly; it must be an exported rule the author
-// opts into:
+// `handle -> (note ids that page links to DIRECTLY)`, for the page half of the
+// backlinks list. Directly means at depth 0: not inside an `#idea`, and not
+// inside a `#view`'s transcluded body (see `_edge`).
 //
-//   #import "@rheo/rookery:0.1.0": idea, view, ref-rule
-//   #show ref: ref-rule
+// This is the one thing in the package that cannot come from the registry.
+// The registry holds notes, and a link in a page's own prose belongs to no
+// note — so the document itself has to be asked. `query` returns elements in
+// DOCUMENT ORDER (measured), which is what makes a single left-to-right pass
+// with a depth counter sufficient; no tree, no ancestry API needed.
 //
-// References to anything else (an ordinary figure, a heading, ...) pass
-// through untouched via the `else { it }` branch. Without the rule, `@idea:x`
-// still compiles — it just shows a number; `#link(label("idea:x"))[text]`
-// remains the primary terse-form-adjacent linking form.
+// Three shapes count, the same three `_outbound` counts inside a note:
 //
-// MEASURED CORRECTION to this bead's own sketch: it assumed the registry
-// stored a dict with a `.title` field directly. It stores `(title:, body:)`
-// now (added by this bead, since nothing previously persisted the title) —
-// see `#idea`'s registration step. A note with no title (the common
-// frictionless case) falls back to the bare id text, not a blank link.
-#let ref-rule = it => context {
-  let e = it.element
-  if e != none and e.func() == figure and e.kind == "rheo-idea-anchor" {
-    let id = str(it.target)
-    let reg = _registry.final()
-    let shown = if id in reg and reg.at(id).title != none {
-      reg.at(id).title
-    } else {
-      raw(id)
+//   #link(label("idea:etal"))   a `link` element whose dest is a label
+//   @idea:etal                   a `ref` element
+//   #view("etal")                the `rookery-view` marker `#view` emits
+//
+// A `ref` also renders INTO a link, so it can be seen twice; the result is a
+// set per page, so seeing it twice costs nothing.
+#let _page-links() = {
+  let pfx = _pfx()
+  let out = (:)
+  let depth = 0
+
+  for el in query(selector(metadata).or(selector(link)).or(selector(ref))) {
+    let f = el.func()
+
+    if f == metadata {
+      let v = el.value
+      if type(v) != dictionary { continue }
+      let edge = v.at("rookery-edge", default: none)
+      if edge == "open" { depth += 1; continue }
+      if edge == "close" { depth -= 1; continue }
+      if depth != 0 or "rookery-view" not in v { continue }
+      let handle = state("rheo-handle").at(el.location())
+      if type(handle) != str or not _is-vertebra(handle) { continue }
+      for name in v.rookery-view {
+        let seen = out.at(handle, default: ())
+        if pfx + name not in seen { out.insert(handle, seen + (pfx + name,)) }
+      }
+      continue
     }
-    // Same convention as #view/the permalink: go to the note's own page when
-    // one is minted, falling back to the label anchor when not.
-    let href = _note-href(id)
-    let linked = if href == none { link(it.target, shown) } else { link(href, shown) }
-    // Wrapped so `@idea:other` is reachable from CSS and carries the theme.
-    // A SPAN around Typst's own `link()`, not a hand-rolled `<a>`: the
-    // label-fallback branch above has no href to hand-roll WITH, since only
-    // Typst can resolve a label to the `#loc-N` it ends up at. And the wrapper
-    // has to carry the theme itself — a reference sits in ordinary prose, with
-    // no `.idea-box`/`.idea-view` ancestor to inherit from.
-    if _target() == "html" or _target() == "epub" {
-      html.elem("span", attrs: _themed((class: "idea-ref")), linked)
+
+    if depth != 0 { continue }
+    let target = if f == link and type(el.dest) == label {
+      str(el.dest)
+    } else if f == ref {
+      str(el.target)
     } else {
-      linked
+      none
     }
-  } else {
-    it
+    if target == none or not target.starts-with(pfx) { continue }
+    let handle = state("rheo-handle").at(el.location())
+    if type(handle) != str or not _is-vertebra(handle) { continue }
+    let seen = out.at(handle, default: ())
+    if target not in seen { out.insert(handle, seen + (target,)) }
   }
+  out
+}
+
+// Depth-relative href from the CURRENT page to another vertebra's page — the
+// same arithmetic as `_note-href`, against a spine handle rather than a note
+// id. rheo's own `show link:` rule would do this for a `#link(<handle>)`, but
+// that rule lives in the document template and a marrow contribution is
+// spliced in outside it, so the package computes its own.
+#let _page-href(handle) = {
+  let c = _rheo-ctx()
+  if c == none { return none }
+  let ext = c.at("ext", default: none)
+  if ext == none { return none }
+  let here = state("rheo-handle").get()
+  if type(here) != str { return none }
+  let depth = here.split(":").len() - 1
+  let prefix = if depth == 0 { "" } else { range(depth).map(x => "../").join() }
+  prefix + handle.replace(":", "/") + "." + ext
 }
 
 // ---- #show: rookery — the setup, and the knobs ----------------------------
@@ -600,15 +920,17 @@
 //
 //   1. publishes `prefix` (so `#idea("etal")` mints `<note:etal>`);
 //   2. publishes the theme — every colour the package will set for you;
-//   3. installs `show ref: ref-rule`, so `@note:etal` renders the note rather
-//      than a bare figure number.
+//   3. installs `show ref: link-to-page` (or `link-to-anchor`, see
+//      `ref-target:` below), so `@note:etal` renders the note rather than a
+//      bare figure number.
 //
 // It does NOT transform the document. It sets no page/text/heading style,
 // wraps `doc` in no container, and emits nothing of its own — `#show:
 // rookery` on a document with no notes in it is a no-op. The blast radius is
-// exactly one element type: `ref`. Even there `ref-rule` passes every
+// exactly one element type: `ref`. Even there the installed rule passes every
 // reference that is NOT a rookery note straight through untouched (its `else
-// { it }` branch), so an ordinary `@fig:x` in the same document is unaffected.
+// { it }` branch — see `link-to-page`/`link-to-anchor` above), so an ordinary
+// `@fig:x` in the same document is unaffected.
 //
 // WHY NOT NARROWER — i.e. a rule scoped to `#idea` alone. The prefix cannot
 // ride on a show rule over idea markers, because `#view` and `.marrow.typ`
@@ -643,8 +965,17 @@
 // wrapping `doc` there: a `show` in an `if` block's body scopes to that block,
 // so hoisting it out of the branch would scope it to nothing at all.
 //
+// `ref-target: "page"` (the default) picks `link-to-page`; `"anchor"` picks
+// `link-to-anchor` instead, making every `@idea:etal` in the document behave
+// like `#link(label("idea:etal"))` rather than jumping to the note's minted
+// page. Only meaningful alongside `refs: true`; ignored (with no error) when
+// `refs: false`, since there is then no installed rule for it to configure —
+// an author who set `refs: false` already opted into supplying their own
+// `show ref` rule, `link-to-anchor` or not.
+//
 // Defined last in this file because a `#let` closure captures the scope
-// visible AT DEFINITION time — `ref-rule` must already exist.
+// visible AT DEFINITION time — `link-to-page`/`link-to-anchor` must already
+// exist.
 #let rookery(
   prefix: "idea",
   theme: (:),
@@ -652,7 +983,9 @@
   fold-color: none,
   id-color: none,
   date-color: none,
+  border-color: none,
   refs: true,
+  ref-target: "page",
   doc,
 ) = {
   assert(
@@ -665,6 +998,11 @@
     type(theme) == dictionary,
     message: "@rheo/rookery: `theme` must be a dictionary of "
       + _THEME-KEYS.keys().join(", ") + " — got " + repr(theme),
+  )
+  assert(
+    ref-target == "page" or ref-target == "anchor",
+    message: "@rheo/rookery: `ref-target` must be \"page\" or \"anchor\" — got "
+      + repr(ref-target),
   )
 
   // One converter for both sources, so `theme: (link-color: c)` and
@@ -693,6 +1031,7 @@
     fold-color: fold-color,
     id-color: id-color,
     date-color: date-color,
+    border-color: border-color,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }
@@ -700,7 +1039,7 @@
   _prefix.update(prefix)
   _theme.update(resolved)
   if refs {
-    show ref: ref-rule
+    show ref: if ref-target == "anchor" { link-to-anchor } else { link-to-page }
     doc
   } else {
     doc

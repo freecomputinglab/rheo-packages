@@ -25,10 +25,15 @@
    anything emits no properties at all and still gets exactly this, and a
    reader with no custom-property support gets it too:
 
-     --idea-link-color  link-color  hover background on ANY rookery link
-     --idea-fold-color  fold-color  hover background on a foldable view block
-     --idea-id-color    id-color    the [idea:etal] permalink's text
-     --idea-date-color  date-color  the date in a view's summary
+     --idea-link-color   link-color   hover background on ANY rookery link
+     --idea-fold-color   fold-color   hover background on a foldable view block
+     --idea-id-color     id-color     the [idea:etal] permalink's text
+     --idea-date-color   date-color   an idea's/view's date, where shown
+     --idea-border-color border-color the left rule on `.idea-box`/`.idea-view`
+
+   `--idea-border-color` defaults to `--idea-link-color` itself (not to a
+   separate literal), so the rule and the link hover read as the same colour
+   until a theme sets `border-color` on its own.
 
    The first two are the look. Both are hover BACKGROUNDS, which is what makes
    them comparable: the lighter blue belongs to the fold (a block that only
@@ -59,6 +64,14 @@
   border-radius: 3px;
 }
 
+/* The 0.5em separates the permalink from a TITLE. A titleless note has none —
+   the permalink is the first thing in the heading or summary — and the margin
+   then reads as a stray indent, leaving titleless notes visibly further right
+   than titled ones in the same list. */
+.idea-label:first-child {
+  margin-left: 0;
+}
+
 /* THE LINK HOVER — every link rookery is responsible for, which is what makes
    the permalink and an `@idea:other` reference read as the same kind of thing:
 
@@ -73,7 +86,8 @@
 .idea-label:hover,
 .idea-ref a:hover,
 .idea-box a:hover,
-.idea-view a:hover {
+.idea-view a:hover,
+.idea-footer a:hover {
   background-color: var(--idea-link-color, rgba(128, 0, 255, 0.12));
 }
 
@@ -82,17 +96,143 @@
    bracketed id sitting apart from the words around it. */
 .idea-ref a,
 .idea-box a,
-.idea-view a {
+.idea-view a,
+.idea-footer a {
   border-radius: 3px;
+}
+
+/* ---- The footer of a minted note page ------------------------------------
+   Two sections of equal standing, either of which may be absent:
+
+     .idea-context    the page the note was written in, linked to the note's
+                      own anchor there — the way back to the argument it was
+                      written inside, which a minted page strips away;
+     .idea-backlinks  the notes that point AT this one, as folded views.
+
+   They share a markup shape (heading first, then content) and every rule
+   below, because they are two answers to the same question about where a note
+   sits, not one main thing and one afterthought.
+
+   Ruled off and set small: apparatus, not part of the note. The date colour is
+   reused rather than given a knob of its own, since both are the same kind of
+   thing — muted metadata about the note rather than the note. */
+.idea-footer {
+  margin-top: 2em;
+  padding-top: 0.5em;
+  /* Neutral grey rather than black-at-low-alpha, so the rule stays visible on
+     a dark page as well as a light one. */
+  border-top: 1px solid rgba(128, 128, 128, 0.3);
+  font-size: 0.85em;
+  color: var(--idea-date-color, gray);
+}
+
+/* Both sections have the same shape — a heading, then rows flowing down from
+   it — so they take the same spacing and need no rules of their own.
+
+   REJECTED, do not reinstate: (1) the two sections side by side in a grid,
+   which gave a one-line fact half the footer's width and a list of unknown
+   length the other half, and needed a container query to flip a divider
+   between vertical and horizontal; (2) Context as a tinted one-line banner
+   across the top, which made the two sections look like different kinds of
+   thing when they are the same kind — places this note is reachable from. */
+.idea-footer > * + * {
+  margin-top: 1.5em;
+}
+
+/* A row naming a PAGE — the origin under Context, and any page under
+   Backlinks. A page cannot be a `#view`, having no note to fold open, so it is
+   a plain link wearing the row shape a `#view` gives a note: the same left
+   rule and the same indent. Within one list these are peer entries, and a page
+   row hanging flush left beside a ruled, indented note row reads as a
+   different list rather than the rest of the same one.
+
+   No bullets: the list is structure, not enumeration. */
+.idea-page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.idea-page-row {
+  border-left: 1px solid rgba(128, 128, 128, 0.4);
+  padding: 2px 10px 2px 1.25em;
+  margin-bottom: 0.4em;
+}
+
+/* Typst wraps every `#view` in a <figure>, and the browser default for that is
+   `margin: 1em 40px` — which would push every backlink row 40px off the label
+   above it, and off the page rows beside it, which carry no such margin.
+   Scoped to the footer deliberately: on an ordinary page that indent is a
+   reasonable way for a transclusion to read, and undoing it there would be a
+   look this package has no business choosing. The rows bring their own
+   vertical spacing (`.idea-view-details`), so the wrapper needs none. */
+.idea-footer figure {
+  margin: 0;
+}
+
+/* Sized to the footer, not to the note: these are labels on an index, not
+   sections of the document. Light and letterspaced so they read as a label
+   for what follows without competing with the folded rows, which are bold.
+   The bottom margin is the gap between the label and the rows under it. */
+.idea-footer-title {
+  margin: 0 0 0.5em 0;
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---- #idea — a note where it was written ---------------------------------
+   A light left rule, blockquote-fashion, so a new note is visible as a note
+   without a box, a background or a heading style doing the work. Same neutral
+   grey as the footer rule, at 1px: enough to follow down the margin, not
+   enough to compete with the text.
+
+   `#idea` wraps itself in a <figure> (the marker element the package uses to
+   find notes again), and the BROWSER indents that by 40px on both sides by
+   default — nothing here asked for it, and nested notes compound it. Halved
+   to 20px, and moved off the figure onto the note itself so the rule sits at
+   the text margin with the body indented from it, which is what makes it read
+   as a blockquote rather than as an indented box with a stripe.
+
+   `:has()` is what lets a package stylesheet touch ONLY its own figures, with
+   no class to hook (Typst emits a bare <figure>). Where it is unsupported —
+   some EPUB readers — the figure keeps its 40px and the note sits further in
+   than intended, with the rule and everything else intact. A worse indent, not
+   a broken layout. */
+figure:has(> .idea-box),
+figure:has(> .idea-view) {
+  margin-left: 0;
+  margin-right: 0;
+  padding-top: 0;
+}
+
+/* A note and a transclusion of one indent identically, from a rule in the same
+   place: they are the same kind of thing, and a `#view` that sat further in
+   than the note beside it would read as subordinate to it rather than as
+   another note. Nesting still shows, because a view inside a note starts from
+   the note's own content edge and adds its rule there — one more rule per
+   level, rather than one ever-growing indent. */
+.idea-box,
+.idea-view {
+  border-left: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  padding-left: .75em;
 }
 
 /* ---- #view — a transcluded note ------------------------------------------
    The block gets a faint hover tint, which is what signals "this folds"; the
    disclosure marker is hidden (below), so without the tint the summary would
    look inert. Forester does exactly this. */
+/* Radius on the RIGHT corners only: the hover tint wants softening, but the
+   left edge is now a rule that has to line up with the one on `.idea-box`
+   above and below it, and a rounded 1px border bows away from that line.
+   `padding-left` comes from the shared rule above — only the other three
+   sides are set here. */
 .idea-view {
-  border-radius: 5px;
-  padding: 2px 10px 2px 5px;
+  border-radius: 0 5px 5px 0;
+  padding-top: 2px;
+  padding-right: 10px;
+  padding-bottom: 2px;
 }
 
 .idea-view:hover {
@@ -118,9 +258,12 @@
   font-weight: bold;
 }
 
-/* The note's minted date, after the permalink. Same grey/light treatment as
-   `.idea-label`: metadata, not content. */
-.idea-view-date {
+/* The note's minted date, after the permalink — in a `#view`'s summary
+   (`.idea-view-date`) and in `#idea`'s own heading (`.idea-date`), both
+   opt-in via `show-date: true`. Same grey/light treatment as `.idea-label`:
+   metadata, not content. */
+.idea-view-date,
+.idea-date {
   margin-left: 0.5em;
   color: var(--idea-date-color, gray);
   font-weight: 200;

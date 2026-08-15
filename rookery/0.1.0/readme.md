@@ -16,10 +16,10 @@ next to the note, since with no name there's no other way to know it.
 #idea("etal")[A pinned note — its id is always `idea:etal`.]
 ```
 
-Full signature: `idea(level: 1, title: none, labels: (), minted: none,
-updated: none, ..args)`, where the sink accepts the body alone, `(name,
-body)`, or `(<name>, body)` — the name may be a string or a Typst label,
-identically.
+Full signature: `idea(level: 1, title: none, tags: (), minted: none,
+updated: none, show-date: false, ..args)`, where the sink accepts the body
+alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
+Typst label, identically.
 
 ## Setup, and the `idea:` prefix
 
@@ -39,12 +39,19 @@ does all of it in a line, and is the only place anything is configurable:
 ```
 
 `#show: rookery` does exactly three things: it publishes the id prefix and the
-theme, and it installs `ref-rule` so `@note:etal` renders the note rather than
-a bare figure number (see "Referencing a note"). It sets no other styles,
-wraps `doc` in nothing, and emits nothing of its own — on a document with no
-notes in it, it is a no-op, and even the `ref` rule passes every non-rookery
-reference straight through. Pass `refs: false` to keep the rest and skip that
-rule.
+theme, and it installs `link-to-page` (see below and "Referencing a note") so
+`@note:etal` renders the note rather than a bare figure number. It sets no
+other styles, wraps `doc` in nothing, and emits nothing of its own — on a
+document with no notes in it, it is a no-op, and even the `ref` rule passes
+every non-rookery reference straight through. Pass `refs: false` to keep the
+rest and skip that rule.
+
+`ref-target: "page"` (the default) picks `link-to-page`, so `@note:etal` links
+to the note's own minted page. Pass `ref-target: "anchor"` to pick
+`link-to-anchor` instead, making every `@note:etal` in the document link to
+the note's in-context anchor, the same destination `#link(label("note:etal"))`
+always uses. Ignored when `refs: false`, since there is then no installed rule
+for it to configure.
 
 `prefix` must be a non-empty string with no `:` in it (the separator is added
 for you).
@@ -58,7 +65,7 @@ Four colours, the whole of what the package will style for you:
 | `link-color` | hover background on **any** rookery link | `rgba(128, 0, 255, .12)` |
 | `fold-color` | hover background on a foldable view block | `rgba(0, 100, 255, .05)` |
 | `id-color` | the `[idea:etal]` permalink's text | `gray` |
-| `date-color` | the date in a view's summary | `gray` |
+| `date-color` | an idea's/view's date, where shown | `gray` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -100,7 +107,7 @@ file that never applies the template still mints ids with whatever prefix the
 document settled on, which is what keeps a `#view` across that boundary
 resolving instead of panicking on an id nothing registered.
 
-CSS class names are NOT affected: the heading is `idea`/`idea-label-<tag>` and
+CSS class names are NOT affected: the heading is `idea`/`idea-tag-<tag>` and
 the permalink is `.idea-label` whatever the prefix reads as.
 
 ## Flat ids, and why
@@ -109,8 +116,8 @@ the permalink is `.idea-label` whatever the prefix reads as.
 filename prefix. That means a note KEEPS ITS ID WHEN IT MOVES BETWEEN FILES:
 nothing about `<idea:etal>` depends on which file it's written in. Names are
 therefore globally unique by design; giving two notes the same id is a build
-error naming the id, as soon as anything (`#view`, `ref-rule`)
-looks the id up.
+error naming the id, as soon as anything (`#view`, `link-to-page`/
+`link-to-anchor`) looks the id up.
 
 ## Two modes
 
@@ -140,7 +147,7 @@ which a plain Typst compile doesn't), and the stylesheet auto-injected via
 this package's `[tool.rheo.html]` — no manual `<link>` needed.
 
 `demo/pure/` in this repo is the pure-Typst side: no template at all, default
-prefix, `ref-rule` wired up by hand. The rheo side lives in the sibling repo
+prefix, `link-to-page` wired up by hand. The rheo side lives in the sibling repo
 **`rookery.ohrg.org`** — this package's documentation site, written with the
 package it documents. It is the worked multi-vertebra example, including a
 nested vertebra to exercise cross-page hrefs, a custom prefix and theme, and
@@ -165,22 +172,50 @@ Three ways, pick by how much ceremony you want:
   either and the two are orthogonal. Under a paged target, where there is
   nothing to click, `folded` is ignored and the body always shows.
 
+  `show-date: true` shows the note's minted date beside the permalink — off
+  by default. See "Dates" below.
+
   See "The click budget" below for what clicking each part does.
 - `@idea:etal` — the terse form, but on its own it renders as a bare figure
   NUMBER (Typst's stock `@` rendering for a labeled figure — a note's id
   lives on a hidden anchor figure). `#show: rookery` installs the rule that
   fixes this, so if you already applied the template there is nothing to do.
-  Without it, apply the exported `ref-rule` by hand:
+  Without it, apply the exported `link-to-page` by hand:
 
   ```typst
-  #import "@rheo/rookery:0.1.0": idea, view, ref-rule
-  #show ref: ref-rule
+  #import "@rheo/rookery:0.1.0": idea, view, link-to-page
+  #show ref: link-to-page
   ```
 
   With the rule applied, `@idea:etal` renders the note's title (linked)
   instead, cross-page too; a note with no title falls back to the bare id
   text rather than a number. References to anything else (an ordinary
-  figure, a heading) pass through untouched.
+  figure, a heading) pass through untouched — checking whether the reference
+  actually resolves to a rookery note anchor is what lets `show ref:` be
+  installed document-wide with no narrower selector, rather than something
+  scoped only to `idea:` refs.
+
+  **Custom text:** `@idea:etal[custom text]` (Typst's own ref-supplement
+  syntax) overrides the title:
+
+  ```typst
+  @idea:etal[click here]
+  ```
+
+  **Where it links:** `link-to-page` (above) goes to the note's own minted
+  page — same as the permalink, falling back to the in-context anchor where
+  no page is minted (plain `typst compile`, or the combined PDF). Use
+  `link-to-anchor` instead to make `@idea:etal` link to the in-context anchor
+  unconditionally, like `#link(label("idea:etal"))` does:
+
+  ```typst
+  #import "@rheo/rookery:0.1.0": idea, view, link-to-anchor
+  #show ref: link-to-anchor
+  ```
+
+  `#show: rookery.with(ref-target: "anchor")` does the same thing document-wide
+  when you're using the template rather than importing `link-to-anchor`
+  directly.
 
 ## The click budget
 
@@ -222,10 +257,27 @@ hang a variable on; this is the mechanism that needs neither.
 Setting those properties in your own stylesheet works identically — they are
 the same four properties, listed at the top of `src/rookery.css`.
 
+A note carries a light left rule, blockquote-fashion, so a new `#idea` is
+visible as one without a box or a background. `#idea` wraps itself in a
+`<figure>` — the marker the package uses to find notes again — and browsers
+indent that 40px by default; the stylesheet halves that and moves it onto the
+note, so the rule sits at the text margin with the body indented from it. That
+needs `figure:has(> .idea-box)`, since Typst emits a bare `<figure>` with no
+class to hook; where `:has()` is unsupported the note simply sits further in.
+
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
-`.idea-label`, `.idea-label-<tag>`, `.idea-view`, `.idea-view-summary`,
-`.idea-view-title`, `.idea-view-date`, `.idea-view-body`,
-`.idea-view-details`.
+`.idea-title`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
+`.idea-view`, `.idea-view-summary`, `.idea-view-title`, `.idea-view-date`,
+`.idea-view-body`, `.idea-view-details`, and on a minted note page
+`.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
+`.idea-page-list`, `.idea-page-row`.
+
+The two footer sections have the same shape — a heading with rows flowing down
+from it — because they are the same kind of thing: places this note is
+reachable from. A page cannot be a `#view`, having no note to fold open, so it
+is a plain link wearing the row shape a `#view` gives a note (`.idea-page-row`
+carries the same left rule and indent as `.idea-view`), which is what lets
+Context, note backlinks and page backlinks read as one list of entries.
 
 **Not yet:** a hover-preview link (`#preview`) was tried and reverted — it
 would have composed `@rheo/tooltip`, but rheo's package asset auto-detection
@@ -234,25 +286,25 @@ those files' packages import in turn. That would have forced every project
 using it to also import `@rheo/tooltip` directly just to get its JS
 auto-injected — a leaky requirement, not worth the feature.
 
-## Labels
+## Tags
 
 A free-form array of tag strings, nothing more — there is no fixed or
-recognised set and no `kind`/`type` parameter. Notes are flat; labels are
+recognised set and no `kind`/`type` parameter. Notes are flat; tags are
 tags, not a taxonomy, and NOT a task tracker.
 
 ```typst
-#idea("meeting-notes", labels: ("draft", "review"))[...]
+#idea("meeting-notes", tags: ("draft", "review"))[...]
 ```
 
-Each label becomes its own `idea-label-<tag>` CSS class on the note's
+Each tag becomes its own `idea-tag-<tag>` CSS class on the note's
 heading, alongside the base `idea` class — style them in your own stylesheet.
 
-`#note` and `#todo` are pure sugar over `labels`, prepending their own tag to
+`#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
 whatever the caller passes:
 
 ```typst
-#note("x")[...]              // == #idea("x", labels: ("note",))[...]
-#todo("y", labels: ("draft",))[...]  // == #idea("y", labels: ("todo", "draft"))[...]
+#note("x")[...]              // == #idea("x", tags: ("note",))[...]
+#todo("y", tags: ("draft",))[...]  // == #idea("y", tags: ("todo", "draft"))[...]
 ```
 
 Still no kind or type parameter, and still no recognised set of tags — these
@@ -274,9 +326,18 @@ Resolution order, most specific first:
 #idea("b", minted: datetime(year: 2025, month: 5, day: 1))[Overridden, this note only.]
 ```
 
-Dates are RECORDED on the note but no longer rendered in the note header —
-the header is just the title and its id. They surface once the folded `#view`
-lands (a right-hand meta column, `#view(..., folded: true)`).
+A date is always RESOLVED and stored on the note's registry record, but
+rendering it is opt-in — `show-date: false` by default, on both `#idea` and
+`#view`, so an unconfigured note's header is just the title and its id:
+
+```typst
+#idea("a", show-date: true)[Shows its date beside the permalink.]
+#view("a", show-date: true) // shows it again here, independently
+```
+
+The two are independent per call site: passing `show-date: true` to a `#view`
+surfaces the date even when the note's own `#idea` left it hidden, and vice
+versa — nothing links the two settings together beyond both defaulting off.
 
 ## Standalone note pages (rheo only)
 
@@ -287,7 +348,66 @@ stripped off whatever it is set to — via a package
 no project file needed. Typst will print `warning: bundle export is
 experimental` — expected, not a sign anything is wrong.
 
-Each minted page shows the note's title and permalink id, then its body.
+Each minted page shows the note's title and permalink id, then its body, then
+a footer with two parts — each omitted, rather than left empty, when it has
+nothing to say.
+
+**Context** is the page the note was *written* in:
+
+```
+Context: Rookery under Rheo
+```
+
+The link goes to the note's own anchor on that page, not to the top of it — a
+minted page shows a note stripped of everything around it, and this is the way
+back to the argument it was written inside. The name shown is rheo's own title
+for that vertebra, so give a page a `#set document(title: ...)` or the footer
+will read as its title-cased filename ("Index").
+
+Where a note was written is captured at `#idea` time, because that is the only
+moment anything knows it: a minted page is a separate document that inherits
+nothing, and a `#view` can transclude a note onto any number of other pages.
+
+**Backlinks** is everything that points at this note — an index of what refers
+here. Three things count as pointing, all of which a reader would call a link:
+
+```typst
+#link(label("idea:etal"))[...]   // an explicit jump
+@idea:etal                        // a reference
+#view("etal")                     // a transclusion
+```
+
+An entry is whatever **directly** contains the link:
+
+- a **note**, if the link is inside one — rendered as a folded `#view`, which
+  you can open in place;
+- otherwise the **page**, if the link is in its prose or in a page-level
+  `#view` — rendered as a plain link, since there is no note to fold open.
+
+Attribution is to the innermost container and stops there. A link inside a
+note belongs to that note and not also to a note enclosing it, nor to the page
+holding either. So a page whose only links to a note are inside its own notes
+does not appear; those links are already listed, as notes. Each entry appears
+once, however many times it links here.
+
+The note's **own page never appears** — Context already names it, and says it
+more precisely, linking to the note's anchor rather than to the top of the
+page. A page that holds a note and also `#view`s it qualifies for both, which
+is exactly the case this rule exists for.
+
+A transcluded body counts for the note it came from, not for whichever page is
+showing it — a note `#view`ed on five pages does not thereby give its own
+outbound links to those five pages.
+
+Note entries come from a map built at `#idea` time: each note's body is walked
+once for outbound links, and the backlink list is that map inverted.
+Registration is the only place that can happen, since a link is an element
+buried in a content tree and there is no way to ask an element which note it
+sits *inside* — which is exactly what a backlink asks. Page entries can't come
+from there (a link in page prose belongs to no note), so they come from a
+`query()` over the document instead, with `#idea` and `#view` bracketing their
+content so a single ordered pass can tell depth 0 — the page itself — from
+anything nested.
 
 Where those pages exist, they are what the permalink points at — in `#idea`'s
 heading, in a `#view`'s summary, and in a nested view's collapsed form alike,
@@ -302,8 +422,9 @@ page is minted — under plain `typst compile`, or for the combined PDF.
 What does NOT redirect is anything addressing the note's Typst label:
 `#link(label("idea:etal"))` and `@idea:etal` still resolve to wherever `#idea`
 was actually called. A minted page does NOT reuse the `idea:<id>` label (two
-elements can't share one label without breaking `#link`/`#view`/`ref-rule`
-resolution), so the label keeps its original home by construction.
+elements can't share one label without breaking `#link`/`#view`/
+`link-to-page`/`link-to-anchor` resolution), so the label keeps its original
+home by construction.
 
 Set `[html] auto_detect_packages = false` in `rheo.toml` to turn this off (it
 disables every package-driven behaviour, not just this one). Skipped
@@ -320,7 +441,8 @@ at all.
 - An author's own `<label>` written inside a note's body is duplicated if
   that note is transcluded elsewhere — a note owns exactly one id, attached
   by `#idea` itself.
-- Backlinks (which notes link to this one) are not implemented yet.
+- Backlinks appear on minted note pages, so under rheo only — see "Standalone
+  note pages".
 
 ## Requirements
 
