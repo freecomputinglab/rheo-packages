@@ -60,6 +60,12 @@
   white-space: nowrap;
   color: var(--idea-id-color, gray);
   font-weight: 200;
+  /* Metadata, not content — explicitly smaller than the title beside it
+     (`.idea-window-title` and a heading's own text both stay at their
+     ambient size), rather than differing only by weight/colour as before.
+     `.idea-window-date`/`.idea-date` match this exact value, so a window's
+     date reads as the same kind of thing as the id it follows. */
+  font-size: 0.85em;
   text-decoration: none;
   border-radius: 3px;
 }
@@ -243,8 +249,15 @@ figure:has(> .idea-window) {
    `::-webkit-details-marker` for older WebKit, and `list-style: none` on the
    summary itself, which is what actually suppresses it in Safari. The summary
    is the click target as a WHOLE, so a triangle at one end would misdescribe
-   where the reader may click. */
+   where the reader may click.
+
+   `flex` (+ `align-items: baseline`) is what lets `.idea-window-date` push
+   itself to the row's far right via `margin-left: auto` below, while
+   keeping the bold title, normal-weight id, and thin date sitting on one
+   text baseline despite their three different weights/sizes. */
 .idea-window-summary {
+  display: flex;
+  align-items: baseline;
   list-style: none;
   cursor: pointer;
 }
@@ -260,14 +273,32 @@ figure:has(> .idea-window) {
 
 /* The note's minted date, after the permalink — in a `#window`'s summary
    (`.idea-window-date`) and in `#idea`'s own heading (`.idea-date`), both
-   opt-in via `show-date: true`. Same grey/light treatment as `.idea-label`:
-   metadata, not content. */
+   opt-in via `show-date: true`. Same grey/light treatment as `.idea-label`,
+   including its exact `font-size` (kept as one literal in each place
+   deliberately — a window's summary and an idea's heading have different
+   ambient sizes to be `em`-relative to, so the two rules can't share a
+   single computed value, only the same authored number). */
 .idea-window-date,
 .idea-date {
-  margin-left: 0.5em;
   color: var(--idea-date-color, gray);
   font-weight: 200;
+  font-size: 0.85em;
   white-space: nowrap;
+}
+
+.idea-date {
+  margin-left: 0.5em;
+}
+
+/* Right-aligned: `auto` soaks up the flex row's remaining space, pushing
+   the date to the far edge while the title/id stay packed left. This is a
+   plain CSS custom property, NOT one of `#show: rookery`'s Typst-side
+   `theme:` colour knobs (those all set `--idea-*-color`) — there is no
+   Typst-side equivalent, only this stylesheet default. Override
+   `--idea-window-date-margin` in your own CSS (e.g. to `0.5em`, matching
+   `.idea-date`'s) to go back to flowing right after the id instead. */
+.idea-window-date {
+  margin-left: var(--idea-window-date-margin, auto);
 }
 
 /* An open window needs more room beneath it than a closed one, or a column of
