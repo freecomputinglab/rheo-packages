@@ -139,10 +139,13 @@ correct cross-PAGE hrefs (rheo puts each vertebra in its own output page,
 which a plain Typst compile doesn't), and the stylesheet auto-injected via
 this package's `[tool.rheo.html]` — no manual `<link>` needed.
 
-See `demo/rheo/` for a working multi-vertebra example, including a nested
-vertebra to exercise cross-page links, and `#show: rookery.with(prefix:
-"note")` in both of its vertebrae. `demo/pure/` is the other half of the
-matrix: no template at all, default prefix, `ref-rule` wired up by hand.
+`demo/pure/` in this repo is the pure-Typst side: no template at all, default
+prefix, `ref-rule` wired up by hand. The rheo side lives in the sibling repo
+**`rookery.ohrg.org`** — this package's documentation site, written with the
+package it documents. It is the worked multi-vertebra example, including a
+nested vertebra to exercise cross-page hrefs, a custom prefix and theme, and
+`#show: rookery` applied once in a site template rather than repeated per
+page.
 
 ## Referencing a note
 
@@ -346,5 +349,7 @@ instead of replacing it.
 
 No package-specific devShell either: this repo's own root `flake.nix`/`.envrc`
 already provide `just` and `typst`, and direnv finds them by walking up from
-anywhere under this directory. See `demo/pure/` and `demo/rheo/` for runnable
-examples of both modes, each with its own `just watch` for live-rebuild.
+anywhere under this directory. `demo/pure/` has its own `just watch` for
+live-rebuild; for the rheo side, `just watch` in the `rookery.ohrg.org` repo
+picks up edits to `src/` on the next rebuild, since the whole of this repo is
+symlinked into the package cache as the `rheo` namespace.

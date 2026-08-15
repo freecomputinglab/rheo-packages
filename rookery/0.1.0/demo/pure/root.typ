@@ -10,8 +10,9 @@
 // `typst compile --help`). So this demo is a single compiled document
 // (#include, not #document-per-page) rather than a true multi-page bundle;
 // #link/#view below resolve as in-page fragments (`#loc-N`), not cross-page
-// hrefs. Cross-page href/transclusion behavior is proven instead by
-// `demo/rheo/`, which produces real multi-page HTML via `rheo compile`.
+// hrefs. Cross-page href/transclusion behaviour is exercised instead by the
+// documentation site in the sibling repo `rookery.ohrg.org`, which produces
+// real multi-page HTML via `rheo compile`.
 //
 // Because there is no rheo here, the CSS is NOT auto-injected — a real HTML
 // deployment would need to include ../../src/rookery.css manually (rheo does
