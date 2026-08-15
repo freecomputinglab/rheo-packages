@@ -10,7 +10,12 @@
 // text is spliced into rheo's synthesized bundle root, so a relative path
 // would resolve against the PROJECT root, not this file's own directory.
 //
-// Deliberately does NOT re-declare the note's `note:<id>` Typst label on the
+// The `<prefix>:` stripped off each id to get a slug comes from `_pfx` (the
+// document-wide prefix state), never a literal — a project running
+// `#show: rookery.with(prefix: "note")` must mint at the same paths lib.typ's
+// `_note-file` links to, and both read the one state.
+//
+// Deliberately does NOT re-declare the note's `<prefix>:<id>` Typst label on the
 // minted page. Two elements sharing one label break every #link/#view/
 // ref-rule resolution to it as soon as either is referenced (labels only
 // error on ambiguous lookup, not on declaration — see the epic's "Verified
@@ -32,11 +37,15 @@
 // guarantee. Passing the handle makes the depth this page's own property. It
 // mirrors the path — `notes/<slug>.html` <-> `notes:<slug>` — with the path
 // itself coming from `_note-file`, so minting and linking cannot drift.
-#import "@rheo/rookery:0.1.0": _registry, _note-file
+// The permalink comes from lib.typ's `_permalink`, with the href forced to
+// this page's own fragment — a minted page must not link to itself. Building
+// the <a> by hand here instead is how it came to miss the configurable hover
+// property that every other permalink carries.
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed
 
 #context {
   for (id, rec) in _registry.final().pairs() {
-    let slug = id.trim("note:", at: start)
+    let slug = id.trim(_pfx(), at: start)
     rheo-document(
       _note-file(id),
       handle: "notes:" + slug,
@@ -45,13 +54,11 @@
     )[
       #html.elem(
         "h1",
-        attrs: (id: id, class: "idea"),
+        // The <h1> is this page's theme container — there is no `.idea-box`
+        // here, so it is what the permalink inherits its colours from.
+        attrs: _themed((id: id, class: "idea")),
         (if rec.title == none { [] } else { rec.title })
-          + html.elem(
-            "a",
-            attrs: (class: "idea-label", href: "#" + id, title: "Link to this note"),
-            "[" + id + "]",
-          ),
+          + _permalink(id, href: "#" + id),
       )
       #rec.body
     ]

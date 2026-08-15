@@ -1,34 +1,110 @@
-/* rookery — minimal structural CSS. No colors, borders, or hover states —
-   the package provides HTML structure (classes to hook into), not a look.
-   Style `.idea`, `.idea-box`, `.idea-label`, `.idea-label-<tag>`, `.idea-view`,
-   `.idea-folded-*` in your own stylesheet. Nothing here is load-bearing for
-   functionality: linking, transclusion, the <details>/<summary> fold toggle,
-   and tooltips (a separate package) all work via native HTML/Typst semantics
-   with zero CSS. What's left below is layout only, not decoration. */
+/* rookery — default styling, modelled on Forester (www.forester-notes.org).
+   Deliberately thin: enough that the fold/permalink interaction reads
+   correctly out of the box, and nothing that presumes a page design. No
+   fonts, no page colors, no typographic scale — only the affordances.
 
-/* [note:id] permalink beside a note's heading. `white-space: nowrap` keeps
-   "[note:etal]" from breaking mid-id. */
+   Nothing here is load-bearing for FUNCTION: linking, transclusion and the
+   <details>/<summary> fold all work via native HTML semantics with zero CSS.
+   What the CSS carries is the CLICK BUDGET, and that is worth stating once,
+   because it is the whole interaction model:
+
+     - the summary of a `#view` folds and unfolds. That is all it does.
+     - `.idea-label` — the `[idea:etal]` permalink, beside the title or alone
+       at the top of a titleless view — is the ONLY link this package emits,
+       and it goes to the note's standalone page.
+
+   Override any of it; the classes are the contract.
+
+   THE THEME. Every colour below is `var(--x, <default>)`. The default is the
+   literal in the var() call, right here; the override arrives as an inline
+   custom property on `.idea-box` / `.idea-view` / a minted page's `<h1>`, set
+   by `#show: rookery.with(theme: (...))` (or its granular equivalents), and
+   inherits down. So a document that never configures anything emits no
+   properties at all and still gets exactly this, and a reader with no
+   custom-property support gets it too:
+
+     --idea-label-color      id-color     the [idea:etal] permalink's text
+     --idea-label-hover      id-hover     ...and its hover background
+     --idea-view-date-color  date-color   the date in a view's summary
+     --idea-view-hover       fold-hover   a view block's hover tint
+
+   Setting them yourself in your own stylesheet works just as well, and wins
+   nothing over the Typst-side route — they are the same properties. */
+
+/* The permalink, in both `#idea`'s heading and `#view`'s summary — the same
+   affordance meaning the same thing in both places. Grey and light so it
+   reads as an id rather than as body text, and unstyled by any inherited link
+   decoration so it does not shout inside a heading. `white-space: nowrap`
+   keeps "[idea:etal]" from breaking mid-id. (`idea:` is the default prefix;
+   `#show: rookery.with(prefix: ...)` changes the TEXT, never the class.)
+
+   The padding is on the element, NOT on :hover — a padding that appeared only
+   on hover would shift the surrounding line every time the pointer crossed
+   it. Only the background changes. */
 .idea-label {
   margin-left: 0.5em;
+  padding: 0 2px;
   white-space: nowrap;
+  color: var(--idea-label-color, gray);
+  font-weight: 200;
+  text-decoration: none;
+  border-radius: 3px;
 }
 
-/* `#view(..., folded: true)`: `.idea-folded-link` is the <summary> that
-   toggles the native <details> disclosure; `.idea-folded-body` is what it
-   reveals. The list reset turns the index into plain rows, not bullets. */
-.idea-folded-list {
+/* The hover highlight. Forester's `a.slug:hover` uses this exact blue at 0.1
+   alpha — the same accent as the block tint below, twice as strong, because
+   the id is a link and the block is not. */
+.idea-label:hover {
+  background-color: var(--idea-label-hover, rgba(0, 100, 255, 0.1));
+}
+
+/* ---- #view — a transcluded note ------------------------------------------
+   The block gets a faint hover tint, which is what signals "this folds"; the
+   disclosure marker is hidden (below), so without the tint the summary would
+   look inert. Forester does exactly this. */
+.idea-view {
+  border-radius: 5px;
+  padding: 2px 10px 2px 5px;
+}
+
+.idea-view:hover {
+  background-color: var(--idea-view-hover, rgba(0, 100, 255, 0.04));
+}
+
+/* Marker hidden in both spellings — `::marker` for standards-mode browsers,
+   `::-webkit-details-marker` for older WebKit, and `list-style: none` on the
+   summary itself, which is what actually suppresses it in Safari. The summary
+   is the click target as a WHOLE, so a triangle at one end would misdescribe
+   where the reader may click. */
+.idea-view-summary {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  cursor: pointer;
 }
 
-/* The title/date split is the row's actual structure, not a color choice —
-   without it the two would run together with no separation. */
-.idea-folded-link {
-  display: flex;
-  justify-content: space-between;
-  gap: 1em;
+.idea-view-summary::marker,
+.idea-view-summary::-webkit-details-marker {
+  display: none;
 }
-.idea-folded-date {
+
+.idea-view-title {
+  font-weight: bold;
+}
+
+/* The note's minted date, after the permalink. Same grey/light treatment as
+   `.idea-label`: metadata, not content. */
+.idea-view-date {
+  margin-left: 0.5em;
+  color: var(--idea-view-date-color, gray);
+  font-weight: 200;
   white-space: nowrap;
+}
+
+/* An open view needs more room beneath it than a closed one, or a column of
+   folded views reads as one undifferentiated block. */
+.idea-view-details {
+  margin-bottom: 0.4em;
+}
+
+.idea-view-details[open] {
+  margin-bottom: 1em;
 }
