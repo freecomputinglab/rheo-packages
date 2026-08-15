@@ -1,4 +1,4 @@
-#import "../../src/lib.typ": idea, view, link-to-page
+#import "../../src/lib.typ": idea, window, link-to-page
 #show ref: link-to-page
 
 = Page B
@@ -13,6 +13,6 @@ A plain link back to page A: #link(label("idea:pinned"))[jump to the pinned note
 // elsewhere passes through unaffected.
 Terse form, now that link-to-page is applied: @idea:pinned
 
-A transcluded view of the same note:
+A transcluded window of the same note:
 
-#view("pinned")
+#window("pinned")

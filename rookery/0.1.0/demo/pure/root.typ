@@ -9,7 +9,7 @@
 // `--format bundle` exist on this build's `compile` subcommand — verified via
 // `typst compile --help`). So this demo is a single compiled document
 // (#include, not #document-per-page) rather than a true multi-page bundle;
-// #link/#view below resolve as in-page fragments (`#loc-N`), not cross-page
+// #link/#window below resolve as in-page fragments (`#loc-N`), not cross-page
 // hrefs. Cross-page href/transclusion behaviour is exercised instead by the
 // documentation site in the sibling repo `rookery.ohrg.org`, which produces
 // real multi-page HTML via `rheo compile`.

@@ -27,7 +27,7 @@ Nothing above needed any setup, and that stays true. One optional template
 does all of it in a line, and is the only place anything is configurable:
 
 ```typst
-#import "@rheo/rookery:0.1.0": rookery, idea, view
+#import "@rheo/rookery:0.1.0": rookery, idea, window
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
   theme: (
@@ -63,9 +63,9 @@ Four colours, the whole of what the package will style for you:
 | key | what it colours | default |
 | --- | --- | --- |
 | `link-color` | hover background on **any** rookery link | `rgba(128, 0, 255, .12)` |
-| `fold-color` | hover background on a foldable view block | `rgba(0, 100, 255, .05)` |
+| `fold-color` | hover background on a foldable window block | `rgba(0, 100, 255, .05)` |
 | `id-color` | the `[idea:etal]` permalink's text | `gray` |
-| `date-color` | an idea's/view's date, where shown | `gray` |
+| `date-color` | an idea's/window's date, where shown | `gray` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -104,7 +104,7 @@ each. Apply the same arguments in every vertebra.
 template in every vertebra that uses the package — imports are per-file, so a
 vertebra that omits it loses the `ref` rule. It does not lose the prefix: a
 file that never applies the template still mints ids with whatever prefix the
-document settled on, which is what keeps a `#view` across that boundary
+document settled on, which is what keeps a `#window` across that boundary
 resolving instead of panicking on an id nothing registered.
 
 CSS class names are NOT affected: the heading is `idea`/`idea-tag-<tag>` and
@@ -116,12 +116,12 @@ the permalink is `.idea-label` whatever the prefix reads as.
 filename prefix. That means a note KEEPS ITS ID WHEN IT MOVES BETWEEN FILES:
 nothing about `<idea:etal>` depends on which file it's written in. Names are
 therefore globally unique by design; giving two notes the same id is a build
-error naming the id, as soon as anything (`#view`, `link-to-page`/
+error naming the id, as soon as anything (`#window`, `link-to-page`/
 `link-to-anchor`) looks the id up.
 
 ## Two modes
 
-**Pure Typst, no rheo.** One root file `#include`s your note files; `#view`
+**Pure Typst, no rheo.** One root file `#include`s your note files; `#window`
 and cross-references work because everything compiles as one document.
 `--features html` is required for every build, even a plain PDF — see below.
 HTML output needs `src/rookery.css` included manually (rheo does this for you
@@ -140,7 +140,7 @@ typst compile --features html --format html root.typ root.html
 
 **Under rheo.** Nothing extra to write — no `ctx:` parameter, and the `#show:
 rookery` template is optional even here. Just `#import` and call
-`#idea`/`#view` like any other
+`#idea`/`#window` like any other
 package. rheo adds exactly two things on top of the pure-Typst behaviour:
 correct cross-PAGE hrefs (rheo puts each vertebra in its own output page,
 which a plain Typst compile doesn't), and the stylesheet auto-injected via
@@ -160,14 +160,14 @@ Three ways, pick by how much ceremony you want:
 
 - `#link(label("idea:etal"))[jump to it]` — a plain jump, works everywhere,
   always correct (in-page or cross-page).
-- `#view("etal")` — transcludes the note: its title, its `[idea:etal]`
+- `#window("etal")` — transcludes the note: its title, its `[idea:etal]`
   permalink and its body, as one foldable block. Accepts a single name, a
-  label, or an array of names (`#view(("etal", "second"))` renders both in
+  label, or an array of names (`#window(("etal", "second"))` renders both in
   order, each its own block). `limit: n` truncates the body to the first `n`
   content-level blocks (paragraphs, grouped list items, ...) plus "…", in
   every target, not just HTML.
 
-  `folded: true` starts the block CLOSED. That is all it does: a folded view
+  `folded: true` starts the block CLOSED. That is all it does: a folded window
   and an open one are the same block, so `limit:` stays meaningful under
   either and the two are orthogonal. Under a paged target, where there is
   nothing to click, `folded` is ignored and the body always shows.
@@ -183,7 +183,7 @@ Three ways, pick by how much ceremony you want:
   Without it, apply the exported `link-to-page` by hand:
 
   ```typst
-  #import "@rheo/rookery:0.1.0": idea, view, link-to-page
+  #import "@rheo/rookery:0.1.0": idea, window, link-to-page
   #show ref: link-to-page
   ```
 
@@ -209,7 +209,7 @@ Three ways, pick by how much ceremony you want:
   unconditionally, like `#link(label("idea:etal"))` does:
 
   ```typst
-  #import "@rheo/rookery:0.1.0": idea, view, link-to-anchor
+  #import "@rheo/rookery:0.1.0": idea, window, link-to-anchor
   #show ref: link-to-anchor
   ```
 
@@ -222,19 +222,19 @@ Three ways, pick by how much ceremony you want:
 Interaction is modelled on [Forester](https://www.forester-notes.org), and the
 whole of it fits in two rules:
 
-- **The summary of a `#view` folds and unfolds. That is all it does.** Click
+- **The summary of a `#window` folds and unfolds. That is all it does.** Click
   the title, the date, the space between them — the block opens or closes and
   nothing navigates.
 - **The `[idea:etal]` permalink is the only link the package emits**, and it
   goes to the note's own page. It sits beside the title, or alone at the top
-  of the view when the note has no title (the id doing double duty as its
+  of the window when the note has no title (the id doing double duty as its
   name). `#idea` renders the identical affordance beside its own heading, and
-  a `#view` nested inside a transcluded body collapses to it too — so the rule
+  a `#window` nested inside a transcluded body collapses to it too — so the rule
   holds at every depth.
 
 The disclosure is a native `<details>`/`<summary>`; the package ships no JS.
 An `<a>` inside a `<summary>` does not break the toggle — only an `<a>` around
-the whole summary does, which is why the body of a view is never wrapped in
+the whole summary does, which is why the body of a window is never wrapped in
 one. There is no trailing "→" either: it was a second navigational affordance
 competing with the permalink for the same click.
 
@@ -247,7 +247,7 @@ as strong because that one is a link.
 
 Every one of those colours is `var(--x, <default>)`, and "The theme" above is
 how you set the `--x`. It arrives as an inline custom property on the elements
-that root a rookery subtree — `.idea-box`, `.idea-view`, a minted page's `<h1>`
+that root a rookery subtree — `.idea-box`, `.idea-window`, a minted page's `<h1>`
 — and inherits down to the permalink and the date. The default lives inside
 the `var()` call, so an unconfigured document, and any reader that doesn't
 understand custom properties, still gets the look above. The package emits no
@@ -267,16 +267,16 @@ class to hook; where `:has()` is unsupported the note simply sits further in.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-title`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
-`.idea-view`, `.idea-view-summary`, `.idea-view-title`, `.idea-view-date`,
-`.idea-view-body`, `.idea-view-details`, and on a minted note page
+`.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
+`.idea-window-body`, `.idea-window-details`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
 `.idea-page-list`, `.idea-page-row`.
 
 The two footer sections have the same shape — a heading with rows flowing down
 from it — because they are the same kind of thing: places this note is
-reachable from. A page cannot be a `#view`, having no note to fold open, so it
-is a plain link wearing the row shape a `#view` gives a note (`.idea-page-row`
-carries the same left rule and indent as `.idea-view`), which is what lets
+reachable from. A page cannot be a `#window`, having no note to fold open, so it
+is a plain link wearing the row shape a `#window` gives a note (`.idea-page-row`
+carries the same left rule and indent as `.idea-window`), which is what lets
 Context, note backlinks and page backlinks read as one list of entries.
 
 **Not yet:** a hover-preview link (`#preview`) was tried and reverted — it
@@ -328,14 +328,14 @@ Resolution order, most specific first:
 
 A date is always RESOLVED and stored on the note's registry record, but
 rendering it is opt-in — `show-date: false` by default, on both `#idea` and
-`#view`, so an unconfigured note's header is just the title and its id:
+`#window`, so an unconfigured note's header is just the title and its id:
 
 ```typst
 #idea("a", show-date: true)[Shows its date beside the permalink.]
-#view("a", show-date: true) // shows it again here, independently
+#window("a", show-date: true) // shows it again here, independently
 ```
 
-The two are independent per call site: passing `show-date: true` to a `#view`
+The two are independent per call site: passing `show-date: true` to a `#window`
 surfaces the date even when the note's own `#idea` left it hidden, and vice
 versa — nothing links the two settings together beyond both defaulting off.
 
@@ -366,7 +366,7 @@ will read as its title-cased filename ("Index").
 
 Where a note was written is captured at `#idea` time, because that is the only
 moment anything knows it: a minted page is a separate document that inherits
-nothing, and a `#view` can transclude a note onto any number of other pages.
+nothing, and a `#window` can transclude a note onto any number of other pages.
 
 **Backlinks** is everything that points at this note — an index of what refers
 here. Three things count as pointing, all of which a reader would call a link:
@@ -374,15 +374,15 @@ here. Three things count as pointing, all of which a reader would call a link:
 ```typst
 #link(label("idea:etal"))[...]   // an explicit jump
 @idea:etal                        // a reference
-#view("etal")                     // a transclusion
+#window("etal")                    // a transclusion
 ```
 
 An entry is whatever **directly** contains the link:
 
-- a **note**, if the link is inside one — rendered as a folded `#view`, which
+- a **note**, if the link is inside one — rendered as a folded `#window`, which
   you can open in place;
 - otherwise the **page**, if the link is in its prose or in a page-level
-  `#view` — rendered as a plain link, since there is no note to fold open.
+  `#window` — rendered as a plain link, since there is no note to fold open.
 
 Attribution is to the innermost container and stops there. A link inside a
 note belongs to that note and not also to a note enclosing it, nor to the page
@@ -392,11 +392,11 @@ once, however many times it links here.
 
 The note's **own page never appears** — Context already names it, and says it
 more precisely, linking to the note's anchor rather than to the top of the
-page. A page that holds a note and also `#view`s it qualifies for both, which
+page. A page that holds a note and also `#window`s it qualifies for both, which
 is exactly the case this rule exists for.
 
 A transcluded body counts for the note it came from, not for whichever page is
-showing it — a note `#view`ed on five pages does not thereby give its own
+showing it — a note `#window`ed on five pages does not thereby give its own
 outbound links to those five pages.
 
 Note entries come from a map built at `#idea` time: each note's body is walked
@@ -405,12 +405,12 @@ Registration is the only place that can happen, since a link is an element
 buried in a content tree and there is no way to ask an element which note it
 sits *inside* — which is exactly what a backlink asks. Page entries can't come
 from there (a link in page prose belongs to no note), so they come from a
-`query()` over the document instead, with `#idea` and `#view` bracketing their
+`query()` over the document instead, with `#idea` and `#window` bracketing their
 content so a single ordered pass can tell depth 0 — the page itself — from
 anything nested.
 
 Where those pages exist, they are what the permalink points at — in `#idea`'s
-heading, in a `#view`'s summary, and in a nested view's collapsed form alike,
+heading, in a `#window`'s summary, and in a nested window's collapsed form alike,
 since all three are the same affordance. The same-page `#id` fragment a
 permalink would otherwise carry is a no-op for a reader already looking at
 that heading; the minted page is what they actually want.
@@ -422,7 +422,7 @@ page is minted — under plain `typst compile`, or for the combined PDF.
 What does NOT redirect is anything addressing the note's Typst label:
 `#link(label("idea:etal"))` and `@idea:etal` still resolve to wherever `#idea`
 was actually called. A minted page does NOT reuse the `idea:<id>` label (two
-elements can't share one label without breaking `#link`/`#view`/
+elements can't share one label without breaking `#link`/`#window`/
 `link-to-page`/`link-to-anchor` resolution), so the label keeps its original
 home by construction.
 
@@ -433,11 +433,11 @@ at all.
 
 ## Limitations
 
-- **`#view` expands exactly ONE level.** A note transcluded via `#view`
-  renders its content once; if that content itself contains a `#view`, the
+- **`#window` expands exactly ONE level.** A note transcluded via `#window`
+  renders its content once; if that content itself contains a `#window`, the
   inner one collapses to its own `[idea:x]` permalink instead of expanding
-  further. This is deliberate and permanent (it's what makes self-views and
-  view cycles safe to compile), not a tunable depth.
+  further. This is deliberate and permanent (it's what makes self-windows and
+  window cycles safe to compile), not a tunable depth.
 - An author's own `<label>` written inside a note's body is duplicated if
   that note is transcluded elsewhere — a note owns exactly one id, attached
   by `#idea` itself.

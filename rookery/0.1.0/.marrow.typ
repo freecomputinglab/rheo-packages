@@ -16,11 +16,11 @@
 // `_note-file` links to, and both read the one state.
 //
 // Deliberately does NOT re-declare the note's `<prefix>:<id>` Typst label on the
-// minted page. Two elements sharing one label break every #link/#view/
+// minted page. Two elements sharing one label break every #link/#window/
 // link-to-page/link-to-anchor resolution to it as soon as either is
 // referenced (labels only error on ambiguous lookup, not on declaration —
 // see the epic's "Verified facts"). The label stays owned by the anchor
-// #idea creates at the note's original call site; #link/#view/
+// #idea creates at the note's original call site; #link/#window/
 // link-to-page/link-to-anchor keep resolving there. The
 // permalink on the minted page is a plain same-page HTML fragment
 // (`href="#" + id` against this page's own heading `id` attribute), not a
@@ -63,9 +63,9 @@
 // Only notes appear here. A link written in a page's ordinary prose, outside
 // any `#idea`, cannot: nothing records it, because the registry is the only
 // thing this package can see and it holds notes, not pages. That is also why
-// the list can be rendered as `#view`s at all — every entry is by construction
+// the list can be rendered as `#window`s at all — every entry is by construction
 // a thing there is a note to show.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, view
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, window
 
 #context {
   let registry = _registry.final()
@@ -122,7 +122,7 @@
         let back = backlinks.at(id, default: ())
         // The note's own page is named by Context and must not be named again
         // by Backlinks. It very often qualifies for both — an index page that
-        // holds a note and also `#view`s it links to it directly — but the two
+        // holds a note and also `#window`s it links to it directly — but the two
         // sections would then be saying the same thing about the same page,
         // and Context says it more precisely: it links to the note's own
         // anchor there, where a backlink row links to the top of the page.
@@ -142,10 +142,10 @@
         // Each part is omitted, not left blank, when it has nothing to say —
         // no origin (a note registered where no page published a handle), no
         // backlinks (nothing points here yet) — and the whole footer with them.
-        // A row naming a PAGE. A page cannot literally be a `#view` — there is
+        // A row naming a PAGE. A page cannot literally be a `#window` — there is
         // no note behind it to fold open — so it is a plain link, but it wears
-        // the row shape `#view` gives a note (`.idea-page-row` carries the same
-        // left rule and indent as `.idea-view`). Both places a page appears
+        // the row shape `#window` gives a note (`.idea-page-row` carries the same
+        // left rule and indent as `.idea-window`). Both places a page appears
         // use this, so Context and the page half of Backlinks cannot drift.
         let page-list(rows) = html.elem(
           "ul",
@@ -164,10 +164,10 @@
         let backlinks-part = if back.len() == 0 and back-pages.len() == 0 { [] } else {
           // FOLDED, always: a backlink list is an index of what points here,
           // and a reader following one wants to see which notes those are
-          // before reading any of them in full. `view` takes bare names and
+          // before reading any of them in full. `window` takes bare names and
           // re-adds the prefix itself, hence the trim.
           let note-rows = if back.len() == 0 { [] } else {
-            view(back.map(b => b.trim(_pfx(), at: start)), folded: true)
+            window(back.map(b => b.trim(_pfx(), at: start)), folded: true)
           }
           // Pages come after the notes: a note is the more specific answer to
           // "what points here", and a page entry means only that the link was
@@ -179,7 +179,7 @@
           // not the minted page's. MEASURED: computed eagerly it emitted
           // `index.html` from `notes/rookery.html`, one level short. A nested
           // context resolves after `rheo-document` has published this page's
-          // own handle, which is why `#view`'s permalinks were right all along.
+          // own handle, which is why `#window`'s permalinks were right all along.
           let page-rows = if back-pages.len() == 0 { [] } else {
             page-list(back-pages.map(handle => context {
               let href = _page-href(handle)

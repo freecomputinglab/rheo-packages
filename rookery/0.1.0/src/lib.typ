@@ -19,7 +19,7 @@
 // `@rheo/tooltip` from inside THIS package would need every consuming project
 // to import `@rheo/tooltip` directly too, just to get its JS auto-injected.
 // That leaky requirement (REJECTED 2026-08-14) is worse than not having the
-// feature; `#link`/`#view` cover referencing a note without it.
+// feature; `#link`/`#window` cover referencing a note without it.
 
 // ---- Target detection — the only rheo-specific read ------------------------
 //
@@ -63,7 +63,7 @@
 // `spine-flat` lists the vertebrae the author wrote. It does NOT list the
 // per-note pages `.marrow.typ` mints, whose handles are `notes:<slug>` — and
 // that distinction is load-bearing for backlinks. A minted page carries links
-// of its own (its permalink, its context link, the views in its own backlinks
+// of its own (its permalink, its context link, the windows in its own backlinks
 // list), all of which would otherwise be harvested as "this page links to that
 // note" and every note would list every other note's page. MEASURED: without
 // this filter, `notes/rookery.html` claimed six page backlinks, four of them
@@ -81,7 +81,7 @@
 //
 // The prefix is document-wide STATE rather than a parameter on `#idea`,
 // because four separate places have to agree on it — `#idea` (minting the
-// label), `#view` (looking one up), `_note-file` (deriving a minted page's
+// label), `#window` (looking one up), `_note-file` (deriving a minted page's
 // slug from an id) and `.marrow.typ` (minting those pages) — and only
 // `#idea`'s call site could ever pass an argument. One wrong reader and the
 // id it builds simply does not exist.
@@ -89,13 +89,13 @@
 // Read with `.final()`, NOT `.get()`. `#show: rookery` is applied per FILE
 // (imports are per-file), so under rheo a spine sets the same prefix once per
 // vertebra; a vertebra that forgot the template would, under `.get()`, mint
-// `idea:` ids in the middle of an otherwise `note:` document, and a `#view`
+// `idea:` ids in the middle of an otherwise `note:` document, and a `#window`
 // reaching across that boundary would panic on an id that was never
 // registered. `.final()` collapses the whole document to ONE prefix (last
 // writer wins), so every reader agrees no matter which file it sits in.
 //
 // EVERY caller of `_pfx` is therefore inside a `context` block already —
-// `#idea`'s deferred body, `#view`, `_note-href` via `#idea`/`#view`/
+// `#idea`'s deferred body, `#window`, `_note-href` via `#idea`/`#window`/
 // `_ref-rule`, and `.marrow.typ`'s own `#context`.
 #let _prefix = state("rheo-idea-prefix", "idea")
 #let _pfx() = _prefix.final() + ":"
@@ -107,7 +107,7 @@
 // only the overrides, so an unconfigured document emits nothing extra at all.
 //
 // Delivered as INLINE CSS CUSTOM PROPERTIES on the elements that root a
-// rookery subtree — `.idea-box`, `.idea-view`, and a minted page's `<h1>` —
+// rookery subtree — `.idea-box`, `.idea-window`, and a minted page's `<h1>` —
 // whence they inherit to the permalink, the date, and anything nested. That is
 // the only mechanism available: this package emits no `<style>` element and
 // the template wraps `doc` in nothing, so there is no ancestor to hang a
@@ -120,7 +120,7 @@
 // carries no property inherits from whichever ancestor does.
 //
 // Same `.final()` reasoning as `_prefix` above: one theme for the whole
-// document, so a note and a view of it cannot disagree about their colours.
+// document, so a note and a window of it cannot disagree about their colours.
 //
 // Each key maps to exactly one custom property, and `rookery.css` reads each
 // through `var(--x, <default>)`. Adding a knob means adding a line here and a
@@ -133,7 +133,7 @@
 // at two alphas; rookery defaults to two hues, a light blue and a purple, so
 // the difference survives being read quickly.
 //
-// `border-color` (the `.idea-box`/`.idea-view` left rule) has no default of
+// `border-color` (the `.idea-box`/`.idea-window` left rule) has no default of
 // its own — `rookery.css` falls it back to `link-color` first, so a note's
 // rule and its links read as one colour until a theme sets `border-color`
 // apart from `link-color` deliberately.
@@ -203,13 +203,13 @@
 // ---- The permalink — the ONE navigational affordance ----------------------
 //
 // `[idea:etal]`, rendered beside a note's title (or alone, where there is no
-// title) by BOTH `#idea` and `#view`. Shared so the two cannot drift: it is
+// title) by BOTH `#idea` and `#window`. Shared so the two cannot drift: it is
 // the same affordance meaning the same thing in both places — "this is the
 // note's id, and it goes to the note's own page".
 //
 // Nothing else in this package is a link. A transcluded body is NOT wrapped
 // in an anchor and no trailing arrow is appended (both were tried; see
-// `#view`), so the reader's click budget is unambiguous: the permalink
+// `#window`), so the reader's click budget is unambiguous: the permalink
 // navigates, everything else folds.
 //
 // It goes to the note's standalone page when one is minted, and only falls
@@ -225,7 +225,7 @@
 // hand-rolled copy this replaced had already drifted.
 //
 // Carries no theme properties of its own: it is always emitted inside a
-// container that does (`.idea-box`, `.idea-view`, a minted page's `<h1>`), and
+// container that does (`.idea-box`, `.idea-window`, a minted page's `<h1>`), and
 // custom properties inherit.
 #let _permalink(id, href: auto) = {
   let dest = if href != auto { href } else {
@@ -260,11 +260,11 @@
 // perturb that counter. Either way the note gets: an `idea:<id>` Typst label on
 // a hidden referenceable anchor, an HTML heading (only when `title` is given)
 // carrying that id and an `idea`/`idea-tag-<tag>` class list, and a registry
-// entry other beads (#view, link-to-page/link-to-anchor) read from.
+// entry other beads (#window, link-to-page/link-to-anchor) read from.
 #let _registry = state("rheo-ideas", (:))
 #let IK = "rheo-idea" // marker for an idea
-#let VK = "rheo-idea-view" // marker for a view; defined here (not next to
-// `#view` below) because `_flatten` needs both marker kinds and must be
+#let WK = "rheo-idea-window" // marker for a window; defined here (not next to
+// `#window` below) because `_flatten` needs both marker kinds and must be
 // defined before `#idea`, which calls it at registration time.
 
 // ---- link-to-page / link-to-anchor — @idea:x renders the note -------------
@@ -272,11 +272,11 @@
 // A note's label lives on a hidden anchor FIGURE, so a bare `@idea:etal`
 // resolves to that figure and renders as a bare figure NUMBER by default —
 // useless to a reader. This package installs no document template by design
-// (the author just imports and calls `#idea`/`#view`), so there is nowhere to
+// (the author just imports and calls `#idea`/`#window`), so there is nowhere to
 // put a `show ref:` rule implicitly; it must be an exported rule the author
 // opts into:
 //
-//   #import "@rheo/rookery:0.1.0": idea, view, link-to-page
+//   #import "@rheo/rookery:0.1.0": idea, window, link-to-page
 //   #show ref: link-to-page
 //
 // References to anything else (an ordinary figure, a heading, ...) pass
@@ -327,7 +327,7 @@
     } else {
       raw(id)
     }
-    // Same convention as #view/the permalink: go to the note's own page when
+    // Same convention as #window/the permalink: go to the note's own page when
     // one is minted, falling back to the label anchor when not — unless
     // `target: "anchor"` forces the fallback branch unconditionally.
     let href = if target == "anchor" { none } else { _note-href(id) }
@@ -337,7 +337,7 @@
     // label-fallback branch above has no href to hand-roll WITH, since only
     // Typst can resolve a label to the `#loc-N` it ends up at. And the wrapper
     // has to carry the theme itself — a reference sits in ordinary prose, with
-    // no `.idea-box`/`.idea-view` ancestor to inherit from.
+    // no `.idea-box`/`.idea-window` ancestor to inherit from.
     if _target() == "html" or _target() == "epub" {
       html.elem("span", attrs: _themed((class: "idea-ref")), linked)
     } else {
@@ -350,30 +350,55 @@
 #let link-to-page(it) = _ref-rule(it, target: "page")
 #let link-to-anchor(it) = _ref-rule(it, target: "anchor")
 
-// Flatten a note's body ONCE, at registration, so `#view` is pure
-// presentation (any number of views cost nothing) and cycles are safe (a
-// self-view, or A-views-B/B-views-A, collapses one level instead of
+// Flatten a note's body ONCE, at registration, so `#window` is pure
+// presentation (any number of windows cost nothing) and cycles are safe (a
+// self-window, or A-windows-B/B-windows-A, collapses one level instead of
 // re-expanding forever). Without this, a transcluded body re-emits its
-// embedded machinery live: a self-view fails with "maximum show rule depth
+// embedded machinery live: a self-window fails with "maximum show rule depth
 // exceeded", and a nested `#idea` inside a transcluded body re-runs its
 // registration and counter step, inflating later ids.
 //
 // REFUTED APPROACH, do not reintroduce: a `state` depth counter around the
-// expansion. Measured failing on typst 0.14.2 AND 0.15.1 — a self-view still
+// expansion. Measured failing on typst 0.14.2 AND 0.15.1 — a self-window still
 // fails identically, because typst hits its nesting cap before the state
 // timeline converges.
 //
 // The `show` rules below are LOCALLY SCOPED to the content this function
 // returns — Typst content carries its own style/show-rule modifications
-// wherever it is later inserted, so a nested IK/VK marker anywhere inside
+// wherever it is later inserted, so a nested IK/WK marker anywhere inside
 // `body` gets reduced when this returned content is finally rendered, no
-// matter how many `#view`s later re-embed it.
+// matter how many `#window`s later re-embed it.
 //
 // GOTCHA (measured): do NOT use `it.body.children.first()` to find the
 // metadata child — the marker's body begins with a SPACE element whenever the
 // markup block spans multiple lines, so `.first()` returns a `space` and
 // fails with `space does not have field "value"`. Use
 // `.children.find(c => c.func() == metadata)`.
+// ---- Depth markers, for page-level links ----------------------------------
+//
+// A link that sits DIRECTLY in a page — in its prose, or a page-level `#window`
+// — is a backlink from that page. A link inside a note is a backlink from the
+// note, and must not also be counted for the page or for any note enclosing
+// it. So the question is only ever "how deep am I", and these two invisible
+// markers answer it: `#idea` brackets its rendered body with them, `#window`
+// brackets each note it transcludes, and `_page-links` walks the document in
+// order keeping a depth count. Depth 0 is the page itself.
+//
+// Bracketing `#window` is what makes a TRANSCLUDED body behave: a note shown on
+// five pages renders its links on all five, and without the brackets each of
+// those pages would look like it linked directly to whatever the note links
+// to. Inside the brackets they are at depth 1 and belong to the note.
+//
+// REFUTED ALTERNATIVE, do not retry: `show metadata: none` inside `_flatten`,
+// to strip a stored body's markers instead of nesting them. MEASURED — a
+// metadata element hidden by a show rule is STILL returned by `query`, so it
+// strips nothing that matters and the duplicates survive.
+//
+// Defined BEFORE `_flatten`: its IK rule brackets a reconstructed nested
+// header+box itself now, so it needs `_bracket` in scope at definition time.
+#let _edge(kind) = metadata((rookery-edge: kind))
+#let _bracket(body) = _edge("open") + body + _edge("close")
+
 #let _flatten(body) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
   // as a bare figure number ("2") on the note's minted page, while rendering
@@ -381,13 +406,13 @@
   // rookery` on the VERTEBRA, and a minted page is a separate `#document`
   // that `.marrow.typ` contributes at the bundle root — outside every
   // vertebra's show-rule scope. So the stored body has to carry the rule
-  // with it, the same way it carries the IK/VK rules below. Always
+  // with it, the same way it carries the IK/WK rules below. Always
   // `link-to-page` here regardless of what the vertebra's own `show ref:`
   // was configured to — a nested reference inside a transcluded/minted body
   // has no access to that outer choice, so it gets the same default an
   // unconfigured document would.
   //
-  // Attaching it here also covers a `#view` rendered anywhere else the
+  // Attaching it here also covers a `#window` rendered anywhere else the
   // document-level rule happens not to reach, and cannot double-apply: the
   // inner rule turns the `ref` into a `link`, so an outer `show ref:` no
   // longer matches it.
@@ -395,18 +420,43 @@
   // (`link-to-page` is defined ABOVE this function for exactly this reason —
   // a `#let` closure captures the scope visible at definition time.)
   show ref: link-to-page
-  show figure.where(kind: IK): it => {
+  show figure.where(kind: IK): it => context {
     let m = it.body.children.find(c => c.func() == metadata)
-    m.value.body
+    let v = m.value
+    // NAMED only: the id needs `_pfx()`, safe to read here (state, no
+    // stepping). An auto-numbered nested idea's id lives on a counter value
+    // frozen at its ORIGINAL site — recomputing it here would read the
+    // counter's value at THIS (later, transcluded) position instead, so it
+    // is left without an id/permalink rather than shown wrong.
+    let id = if v.named { _pfx() + v.base } else { none }
+    let cls = ("idea",) + v.tags.map(l => "idea-tag-" + l)
+    if _target() == "html" or _target() == "epub" {
+      let attrs = (class: cls.join(" "))
+      if id != none { attrs = attrs + (id: id) }
+      let header = html.elem(
+        "h" + str(v.level + 1),
+        attrs: attrs,
+        (if v.title == none { [] } else {
+          html.elem("span", attrs: (class: "idea-title"), v.title)
+        }) + (if id == none { [] } else { _permalink(id) }),
+      )
+      let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
+      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + v.body))
+    } else {
+      _bracket({
+        if v.title != none { heading(depth: v.level, v.title) }
+        v.body
+      })
+    }
   }
-  // A `#view` nested inside a transcluded body collapses to the SAME
-  // permalink affordance the view's own summary would have carried — so the
+  // A `#window` nested inside a transcluded body collapses to the SAME
+  // permalink affordance the window's own summary would have carried — so the
   // one-link rule holds at every depth: the id navigates, nothing else does.
-  // (It used to collapse to a `[view of idea:x]` link on the label anchor,
+  // (It used to collapse to a `[window of idea:x]` link on the label anchor,
   // which was a second, differently-styled navigational form for the same
   // destination.) Wrapped in `context` for `_permalink`, which reads the page
   // handle and the prefix state.
-  show figure.where(kind: VK): it => context {
+  show figure.where(kind: WK): it => context {
     let m = it.body.children.find(c => c.func() == metadata)
     if _target() == "html" or _target() == "epub" {
       _permalink(m.value)
@@ -433,7 +483,7 @@
 //
 //   #link(label("idea:etal"))[...]   an explicit jump
 //   @idea:etal                        a reference
-//   #view("etal")                     a transclusion
+//   #window("etal")                   a transclusion
 //
 // A link to something that is not a note (a URL, an author's own label, a
 // heading) is ignored, by testing the target against the current prefix.
@@ -455,12 +505,12 @@
   // A nested note: its links are its own.
   if f == figure and kind == IK { return () }
 
-  // A nested `#view`. NOT the `VK` figure — at registration `#view` is still
+  // A nested `#window`. NOT the `WK` figure — at registration `#window` is still
   // an unevaluated `context` block and that figure does not exist yet, which
-  // is exactly why `#view` announces its targets in a `metadata` element up
-  // front (see `view`). Bare names, so the prefix goes back on here.
-  if f == metadata and type(node.value) == dictionary and "rookery-view" in node.value {
-    return node.value.rookery-view.map(n => _pfx() + n)
+  // is exactly why `#window` announces its targets in a `metadata` element up
+  // front (see `window`). Bare names, so the prefix goes back on here.
+  if f == metadata and type(node.value) == dictionary and "rookery-window" in node.value {
+    return node.value.rookery-window.map(n => _pfx() + n)
   }
 
   let out = ()
@@ -470,30 +520,8 @@
   out
 }
 
-// ---- Depth markers, for page-level links ----------------------------------
-//
-// A link that sits DIRECTLY in a page — in its prose, or a page-level `#view`
-// — is a backlink from that page. A link inside a note is a backlink from the
-// note, and must not also be counted for the page or for any note enclosing
-// it. So the question is only ever "how deep am I", and these two invisible
-// markers answer it: `#idea` brackets its rendered body with them, `#view`
-// brackets each note it transcludes, and `_page-links` walks the document in
-// order keeping a depth count. Depth 0 is the page itself.
-//
-// Bracketing `#view` is what makes a TRANSCLUDED body behave: a note shown on
-// five pages renders its links on all five, and without the brackets each of
-// those pages would look like it linked directly to whatever the note links
-// to. Inside the brackets they are at depth 1 and belong to the note.
-//
-// REFUTED ALTERNATIVE, do not retry: `show metadata: none` inside `_flatten`,
-// to strip a stored body's markers instead of nesting them. MEASURED — a
-// metadata element hidden by a show rule is STILL returned by `query`, so it
-// strips nothing that matters and the duplicates survive.
-#let _edge(kind) = metadata((rookery-edge: kind))
-#let _bracket(body) = _edge("open") + body + _edge("close")
-
 // Normalise a name (string or Typst label) to its bare string form, with no
-// prefix. Shared by `#idea` (pinning an explicit id) and `#view`
+// prefix. Shared by `#idea` (pinning an explicit id) and `#window`
 // (looking one up).
 #let _norm(name) = if type(name) == label { str(name) } else { name }
 
@@ -511,7 +539,11 @@
   // metadata so a later _flatten can render a nested idea's content without
   // re-registering or re-counting it.
   figure(kind: IK, supplement: none, [
-    #metadata((body: body))
+    // `title`/`named`/`base`/`level`/`tags` let `_flatten`'s IK rule rebuild
+    // this note's own heading+box when it is shown nested inside a
+    // transcluded/minted parent, without re-running the context block below
+    // (which would re-register and, for an auto id, re-step the counter).
+    #metadata((body: body, title: title, named: named, base: base, level: level, tags: tags))
     // counter.step() RETURNS CONTENT: emit it here, never inside a code block
     // whose value is used, or it silently turns the id into content.
     #if not named { counter("rheo-ideas-seq").step() }
@@ -538,7 +570,7 @@
       let resolved-updated = if updated != none { updated } else { resolved-minted }
 
       // `show-date` gates display only — the date is always RESOLVED and
-      // stored on the registry record above, so a #view of this note can
+      // stored on the registry record above, so a #window of this note can
       // still show it even when the note's own heading (here) does not.
       let date = if show-date and resolved-minted != none {
         resolved-minted.display("[year]-[month]-[day]")
@@ -547,7 +579,7 @@
       // The note's CONTEXT: the handle of the page this `#idea` was written
       // in, captured HERE because this is the only moment anything knows it.
       // A minted note page is a separate `#document` and inherits nothing from
-      // its origin, and `#view` can transclude a note into any number of other
+      // its origin, and `#window` can transclude a note into any number of other
       // pages — so "where was this written" has to be recorded at the call
       // site or it is gone.
       //
@@ -561,14 +593,14 @@
       let origin = if type(handle) == str { handle } else { none }
 
       // Store the FLATTENED body plus the title, resolved dates and origin, so
-      // a #view is pure presentation and any number of views cost nothing, and
+      // a #window is pure presentation and any number of windows cost nothing, and
       // link-to-page/link-to-anchor can render a note's title without
       // re-deriving it. A duplicate EXPLICIT id only errors if something
-      // observes the registry (e.g. #view or a ref) — an identical
+      // observes the registry (e.g. #window or a ref) — an identical
       // re-insertion is a re-emission, not a collision.
       // Outbound links, filtered to real note ids and deduped, with a
       // self-link dropped — a note is not its own backlink. Walked from the
-      // RAW body, before `_flatten`: flattening rewrites `#view` markers into
+      // RAW body, before `_flatten`: flattening rewrites `#window` markers into
       // permalinks, which would turn every transclusion into an
       // indistinguishable `link` and lose the ones nested inside other notes.
       let links = _outbound(body)
@@ -608,14 +640,14 @@
         // there is no `show heading` rule and no template to hook into, so
         // `#idea` appends it directly, always (even with no title), showing
         // the FULL `idea:name` id so it is copy-pasteable straight into
-        // `#view("...")`. `#view` renders the identical affordance in its own
+        // `#window("...")`. `#window` renders the identical affordance in its own
         // summary; both go through `_permalink`.
         // The title goes in a span even though nothing styles it by default,
         // so that `.idea-label:first-child` can mean "this note has no title".
         // A bare title is a TEXT node, and CSS `:first-child` counts elements
         // only — so without the span the permalink is the first element child
         // either way, and the rule that un-indents a titleless note would
-        // strip the separating margin from a titled one too. `#view`'s summary
+        // strip the separating margin from a titled one too. `#window`'s summary
         // has always wrapped its title for the same reason.
         let date-span = if date == none { [] } else {
           html.elem("span", attrs: (class: "idea-date"), date)
@@ -667,17 +699,17 @@
 #let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
 #let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
 
-// ---- #view — transclusion, array form, working limit ----------------------
+// ---- #window — transclusion, array form, working limit --------------------
 //
-// `#view("etal")` transcludes the target note: its title, its permalink, and
+// `#window("etal")` transcludes the target note: its title, its permalink, and
 // its stored (flattened) body, as one foldable block. `names` accepts a
 // string, a label, or an array of either. Reads the registry via `.final()`,
 // not `.get()` — that is what lets a note defined in ANOTHER vertebra
 // resolve, since the whole spine compiles as one Typst document.
 //
-// A `#view` is pure presentation: it never registers, never advances the
+// A `#window` is pure presentation: it never registers, never advances the
 // counter, and never re-registers a nested `#idea`. That guarantee is
-// delivered by `_flatten` (defined above, next to `IK`/`VK`), not by any
+// delivered by `_flatten` (defined above, next to `IK`/`WK`), not by any
 // suppression logic here.
 
 // Split a body into block-level chunks for `limit:` truncation. A naive
@@ -719,9 +751,9 @@
 
 // ONE rendering, whatever `folded` says. `folded` sets only the INITIAL
 // disclosure state — `false` (the default) renders `<details open>`, `true`
-// renders it closed. It is not a second layout: a folded view and an unfolded
+// renders it closed. It is not a second layout: a folded window and an unfolded
 // one are the same block, so a reader who opens one sees exactly what a
-// `#view` beside it already shows. `limit:` is therefore meaningful in both
+// `#window` beside it already shows. `limit:` is therefore meaningful in both
 // (it truncates the body that folding hides) and the two are orthogonal.
 //
 // CLICK BUDGET (HTML/EPUB) — the whole point of this shape, modelled on
@@ -742,7 +774,7 @@
 // navigational affordance competing with the permalink for the same click.
 //
 // The disclosure is native `<details>`/`<summary>`: this package ships no JS,
-// and a `:target`/checkbox CSS hack would need a unique control id per view.
+// and a `:target`/checkbox CSS hack would need a unique control id per window.
 // An `<a>` INSIDE `<summary>` does not break the toggle — only an `<a>` around
 // the whole summary does, which is what the earlier folded-row design got
 // wrong. The permalink navigates on its own click; the summary keeps the rest.
@@ -752,7 +784,7 @@
 // `show-date: true` here can surface it even for a note whose own `#idea`
 // call left it hidden; the two are independent per call site, not one shared
 // setting.
-#let view(names, limit: none, folded: false, show-date: false) = {
+#let window(names, limit: none, folded: false, show-date: false) = {
   let ids = (if type(names) == array { names } else { (names,) }).map(_norm)
 
   // A transclusion is a way of pointing at a note, so it has to show up in the
@@ -764,7 +796,7 @@
   //
   // Bare names, not full ids: this runs outside `context`, so `_pfx()` is not
   // available here. `_outbound` re-adds the prefix, which it can.
-  metadata((rookery-view: ids))
+  metadata((rookery-window: ids))
 
   context {
   let reg = _registry.final()
@@ -773,7 +805,7 @@
     // Already normalised above, where the marker was emitted.
     let id = _pfx() + n
     if id not in reg {
-      panic("@rheo/rookery: #view unknown note '" + id + "'")
+      panic("@rheo/rookery: #window unknown note '" + id + "'")
     }
     let rec = reg.at(id)
 
@@ -789,31 +821,31 @@
 
     if _target() == "html" or _target() == "epub" {
       // A titleless note contributes no title span at all, so the permalink
-      // comes first in the summary — "at the top of the view", the id doing
+      // comes first in the summary — "at the top of the window", the id doing
       // double duty as the note's name. `#idea`'s own heading does the same.
       let title-span = if rec.title == none { [] } else {
-        html.elem("span", attrs: (class: "idea-view-title"), rec.title)
+        html.elem("span", attrs: (class: "idea-window-title"), rec.title)
       }
       let date-span = if date == none { [] } else {
-        html.elem("span", attrs: (class: "idea-view-date"), date)
+        html.elem("span", attrs: (class: "idea-window-date"), date)
       }
       let summary = html.elem(
         "summary",
-        attrs: (class: "idea-view-summary"),
+        attrs: (class: "idea-window-summary"),
         title-span + _permalink(id) + date-span,
       )
       // `open` is a BOOLEAN html attribute: present means open and there is no
       // value meaning closed, so the attrs dictionary itself has to differ
       // between the two states. `open: "false"` would read as open.
-      let d-attrs = if folded { (class: "idea-view-details") } else {
-        (class: "idea-view-details", open: "open")
+      let d-attrs = if folded { (class: "idea-window-details") } else {
+        (class: "idea-window-details", open: "open")
       }
-      let content = html.elem("div", attrs: _themed((class: "idea-view")),
+      let content = html.elem("div", attrs: _themed((class: "idea-window")),
         html.elem("details", attrs: d-attrs,
-          summary + html.elem("div", attrs: (class: "idea-view-body"), shown)))
+          summary + html.elem("div", attrs: (class: "idea-window-body"), shown)))
       // Bracketed: the body being shown belongs to the note it came from, so
       // its links must not read as links from whatever page is showing it.
-      _bracket(figure(kind: VK, supplement: none, [#metadata(id)#content]))
+      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#content]))
     } else {
       // No disclosure in a paged target — nothing to click, so a fold that
       // could not be opened would just hide the body: `folded` is ignored
@@ -824,7 +856,7 @@
         _permalink-paged(id)
         if date != none { [ ]; text(gray, date) }
       }
-      _bracket(figure(kind: VK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]))
+      _bracket(figure(kind: WK, supplement: none, [#metadata(id)#block[#head#parbreak()#shown]]))
     }
   }
   }
@@ -834,7 +866,7 @@
 //
 // `handle -> (note ids that page links to DIRECTLY)`, for the page half of the
 // backlinks list. Directly means at depth 0: not inside an `#idea`, and not
-// inside a `#view`'s transcluded body (see `_edge`).
+// inside a `#window`'s transcluded body (see `_edge`).
 //
 // This is the one thing in the package that cannot come from the registry.
 // The registry holds notes, and a link in a page's own prose belongs to no
@@ -846,7 +878,7 @@
 //
 //   #link(label("idea:etal"))   a `link` element whose dest is a label
 //   @idea:etal                   a `ref` element
-//   #view("etal")                the `rookery-view` marker `#view` emits
+//   #window("etal")               the `rookery-window` marker `#window` emits
 //
 // A `ref` also renders INTO a link, so it can be seen twice; the result is a
 // set per page, so seeing it twice costs nothing.
@@ -864,10 +896,10 @@
       let edge = v.at("rookery-edge", default: none)
       if edge == "open" { depth += 1; continue }
       if edge == "close" { depth -= 1; continue }
-      if depth != 0 or "rookery-view" not in v { continue }
+      if depth != 0 or "rookery-window" not in v { continue }
       let handle = state("rheo-handle").at(el.location())
       if type(handle) != str or not _is-vertebra(handle) { continue }
-      for name in v.rookery-view {
+      for name in v.rookery-window {
         let seen = out.at(handle, default: ())
         if pfx + name not in seen { out.insert(handle, seen + (pfx + name,)) }
       }
@@ -910,7 +942,7 @@
 
 // ---- #show: rookery — the setup, and the knobs ----------------------------
 //
-//   #import "@rheo/rookery:0.1.0": rookery, idea, view
+//   #import "@rheo/rookery:0.1.0": rookery, idea, window
 //   #show: rookery.with(
 //     prefix: "note",
 //     theme: (link-color: rgb("#ffe08a"), fold-color: rgb("#fffbe8")),
@@ -933,7 +965,7 @@
 // `@fig:x` in the same document is unaffected.
 //
 // WHY NOT NARROWER — i.e. a rule scoped to `#idea` alone. The prefix cannot
-// ride on a show rule over idea markers, because `#view` and `.marrow.typ`
+// ride on a show rule over idea markers, because `#window` and `.marrow.typ`
 // need the same value and neither is inside an idea. It has to be state (see
 // `_prefix` at the top of this file), and a plain function CANNOT install the
 // `ref` rule: a `show` inside a function body scopes to the content that body
