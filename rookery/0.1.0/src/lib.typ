@@ -178,6 +178,91 @@
 // `depth:` argument overrides it per call site.
 #let _window-depth = state("rheo-idea-window-depth", 0)
 
+// ---- The bibliography — one for the whole rookery -------------------------
+//
+// Configured on the template, taking Typst's own `#bibliography` arguments so
+// there is nothing new to learn:
+//
+//   #show: rookery.with(bibliography: arguments(
+//     bytes(read("refs.bib")),
+//     style: "chicago-author-date",
+//   ))
+//
+// BYTES, NOT A PATH, and it is not a stylistic choice. Typst resolves a path
+// relative to the FILE THE CALL APPEARS IN, and every call this package makes
+// appears inside the package: `bibliography("refs.bib")` spread in here looks
+// for the file next to `lib.typ`, and so does `read`. MEASURED —
+// `file not found (searched at .../rookery/0.1.0/src/refs.bib)`. `bytes` carries
+// its data rather than a path, so the author's own `read()` resolves at the
+// author's own call site and everything downstream just works. `bytes` is one
+// of the source types Typst's own `#bibliography` accepts, so this is still
+// literally its argument list.
+//
+// Document-wide state for the same reason `_prefix` is: `#show: rookery` is
+// applied per FILE, and a note written in one vertebra can be windowed from
+// another. Read with `.final()` so every reader agrees.
+//
+// Holds an `arguments` value or `none`, spread straight into `bibliography(..)`
+// by the beads that render the blocks.
+#let _bib = state("rheo-idea-bib", none)
+
+// Every key in the configured source, as an array of strings.
+//
+// A KEY-EXISTENCE CHECK, NOT A PARSER. It reads no author, no date and no
+// title, and nothing downstream may depend on it for rendering — Typst formats
+// every citation and every bibliography entry. Its ONLY job is answering "does
+// this idea cite anything", so an idea that cites nothing emits no empty block.
+// Growing this into a BibTeX parser is an explicit non-goal: the package reuses
+// Typst's bibliography infrastructure rather than reimplementing it.
+#let _bib-keys() = {
+  let cfg = _bib.final()
+  if cfg == none { return () }
+  let src = cfg.pos().first()
+  let sources = if type(src) == array { src } else { (src,) }
+  let keys = ()
+  for s in sources {
+    let text = str(s)
+    // Format is detected from the CONTENT, since bytes carry no filename. A
+    // Hayagriva file is a YAML mapping and has no `@type{` entry headers; a
+    // BibTeX file is nothing but those.
+    let entries = text.matches(regex("@\\w+\\s*\\{\\s*([^,\\s]+)\\s*,"))
+    if entries.len() > 0 {
+      keys += entries.map(m => m.captures.first())
+    } else {
+      // Hayagriva is a mapping of key -> entry, so its keys ARE the keys.
+      keys += yaml(s).keys()
+    }
+  }
+  keys
+}
+
+// Every bibliography key cited in this content, in document order.
+//
+// Walks for BOTH `ref` and `cite`: `@key` markup is a `ref` element until
+// realization and becomes a `cite` only then, so a walk looking for `cite`
+// alone finds nothing — MEASURED, it returned `()` for a body full of `@key`
+// citations. `#cite(<key>)` written explicitly is already a `cite`.
+//
+// Intersecting with `_bib-keys()` is what makes this correct rather than merely
+// plausible: `@idea:etal` and a reference to a heading are `ref` elements too,
+// and only the ones naming a bibliography key are citations.
+#let _cite-walk(node) = {
+  let out = ()
+  if type(node) != content { return out }
+  if node.func() == ref { return (str(node.target),) }
+  if node.func() == cite { return (str(node.key),) }
+  if node.has("children") { for k in node.children { out += _cite-walk(k) } }
+  else if node.has("body") { out += _cite-walk(node.body) }
+  else if node.has("child") { out += _cite-walk(node.child) }
+  out
+}
+
+#let _cited-keys(body) = {
+  let keys = _bib-keys()
+  if keys.len() == 0 { return () }
+  _cite-walk(body).filter(k => k in keys)
+}
+
 // ---- The template for a minted note page ----------------------------------
 //
 // `.marrow.typ` mints one standalone page per note, and those pages are
@@ -1865,6 +1950,7 @@
   prefix: "idea",
   window-depth: 0,
   idea-page-template: none,
+  bibliography: none,
   theme: (:),
   link-color: none,
   fold-color: none,
@@ -1896,6 +1982,29 @@
     message: "@rheo/rookery: `theme` must be a dictionary of "
       + _THEME-KEYS.keys().join(", ") + " — got " + repr(theme),
   )
+  assert(
+    bibliography == none or type(bibliography) == arguments,
+    message: "@rheo/rookery: `bibliography` must be an `arguments` value carrying "
+      + "Typst's own #bibliography arguments, e.g. "
+      + "`arguments(bytes(read(\"refs.bib\")), style: \"chicago-author-date\")` — got "
+      + repr(bibliography),
+  )
+  // A PATH CANNOT WORK HERE, so say so rather than failing later with a
+  // "file not found" naming a directory inside the package. Typst resolves a
+  // path relative to the file the call appears in, and every call this package
+  // makes is inside the package — see the note on `_bib`.
+  if bibliography != none {
+    let src = bibliography.pos().at(0, default: none)
+    let sources = if type(src) == array { src } else { (src,) }
+    for s in sources {
+      assert(
+        type(s) == bytes,
+        message: "@rheo/rookery: `bibliography` sources must be `bytes`, not a path — "
+          + "write `bytes(read(\"refs.bib\"))` so the path resolves against YOUR "
+          + "file rather than against the package. Got " + repr(s),
+      )
+    }
+  }
   assert(
     ref-target == "page" or ref-target == "anchor",
     message: "@rheo/rookery: `ref-target` must be \"page\" or \"anchor\" — got "
@@ -1935,6 +2044,23 @@
 
   _prefix.update(prefix)
   _window-depth.update(window-depth)
+  // Default the style to author-date, and ONLY when the author passed none.
+  //
+  // WHY: citation numbering is document-wide and cannot be reset. `counter(
+  // bibliography).update(0)` does nothing — CSL assigns the numbers, not a
+  // Typst counter — so under a numeric style the third idea on a page reads
+  // `[3]` and a standalone page can show its only reference as `[7]`. MEASURED.
+  // An author-date style has no numbers and the problem does not arise. A
+  // numeric style is still honoured without complaint: this is a default, not
+  // a restriction.
+  //
+  // `_ => v`, never a bare value that happens to be callable — see
+  // `_idea-page-template` for why `state.update` needs the wrapper.
+  _bib.update(_ => if bibliography == none { none } else {
+    let named = bibliography.named()
+    if "style" not in named { named.insert("style", "chicago-author-date") }
+    arguments(..bibliography.pos(), ..named)
+  })
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
   _theme.update(resolved)
