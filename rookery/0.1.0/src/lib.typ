@@ -494,6 +494,39 @@
   out
 }
 
+// Typst's OWN footnotes in a body — the ones this package cannot claim.
+//
+// `#footnote` above shadows `std.footnote` only at the author's IMPORT SITE, and
+// Typst imports are per-file. A vertebra that writes `#footnote` without
+// importing it from this package gets the builtin, and the build SUCCEEDS while
+// putting the body somewhere else entirely: the page's endnote section,
+// numbered page-wide, with no Footnotes block on the idea. MEASURED:
+//
+//     no import   idea-footnotes block=False   page endnotes=True
+//     imported    idea-footnotes block=True    page endnotes=False
+//
+// `#idea` uses this to turn that silence into a build error. It cannot be fixed
+// any other way — REFUTED, do not attempt: a rule installed by `#show: rookery`
+// changes only how the marker renders, and the body is still collected into the
+// endnote section behind it, because the HTML exporter gathers footnotes by
+// introspection. MEASURED, the section was emitted and still contained the
+// body. There is no way to rebind a builtin document-wide either; `#let` is
+// file-scoped.
+//
+// Stops at a nested IK/WK marker for the same reason `_footnotes` does: a
+// nested idea runs this check when IT registers, and should report its own
+// violation rather than have its parent report it.
+#let _std-footnotes(node) = {
+  let out = ()
+  if type(node) != content { return out }
+  if node.func() == footnote { return (node,) }
+  if node.func() == figure and node.at("kind", default: none) in (IK, WK) { return out }
+  if node.has("children") { for k in node.children { out += _std-footnotes(k) } }
+  else if node.has("body") { out += _std-footnotes(node.body) }
+  else if node.has("child") { out += _std-footnotes(node.child) }
+  out
+}
+
 // The inline reference. `b` is this rendering's block number, `n` the
 // footnote's number within it; together they name both anchors.
 #let _fn-ref(b, n) = {
@@ -1252,6 +1285,22 @@
       // it. A duplicate EXPLICIT id only errors if something
       // observes the registry (e.g. #window or a ref) — an identical
       // re-insertion is a re-emission, not a collision.
+      // A Typst footnote in here is one this package cannot claim: its body
+      // would go to the page's endnote section instead of this idea's block,
+      // and the build would otherwise SUCCEED while doing it. Checked at
+      // registration rather than at render, so it runs once per idea however
+      // many windows transclude it, and so the error names the authoring
+      // mistake rather than firing from whatever page happens to window the
+      // note.
+      if _std-footnotes(body).len() > 0 {
+        panic(
+          "@rheo/rookery: `#footnote` inside an idea is Typst's, not rookery's — "
+            + "its body would land in the page's endnote section instead of this "
+            + "idea's Footnotes block. Add `footnote` to your import: "
+            + "`#import \"@rheo/rookery:0.1.0\": idea, footnote`.",
+        )
+      }
+
       // Outbound links, filtered to real note ids and deduped, with a
       // self-link dropped — a note is not its own backlink. Walked from the
       // RAW body, before `_flatten`: flattening rewrites `#window` markers into
