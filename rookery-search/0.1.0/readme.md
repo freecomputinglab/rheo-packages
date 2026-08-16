@@ -218,8 +218,22 @@ The wrapper also carries `data-rookery-search-open="true|false"`, flipped as the
 results open and close — that is the hook to show and hide the list, so the CSS
 does not have to guess at emptiness.
 
-Escape clears the input, closes the list and blurs. Result titles are set with
-`textContent`, never `innerHTML`, so nothing in a note title can inject markup.
+Escape clears the input, closes the list and blurs. Clicking anywhere outside
+the bar closes it too, but **leaves what you typed in the field** — dismissing a
+dropdown is not the same as abandoning a search. It stays shut while that query
+sits there, including if you click back into the input; typing again is what
+brings it back, being the one gesture that unambiguously asks for it.
+
+Result titles are set with `textContent`, never `innerHTML`, so nothing in a
+note title can inject markup.
+
+The dropdown is **wider than the input** by default, and deliberately: a row
+carries a title and an id on one line, and an input sized for typing into is
+too narrow to hold both without the title wrapping against its own id. It sizes
+to its widest row, never narrower than the input and never wider than
+`--rookery-search-max-width`. It hangs from the input's left edge and grows
+rightward; for a bar at the right-hand end of a header, flip it with
+`left: auto; right: 0`.
 
 ### Styling it: your CSS always wins
 
@@ -260,7 +274,9 @@ For the common cases you do not need a rule at all, only a property:
 | `--rookery-search-hover` | `--idea-link-color`, else `rgba(128, 0, 255, 0.12)` |
 | `--rookery-search-id-color` | `--idea-id-color`, else `gray` |
 | `--rookery-search-width` | `16em` |
+| `--rookery-search-max-width` | `28em` |
 | `--rookery-search-max-height` | `20em` |
+| `--rookery-search-z` | `1000` |
 
 The last two colours fall back to **rookery's own theme properties** before
 their literals. So a site that sets `#show: rookery.with(theme: (link-color:

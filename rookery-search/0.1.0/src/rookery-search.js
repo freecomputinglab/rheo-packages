@@ -96,10 +96,17 @@ const wire = (root, rows, n) => {
   list.id = `rookery-search-listbox-${n}`;
   input.setAttribute("aria-controls", list.id);
 
+  // Set by a click outside this bar, cleared the moment the reader types
+  // again. It is a separate piece of state from "the query is empty", because
+  // a dismissed dropdown must STAY shut while its query is still in the input
+  // — including when the reader clicks back into the field. Only new typing
+  // brings it back, which is the one unambiguous signal that they want it.
+  let dismissed = false;
+
   const render = () => {
     const q = input.value.trim();
     list.replaceChildren();
-    const open = q !== "";
+    const open = q !== "" && !dismissed;
     root.dataset.rookerySearchOpen = open ? "true" : "false";
     input.setAttribute("aria-expanded", open ? "true" : "false");
     if (!open) return;
@@ -119,20 +126,37 @@ const wire = (root, rows, n) => {
     }
   };
 
-  input.addEventListener("input", render);
+  input.addEventListener("input", () => {
+    dismissed = false;
+    render();
+  });
   input.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") {
       input.value = "";
+      dismissed = false;
       render();
       input.blur();
     }
   });
+
+  return {
+    root,
+    // Called for every click that lands outside this bar. Leaves the query in
+    // the input: the reader dismissed a dropdown, they did not ask to lose
+    // what they had typed.
+    dismiss: () => {
+      if (dismissed) return;
+      dismissed = true;
+      render();
+    },
+  };
 };
 
 export const init = () => {
   const roots = document.querySelectorAll("[data-rookery-search]");
   if (roots.length === 0) return;
   const cache = new Map();
+  const bars = [];
   let n = 0;
   for (const root of roots) {
     const elemId = root.dataset.rookerySearch || "rookery-search-index";
@@ -142,8 +166,25 @@ export const init = () => {
     // other bar emitted it, or the build emitted none) — leave the input inert
     // rather than throwing.
     if (rows === null) continue;
-    wire(root, rows, n++);
+    const bar = wire(root, rows, n++);
+    if (bar) bars.push(bar);
   }
+  if (bars.length === 0) return;
+
+  // ONE listener for every bar on the page, not one each: the question a click
+  // asks is "which bars was this outside of", and that is naturally a single
+  // pass. Two bars therefore close independently and correctly — a click on
+  // one is outside the other, and dismisses only it.
+  //
+  // `pointerdown`, not `click`: it fires before focus moves, so the dropdown is
+  // gone by the time the reader's press lands and nothing flickers. A result
+  // link is INSIDE its own bar, so following one never counts as a click
+  // outside — navigation is unaffected.
+  document.addEventListener("pointerdown", (ev) => {
+    for (const bar of bars) {
+      if (!bar.root.contains(ev.target)) bar.dismiss();
+    }
+  });
 };
 
 // Auto-init in a browser. Guarded so the parity fixture can `import` this module

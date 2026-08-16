@@ -32,7 +32,9 @@
      --rookery-search-hover       row hover/focus background
      --rookery-search-id-color    the `idea:etal` id beside a row's title
      --rookery-search-width       the input's width
+     --rookery-search-max-width   how wide the dropdown may grow
      --rookery-search-max-height  the dropdown's scroll cap
+     --rookery-search-z           the dropdown's stacking order
 
    The last two colours fall back to ROOKERY's own theme properties before
    their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`.
@@ -66,9 +68,32 @@
        would rule out embedding the bar mid-sentence. */
     display: block;
     position: absolute;
-    z-index: 10;
+    /* Above a sticky site header, which is the thing a dropdown most often
+       has to clear — and high enough by default that a site does not discover
+       the problem only once results are overlapping its chrome. Raise it with
+       the property rather than by writing a rule. */
+    z-index: var(--rookery-search-z, 1000);
+    /* WIDER THAN THE INPUT, on purpose. A row is a title and an id on one
+       line, and an input sized for typing into is not wide enough to hold
+       both: at the input's width even a short title wraps against its own id.
+       `max-content` sizes the dropdown to its widest row so a short-titled
+       note fits on one line, `min-width` keeps it from ever being narrower
+       than the input, and `max-width` stops one long title from making it the
+       width of the page.
+       Anchored at the LEFT edge of the input, so it grows rightward. A bar
+       sitting at the right-hand end of a header wants the opposite — set
+       `left: auto; right: 0` in your own stylesheet and it will grow leftward
+       instead, which is what this site's own CSS does. */
     left: 0;
-    right: 0;
+    right: auto;
+    min-width: 100%;
+    width: max-content;
+    /* The `min()` is a floor under the property, not a second knob: whatever
+       width a site asks for, the dropdown still cannot grow past the viewport
+       it has to fit inside. Without it, a cap generous enough for a desktop
+       header spills off the side of a phone, and a site would have to
+       rediscover that in a media query. */
+    max-width: min(var(--rookery-search-max-width, 28em), calc(100vw - 2rem));
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid var(--rookery-search-border, rgba(0, 0, 0, 0.25));
