@@ -450,6 +450,55 @@ The two are independent per call site: passing `show-date: true` to a `#window`
 surfaces the date even when the note's own `#idea` left it hidden, and vice
 versa — nothing links the two settings together beyond both defaulting off.
 
+## Footnotes
+
+A footnote belongs to the idea it was written in, not to the page that happens
+to be showing it. Import `footnote` alongside `idea` and write it exactly as
+you always have:
+
+```typst
+#import "@rheo/rookery:0.1.0": idea, footnote
+
+#idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
+```
+
+Numbering is per idea, so two notes on one page may each carry a footnote 1 —
+the point rather than a collision, since a reader meets a note in the context
+of one idea and a number counting the whole page would be counting something
+they cannot see. The bodies render in a `Footnotes` block at the end of the
+idea.
+
+That block follows the note everywhere the note goes — the page it was hatched
+in, every `#window` on it, its own minted page — and each of those gets its OWN
+block with its own anchors. They have to be separate: a footnote reference is a
+same-page fragment, so a window on another page needs its target on that page.
+On a minted page the block sits between the body and the Context/Backlinks
+footer, keeping the note's own apparatus attached to the note and leaving the
+footer last as the way back out.
+
+A `#window` with `limit:` lists only the footnotes whose references survive the
+truncation, so a shortened note never shows an entry with nothing pointing at
+it.
+
+**`#footnote` has to be imported to take effect**, and Typst imports are
+per-file: every vertebra that writes a footnote needs `footnote` in its own
+import list, the same way each one needs the template for the `ref` rule.
+Omitting it used to be silent — the body went to the page's endnote section,
+numbered page-wide, and the idea rendered no block at all — so it is now a
+build error naming the import to add. A footnote in ordinary page prose,
+outside any idea, is untouched by that check and still behaves exactly as
+Typst's does: page-wide numbering, body in the page's own endnote section.
+`#show: rookery` installs that fallback, so a document that never applies the
+template and writes a rookery `#footnote` in bare prose renders nothing for it
+— the same shape of caveat as `@idea:etal` rendering a bare figure number
+without the template.
+
+The reason this is a shadowed `#footnote` rather than a show rule over Typst's
+own is that Typst's cannot be intercepted. Its HTML exporter collects footnote
+bodies by introspection, so neither `show footnote: it => ...` nor
+`show footnote: none` keeps a body out of the page's endnote section; the
+import site is the only place the decision can be made.
+
 ## Standalone note pages (rheo only)
 
 Importing this package mints one output page per note automatically, at
@@ -595,6 +644,10 @@ at all.
   by `#idea` itself.
 - Backlinks appear on minted note pages, so under rheo only — see "Standalone
   note pages".
+- Typst's own `#footnote` inside an idea is a build error, not a page-level
+  escape hatch. Nothing can intercept it (see "Footnotes"), so the alternative
+  was letting it silently put a note's body somewhere the note has no block.
+  A page-level footnote still works everywhere outside an idea.
 
 ## Requirements
 
