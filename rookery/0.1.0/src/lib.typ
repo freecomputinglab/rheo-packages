@@ -2297,4 +2297,34 @@
   } else {
     doc
   }
+  // TRAILING PROSE CITATIONS. A citation in page prose before an idea is
+  // claimed by that idea's sweep block, but one written after the LAST idea or
+  // window on the page has nothing following it — and a citation no
+  // bibliography claims is a hard error (`label <key> does not exist in the
+  // document`), so this is required for the page to build at all, not polish.
+  //
+  // `_own-cited-keys(doc)` is exactly the right question here, and it is the
+  // same one an idea asks about its own body: every `#idea` and `#window` on
+  // the page is a claimant, so what survives the last of them is precisely the
+  // trailing prose. Both always render at page level, hence the default
+  // `windows-claim: true`.
+  //
+  // The template CAN ask this where `#idea` cannot: it receives the whole page
+  // as `doc`, whereas an idea never sees the prose around it. That asymmetry is
+  // why the sweep block before each idea has to be unconditional while this one
+  // does not.
+  //
+  // Emitted only when something is actually left, so `#show: rookery` keeps its
+  // promise to emit nothing of its own on a page with no notes — and on any
+  // page with no configured bibliography, since `_own-cited-keys` is then empty.
+  context {
+    let own = _own-cited-keys(doc)
+    if own.len() > 0 {
+      if _target() == "html" or _target() == "epub" {
+        html.elem("div", attrs: (class: "idea-page-refs"), _bib-call([References]))
+      } else {
+        _bib-call([References])
+      }
+    }
+  }
 }
