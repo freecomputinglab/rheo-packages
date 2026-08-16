@@ -30,6 +30,9 @@
      --idea-id-color     id-color     the [idea:etal] permalink's text
      --idea-date-color   date-color   an idea's/window's date, where shown
      --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`
+     --idea-external-color            the underline an OUTBOUND link takes on
+                                      hover, where an internal one takes the
+                                      fill above (defaults to the id colour)
 
    `--idea-border-color` defaults to `--idea-link-color` itself (not to a
    separate literal), so the rule and the link hover read as the same colour
@@ -99,17 +102,55 @@
 
    Deliberately NOT a bare `a:hover`: this stylesheet is injected into every
    page of a rheo project, and a package has no business restyling a site's
-   nav. It reaches the links in rookery's own blocks and nothing else. */
+   nav. It reaches the links in rookery's own blocks and nothing else.
+
+   INTERNAL LINKS ONLY. The fill is how a rookery says "this goes somewhere
+   else in the rookery" — a permalink, a reference, an outline row, a backlink.
+   An outbound link is a different promise, and washing it in the same colour
+   claims a continuity that is not there: the reader is leaving. So the fill is
+   withheld from anything whose href starts a URL scheme, and those links get
+   their own quieter treatment below.
+   `[href^="http"]` catches the case that exists in practice. rheo emits every
+   in-project link as a depth-relative path, so "has a scheme" and "leaves the
+   rookery" are the same set here. A site that writes its OWN pages as absolute
+   urls opts them out of the fill; write them relative, which is what rheo's
+   own link rewriting produces anyway. */
 .idea-label:hover,
-.idea-ref a:hover,
-.idea-box a:hover,
-.idea-window a:hover,
-.idea-outline a:hover,
-.idea-footnotes a:hover,
-.idea-references a:hover,
-.idea-page-refs a:hover,
-.idea-footer a:hover {
+.idea-ref a:not([href^="http"]):hover,
+.idea-box a:not([href^="http"]):hover,
+.idea-window a:not([href^="http"]):hover,
+.idea-outline a:not([href^="http"]):hover,
+.idea-footnotes a:not([href^="http"]):hover,
+.idea-references a:not([href^="http"]):hover,
+.idea-page-refs a:not([href^="http"]):hover,
+.idea-footer a:not([href^="http"]):hover {
   background-color: var(--idea-link-color, rgba(128, 0, 255, 0.12));
+}
+
+/* ...and the outbound half of that pair. A link that leaves gets a change in
+   its UNDERLINE rather than a fill behind it: the same information — this is
+   live, you are pointing at it — carried by the quieter of the two channels,
+   which is the difference a reader should feel between staying and going.
+   Only on hover, so outbound links are not permanently marked up in the prose;
+   an author who wants that can say so in their own stylesheet.
+   `text-decoration-line` is set here because a site whose links are not
+   underlined at rest has no underline to recolour otherwise, and a rule that
+   did nothing on half of its installs would be worse than one that adds the
+   line it needs. `--idea-external-color` defaults to the id grey rather than
+   to the link wash: the wash is a translucent fill, and a 2px line drawn in it
+   is close to invisible. */
+.idea-ref a[href^="http"]:hover,
+.idea-box a[href^="http"]:hover,
+.idea-window a[href^="http"]:hover,
+.idea-outline a[href^="http"]:hover,
+.idea-footnotes a[href^="http"]:hover,
+.idea-references a[href^="http"]:hover,
+.idea-page-refs a[href^="http"]:hover,
+.idea-footer a[href^="http"]:hover {
+  text-decoration-line: underline;
+  text-decoration-color: var(--idea-external-color, var(--idea-id-color, gray));
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
 }
 
 /* Radius only, no padding, on links that are ordinary prose — padding would

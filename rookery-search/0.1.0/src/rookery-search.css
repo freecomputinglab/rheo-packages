@@ -31,16 +31,24 @@
      --rookery-search-radius      corner radius, both
      --rookery-search-hover       row hover/focus background
      --rookery-search-id-color    the `idea:etal` id beside a row's title
-     --rookery-search-width       the input's width
-     --rookery-search-max-width   how wide the dropdown may grow
-     --rookery-search-max-height  the dropdown's scroll cap
-     --rookery-search-z           the dropdown's stacking order
+     --rookery-search-width          the input's width
+     --rookery-search-results-width  the dropdown's width — constant, not
+                                     sized to whatever happens to match
+     --rookery-search-max-height     the dropdown's scroll cap
+     --rookery-search-z              the dropdown's stacking order
 
-   The last two colours fall back to ROOKERY's own theme properties before
-   their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`.
-   So a site that sets `#show: rookery.with(theme: (link-color: ...))` tints
-   the search bar to match its notes for free, and the two packages stay
-   uncoupled in Typst: the agreement is made here, in CSS, by name. */
+   Three of those colours fall back to ROOKERY's own theme properties before
+   their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`,
+   and the border through `--idea-border-color` to the same place a note's left
+   rule and an outline's take their colour from. So a site that sets
+   `#show: rookery.with(theme: (link-color: ...))` tints the search bar to match
+   its notes for free, and the two packages stay uncoupled in Typst: the
+   agreement is made here, in CSS, by name.
+
+   That fallback only reaches the bar where a rookery element is an ANCESTOR of
+   it, since `--idea-*` arrives as an inline property on `.idea-box` and its
+   kin. A bar in a site's header — the usual place — inherits from `<body>` and
+   sees none of them, so set `--rookery-search-border` there explicitly. */
 
 @layer rookery-search {
   .rookery-search {
@@ -56,7 +64,8 @@
     font: inherit;
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
-    border: 1px solid var(--rookery-search-border, rgba(0, 0, 0, 0.25));
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
     border-radius: var(--rookery-search-radius, 4px);
     padding: 0.25em 0.5em;
     width: var(--rookery-search-width, 16em);
@@ -73,30 +82,33 @@
        the problem only once results are overlapping its chrome. Raise it with
        the property rather than by writing a rule. */
     z-index: var(--rookery-search-z, 1000);
-    /* WIDER THAN THE INPUT, on purpose. A row is a title and an id on one
-       line, and an input sized for typing into is not wide enough to hold
-       both: at the input's width even a short title wraps against its own id.
-       `max-content` sizes the dropdown to its widest row so a short-titled
-       note fits on one line, `min-width` keeps it from ever being narrower
-       than the input, and `max-width` stops one long title from making it the
-       width of the page.
-       Anchored at the LEFT edge of the input, so it grows rightward. A bar
+    /* WIDER THAN THE INPUT, and a CONSTANT width. A row is a title and an id
+       on one line, and an input sized for typing into is not wide enough to
+       hold both: at the input's width even a short title wraps against its own
+       id. So the dropdown gets a width of its own.
+       Sizing it to its content (`max-content`) was the obvious way to do that
+       and the wrong one: the panel then changed width on every keystroke, as
+       the longest matching title came and went. A results panel that resizes
+       while you type is the thing you are trying to read moving under you. It
+       is a definite width instead, the same for one result as for ten.
+       `min-width` keeps it from ever being narrower than the input it hangs
+       from, and `max-width` is a floor under the property rather than a second
+       knob: whatever width a site asks for, the panel still cannot grow past
+       the viewport it has to fit inside. Without that, a width generous enough
+       for a desktop header spills off the side of a phone.
+       Anchored at the LEFT edge of the input, so it extends rightward. A bar
        sitting at the right-hand end of a header wants the opposite — set
-       `left: auto; right: 0` in your own stylesheet and it will grow leftward
-       instead, which is what this site's own CSS does. */
+       `left: auto; right: 0` in your own stylesheet, which is what this
+       package's own docs site does. */
     left: 0;
     right: auto;
+    width: var(--rookery-search-results-width, 28em);
     min-width: 100%;
-    width: max-content;
-    /* The `min()` is a floor under the property, not a second knob: whatever
-       width a site asks for, the dropdown still cannot grow past the viewport
-       it has to fit inside. Without it, a cap generous enough for a desktop
-       header spills off the side of a phone, and a site would have to
-       rediscover that in a media query. */
-    max-width: min(var(--rookery-search-max-width, 28em), calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
-    border: 1px solid var(--rookery-search-border, rgba(0, 0, 0, 0.25));
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
     border-radius: var(--rookery-search-radius, 4px);
     max-height: var(--rookery-search-max-height, 20em);
     overflow-y: auto;
