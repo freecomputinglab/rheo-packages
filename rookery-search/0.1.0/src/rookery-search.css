@@ -1,5 +1,110 @@
-/* @rheo/rookery-search — the search bar's styles.
- *
- * Copied into `dist/` unchanged by vite (see `vite.config.js`) and linked by
- * rheo from this package's `css_stylesheet` manifest key.
- */
+/* rookery-search — default styling for the search bar.
+
+   Thin on purpose, like rookery's own stylesheet: enough that the input and
+   its dropdown read correctly out of the box, and nothing that presumes a page
+   design. No fonts, no font sizes, no page colours — only the affordances.
+
+   RHEO ONLY, but there is nothing to guard. `#search-bar` emits no markup
+   without rheo, so these selectors simply never match; the file is inert
+   rather than conditional.
+
+   THE LAYER, and why it is not optional. rheo links a PACKAGE's stylesheet
+   AFTER the project's own (`crates/core/src/assets/mod.rs` pushes user pairs
+   first, package pairs second, and emits the <link>s in that order). So on
+   equal specificity this file would win every tie, and a project could not fix
+   it by writing its rule "later" — there is no later. Wrapping everything in a
+   cascade layer named `rookery-search` inverts that: any UNLAYERED rule in the
+   project's CSS beats any layered rule here, whatever its specificity or
+   position. A plain `.rookery-search-input { border: 2px solid red }` in the
+   site's own stylesheet just works — no importance flags, no specificity arms
+   race. That is the guarantee, and it is why nothing in this file sits outside
+   the layer.
+
+   THE PROPERTIES. Every colour and size is `var(--x, <default>)`, the default
+   being the literal in the var() call right here. Set one on `.rookery-search`
+   (or anywhere it inherits from) and you have themed the bar without
+   overriding a rule at all:
+
+     --rookery-search-fg          text in the input and in a row
+     --rookery-search-bg          input and dropdown background
+     --rookery-search-border      input border, and the dropdown's edge
+     --rookery-search-radius      corner radius, both
+     --rookery-search-hover       row hover/focus background
+     --rookery-search-id-color    the `idea:etal` id beside a row's title
+     --rookery-search-width       the input's width
+     --rookery-search-max-height  the dropdown's scroll cap
+
+   The last two colours fall back to ROOKERY's own theme properties before
+   their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`.
+   So a site that sets `#show: rookery.with(theme: (link-color: ...))` tints
+   the search bar to match its notes for free, and the two packages stay
+   uncoupled in Typst: the agreement is made here, in CSS, by name. */
+
+@layer rookery-search {
+  .rookery-search {
+    position: relative;
+    /* Inline-block, not block: the bar is phrasing content and has to sit
+       mid-sentence, in a heading or in a table cell without breaking the line
+       box. A project wanting a full-width bar sets `display: block` and wins,
+       because of the layer. */
+    display: inline-block;
+  }
+
+  .rookery-search-input {
+    font: inherit;
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid var(--rookery-search-border, rgba(0, 0, 0, 0.25));
+    border-radius: var(--rookery-search-radius, 4px);
+    padding: 0.25em 0.5em;
+    width: var(--rookery-search-width, 16em);
+  }
+
+  .rookery-search-results {
+    /* `display: block` is required, not cosmetic: the results container is a
+       <span>, because a <div> inside a paragraph would be invalid HTML and
+       would rule out embedding the bar mid-sentence. */
+    display: block;
+    position: absolute;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid var(--rookery-search-border, rgba(0, 0, 0, 0.25));
+    border-radius: var(--rookery-search-radius, 4px);
+    max-height: var(--rookery-search-max-height, 20em);
+    overflow-y: auto;
+  }
+
+  /* Visibility is driven off the wrapper's state attribute, which the script
+     owns, rather than a class it toggles — one source of truth for "open". */
+  .rookery-search[data-rookery-search-open="false"] .rookery-search-results {
+    display: none;
+  }
+
+  .rookery-search-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 0.25em 0.5em;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Focus as well as hover: the dropdown is keyboard-reachable, and a row a
+     reader has tabbed to must look the same as one they are pointing at. */
+  .rookery-search-row:hover,
+  .rookery-search-row:focus {
+    background-color: var(
+      --rookery-search-hover,
+      var(--idea-link-color, rgba(128, 0, 255, 0.12))
+    );
+  }
+
+  .rookery-search-id {
+    color: var(--rookery-search-id-color, var(--idea-id-color, gray));
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+}

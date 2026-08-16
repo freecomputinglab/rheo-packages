@@ -209,6 +209,53 @@ does not have to guess at emptiness.
 Escape clears the input, closes the list and blurs. Result titles are set with
 `textContent`, never `innerHTML`, so nothing in a note title can inject markup.
 
+### Styling it: your CSS always wins
+
+The package's default styling is thin — enough that the input and its dropdown
+read correctly out of the box, and no fonts, sizes or page colours.
+
+**Every rule it ships lives in a cascade layer called `rookery-search`, and that
+is what guarantees you can override it.** rheo links a package's stylesheet
+*after* the project's own, so on equal specificity the package would win every
+tie and there would be no "later" for you to write your rule in. Layers invert
+that: an unlayered rule anywhere in your stylesheet beats a layered one whatever
+its specificity or position. So this is all it takes, in your own `style.css`,
+even though it is linked first:
+
+```css
+.rookery-search-input { border: 2px solid red; }
+```
+
+No `!important`, no specificity games, no `:where()`. If you use layers
+yourself, note that unlayered still beats layered — keep your overrides
+unlayered, or order your layers after `rookery-search`.
+
+For the common cases you do not need a rule at all, only a property:
+
+```css
+.rookery-search {
+  --rookery-search-hover: rgb(0, 128, 0);
+  --rookery-search-width: 24em;
+}
+```
+
+| property | default |
+| --- | --- |
+| `--rookery-search-fg` | `inherit` |
+| `--rookery-search-bg` | `white` |
+| `--rookery-search-border` | `rgba(0, 0, 0, 0.25)` |
+| `--rookery-search-radius` | `4px` |
+| `--rookery-search-hover` | `--idea-link-color`, else `rgba(128, 0, 255, 0.12)` |
+| `--rookery-search-id-color` | `--idea-id-color`, else `gray` |
+| `--rookery-search-width` | `16em` |
+| `--rookery-search-max-height` | `20em` |
+
+The last two colours fall back to **rookery's own theme properties** before
+their literals. So a site that sets `#show: rookery.with(theme: (link-color:
+…))` gets a search bar tinted to match its notes without configuring anything
+twice — an agreement made in CSS, by name, so the two packages stay uncoupled
+in Typst.
+
 ## Working on it locally
 
 Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and
