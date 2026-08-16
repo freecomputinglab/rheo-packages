@@ -422,6 +422,26 @@
   if i == none { s } else { s.slice(i + 1) }
 }
 
+// ---- _tag-pred — the shared tag filter -----------------------------------
+//
+// `tags` is `none`, a single string, or an array of strings; `match` is "any"
+// (the default) or "all". Returns a predicate over a note's own tag array, or
+// `none` when there is nothing to filter by. An EMPTY `tags` array is no
+// filter at all rather than a filter matching nothing — asking for none of the
+// tags is not the same as asking for a tag no note has.
+//
+// Defined HERE, above every caller, rather than beside the first one to want
+// it: a `#let` closure captures the scope visible AT DEFINITION time, so a
+// helper defined further down is invisible to `#window`. `_blocks` carries the
+// same note for the same reason. `#ideas-outline`'s own tag filter, when it
+// lands, reuses this — do not define a second copy next to it.
+#let _tag-pred(tags, match) = {
+  if tags == none { return none }
+  let want = if type(tags) == str { (tags,) } else { tags }
+  if want.len() == 0 { return none }
+  if match == "all" { t => want.all(x => x in t) } else { t => want.any(x => x in t) }
+}
+
 // ---- #idea — marker, idea:<id> label, anchor, flattened registration -----
 //
 // `#idea[body]`, `#idea("name")[body]`, and `#idea(<name>)[body]` all work via
@@ -1575,6 +1595,34 @@
 // then remove (see the note on FNK above).
 #let footnote(body) = [#metadata((rookery-fn: body))<rkfn>]
 
+// ---- _sort-ids — a total order over a window's selected ids ---------------
+//
+// "lexicographic" is by full id, the same order `ideas()` publishes. "date" is
+// newest `minted` first, undated notes last, ties broken by ASCENDING id.
+//
+// Built by grouping rather than by sorting twice: typst does not document
+// `array.sorted` as stable, so a sort-by-id-then-sort-by-date pipeline cannot
+// be relied on to keep the id order within a date. Dates are compared as
+// zero-padded `[year][month][day]` strings, which sidesteps the question of
+// how `datetime` orders as a sort key at all.
+#let _sort-ids(ids, reg, sort) = {
+  let by-id = ids.sorted()
+  if sort != "date" { return by-id }
+  let stamp-of(id) = {
+    let m = reg.at(id).at("minted", default: none)
+    if m == none { none } else { m.display("[year][month][day]") }
+  }
+  let dated = by-id.filter(id => stamp-of(id) != none)
+  let undated = by-id.filter(id => stamp-of(id) == none)
+  let ordered = ()
+  // `dated` is already in ascending-id order and `filter` preserves it, so
+  // each date's group comes out id-ascending inside a date-descending walk.
+  for s in dated.map(stamp-of).dedup().sorted().rev() {
+    ordered += dated.filter(id => stamp-of(id) == s)
+  }
+  ordered + undated
+}
+
 // ---- #window — transclusion, array form, working limit --------------------
 //
 // `#window("etal")` transcludes the target note: its title, its permalink, and
@@ -1584,6 +1632,19 @@
 // `_norm`. Reads the registry via `.final()`, not `.get()` — that is what
 // lets a note defined in ANOTHER vertebra resolve, since the whole spine
 // compiles as one Typst document.
+//
+// `tags:` selects notes instead of naming them, and COMBINES with the names
+// rather than replacing them: the window shows the union of what was named and
+// what carries the tags, with a note that is both appearing once, where it was
+// named. `match:` is "any" (the default) or "all". Selection is always
+// rookery-wide — the registry is the whole bundle's, so where the window sits
+// makes no difference to what a tag pulls in. Either half may be omitted, but
+// not both.
+//
+// `sort:` is `auto`, "date" or "lexicographic". `auto` keeps named ids in
+// call-site order and appends the tag matches by id, so a window that names
+// its notes and asks for no sort behaves exactly as it always has; naming a
+// sort orders the whole selection instead. See `_sort-ids`.
 //
 // A `#window` is pure presentation: it never registers, never advances the
 // counter, and never re-registers a nested `#idea`. That guarantee is
@@ -1639,13 +1700,57 @@
 // `show-date: true` here can surface it even for a note whose own `#idea`
 // call left it hidden; the two are independent per call site, not one shared
 // setting.
-#let window(names, limit: none, folded: false, show-date: false, depth: auto) = {
+#let window(
+  ..args,
+  limit: none,
+  folded: false,
+  show-date: false,
+  depth: auto,
+  tags: none,
+  match: "any",
+  sort: auto,
+) = {
   assert(
     depth == auto or (type(depth) == int and depth >= 0),
     message: "@rheo/rookery: #window's `depth` must be auto or a non-negative "
       + "integer — got " + repr(depth),
   )
-  let ids = (if type(names) == array { names } else { (names,) }).map(_norm)
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #window's `tags` must be none, a string, or an "
+      + "array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery: #window's `match` must be \"any\" or \"all\" — got "
+      + repr(match),
+  )
+  assert(
+    sort == auto or sort == "date" or sort == "lexicographic",
+    message: "@rheo/rookery: #window's `sort` must be auto, \"date\" or "
+      + "\"lexicographic\" — got " + repr(sort),
+  )
+  // Variadic, not a plain positional: a positional parameter cannot carry a
+  // default in typst, and `#window(tags: "todo")` has to be callable with no
+  // name at all. `#hyperlink` takes the same shape for the same reason.
+  let pos = args.pos()
+  assert(
+    pos.len() <= 1,
+    message: "@rheo/rookery: #window wants one name or one array of names — "
+      + "#window((\"a\", \"b\")), not #window(\"a\", \"b\") — got "
+      + str(pos.len()) + " positional arguments.",
+  )
+  assert(
+    pos.len() == 1 or tags != none,
+    message: "@rheo/rookery: #window needs something to show — name at least "
+      + "one note, or pass `tags:` to select them by tag.",
+  )
+  let ids = if pos.len() == 0 { () } else {
+    let names = pos.first()
+    (if type(names) == array { names } else { (names,) }).map(_norm)
+  }
 
   // A transclusion is a way of pointing at a note, so it has to show up in the
   // target's backlinks. `_outbound` walks a note's RAW body at registration,
@@ -1656,17 +1761,48 @@
   //
   // Bare names, not full ids: this runs outside `context`, so `_pfx()` is not
   // available here. `_outbound` re-adds the prefix, which it can.
+  //
+  // Only the NAMED ids can be announced. A tag selection is not known until
+  // the registry is readable, which needs `context`, and by then this walk has
+  // already happened — so tag-matched notes get no backlink from this window.
+  // That asymmetry is documented in the readme; do not "fix" it by announcing
+  // the tags instead, which would have `_outbound` read the registry while it
+  // is still being built.
   metadata((rookery-window: ids))
 
   context {
   let reg = _registry.final()
 
-  for n in ids {
-    // Already normalised above, where the marker was emitted.
-    let id = _pfx() + n
+  // Named ids first, in call-site order, and the only ones that can be wrong:
+  // a tag scan reads the registry it filters, so it cannot name a missing note.
+  let named = ids.map(n => _pfx() + n)
+  for id in named {
     if id not in reg {
       panic("@rheo/rookery: #window unknown note '" + id + "'")
     }
+  }
+
+  // Tag matches minus anything already named — a note that is both shows once,
+  // in the position the author named it.
+  let tagged = if tags == none { () } else {
+    let pred = _tag-pred(tags, match)
+    if pred == none { () } else {
+      reg
+        .pairs()
+        .filter(p => pred(p.at(1).at("tags", default: ())))
+        .map(p => p.at(0))
+        .filter(id => id not in named)
+        .sorted()
+    }
+  }
+
+  // `auto` keeps the author's own order for what they named and appends the
+  // tag matches; naming a sort orders the whole selection instead.
+  let full-ids = if sort == auto { named + tagged } else {
+    _sort-ids(named + tagged, reg, sort)
+  }
+
+  for id in full-ids {
     let rec = reg.at(id)
 
     let body = _body-at(rec, depth: depth)

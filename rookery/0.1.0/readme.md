@@ -207,6 +207,30 @@ Three ways, pick by how much ceremony you want:
   note; `auto` (the default) takes the document-wide `window-depth`, itself
   `0`. See "Nested windows, and `window-depth`" above.
 
+  `tags: ("phd",)` selects notes instead of naming them — and ADDS to the
+  names rather than replacing them. `#window(<intro>, tags: "phd")` shows
+  Intro, then everything tagged `phd`; a note that is both named and tagged
+  appears once, where you named it. Either half may be left out, but not
+  both. `match:` is `"any"` (the default) or `"all"`, so
+  `tags: ("phd", "draft"), match: "all"` wants notes carrying both.
+
+  Tag selection is always rookery-wide: it reads the whole registry, so it
+  pulls the same notes wherever the window sits. That is the point — an index
+  written once keeps up as you add notes, instead of going quietly out of date
+  the way a hand-listed set of ids does.
+
+  `sort:` is `auto`, `"date"` or `"lexicographic"`. `auto` keeps the notes you
+  named in the order you named them and appends the tag matches by id, so a
+  window that names its notes reads exactly as it always has; naming a sort
+  orders the whole selection instead. `"date"` is newest first on the minted
+  date, undated notes last.
+
+  One asymmetry to know about: a note you NAMED gets a backlink from the
+  window, and a note the tags pulled in does not. A window announces what it
+  points at before the registry can be read, and a tag match is not known that
+  early — so the backlink simply cannot be recorded. Name a note explicitly if
+  you want the link to travel back to it.
+
   See "The click budget" below for what clicking each part does.
 - `@idea:etal` — the terse form, but on its own it renders as a bare figure
   NUMBER (Typst's stock `@` rendering for a labeled figure — a note's id
@@ -514,6 +538,9 @@ not exist. An unknown id is deliberately not an error: a caller asking what
 something is tagged is filtering, not dereferencing, and a filter that panics
 on the first miss is useless. That is what lets another package pick out a
 tagged subset of your notes without reaching into rookery's internals.
+
+Rookery uses this itself: `#window(tags: ...)` transcludes every note carrying
+a tag, alongside any it was given by name. See "Referencing a note" above.
 
 ## Dates
 
