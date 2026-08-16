@@ -100,6 +100,8 @@
 .idea-window a:hover,
 .idea-outline a:hover,
 .idea-footnotes a:hover,
+.idea-references a:hover,
+.idea-page-refs a:hover,
 .idea-footer a:hover {
   background-color: var(--idea-link-color, rgba(128, 0, 255, 0.12));
 }
@@ -112,6 +114,8 @@
 .idea-window a,
 .idea-outline a,
 .idea-footnotes a,
+.idea-references a,
+.idea-page-refs a,
 .idea-footer a {
   border-radius: 3px;
 }
@@ -388,6 +392,77 @@ figure:has(> .idea-window) {
   color: var(--idea-id-color, gray);
   text-decoration: none;
   margin-right: 0.3em;
+}
+
+/* ---- References — one bibliography per idea, and the page's own -----------
+   Typst partitions citations positionally, so rookery emits one bibliography
+   per idea (`.idea-references`) and, where a page cites outside any idea, one
+   for the page (`.idea-page-refs`).
+
+   Every rule here is scoped under one of those two classes, never under a bare
+   `section[role="doc-bibliography"]`: this stylesheet is injected into every
+   page of a rheo project, and a project may have a bibliography of its own that
+   this package has no business restyling. Typst renders the <section>, its
+   heading and its <ul>, and adds `class="hanging-indent"` under some styles —
+   all of that is left alone.
+
+   An idea's block is apparatus for that idea, exactly like its footnotes above:
+   smaller than body text, hairline above, aligned to the note's text margin. */
+.idea-references {
+  margin-top: 1em;
+  padding-top: 0.4em;
+  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  font-size: 0.85em;
+}
+
+/* Typst emits an <h2>. Sized explicitly so a site's own heading scale cannot
+   let "References" compete with the note's title above it — the same reason
+   `.idea-footnotes-title` is pinned. */
+.idea-references h2,
+.idea-page-refs h2 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0 0 0.3em;
+}
+
+/* `padding-left: 0` because the entries carry no markers (Typst sets
+   `list-style-type: none` inline) and an author-date style has no numbers to
+   hang — indenting would leave the list floating away from the rule above it. */
+.idea-references ul,
+.idea-page-refs ul {
+  margin: 0;
+  padding-left: 0;
+}
+
+.idea-references li,
+.idea-page-refs li {
+  margin: 0.15em 0;
+}
+
+/* THE SWEEP BLOCK, and why this is `:has(li)`.
+   `#idea` emits a title-less `.idea-page-refs` BEFORE itself, unconditionally,
+   to claim prose citations written above it. It cannot know whether there are
+   any — an idea never sees the prose around it, and asking by query is
+   circular (see `_sweep-block` in lib.typ). Almost every one is therefore
+   empty, and an empty one must occupy NO vertical space, or every idea on the
+   page gains a phantom gap above it.
+
+   So the wrapper carries nothing by default and `:has(li)` adds the spacing and
+   the rule only when the block lists something. One rule covers all three
+   users of the class: an empty sweep (invisible), a sweep that did catch a
+   prose citation, and the page's own trailing-citation block.
+
+   Where `:has()` is unsupported the block renders flush and its entries stay
+   readable — the same bargain the `figure:has(> .idea-box)` rule above makes. */
+.idea-page-refs {
+  margin: 0;
+  font-size: 0.85em;
+}
+
+.idea-page-refs:has(li) {
+  margin-top: 1.5em;
+  padding-top: 0.4em;
+  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* ---- #ideas-outline — a page's own notes, as a tree ------------------------

@@ -377,7 +377,9 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
 `.idea-outline-row`, on an idea that carries footnotes `.idea-fn-ref`,
 `.idea-footnotes`, `.idea-footnotes-title`, `.idea-footnote-list`,
-`.idea-footnote`, `.idea-fn-backlink`, and on a minted note page
+`.idea-footnote`, `.idea-fn-backlink`, on one that cites
+`.idea-references` and on any page with citations of its own
+`.idea-page-refs`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
 `.idea-page-list`, `.idea-page-row`.
 
