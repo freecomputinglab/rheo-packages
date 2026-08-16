@@ -597,8 +597,87 @@
   bibliography(..cfg.pos(), ..named)
 }
 
+// ---- Whose citation is it, when a note contains another block? ------------
+//
+// `_cited-keys` answers "what does this content cite", which is a CONTENT
+// question. An idea's own block needs a narrower, POSITIONAL one: "what will
+// still be unclaimed by the time my block renders".
+//
+// A nested `#idea` or `#window` emits a references block of its own, INSIDE the
+// enclosing idea's body and therefore BEFORE the enclosing idea's block. Typst
+// partitions positionally, so that inner block sweeps up everything preceding
+// it — including the enclosing idea's own citations. MEASURED before this fix,
+// tracing byte offsets in a minted page for
+// `#idea("outer")[Outer cites @beta2021. #window("multi")]`:
+//
+//      191  CITE Beta 2021       <- Outer's OWN citation
+//      684  idea-references      <- the WINDOW's block; claimed all of it
+//      998  idea-references      <- Outer's own block, nothing left
+//
+// and that last one rendered `<h2>References</h2><ul></ul>` — a visible empty
+// heading, which is precisely what `_cited-keys` exists to prevent, arriving
+// through ordering rather than through content.
+//
+// So scan the body in order, recording citations AND the nested blocks that
+// will claim them. Both IK and WK count: a nested idea emits a block just as a
+// window does.
+#let _cite-scan(node) = {
+  let out = ()
+  if type(node) != content { return out }
+  if node.func() == ref { return ((kind: "cite", key: str(node.target)),) }
+  if node.func() == cite { return ((kind: "cite", key: str(node.key)),) }
+  // A `#window` builds its `figure(kind: WK)` INSIDE a `context` block, so at
+  // raw-body time there is no figure here to find — only the announce marker
+  // `#window` emits up front for exactly this kind of walk (`_outbound` reads
+  // the same one). MEASURED: scanning for the WK figure alone missed every
+  // window and left the empty heading in place.
+  if node.func() == metadata {
+    if type(node.value) == dictionary and "rookery-window" in node.value {
+      return ((kind: "claim", via: "window"),)
+    }
+    return out
+  }
+  // A nested `#idea`, by contrast, IS a figure by the time it lands in the
+  // enclosing body: `#idea` returns one directly rather than deferring it.
+  if node.func() == figure and node.at("kind", default: none) in (IK, WK) {
+    return ((kind: "claim"),)
+  }
+  if node.has("children") { for k in node.children { out += _cite-scan(k) } }
+  else if node.has("body") { out += _cite-scan(node.body) }
+  else if node.has("child") { out += _cite-scan(node.child) }
+  out
+}
+
+// The keys an idea's own block will actually still own.
+//
+// Everything after the LAST nested claimant, not the first: each nested block
+// claims in turn, so it is the final one that decides what is left. A citation
+// written between two nested windows belongs to the second, not to the idea.
+//
+// `windows-claim: false` for a context where nested windows COLLAPSE instead of
+// rendering — a minted page, or any `_flatten` scope out of depth budget. A
+// collapsed window is a bare permalink: it emits no block and therefore claims
+// nothing, so the idea keeps its own citations after all. MEASURED when this
+// was missed: `ideas/before.html` cited Beta 2021, emitted no bibliography at
+// all, and its citation fell back onto an unrelated minted page's block — the
+// same contamination `rookery-bib-minted-m6h` had just fixed, reintroduced from
+// the other side. A nested `#idea` always renders its own box and block, so it
+// stays a claimant either way.
+#let _own-cited-keys(body, windows-claim: true) = {
+  let keys = _bib-keys()
+  if keys.len() == 0 { return () }
+  let scan = _cite-scan(body)
+  let last = -1
+  for (i, e) in scan.enumerate() {
+    if e.kind == "claim" and (windows-claim or e.at("via", default: none) != "window") {
+      last = i
+    }
+  }
+  scan.slice(last + 1).filter(e => e.kind == "cite").map(e => e.key).filter(k => k in keys)
+}
+
 // One idea's references. Empty content when the idea cites nothing, so no
-// stray "References" heading appears — that is what `_cited-keys` is for.
+// stray "References" heading appears — that is what `_own-cited-keys` is for.
 #let _refs-block(keys, id: none) = {
   if _bib.final() == none or keys.len() == 0 { return [] }
   if _target() == "html" or _target() == "epub" {
@@ -938,7 +1017,7 @@
 //
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
-#let _window-content(id, rec, shown, folded, show-date) = {
+#let _window-content(id, rec, shown, folded, show-date, windows-claim: false) = {
   let date = if show-date and rec.minted != none {
     rec.minted.display("[year]-[month]-[day]")
   } else { none }
@@ -993,7 +1072,7 @@
     html.elem("div", attrs: _themed((class: "idea-window")),
       html.elem("details", attrs: d-attrs,
         summary + html.elem("div", attrs: (class: "idea-window-body"),
-          _footnoted(shown) + _refs-block(_cited-keys(shown)))))
+          _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: windows-claim)))))
   } else {
     // No disclosure in a paged target — nothing to click, so a fold that
     // could not be opened would just hide the body: `folded` is ignored
@@ -1007,7 +1086,7 @@
     // `align(start)` because `#window` puts this inside a `figure`, and a
     // Typst figure CENTRES its body — see the note on `#idea`'s own paged
     // branch, which this shares the defect and the fix with.
-    align(start, block[#head#parbreak()#_footnoted(shown)#_refs-block(_cited-keys(shown))])
+    align(start, block[#head#parbreak()#_footnoted(shown)#_refs-block(_own-cited-keys(shown, windows-claim: windows-claim))])
   }
 }
 
@@ -1079,7 +1158,7 @@
       _sweep-block()
       _bracket(
         html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body))
-          + _refs-block(_cited-keys(v.body)),
+          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)),
         IK,
       )
     } else {
@@ -1087,7 +1166,7 @@
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
         _footnoted(v.body)
-      } + _refs-block(_cited-keys(v.body)), IK)
+      } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)), IK)
     }
   }
   // A `#window` nested inside a transcluded body. With no budget left
@@ -1146,7 +1225,7 @@
       } else {
         inner
       }
-      _bracket(_window-content(id, rec, shown, v.folded, v.show-date), WK)
+      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 0), WK)
     }
   }
   body
@@ -1392,7 +1471,7 @@
         // not as its page's — see `_edge`.
         _bracket(
           html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(body))
-            + _refs-block(_cited-keys(body)),
+            + _refs-block(_own-cited-keys(body)),
           IK,
         )
       } else {
@@ -1420,7 +1499,7 @@
           if ttl != none { heading(depth: level, ttl) }
           if date != none { text(gray, date); linebreak() }
           _footnoted(body)
-        }) + _refs-block(_cited-keys(body)), IK)
+        }) + _refs-block(_own-cited-keys(body)), IK)
       }
     }
   ])
@@ -1591,7 +1670,7 @@
     // its links must not read as links from whatever page is showing it.
     _bracket(
       figure(kind: WK, supplement: none, [
-        #marker#_window-content(id, rec, shown, folded, show-date)
+        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: (if depth == auto { _window-depth.final() } else { depth }) > 0)
       ]),
       WK,
     )

@@ -69,7 +69,7 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _cited-keys, _idea-page-template, _IDEA-DIR, window
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _IDEA-DIR, window
 
 #context {
   let registry = _registry.final()
@@ -162,7 +162,12 @@
       // Before the footer, deliberately: the note's own apparatus stays
       // attached to the note, and Context/Backlinks stay last as the
       // navigational layer.
-      #_refs-block(_cited-keys(_body-at(rec)), id: "refs-" + slug)
+      // `windows-claim` follows the depth budget: at the default of 0 a nested
+      // window on this page COLLAPSES to a permalink and claims nothing, so the
+      // note keeps its own citations. Get this wrong and the page emits no
+      // bibliography while still citing, and the citation lands on some other
+      // minted page's block. MEASURED.
+      #_refs-block(_own-cited-keys(_body-at(rec), windows-claim: _window-depth.final() > 0), id: "refs-" + slug)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
