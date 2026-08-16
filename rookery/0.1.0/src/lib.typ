@@ -2088,6 +2088,90 @@
   prefix + handle.replace(":", "/") + "." + ext
 }
 
+// Plain text of a title, for `ideas()`. Typst has no built-in
+// content-to-string, so this walks the usual constructors: anything carrying
+// `.text` (a `text` element, and also `raw`), a space element standing for
+// " ", a sequence's `.children`, and anything else with a `.body` (strong,
+// emph, link, ...) recursed into. Unknown leaves contribute nothing rather
+// than erroring — a title is matched on, not rendered from, here.
+//
+// The `.has("text")` branch is deliberately broader than `c.func() == text`:
+// MEASURED, a title like [The `#window` marker] flattened to "The  marker"
+// under the narrow test, because `raw` carries `.text` and has neither
+// children nor a body — silently making that note unfindable by the word in
+// its own title. A math equation still contributes nothing.
+#let _plain(c) = {
+  if c == none { "" } else if type(c) == str { c } else if type(c) != content {
+    ""
+  } else if c.has("text") { c.text } else if c.func() == [ ].func() {
+    " "
+  } else if c.has("children") { c.children.map(_plain).join() } else if c.has("body") {
+    _plain(c.body)
+  } else { "" }
+}
+
+// ---- #note-href — where a note's minted page lives, from here -------------
+//
+//   #context note-href("etal")   // -> "../ideas/etal.html", or none
+//
+// Public because another package (`@rheo/rookery-search`) has to build links
+// to minted pages, and the depth arithmetic is not something a consumer should
+// reimplement. Takes a bare name, a full id or a label — whatever `_norm`
+// accepts. `none` wherever no page is minted: plain `typst compile` with no
+// rheo, and the combined PDF target.
+//
+// RELATIVE TO WHERE IT IS CALLED. `_note-href` measures depth from
+// `state("rheo-handle")`, so the same note yields a different string on a
+// nested vertebra than on the root one. That is the point, and it is why a
+// caller must not cache the result across pages.
+#let note-href(name) = _note-href(_pfx() + _norm(name))
+
+// ---- #ideas — every registered note, as data ------------------------------
+//
+//   #context ideas()   // -> ((id: "idea:etal", name: "etal", ..), ..)
+//
+// The whole rookery as a plain ARRAY of dictionaries, ordered by id so a build
+// is reproducible. This is the primitive other packages and custom site code
+// are written against — `@rheo/rookery-search` ranks it, a site can render it
+// as an index, a feed can walk it — and it is deliberately a snapshot of
+// STABLE fields rather than the internal record:
+//
+//   (id:      "idea:etal",     // the full id, prefix included
+//    name:    "etal",          // the id with the prefix stripped
+//    title:   [Et al.],        // the title as CONTENT, or none
+//    text:    "Et al.",        // the same title as plain text, "" if none
+//    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
+//    minted:  datetime or none,
+//    updated: datetime or none)
+//
+// NOT exposed: `raw`, `body` and `links`. A note's body is large, and handing
+// it out would make every consumer a transclusion engine; `links` is backlink
+// plumbing that `.marrow.typ` already owns. Add fields here when a consumer
+// genuinely needs them — this list is a contract other packages depend on, so
+// removing one is a breaking change.
+//
+// Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
+// is not itself a context function, because a context function can only return
+// content and the whole point here is to return data.
+#let ideas() = {
+  let reg = _registry.final()
+  reg
+    .pairs()
+    .sorted(key: p => p.at(0))
+    .map(p => {
+      let (id, rec) = p
+      (
+        id: id,
+        name: _norm(id),
+        title: rec.at("title", default: none),
+        text: _plain(rec.at("title", default: none)),
+        href: _note-href(id),
+        minted: rec.at("minted", default: none),
+        updated: rec.at("updated", default: none),
+      )
+    })
+}
+
 // ---- #show: rookery — the setup, and the knobs ----------------------------
 //
 //   #import "@rheo/rookery:0.1.0": rookery, idea, window

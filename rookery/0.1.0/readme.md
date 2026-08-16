@@ -312,6 +312,77 @@ Where the output is a single document — the combined PDF, or plain `typst
 compile` with no rheo — the two forms agree and both list everything. That is
 the same set: there is only one page.
 
+## The corpus, as data
+
+`#ideas()` hands you the whole rookery as a plain array of dictionaries. It is
+the seam this package deliberately leaves open: everything above renders notes
+the way rookery thinks they should be rendered, and this is where you take the
+same material and do something else with it.
+
+```typst
+#import "@rheo/rookery:0.1.0": ideas, note-href
+#context {
+  for e in ideas() {
+    [#e.name — #e.text \ ]
+  }
+}
+```
+
+**It has to be called inside `#context`.** The registry is a Typst state, and
+reading it whole means reading it at the end of the document, which is only
+legal in a context block. `#ideas()` is not itself a context function, because
+a context function can only return content — and the entire point is that this
+one returns data you can sort, filter and count.
+
+Each entry is:
+
+- `id` — the full id, prefix included (`"idea:etal"`).
+- `name` — the same id with the prefix stripped (`"etal"`), the form you write
+  in `#window("etal")`.
+- `title` — the title as content, or `none` for an untitled note.
+- `text` — that title flattened to a plain string, `""` when there is none.
+  Useful for matching, sorting and anything else that wants a string rather
+  than something to render.
+- `href` — a depth-relative link to the note's minted page, from wherever you
+  are calling. See `#note-href()` below.
+- `minted`, `updated` — the note's dates, or `none`. See "Dates".
+
+The array is ordered by id, not by the order notes were written or the order
+their pages appear. Sorting is your business: an id order is the one order
+that is stable across builds, and it makes a diff of generated output mean
+something.
+
+A note's `body`, its `raw` source and its backlinks are deliberately absent.
+The body is the largest thing rookery holds, and handing it out would turn
+every consumer into a second transclusion engine — one that does not agree
+with `#window` about folding, depth or dates. If you want a note rendered,
+render it with `#window`.
+
+`#note-href(name)` gives you the same link `href` carries, for a note you name
+yourself:
+
+```typst
+#context note-href("etal")   // -> "../ideas/etal.html"
+```
+
+It takes whatever `#window` takes — a bare name, a full id, or a label — and
+the string it returns is **relative to the page it was called on**, because
+that is what an href in the output has to be. Do not compute one on a page and
+use it on another.
+
+Both `href` and `#note-href` are `none` where nothing mints pages: plain
+`typst compile` with no rheo, and the combined PDF target. `ideas()` itself
+still works there and still lists everything, because the corpus does not
+depend on rheo — only on links to pages that only rheo produces.
+
+This is the supported way to build behaviour on top of a rookery, and it
+exists so that you do not have to reach into the package's internals to do it.
+[`@rheo/rookery-search`](https://github.com/rheo-org/rheo-packages) is written
+entirely against these two functions — it ranks `ideas()` and links with
+`note-href` — but it is an example of the seam, not a requirement of using it.
+An index page, a feed, a "recently minted" list, a graph of the rookery: all
+of them are a `for` loop over `ideas()`.
+
 ## The click budget
 
 Interaction is modelled on [Forester](https://www.forester-notes.org), and the
