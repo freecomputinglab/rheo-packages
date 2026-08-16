@@ -39,14 +39,17 @@ does all of it in a line, and is the only place anything is configurable:
 )
 ```
 
-`#show: rookery` does exactly five things: it publishes the id prefix, the
+`#show: rookery` does exactly six things: it publishes the id prefix, the
 nested-window depth, the minted-page template (`idea-page-template`, see
-"Standalone note pages") and the theme, and it installs `link-to-page` (see below and "Referencing a note") so
+"Standalone note pages"), the bibliography (see "Bibliographies") and the
+theme, and it installs `link-to-page` (see below and "Referencing a note") so
 `@note:etal` renders the note rather than a bare figure number. It sets no
-other styles, wraps `doc` in nothing, and emits nothing of its own — on a
-document with no notes in it, it is a no-op, and even the `ref` rule passes
-every non-rookery reference straight through. Pass `refs: false` to keep the
-rest and skip that rule.
+other styles and wraps `doc` in nothing. It emits nothing of its own either,
+with one exception: a page that cites something outside every idea gets a
+references block after its content, because a citation no bibliography claims
+fails the build. On a document with no notes in it, it is a no-op, and even the
+`ref` rule passes every non-rookery reference straight through. Pass
+`refs: false` to keep the rest and skip that rule.
 
 `ref-target: "page"` (the default) picks `link-to-page`, so `@note:etal` links
 to the note's own minted page. Pass `ref-target: "anchor"` to pick
@@ -499,6 +502,67 @@ bodies by introspection, so neither `show footnote: it => ...` nor
 `show footnote: none` keeps a body out of the page's endnote section; the
 import site is the only place the decision can be made.
 
+## Bibliographies
+
+One bibliography for the whole rookery, configured on the template with Typst's
+own `#bibliography` arguments:
+
+```typst
+#show: rookery.with(bibliography: arguments(
+  bytes(read("refs.bib")),
+  style: "chicago-author-date",
+))
+```
+
+**Bytes, not a path.** Typst resolves a path relative to the file the call
+appears in, and every call this package makes appears inside the package — a
+path would be looked for next to `lib.typ`. `bytes` carries its data instead, so
+your own `read()` resolves against your own file. It is one of the source types
+`#bibliography` already accepts, so this is still literally its argument list,
+and a path is rejected up front with the `read()` form to write instead. Both
+BibTeX and Hayagriva work; the format is recognised from the content, there
+being no filename left to go on.
+
+Like the prefix and the theme, it is one value for the whole document — see the
+note under "Setup" for why, and apply the same arguments in every vertebra.
+
+`style:` defaults to an author-date style when you pass none. Citation numbering
+in Typst is document-wide and cannot be reset: CSL assigns the numbers and no
+counter controls them, so under a numeric style the third idea on a page reads
+`[3]`, and a note's own page can show its only reference as `[7]`. An
+author-date style has no numbers and the question does not arise. A numeric
+style is still honoured without complaint — this is a default, not a
+restriction.
+
+Every idea that cites anything renders its own `References` block at the end of
+it, and an idea that cites nothing renders none: no empty heading. Like
+footnotes, the block follows the note to each surface it appears on — its hatch
+page, every `#window` on it, its minted page — each with its own copy, since a
+citation link is a same-page fragment and a window on another page needs its
+target on that page. On a minted page it sits between the body and the
+Context/Backlinks footer.
+
+Citations written in page prose, outside any idea, are collected into a
+page-level `References` block after the page's content. Getting them there
+takes a little machinery you may see in the markup: rookery emits an
+unlabelled, usually empty claiming block before every idea, because Typst
+assigns each citation to the nearest bibliography FOLLOWING it, and without one
+a citation written above an idea would land in that idea's list. An idea never
+sees the prose around it, so that block cannot be conditional.
+
+The same rule decides what happens when an idea contains a `#window`: the
+window's own block comes first and claims what precedes it, so a citation
+written before a window in the same note is listed under the window rather than
+under the note. It is the reader's next block either way.
+
+**A window's citations resolve inside the window**, not on the note's own page.
+Linking them across was tried and dropped: redirecting a citation means
+de-registering it, a de-registered citation renders nothing, and the package
+would then have to format the marker itself — which means reading authors and
+dates out of your bibliography and reimplementing what Typst already does.
+Rookery reads the key list and nothing else, only ever to answer "does this idea
+cite anything"; Typst formats every citation and every entry.
+
 ## Standalone note pages (rheo only)
 
 Importing this package mints one output page per note automatically, at
@@ -648,6 +712,12 @@ at all.
   escape hatch. Nothing can intercept it (see "Footnotes"), so the alternative
   was letting it silently put a note's body somewhere the note has no block.
   A page-level footnote still works everywhere outside an idea.
+- Citation numbering is document-wide under a numeric style, so a note's own
+  page can show its only reference as `[7]`. CSL assigns those numbers and no
+  Typst counter resets them; an author-date style, the default, has none.
+- A window's citations resolve to the window's own reference block rather than
+  to the note's page — see "Bibliographies" for why linking them across is not
+  available.
 
 ## Requirements
 
