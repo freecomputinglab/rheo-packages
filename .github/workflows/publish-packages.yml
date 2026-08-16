@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: extractions/setup-just@v3
+
       - name: Build and release new package versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +42,42 @@ jobs:
             fi
 
             echo "build: $name $version"
-            (cd "$dir" && pnpm install --frozen-lockfile && pnpm run build)
+            if [ -f "$dir/package.json" ]; then
+              (cd "$dir" && pnpm install --frozen-lockfile && pnpm run build)
+            elif grep -qE '^build:' "$dir/Justfile" 2>/dev/null; then
+              (cd "$dir" && just build)
+            else
+              echo "no build step for $name — entrypoint ships straight from src/"
+            fi
 
+            # A JS package, or a pure-Typst one with its own `build` recipe,
+            # produces dist/; a dist-less pure-Typst package (no package.json,
+            # no `build` recipe) has its manifest entrypoint pointing straight
+            # at src/ instead — ship whichever actually exists.
+            #
+            # `.marrow.typ` is the third thing a package can ship, and it sits at
+            # the package ROOT beside typst.toml rather than under src/ or dist/,
+            # because rheo looks for it at exactly `<package>/.marrow.typ`
+            # (crates/core/src/plugins/typst_manifest.rs, package_marrow_source).
+            # So it has to be named here, and leaving it out fails SILENTLY: that
+            # function returns None for a missing marrow rather than erroring, so
+            # the package installs, compiles, and simply mints none of the pages
+            # it exists to mint. @rheo/rookery is the first package to ship one.
+            #
+            # `if` rather than `[ -f ... ] && paths+=(...)`: under `set -e` the
+            # && form exits the whole script when the file is absent, which is
+            # every other package.
             archive="${tag}.tar.gz"
-            tar -czf "$archive" -C "$dir" typst.toml dist/
+            paths=(typst.toml)
+            if [ -f "$dir/.marrow.typ" ]; then
+              paths+=(.marrow.typ)
+            fi
+            if [ -d "$dir/dist" ]; then
+              paths+=(dist/)
+            else
+              paths+=(src/)
+            fi
+            tar -czf "$archive" -C "$dir" "${paths[@]}"
 
             gh release create "$tag" \
               --repo "$GITHUB_REPOSITORY" \
