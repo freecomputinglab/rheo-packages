@@ -353,6 +353,144 @@
 // `#window` below) because `_flatten` needs both marker kinds and must be
 // defined before `#idea`, which calls it at registration time.
 
+// ---- Footnotes — scoped to an idea, not to an output page -----------------
+//
+// Typst's own `#footnote` CANNOT be intercepted. Its body is collected by the
+// HTML exporter through introspection, independently of show rules, so neither
+// `show footnote: it => ...` nor `show footnote: none` removes the entry from
+// the page's `<section role="doc-endnotes">` — MEASURED both ways on typst
+// 0.15.1. So rookery exports its own `#footnote` (below), which shadows
+// `std.footnote` at the author's import site and carries its body on an
+// invisible marker this package places itself.
+//
+// The marker is `metadata` + a label, NOT a `figure`. A figure is block-level
+// and forced `</p><p>` breaks around the reference, taking it out of its
+// sentence — MEASURED. `metadata` renders nothing and sits inline.
+//
+// Defined HERE — after IK/WK, before `_flatten` — for the reason `_blocks`
+// below is: a `#let` closure captures the scope visible AT DEFINITION time,
+// and both `_flatten`'s IK rule and `#idea` itself need these.
+#let FNK = <rkfn>
+
+// Stepped ONCE per rendered idea box. It exists only so two renderings of the
+// SAME body on one output page (its own `#idea`, plus a `#window` on it) get
+// distinct HTML ids. Document-wide and monotonic — uniqueness within a page is
+// all that is asked of it, so it never resets.
+#let _fn-block = counter("rheo-idea-fn-block")
+
+// The visible footnote number, reset to 0 at the start of every idea box. Two
+// ideas on one page may each legitimately carry a footnote "1" — that is the
+// point of the feature, not a collision.
+#let _fn-seq = counter("rheo-idea-fn")
+
+// Every footnote body in this content, in document order.
+//
+// STOPS at a nested IK or WK marker. A `#idea` written inside another's body
+// owns its footnotes and renders its own block for them; a nested `#window`
+// likewise. Without this the parent would list its children's footnotes as
+// well as its own, and every one would appear twice on the page.
+//
+// Does NOT descend into a metadata VALUE — only into content children — which
+// is what keeps the raw bodies that IK/WK markers carry as metadata payloads
+// out of the walk.
+#let _footnotes(node) = {
+  let out = ()
+  if type(node) != content { return out }
+  if node.func() == metadata {
+    if type(node.value) == dictionary and "rookery-fn" in node.value {
+      return (node.value.rookery-fn,)
+    }
+    return out
+  }
+  if node.func() == figure and node.at("kind", default: none) in (IK, WK) { return out }
+  if node.has("children") { for k in node.children { out += _footnotes(k) } }
+  else if node.has("body") { out += _footnotes(node.body) }
+  else if node.has("child") { out += _footnotes(node.child) }
+  out
+}
+
+// The inline reference. `b` is this rendering's block number, `n` the
+// footnote's number within it; together they name both anchors.
+#let _fn-ref(b, n) = {
+  let tag = str(b) + "-" + str(n)
+  if _target() == "html" or _target() == "epub" {
+    html.elem(
+      "sup",
+      attrs: (class: "idea-fn-ref", id: "fnref-" + tag),
+      html.elem("a", attrs: (href: "#fn-" + tag), str(n)),
+    )
+  } else {
+    super(str(n))
+  }
+}
+
+// The block itself, at the end of the idea's body. Empty content when there is
+// nothing to list: an idea with no footnotes emits no block and no heading.
+#let _fn-block-html(notes, b) = {
+  if notes.len() == 0 { return [] }
+  if _target() == "html" or _target() == "epub" {
+    html.elem(
+      "div",
+      attrs: (class: "idea-footnotes"),
+      html.elem("h4", attrs: (class: "idea-footnotes-title"), [Footnotes])
+        + html.elem(
+          "ol",
+          attrs: (class: "idea-footnote-list"),
+          notes
+            .enumerate()
+            .map(((i, body)) => {
+              let tag = str(b) + "-" + str(i + 1)
+              html.elem(
+                "li",
+                attrs: (class: "idea-footnote", id: "fn-" + tag),
+                html.elem(
+                  "a",
+                  attrs: (class: "idea-fn-backlink", href: "#fnref-" + tag),
+                  "^",
+                )
+                  + " "
+                  + body,
+              )
+            })
+            .join(),
+        ),
+    )
+  } else {
+    // Paged target: no ids and no anchors, neither of which means anything in
+    // a PDF. The block still renders, so an idea reads the same everywhere.
+    [*Footnotes*] + enum(..notes)
+  }
+}
+
+// Wrap one idea box's body: number its markers locally, then append the block.
+//
+// The `show FNK:` rule installed here is NESTED relative to the document-wide
+// fallback `#show: rookery` installs, and the nested rule wins — MEASURED. It
+// also travels with the content wherever it is later inserted, the same way
+// `_flatten`'s `show ref: hyperlink` does, which is what makes a transcluded
+// body number its footnotes against the window's own block rather than the
+// origin idea's.
+//
+// Returns `body` untouched when there is nothing to number, so `_fn-block` is
+// not stepped for an idea with no footnotes.
+#let _footnoted(body) = {
+  let notes = _footnotes(body)
+  if notes.len() == 0 { return body }
+  _fn-block.step()
+  context {
+    let b = _fn-block.get().first()
+    _fn-seq.update(0)
+    {
+      show FNK: it => {
+        _fn-seq.step()
+        context _fn-ref(b, _fn-seq.get().first())
+      }
+      body
+    }
+    _fn-block-html(notes, b)
+  }
+}
+
 // ---- #hyperlink — a plain link to a note, page-or-anchor -------------------
 //
 // `#hyperlink("etal")[see this]` links to note "etal"'s own minted page when
@@ -735,11 +873,11 @@
         }) + (if id == none { [] } else { _permalink(id) }),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
-      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + v.body), IK)
+      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body)), IK)
     } else {
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
-        v.body
+        _footnoted(v.body)
       }, IK)
     }
   }
@@ -1026,7 +1164,7 @@
         let box-cls = ("idea-box",) + tags.map(l => "idea-tag-" + l)
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.
-        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + body), IK)
+        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(body)), IK)
       } else {
         // `align(start)`, and it is load-bearing: this whole branch renders
         // INSIDE the `figure(kind: IK)` that marks the note, and a Typst
@@ -1046,7 +1184,7 @@
         _bracket(align(start, {
           if ttl != none { heading(depth: level, ttl) }
           if date != none { text(gray, date); linebreak() }
-          body
+          _footnoted(body)
         }), IK)
       }
     }
@@ -1075,6 +1213,26 @@
 #let _dedup-tag(tag, tags) = if tag in tags { tags } else { (tag,) + tags }
 #let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
 #let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
+
+// ---- #footnote — shadows Typst's, scoped to the enclosing idea ------------
+//
+// Import it alongside `#idea` and write footnotes exactly as before:
+//
+//   #import "@rheo/rookery:0.1.0": idea, footnote
+//   #idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
+//
+// Emits nothing on its own — it is an invisible marker. Inside an idea,
+// `_footnoted` claims it, numbers it against that idea and lists its body in
+// the idea's own Footnotes block. Outside one, the document-wide rule
+// `#show: rookery` installs falls back to `std.footnote`, so a footnote in
+// ordinary page prose behaves exactly like Typst's: page-wide numbering, body
+// in the page's endnote section.
+//
+// It must NOT call `std.footnote`, step a counter, or emit a `<sup>` — all of
+// that belongs to whichever show rule claims the marker, and doing any of it
+// here would put a real footnote element in the document that nothing can
+// then remove (see the note on FNK above).
+#let footnote(body) = [#metadata((rookery-fn: body))<rkfn>]
 
 // ---- #window — transclusion, array form, working limit --------------------
 //
@@ -1769,6 +1927,15 @@
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
   _theme.update(resolved)
+  // The fallback for a rookery `#footnote` written OUTSIDE any idea: page-wide
+  // numbering and a body in the page's own endnote section, exactly as Typst's
+  // own footnote behaves. `#idea` installs a nested rule that wins over this
+  // one inside a note — MEASURED.
+  //
+  // Installed unconditionally: `refs: false` is about the `show ref:` rule
+  // only, and a document that opted out of reference rendering has not thereby
+  // opted out of footnotes.
+  show FNK: it => std.footnote(it.value.rookery-fn)
   if refs {
     show ref: if ref-target == "anchor" { hyperlink.with(link-to: "anchor") } else { hyperlink }
     doc
