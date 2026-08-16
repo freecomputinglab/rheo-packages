@@ -1410,6 +1410,12 @@
       // depth (see `_body-at`). Re-flattening the FLATTENED body would be
       // wrong: its WK markers have already been reduced to permalinks by the
       // depth-0 rule baked into it, so there would be nothing left to expand.
+      //
+      // `tags` is stored exactly as `#idea` received it — already deduped and
+      // in the author's order, because `#note`/`#todo` prepend theirs via
+      // `_dedup-tag` before calling in. It therefore takes part in the identity
+      // comparison below: two notes pinned to one id whose tags differ now
+      // collide, exactly as they already did when `raw` or `origin` differed.
       let rec = (
         title: title,
         raw: body,
@@ -1418,6 +1424,7 @@
         updated: resolved-updated,
         origin: origin,
         links: links,
+        tags: tags,
       )
       _registry.update(r => {
         if id in r and r.at(id) != rec {
@@ -1527,6 +1534,26 @@
 #let _dedup-tag(tag, tags) = if tag in tags { tags } else { (tag,) + tags }
 #let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
 #let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
+
+// ---- #tags-of — a note's tags, for callers outside this file -------------
+//
+//   #context tags-of("etal")   // -> ("note", "draft")
+//
+// Takes a bare name, a full id or a Typst label — whatever `_norm` accepts,
+// which is the same set of forms `#window` and `#hyperlink` take. Returns the
+// tags the note was registered with, in the order the author gave them
+// (`#note`/`#todo` prepend theirs, so `#todo("b", tags: ("draft",))` reads
+// `("todo", "draft")`), and `()` both for an untagged note and for an id that
+// does not exist — a missing note is not an error here, because a caller
+// asking "what is this tagged" is filtering, not dereferencing.
+//
+// Must be called INSIDE a `#context` block: it reads `_registry.final()`. It
+// is not itself a context function, because a context function may only
+// return content and the whole point here is to return data.
+#let tags-of(name) = {
+  let id = _pfx() + _norm(name)
+  _registry.final().at(id, default: (:)).at("tags", default: ())
+}
 
 // ---- #footnote — shadows Typst's, scoped to the enclosing idea ------------
 //

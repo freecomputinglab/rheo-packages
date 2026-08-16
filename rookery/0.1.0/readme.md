@@ -500,6 +500,21 @@ whatever the caller passes:
 Still no kind or type parameter, and still no recognised set of tags — these
 are two constructors for the two common cases, nothing more.
 
+A tag is not only a styling hook: the note records the tags it was created
+with, and `#context tags-of(name)` reads them back, in the order you gave
+them.
+
+```typst
+#context tags-of("y")   // -> ("todo", "draft")
+```
+
+It takes the same forms as `#window` and `#hyperlink` — a bare name, a full
+id, or a label — and answers `()` for an untagged note and for an id that does
+not exist. An unknown id is deliberately not an error: a caller asking what
+something is tagged is filtering, not dereferencing, and a filter that panics
+on the first miss is useless. That is what lets another package pick out a
+tagged subset of your notes without reaching into rookery's internals.
+
 ## Dates
 
 Resolution order, most specific first:
