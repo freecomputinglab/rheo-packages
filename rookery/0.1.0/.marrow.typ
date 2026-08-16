@@ -69,7 +69,7 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _idea-page-template, _IDEA-DIR, window
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _cited-keys, _idea-page-template, _IDEA-DIR, window
 
 #context {
   let registry = _registry.final()
@@ -142,6 +142,27 @@
       // nested window that `window-depth` unfurls contributes its footnotes to
       // its own block rather than being missed.
       #_footnoted(_body-at(rec))
+      // REFERENCES. A minted page renders the note's body, so it renders the
+      // note's citations — and until this existed it had no bibliography of its
+      // own. A citation with no bibliography FOLLOWING it does not error; it
+      // falls back to the nearest PRECEDING one. Minted pages are contributed
+      // at the bundle root, after the whole spine, so every minted-page
+      // citation was landing in the LAST bibliography on the last vertebra — a
+      // sweep block belonging to an unrelated page, which then listed an entry
+      // that no citation on that page pointed at. MEASURED.
+      //
+      // Walks what it renders (`_body-at(rec)`, not `rec.body`) so a nested
+      // window that `window-depth` unfurls contributes its citations here too.
+      //
+      // `id` gives the block a stable cross-page address —
+      // `ideas/<slug>.html#refs-<slug>`. A plain HTML id, NOT a second
+      // declaration of the note's Typst label; see the note at the top of this
+      // file on why two elements must never share one label.
+      //
+      // Before the footer, deliberately: the note's own apparatus stays
+      // attached to the note, and Context/Backlinks stay last as the
+      // navigational layer.
+      #_refs-block(_cited-keys(_body-at(rec)), id: "refs-" + slug)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
