@@ -609,3 +609,47 @@ h6.idea {
   margin-right: 0.5em;
   border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
+
+/* ---- Narrow screens: half the indent ---------------------------------------
+   The indent COMPOUNDS. Every nesting level adds another rule and another
+   padding at the previous level's content edge, which is what makes structure
+   legible on a wide column and what makes it expensive on a phone: a note three
+   deep on a 375px screen has given up a visible fraction of its measure to
+   apparatus before a word is set. Halving the horizontal spacing buys that back
+   without flattening the structure — the rules are all still there, one per
+   level, just closer together.
+
+   600px, and not a number invented here: it is the breakpoint
+   `rookery.ohrg.org` already uses, and the site that renders this package
+   agreeing with the package is worth more than a rounder figure. It also
+   leaves 601px and up — tablet and desktop — at exactly today's spacing, which
+   is the point: the constraint being answered is phone width, not small
+   screens in general.
+
+   THE THREE OUTLINE VALUES ARE ONE GEOMETRY. Do not halve one without the
+   others. `::before`'s `margin-left` is the negation of `.idea-outline`'s
+   `padding-left` (that is what puts the hairline's left end ON the rule), and
+   that same `padding-left` is the hairline's `width` plus its `margin-right`
+   (that is what makes the text start exactly where the marker stops). Both
+   survive halving — 0.375 + 0.25 = 0.625, and -0.625 negates 0.625 — but
+   neither survives halving the padding alone, which detaches the bullet from
+   the rule and looks, at a glance, merely a bit tighter.
+
+   `border-left` deliberately does NOT halve. A hairline is 1px at every width;
+   0.5px renders inconsistently across displays and on some not at all. */
+@media (max-width: 600px) {
+  .idea-box,
+  .idea-window {
+    padding-left: .375em;
+  }
+
+  .idea-outline {
+    padding-left: 0.625em;
+  }
+
+  .idea-outline-row::before {
+    width: 0.375em;
+    margin-left: -0.625em;
+    margin-right: 0.25em;
+  }
+}
