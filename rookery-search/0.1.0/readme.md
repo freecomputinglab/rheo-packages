@@ -50,6 +50,66 @@ JavaScript that rheo injects from this package's manifest. Neither is useful in
 a single-document build, where there are no pages to navigate between and
 nothing to run a script.
 
+## Searching, without JavaScript
+
+`#search-ideas(query)` ranks the corpus and hands you the matches as data. It
+is pure Typst — no rheo, no JavaScript, nothing in the browser — which is why
+it is a layer of its own rather than something the search bar hides inside.
+
+```typst
+#import "@rheo/rookery-search:0.1.0": search-ideas
+#context {
+  for e in search-ideas("") {
+    let shown = if e.text == "" { e.name } else { e.text }
+    if e.href == none [ - #link(label(e.id), shown) ]
+    else [ - #link(e.href, shown) ]
+  }
+}
+```
+
+That is a whole static index of the rookery, rendered at compile time. An empty
+query matches everything, so the same function does double duty as "list them
+all". Pass `limit: 10` to cap it.
+
+**It has to be called inside `#context`** — it reads rookery's registry, and
+reading a Typst state whole is only legal there. It is not a context function
+itself, because a context function can only return content, and this returns
+data you can filter and count.
+
+Each entry is everything rookery's `#ideas()` gives you — `id`, `name`,
+`title`, `text`, `href`, `minted`, `updated` — plus `score`. Sorted by score,
+and ties fall back to id order, so a build is reproducible. `href` is `none`
+without rheo, since nothing mints note pages there; link to `label(e.id)`
+instead, as above.
+
+### What matches, and what doesn't
+
+Matching is a **subsequence** match against the note's **id and its title**,
+whichever scores better. So "wnd" finds `windows`, and a note is findable both
+by the name you type into `#window` and by the title you read on the page.
+
+Scoring rewards, in rough order of weight: characters matched in a contiguous
+run, a prefix match, matching near the start, and the note being close in
+length to the query. That last one is why "window" ranks `windows` above
+`window-depth` rather than tying them.
+
+`-` and `_` fold to a space **on both sides**, so `flat-ids` is findable as
+"flat ids" — and still as "flat-ids", because the query folds too.
+
+**Bodies are never searched.** That is a full-text index, a different thing
+with different costs, and it would make nearly every note match nearly every
+query. Tags are not searched either, for now.
+
+**Accents are not folded**: "cafe" does not match "Café". Fixing it means
+Unicode normalisation that the JavaScript half of this package would have to
+reproduce character for character, and a rule that disagreed with itself
+between the static list and the live bar would be worse than one that is
+simply narrow.
+
+`#fuzzy-score(hay, query)` is public too — `none` for no match, otherwise an
+integer. Rank something other than notes with it, or sort matches your own way,
+without inventing a second rule that disagrees with the bar's.
+
 ## Working on it locally
 
 Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and
