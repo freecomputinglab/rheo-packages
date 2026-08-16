@@ -149,6 +149,66 @@ to nothing and no island is emitted at all — rather than shipping a browser a
 list of `null`s. Under a paged or EPUB target nothing is emitted either: a
 `<script>` is meaningless in a PDF, and EPUB readers may refuse or strip it.
 
+## The search bar
+
+`#search-bar()` is the whole UI: the island, an input, and a results list the
+package's JavaScript wires together.
+
+```typst
+#import "@rheo/rookery-search:0.1.0": search-bar
+#search-bar()
+#search-bar(placeholder: "Find a note", limit: 12, class: "topbar-search")
+#search-bar(index: false)   // a second bar, sharing the first one's island
+```
+
+- `placeholder` — the input's placeholder, and its `aria-label`.
+- `limit` — how many results to show. A positive integer; 8 by default.
+- `class` — appended to the wrapper's own `rookery-search` class, so a project
+  can target one bar without touching the rest.
+- `index` — emit the JSON island alongside the bar. `true` by default; pass
+  `false` on every bar after the first on a page, so one island serves them all.
+
+**It is rheo only, and it emits nothing at all without it.** Twice over: the
+script comes from this package's `js_scripts` manifest key, which only rheo
+reads, and the results link to minted note pages, which only rheo produces. A
+bar without both could only ever be a dead input, so rather than render one it
+renders nothing — the same way the index does. Without rheo, use
+`#search-ideas` and render a static list; that path is not a consolation prize,
+it is the supported one.
+
+### Put it anywhere, more than once
+
+The bar emits **phrasing content only** — a `<span>` wrapper around an `<input>`
+and a `<span role="listbox">`, never a `<div>` or a `<ul>`. That is deliberate:
+a `<div>` inside a paragraph is invalid HTML, and it would rule out exactly the
+placements this is for. Put a bar mid-sentence, in a heading, in a table cell,
+in your site's topbar.
+
+Nor does the emitted markup carry any `id`, apart from the island's. Markup with
+a hardcoded id cannot appear twice on a page; the listbox ids are assigned at
+runtime instead, and `aria-controls` is wired to them there. So a second bar
+costs you `index: false` and nothing else.
+
+### The classes it emits
+
+Style them from your own stylesheet; they are the contract.
+
+| | |
+| --- | --- |
+| `.rookery-search` | the wrapper span (plus your `class:`) |
+| `.rookery-search-input` | the `<input type="search">` |
+| `.rookery-search-results` | the listbox span |
+| `.rookery-search-row` | one result, an `<a>` |
+| `.rookery-search-title` | the note's title, or its name when untitled |
+| `.rookery-search-id` | the note's full id |
+
+The wrapper also carries `data-rookery-search-open="true|false"`, flipped as the
+results open and close — that is the hook to show and hide the list, so the CSS
+does not have to guess at emptiness.
+
+Escape clears the input, closes the list and blurs. Result titles are set with
+`textContent`, never `innerHTML`, so nothing in a note title can inject markup.
+
 ## Working on it locally
 
 Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and

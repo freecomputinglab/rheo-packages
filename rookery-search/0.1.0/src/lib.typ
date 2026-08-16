@@ -182,3 +182,70 @@
     json.encode(rows, pretty: false),
   )
 }
+
+// ---- #search-bar — the embeddable search UI. RHEO ONLY --------------------
+//
+//   #search-bar()
+//   #search-bar(placeholder: "Find a note", limit: 12, class: "topbar-search")
+//   #search-bar(index: false)   // a SECOND bar on a page that already has one
+//
+// Emits the JSON island (via `search-index`), an `<input>`, and an empty
+// results container; `src/rookery-search.js`, injected by rheo from the
+// manifest's `js_scripts`, wires them together.
+//
+// PHRASING CONTENT ONLY — a `<span>` wrapper holding an `<input>` and a
+// `<span role="listbox">`, never a `<div>`/`<ul>`/`<li>`. A `<div>` inside a
+// paragraph is invalid HTML, which would rule out exactly the embeddings this
+// is for: mid-sentence, in a heading, in a table cell. The span wrapper is
+// `display: inline-block` by default and a project can make it anything.
+//
+// NO IDS IN THE MARKUP. Markup carrying a hardcoded id cannot be placed twice
+// on a page. `rookery-search.js` assigns the listbox id at runtime and wires
+// `aria-controls` to it. The one id on the page belongs to the ISLAND, and
+// `data-rookery-search` carries its name so several bars can share one index —
+// or point at different ones.
+//
+// EMITS NOTHING without rheo or on a non-HTML target: the script would not be
+// there and the index would be empty, so a bar could only be a dead input.
+// Silent no-op rather than an assert, matching how the rest of the stack
+// degrades.
+#let search-bar(
+  placeholder: "Search notes",
+  limit: 8,
+  class: none,
+  index: true,
+  elem-id: "rookery-search-index",
+) = context {
+  if _target() != "html" or _rheo-ctx() == none { return }
+  assert(
+    type(limit) == int and limit > 0,
+    message: "@rheo/rookery-search: #search-bar's `limit` must be a positive "
+      + "integer — got " + repr(limit),
+  )
+  assert(
+    class == none or type(class) == str,
+    message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
+      + "string — got " + repr(class),
+  )
+  if index { search-index(elem-id: elem-id) }
+  html.elem(
+    "span",
+    attrs: (
+      class: if class == none { "rookery-search" } else { "rookery-search " + class },
+      "data-rookery-search": elem-id,
+      "data-rookery-search-limit": str(limit),
+      "data-rookery-search-open": "false",
+    ),
+    html.elem("input", attrs: (
+      class: "rookery-search-input",
+      type: "search",
+      role: "combobox",
+      placeholder: placeholder,
+      autocomplete: "off",
+      "aria-label": placeholder,
+      "aria-expanded": "false",
+      "aria-autocomplete": "list",
+    ))
+      + html.elem("span", attrs: (class: "rookery-search-results", role: "listbox"), []),
+  )
+}
