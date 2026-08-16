@@ -547,6 +547,60 @@
   }
 }
 
+// ---- References blocks ----------------------------------------------------
+//
+// Typst partitions citations POSITIONALLY: each `#bibliography` claims the
+// citations nearest-following it. That is the whole mechanism — one
+// bibliography emitted after an idea's body claims exactly that idea's
+// citations, with no key filtering needed and nothing to keep in sync.
+//
+// Builds the call from `_bib`'s parts rather than spreading and adding
+// `title:` on top: passing a named argument the spread already carries is a
+// duplicate-argument error the moment an author configures their own title.
+#let _bib-call(title) = {
+  let cfg = _bib.final()
+  let named = cfg.named()
+  named.insert("title", title)
+  bibliography(..cfg.pos(), ..named)
+}
+
+// One idea's references. Empty content when the idea cites nothing, so no
+// stray "References" heading appears — that is what `_cited-keys` is for.
+#let _refs-block(keys, id: none) = {
+  if _bib.final() == none or keys.len() == 0 { return [] }
+  if _target() == "html" or _target() == "epub" {
+    let attrs = (class: "idea-references")
+    if id != none { attrs = attrs + (id: id) }
+    html.elem("div", attrs: attrs, _bib-call([References]))
+  } else {
+    _bib-call([References])
+  }
+}
+
+// Claims any unclaimed PROSE citations that precede an idea.
+//
+// Without it they leak into that idea's list, the partition being positional
+// and the idea's own bibliography being the nearest one following them.
+// MEASURED before the fix: an idea's block listed both the prose citation
+// written above it and its own.
+//
+// UNCONDITIONAL, and `title: none`. Whether unclaimed prose citations precede
+// a given idea cannot be determined from inside `#idea` — it never sees page
+// prose — and it cannot be determined by querying either: deciding whether to
+// emit a bibliography from `query(cite)` is CIRCULAR and hard-errors, because
+// with none yet emitted the refs never resolve to cites, so the query finds
+// nothing, so nothing is emitted, so the refs fail. MEASURED. A title-less
+// bibliography with nothing to list renders `<section><ul></ul></section>` —
+// no heading, nothing visible — which is what makes always emitting it safe.
+#let _sweep-block() = {
+  if _bib.final() == none { return [] }
+  if _target() == "html" or _target() == "epub" {
+    html.elem("div", attrs: (class: "idea-page-refs"), _bib-call(none))
+  } else {
+    _bib-call(none)
+  }
+}
+
 // Wrap one idea box's body: number its markers locally, then append the block.
 //
 // The `show FNK:` rule installed here is NESTED relative to the document-wide
@@ -969,12 +1023,22 @@
         }) + (if id == none { [] } else { _permalink(id) }),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
-      _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body)), IK)
+      // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
+      // prose citations written before this note. The references block goes
+      // inside the bracket, so the back-references Typst puts in its entries
+      // count as this note's links rather than the page's.
+      _sweep-block()
+      _bracket(
+        html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body))
+          + _refs-block(_cited-keys(v.body)),
+        IK,
+      )
     } else {
+      _sweep-block()
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
         _footnoted(v.body)
-      }, IK)
+      } + _refs-block(_cited-keys(v.body)), IK)
     }
   }
   // A `#window` nested inside a transcluded body. With no budget left
@@ -1258,9 +1322,14 @@
         // heading's own class list (above) is untouched for existing
         // stylesheets.
         let box-cls = ("idea-box",) + tags.map(l => "idea-tag-" + l)
+        _sweep-block()
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.
-        _bracket(html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(body)), IK)
+        _bracket(
+          html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(body))
+            + _refs-block(_cited-keys(body)),
+          IK,
+        )
       } else {
         // `align(start)`, and it is load-bearing: this whole branch renders
         // INSIDE the `figure(kind: IK)` that marks the note, and a Typst
@@ -1277,11 +1346,16 @@
         // is not forced the wrong way round. The figure is not optional — it
         // is the marker `_flatten`, `_outbound` and `#ideas-outline` all find
         // notes by — so undoing its alignment is the fix, not removing it.
+        // The paged target needs these just as much as HTML does, and it is
+        // not cosmetic there: a citation with no bibliography anywhere is a
+        // HARD ERROR (`label <key> does not exist in the document`), so a
+        // combined PDF fails to build without them. MEASURED.
+        _sweep-block()
         _bracket(align(start, {
           if ttl != none { heading(depth: level, ttl) }
           if date != none { text(gray, date); linebreak() }
           _footnoted(body)
-        }), IK)
+        }) + _refs-block(_cited-keys(body)), IK)
       }
     }
   ])
