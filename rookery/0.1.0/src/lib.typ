@@ -975,9 +975,25 @@
     // `shown`, not the untruncated body — the caller already applied `limit:`,
     // and a window must not list a footnote whose reference it truncated away.
     // The block goes INSIDE `.idea-window-body` so it folds with the window.
+    // References go in the window's own body too, for the same reason its
+    // footnotes do: a transcluded body carries the origin note's citations, a
+    // citation link is a same-page fragment, and a window on page B therefore
+    // needs its target on page B. Without a block of its own the citations
+    // would be claimed by whatever bibliography follows on the host page —
+    // an enclosing idea's list, or a sweep block belonging to no one.
+    //
+    // Cross-page citation links to the note's own minted page were considered
+    // and REJECTED: redirecting a citation means de-registering it, and a
+    // de-registered citation renders nothing, so the package would have to
+    // format the marker itself — which means parsing the bibliography and
+    // reimplementing what Typst already does. Do not reintroduce them.
+    //
+    // `shown`, not the untruncated body: the caller already applied `limit:`.
+    // Inside `.idea-window-body` so it folds away with the window.
     html.elem("div", attrs: _themed((class: "idea-window")),
       html.elem("details", attrs: d-attrs,
-        summary + html.elem("div", attrs: (class: "idea-window-body"), _footnoted(shown))))
+        summary + html.elem("div", attrs: (class: "idea-window-body"),
+          _footnoted(shown) + _refs-block(_cited-keys(shown)))))
   } else {
     // No disclosure in a paged target — nothing to click, so a fold that
     // could not be opened would just hide the body: `folded` is ignored
@@ -991,7 +1007,7 @@
     // `align(start)` because `#window` puts this inside a `figure`, and a
     // Typst figure CENTRES its body — see the note on `#idea`'s own paged
     // branch, which this shares the defect and the fix with.
-    align(start, block[#head#parbreak()#_footnoted(shown)])
+    align(start, block[#head#parbreak()#_footnoted(shown)#_refs-block(_cited-keys(shown))])
   }
 }
 
