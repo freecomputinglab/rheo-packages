@@ -62,6 +62,13 @@ Three functions, and they do not all need the same things:
 Neither of the last two is useful in a single-document build anyway — a PDF has
 no pages to navigate between and nothing to run a script.
 
+Where rheo is what you build with, it must be **rheo >= 0.5.2**. Both
+rheo-only functions are downstream of the note pages rookery mints from its
+`.marrow.typ`, and inlining a package's `.marrow.typ` landed in 0.5.2. On an
+older rheo nothing errors — no pages are minted, so the index comes out empty
+and the bar has nothing to link to, which is the same silent failure as
+forgetting to import rookery at all.
+
 ## Searching, without JavaScript
 
 `#search-ideas(query)` ranks the corpus and hands you the matches as data. It

@@ -648,6 +648,11 @@ stripped off whatever it is set to — via a package
 no project file needed. Typst will print `warning: bundle export is
 experimental` — expected, not a sign anything is wrong.
 
+This is the part that needs **rheo >= 0.5.2**: inlining a package's
+`.marrow.typ` landed there, and an older rheo passes over it in silence rather
+than failing, so the symptom is not an error but an absence — no `ideas/`
+pages, and links into them that resolve to nothing.
+
 Each minted page shows the note's title and permalink id, then its body, then
 a footer with two parts — each omitted, rather than left empty, when it has
 nothing to say.
@@ -802,6 +807,13 @@ at all.
   `std.target()` unconditionally, which typst gates behind that feature
   regardless of output format — even a plain PDF build needs the flag, or it
   hard-errors.
+- rheo >= 0.5.2 — but only if you build with rheo at all. The rheo-only half of
+  the package (minted note pages, the hrefs that point into them, backlinks)
+  rides on rheo inlining a package's `.marrow.typ` at the bundle root, and
+  0.5.2 is the first release that does. An older rheo does not complain: it
+  ignores the file, mints nothing, and every `@note:etal` then links at a page
+  that was never written. Plain `typst compile` is unaffected — the standalone
+  half has no floor beyond typst itself, see "Two modes".
 
 ## Build and local development
 
