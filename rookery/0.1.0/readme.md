@@ -377,11 +377,16 @@ depend on rheo — only on links to pages that only rheo produces.
 
 This is the supported way to build behaviour on top of a rookery, and it
 exists so that you do not have to reach into the package's internals to do it.
-[`@rheo/rookery-search`](https://github.com/rheo-org/rheo-packages) is written
-entirely against these two functions — it ranks `ideas()` and links with
-`note-href` — but it is an example of the seam, not a requirement of using it.
 An index page, a feed, a "recently minted" list, a graph of the rookery: all
 of them are a `for` loop over `ideas()`.
+
+**Search is one of them, and it lives in `@rheo/rookery-search`** — fuzzy
+ranking, a JSON index, an embeddable search bar — written entirely against
+these two functions. It is a separate package on purpose. A search box is only
+worth having with JavaScript, and this package ships none: no `package.json`,
+no build step, `typst.toml` pointing straight at `src/`. Keeping search out
+keeps that true. Install it alongside rookery if you want it; nothing here
+depends on it, and nothing here changes if you never do.
 
 ## The click budget
 

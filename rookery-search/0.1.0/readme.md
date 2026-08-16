@@ -9,6 +9,12 @@ worth having with JavaScript, and rookery is deliberately the one package here
 that ships none. Splitting keeps rookery buildless and puts the JavaScript in a
 package built like every other one in this repo.
 
+Two things follow from that, and both catch people out. This package **is
+built**: it resolves through `dist/`, so an edit to `src/` does nothing until
+you run `just build` — rookery's edits are live, these are not. And only its
+Typst ranking works without rheo; the index and the bar need it. Both are
+spelled out below.
+
 ```typst
 #import "@rheo/rookery:0.1.0": idea, rookery
 #import "@rheo/rookery-search:0.1.0": search-bar
@@ -40,15 +46,21 @@ it does not offer one.
 
 ## What needs rheo
 
-`search-ideas(query)` is pure Typst. It ranks the corpus and hands you the
-matches; you render them however you like, and it works under plain `typst
-compile` with no rheo present.
+Three functions, and they do not all need the same things:
 
-`search-index()` and `search-bar()` are **rheo only**. The index links to
-minted note pages, and only rheo mints them; the bar's behaviour lives in
-JavaScript that rheo injects from this package's manifest. Neither is useful in
-a single-document build, where there are no pages to navigate between and
-nothing to run a script.
+- **`search-ideas(query)` — no rheo, no JavaScript.** It ranks the corpus and
+  hands you the matches; you render them however you like. Works under plain
+  `typst compile`, and a static list of results is a real answer, not a
+  fallback.
+- **`search-index()` — rheo only.** Its rows link to minted note pages, and
+  only rheo mints them. Without rheo every link would be `none`, so it emits
+  nothing at all rather than shipping a browser a list of nulls.
+- **`search-bar()` — rheo only**, twice over: the same minted pages, plus a
+  script that rheo injects from this package's manifest. It emits nothing
+  without rheo, rather than rendering an input that could never work.
+
+Neither of the last two is useful in a single-document build anyway — a PDF has
+no pages to navigate between and nothing to run a script.
 
 ## Searching, without JavaScript
 

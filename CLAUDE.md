@@ -7,6 +7,12 @@ A collection of [Rheo](https://rheo.ohrg.org) Typst packages published under the
 Most packages also ship JS via `package.json`/vite — see "Pure-Typst
 packages" below for the one that doesn't.
 
+One dependency between packages so far: `@rheo/rookery-search` (fuzzy search
+over a rookery — ranking, a JSON index, an embeddable search bar) imports
+`@rheo/rookery` for its `ideas()` and `note-href()` primitives. It is built
+like every other JS package here; rookery is not. A project using it must
+import BOTH in its own `.typ` files — see that package's readme for why.
+
 ## Build
 
 - Per package: `cd <name>/<version> && just build` (copies/bundles `src/` into
@@ -119,9 +125,20 @@ rheo" (A) or "works standalone, rheo optionally enhances it" (B).
 
 Most packages here ship JS (a `package.json` + vite build). A package can
 also be pure Typst + CSS — no `package.json`, no `pnpm-lock.yaml`, no build
-step at all: `@rheo/rookery` (the first) points `typst.toml`'s `entrypoint`
-and `css_stylesheet` straight at `src/` — editing `src/` takes effect
-immediately, nothing to rebuild or forget to re-run.
+step at all: `@rheo/rookery` points `typst.toml`'s `entrypoint` and
+`css_stylesheet` straight at `src/` — editing `src/` takes effect immediately,
+nothing to rebuild or forget to re-run.
+
+It is the first such package and still the **only** one, deliberately. Do not
+read it as a direction of travel: `@rheo/rookery-search` shares its name and
+hard-imports it, and is nonetheless an ORDINARY built package — `package.json`
++ vite → `dist/`, manifest pointing at `dist/lib.typ`, `dist/lib.js` and
+`dist/rookery-search.css`, exactly like `sidebar`, `blogfeed`, `justify`,
+`slides` and `tooltip`. That is precisely why search lives in its own package:
+search is only worth having with JavaScript, and rookery is the one package
+here that ships none. Splitting kept that true instead of trading it away.
+When adding a package, the built shape is the default; buildless needs a
+reason as good as rookery's.
 
 `.github/workflows/publish-packages.yml` handles three cases per package: a
 `package.json` present means `pnpm install && pnpm run build`; no
