@@ -227,6 +227,22 @@ rookery's habits mislead: there, `src/` *is* the published package and an edit
 is live immediately. Here the loop is edit `src/`, `just build`, then rebuild
 the consuming project. `dist/` is a build artifact and is gitignored.
 
+### Keeping the two copies of the ranking rule honest
+
+The ranking exists twice: `fuzzy-score` in `src/lib.typ`, for the compile-time
+search, and `score` in `src/rookery-search.js`, for the live bar. Two
+implementations of one rule drift silently — a static list and a search box
+would simply start ranking differently, and nothing would fail.
+
+```sh
+just parity
+```
+
+feeds one list of cases through both and diffs every score, failing loudly when
+they disagree. The cases live in `test/parity.typ`; extend them when you extend
+the rule, and change both copies in the same commit. It needs no build — the
+fixture imports `src/` on both sides.
+
 To develop against a live rheo project, symlink the package into the Typst
 package cache:
 
