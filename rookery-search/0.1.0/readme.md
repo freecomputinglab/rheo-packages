@@ -212,7 +212,7 @@ Style them from your own stylesheet; they are the contract.
 | `.rookery-search-results` | the listbox span |
 | `.rookery-search-row` | one result, an `<a>` |
 | `.rookery-search-title` | the note's title, or its name when untitled |
-| `.rookery-search-id` | the note's full id |
+| `.rookery-search-id` | the note's full id, bracketed — `[idea:etal]` |
 
 The wrapper also carries `data-rookery-search-open="true|false"`, flipped as the
 results open and close — that is the hook to show and hide the list, so the CSS
@@ -274,7 +274,7 @@ For the common cases you do not need a rule at all, only a property:
 | `--rookery-search-hover` | `--idea-link-color`, else `rgba(128, 0, 255, 0.12)` |
 | `--rookery-search-id-color` | `--idea-id-color`, else `gray` |
 | `--rookery-search-width` | `16em` |
-| `--rookery-search-max-width` | `28em` |
+| `--rookery-search-max-width` | `28em` (a ceiling; the dropdown hugs its longest row below it) |
 | `--rookery-search-max-height` | `20em` |
 | `--rookery-search-z` | `1000` |
 

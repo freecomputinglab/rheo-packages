@@ -120,7 +120,10 @@ const wire = (root, rows, n) => {
       title.textContent = hit.text === "" ? hit.name : hit.text;
       const id = document.createElement("span");
       id.className = "rookery-search-id";
-      id.textContent = hit.id;
+      // Bracketed, because that is how an id reads everywhere else in a
+      // rookery: `[idea:etal]` beside a note's title, in a window's summary,
+      // in an outline row. A result should look like the thing it points at.
+      id.textContent = `[${hit.id}]`;
       a.append(title, id);
       list.append(a);
     }

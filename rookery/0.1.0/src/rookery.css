@@ -545,6 +545,24 @@ h6.idea {
 
    `padding-left` is larger than `.idea-box`'s `.75em` because the row's
    marker lives in it: 0.75em of hairline plus 0.5em of gap before the text. */
+/* "Contents", above an outline. Pinned to the same size and weight as
+   `.idea-footnotes-title` and for the same reason: both label a block of
+   apparatus rather than open a section, and left to a site's heading scale
+   they announce themselves louder than the writing they belong to. The two
+   are deliberately identical — a reader meeting "Contents" at the top of a
+   page and "Footnotes" at the foot of a note should recognise them as the
+   same kind of thing. */
+.idea-outline-title {
+  /* `0.85em`, not the `1em` that `.idea-footnotes-title` carries, and the two
+     land on the same size: that rule's `1em` is relative to `.idea-footnotes`,
+     which is itself `0.85em`. This heading has no such wrapper to inherit
+     from, so it applies the same reduction directly. Change one and change the
+     other — the whole point is that they agree. */
+  font-size: 0.85em;
+  font-weight: 600;
+  margin: 0 0 0.3em;
+}
+
 .idea-outline {
   list-style: none;
   margin: 0.4em 0;

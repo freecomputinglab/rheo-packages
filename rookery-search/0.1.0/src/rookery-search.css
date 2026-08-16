@@ -31,11 +31,12 @@
      --rookery-search-radius      corner radius, both
      --rookery-search-hover       row hover/focus background
      --rookery-search-id-color    the `idea:etal` id beside a row's title
-     --rookery-search-width          the input's width
-     --rookery-search-results-width  the dropdown's width — constant, not
-                                     sized to whatever happens to match
-     --rookery-search-max-height     the dropdown's scroll cap
-     --rookery-search-z              the dropdown's stacking order
+     --rookery-search-width       the input's width
+     --rookery-search-max-width   how wide the dropdown may grow before its
+                                  longest row wraps; it hugs its content below
+                                  that, so this is a ceiling, not a width
+     --rookery-search-max-height  the dropdown's scroll cap
+     --rookery-search-z           the dropdown's stacking order
 
    Three of those colours fall back to ROOKERY's own theme properties before
    their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`,
@@ -82,29 +83,32 @@
        the problem only once results are overlapping its chrome. Raise it with
        the property rather than by writing a rule. */
     z-index: var(--rookery-search-z, 1000);
-    /* WIDER THAN THE INPUT, and a CONSTANT width. A row is a title and an id
-       on one line, and an input sized for typing into is not wide enough to
-       hold both: at the input's width even a short title wraps against its own
-       id. So the dropdown gets a width of its own.
-       Sizing it to its content (`max-content`) was the obvious way to do that
-       and the wrong one: the panel then changed width on every keystroke, as
-       the longest matching title came and went. A results panel that resizes
-       while you type is the thing you are trying to read moving under you. It
-       is a definite width instead, the same for one result as for ten.
+    /* WIDER THAN THE INPUT, and sized to its content. A row is a title with
+       its bracketed id trailing after it, and an input sized for typing into
+       is not wide enough to hold both: at the input's width even a short title
+       wraps against its own id. So the panel takes the width of its longest
+       row and no more.
+       `max-content` is right BECAUSE the row flows left. While the id was
+       pinned to the right-hand edge, a content-sized panel meant every row's
+       id hung off the end of the longest one, with a ragged trench of empty
+       space between each title and its own id — so the width had to be fixed
+       to keep that gap honest. Now that the id sits directly after the title, the only
+       thing width controls is how much empty margin trails the longest row,
+       and hugging the content is simply the tighter answer.
        `min-width` keeps it from ever being narrower than the input it hangs
-       from, and `max-width` is a floor under the property rather than a second
-       knob: whatever width a site asks for, the panel still cannot grow past
-       the viewport it has to fit inside. Without that, a width generous enough
-       for a desktop header spills off the side of a phone.
+       from, and the `min()` in `max-width` is a floor under the property
+       rather than a second knob: whatever cap a site asks for, the panel still
+       cannot grow past the viewport it has to fit inside. Without that, a cap
+       generous enough for a desktop header spills off the side of a phone.
        Anchored at the LEFT edge of the input, so it extends rightward. A bar
        sitting at the right-hand end of a header wants the opposite — set
        `left: auto; right: 0` in your own stylesheet, which is what this
        package's own docs site does. */
     left: 0;
     right: auto;
-    width: var(--rookery-search-results-width, 28em);
+    width: max-content;
     min-width: 100%;
-    max-width: calc(100vw - 2rem);
+    max-width: min(var(--rookery-search-max-width, 28em), calc(100vw - 2rem));
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
@@ -120,10 +124,18 @@
     display: none;
   }
 
+  /* A row reads the way a note reads inline: its title, then its bracketed id
+     trailing after it. Plain inline flow rather than a flex row with the id
+     pushed to the far edge — spacing the two apart made them look like two
+     columns of a table, which is a claim that the id is a separate FIELD
+     rather than the note's own name for itself. Left-aligned and adjacent,
+     they read as one label.
+     Undecorated, because the title is not a link inside a row; the whole row
+     is. Note that a site whose own `a { text-decoration: underline }` sits
+     outside a cascade layer will beat this — layered loses to unlayered — so
+     an underline here is the site's to turn off, in the site's stylesheet. */
   .rookery-search-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 1em;
+    display: block;
     padding: 0.25em 0.5em;
     color: inherit;
     text-decoration: none;
@@ -139,9 +151,16 @@
     );
   }
 
+  /* Same size as the title it follows, deliberately unlike `.idea-label`
+     inline, which is set small so an id does not compete with the heading it
+     sits beside. Here there is no heading to compete with — a result is one
+     line of small text already, and shrinking half of it again just makes the
+     id hard to read. Colour still separates the two.
+     `nowrap` so a bracketed id never breaks across lines; a long title wraps
+     and the id follows it, exactly as it would in prose. */
   .rookery-search-id {
     color: var(--rookery-search-id-color, var(--idea-id-color, gray));
-    font-size: 0.85em;
+    margin-left: 0.4em;
     white-space: nowrap;
   }
 }

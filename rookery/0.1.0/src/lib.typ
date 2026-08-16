@@ -2038,7 +2038,21 @@
   let entries = _ideas-outline-data(rookery-wide: rookery-wide)
   if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
 
-  let title-heading = if title-content == none { none } else {
+  // On HTML an explicit `h4` carrying a class, the same shape (and the same
+  // reason) as the Footnotes block's heading: a bare `heading()` compiled to
+  // an unclassed `<h2>`, which took the host site's heading scale and made
+  // "Contents" as loud as a section title — for a label on a list of links.
+  // The class is what lets it be sized down to match Footnotes, and there is
+  // nothing else on the element to target.
+  //
+  // The paged target keeps the real `heading()`: there it IS a document
+  // structure, it belongs in the PDF outline, and nothing is styling it by
+  // class.
+  let title-heading = if title-content == none { none } else if (
+    _target() == "html" or _target() == "epub"
+  ) {
+    html.elem("h4", attrs: (class: "idea-outline-title"), title-content)
+  } else {
     heading(depth: 1, outlined: false, numbering: none, title-content)
   }
   if entries.len() == 0 { return title-heading }
