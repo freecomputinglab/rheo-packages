@@ -110,6 +110,45 @@ simply narrow.
 integer. Rank something other than notes with it, or sort matches your own way,
 without inventing a second rule that disagrees with the bar's.
 
+## The corpus in the browser
+
+A compile-time search is not a search box. For that the browser needs the
+corpus, and `#search-index()` puts it on the page as JSON:
+
+```html
+<script type="application/json" id="rookery-search-index">[{"id":"idea:flat-ids","name":"flat-ids","text":"Flat ids, and why","href":"ideas/flat-ids.html"}, ...]</script>
+```
+
+One row per note: `id`, `name`, `text` (the plain-text title, `""` when there
+is none) and `href`. The field is `text` and not `title` deliberately — it is
+the same name, meaning and type as `search-ideas` returns, and a name that
+meant content in Typst and a string in JSON is how a consumer gets it wrong.
+
+The hrefs are **relative to the page the call sits on**, so an index emitted
+from a site's shared template comes out right on a nested page too — `../ideas/…`
+there, `ideas/…` at the root. The rows are id-ordered, so the island is
+byte-stable between builds and a diff of the output means something.
+
+`#search-bar()` emits this for you; call it directly only when you are building
+your own UI, or when several bars share one index. Reading it is one line:
+
+```js
+const rows = JSON.parse(
+  document.getElementById("rookery-search-index").textContent,
+);
+```
+
+Rank those rows with `RheoRookerySearch.score(hay, query)` — the same rule
+`#fuzzy-score` applies at compile time, ported. Use it rather than writing a
+second one, so a custom UI and the built-in bar agree about what "best match"
+means.
+
+**HTML under rheo, and nothing else.** Every row needs an `href` and only rheo
+mints the pages those point at, so under plain `typst compile` the rows filter
+to nothing and no island is emitted at all — rather than shipping a browser a
+list of `null`s. Under a paged or EPUB target nothing is emitted either: a
+`<script>` is meaningless in a PDF, and EPUB readers may refuse or strip it.
+
 ## Working on it locally
 
 Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and

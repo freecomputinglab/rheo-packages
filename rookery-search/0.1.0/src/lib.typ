@@ -16,6 +16,28 @@
 // NOT take effect until you rebuild — the one ergonomic cost of shipping JS.
 #import "@rheo/rookery:0.1.0": ideas, note-href
 
+// ---- Target detection — a deliberate copy of rookery's ---------------------
+//
+// The originals are `_rheo-ctx` and `_target` in `rookery/0.1.0/src/lib.typ`,
+// where they are underscore-private. They are copied rather than exported and
+// imported: six lines of `sys.inputs` read, against making rookery widen its
+// public surface with something no author would ever call. `sys.inputs` is
+// readable from any package's scope, so the copy behaves identically.
+//
+// `std.target()` reports EPUB as "html"; rheo's own context distinguishes
+// them. `std.target()` rather than a bare `target()`, because rheo injects its
+// `target()` polyfill into each vertebra's scope, not into package scope — and
+// that read REQUIRES `--features html`, which every build of a project using
+// this package therefore needs.
+//
+// Keep in step with rookery's. If that pair changes, this one changes too.
+#let _rheo-ctx() = sys.inputs.at("rheo-context", default: none)
+
+#let _target() = {
+  let c = _rheo-ctx()
+  if c != none and "target" in c { c.target } else { std.target() }
+}
+
 // Lowercase, and `-`/`_` read as a space. Applied to the HAYSTACK AND THE
 // QUERY, which is what makes an id findable by how a person types it: the note
 // `flat-ids` matches "flat ids", and the exact string "flat-ids" still matches
@@ -124,4 +146,39 @@
   }
   out = out.sorted(key: e => -1 * e.score)
   if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
+}
+
+// ---- #search-index — the corpus as a JSON island --------------------------
+//
+//   #search-index()                       // usually not called directly
+//   #search-index(elem-id: "notes-index")  // a second, differently-keyed index
+//
+// Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
+// one row per note: `(id, name, text, href)`, where `text` is the plain-text
+// title ("" when untitled) and `href` is the depth-relative path to the note's
+// minted page — computed against the page this call sits on, so an island in a
+// site's shared chrome comes out right on a nested vertebra too.
+//
+// The field is `text`, not `title`, on purpose: same name, same meaning, same
+// type as `search-ideas` returns. `title` there is CONTENT, which JSON cannot
+// carry, and one name meaning two types across two surfaces is how a consumer
+// gets it wrong.
+//
+// `search-bar` emits this itself, so most projects never call it. Call it
+// directly when building a custom UI, or when several bars share one index —
+// see `search-bar`'s `index:` parameter.
+//
+// The rows are `search-ideas("")` — the empty query matching everything — with
+// the fields JSON cannot carry dropped, and unmintable notes filtered out.
+#let search-index(elem-id: "rookery-search-index") = context {
+  if _target() != "html" { return }
+  let rows = search-ideas("")
+    .filter(e => e.href != none)
+    .map(e => (id: e.id, name: e.name, text: e.text, href: e.href))
+  if rows.len() == 0 { return }
+  html.elem(
+    "script",
+    attrs: (type: "application/json", id: elem-id),
+    json.encode(rows, pretty: false),
+  )
 }
