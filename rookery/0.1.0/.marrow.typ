@@ -69,7 +69,7 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _idea-page-template, _IDEA-DIR, window
+#import "@rheo/rookery:0.1.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _idea-page-template, _IDEA-DIR, window
 
 #context {
   let registry = _registry.final()
@@ -124,7 +124,24 @@
       // does wherever the note is windowed. `depth: auto` takes that
       // document-wide default, and at the default of 0 returns `rec.body`
       // unchanged.
-      #_body-at(rec)
+      //
+      // Wrapped in `_footnoted` — the same wrapper `#idea` and `#window` use —
+      // so the note's footnote markers are claimed HERE and listed in a block
+      // of this page's own. A minted page is a separate `#document` at the
+      // bundle root, outside every vertebra, so `#show: rookery`'s
+      // document-wide fallback never reaches it: without this the markers were
+      // claimed by nothing and rendered as nothing, silently dropping the
+      // note's footnotes from its own page. MEASURED before the fix.
+      //
+      // It also puts the block between the body and the footer, which is where
+      // it belongs: the note's own apparatus stays attached to the note, and
+      // Context/Backlinks remain last as the navigational layer. Typst's stock
+      // endnote section would have landed BELOW the footer instead.
+      //
+      // Walks what it renders — `_body-at(rec)` rather than `rec.body` — so a
+      // nested window that `window-depth` unfurls contributes its footnotes to
+      // its own block rather than being missed.
+      #_footnoted(_body-at(rec))
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
