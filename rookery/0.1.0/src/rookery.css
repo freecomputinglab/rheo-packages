@@ -99,6 +99,7 @@
 .idea-box a:hover,
 .idea-window a:hover,
 .idea-outline a:hover,
+.idea-footnotes a:hover,
 .idea-footer a:hover {
   background-color: var(--idea-link-color, rgba(128, 0, 255, 0.12));
 }
@@ -110,6 +111,7 @@
 .idea-box a,
 .idea-window a,
 .idea-outline a,
+.idea-footnotes a,
 .idea-footer a {
   border-radius: 3px;
 }
@@ -326,6 +328,66 @@ figure:has(> .idea-window) {
 
 .idea-window-details[open] {
   margin-bottom: 1em;
+}
+
+/* ---- Footnotes — an idea's own, not the page's ----------------------------
+   `#footnote` inside an idea numbers against THAT idea and lists its bodies
+   here, at the end of the idea, so two notes on one page may each carry a
+   footnote 1. The block follows the idea to every surface it appears on — its
+   hatch page, every `#window` on it, its minted page — and each of those gets
+   its own copy with its own anchors, because a footnote reference is a
+   same-page fragment.
+
+   Subordinate, not sectional: smaller than body text, a hairline above to
+   separate it from the prose it belongs to, and aligned to the note's TEXT
+   margin rather than sitting out at the note's left rule. It is apparatus for
+   the note, not a division of the document.
+
+   Nothing here is load-bearing: the reference and its body are an ordinary
+   pair of same-page anchors and work with this stylesheet absent. */
+.idea-footnotes {
+  margin-top: 1em;
+  padding-top: 0.4em;
+  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  font-size: 0.85em;
+}
+
+/* An <h4> for document-outline correctness, styled so it does not read as one.
+   Size and margins are set explicitly rather than left to inherit: a site's own
+   heading scale would otherwise make "Footnotes" compete with the note's title
+   directly above it. */
+.idea-footnotes-title {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0 0 0.3em;
+}
+
+/* The <ol> numbers itself, and each <li> carries the id its reference points
+   at — so no ::marker games and no hand-drawn numbers. `padding-left` keeps the
+   digits inside the block rather than hanging into the rule at its left. */
+.idea-footnote-list {
+  margin: 0;
+  padding-left: 1.5em;
+}
+
+.idea-footnote {
+  margin: 0.15em 0;
+}
+
+/* The inline reference. `line-height: 0` stops the superscript from opening up
+   the line it sits in, which is the usual defect of a raw <sup> in body text. */
+.idea-fn-ref {
+  line-height: 0;
+}
+
+/* The way back up to the reference. Grey and light like the permalink, because
+   it is the same kind of thing: a small navigational mark beside content rather
+   than part of it. It takes the shared link hover above, so it is not restyled
+   here. */
+.idea-fn-backlink {
+  color: var(--idea-id-color, gray);
+  text-decoration: none;
+  margin-right: 0.3em;
 }
 
 /* ---- #ideas-outline — a page's own notes, as a tree ------------------------
