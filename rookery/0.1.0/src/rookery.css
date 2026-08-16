@@ -63,13 +63,19 @@
   /* Metadata, not content — explicitly smaller than the title beside it
      (`.idea-window-title` and a heading's own text both stay at their
      ambient size), rather than differing only by weight/colour as before.
-     `.idea-window-date`/`.idea-date` match this exact value, so a window's
+     `.idea-window-date`/`.idea-date` read this same property, so a window's
      date reads as the same kind of thing as the id it follows.
 
-     `em`, so it stays proportionate in all three of the places an id turns
-     up: an `#idea` heading, a `#window` summary, and a minted page's `<h1>`,
-     each with a different ambient size. */
-  font-size: 0.57em;
+     `rem`, NOT `em` — and this is the whole point of the rule. An id is ONE
+     thing wherever it appears, and `em` made it three different sizes: 0.57 of
+     an `<h2>` in an `#idea` heading, 0.57 of an `<h1>` on a minted page, 0.57
+     of body text in a `#window` summary (smaller again inside the footer,
+     which scales down). MEASURED on rookery.ohrg.org: the same id came out
+     visibly larger in a heading than in a window beside it. Root-relative, it
+     comes out identical in all of them, at the window's size — the smallest
+     of the three, which is the one that reads as machinery rather than as
+     part of the heading it sits in. */
+  font-size: var(--idea-label-size, 0.57rem);
   text-decoration: none;
   border-radius: 3px;
 }
@@ -248,6 +254,24 @@ figure:has(> .idea-window) {
   padding-left: .75em;
 }
 
+/* An idea's heading is an <h2>–<h6> (`#idea`'s `level:` + 1) and would
+   otherwise take the host site's heading margins, which are sized for section
+   headings — a note's own name announcing itself as loudly as the section it
+   sits in. Half that (0.75em against the ~1.5em a site typically gives a
+   heading), which is the gap this package wants above a note.
+
+   No `margin-bottom` here: the space between a note's name and its first line
+   is the site's typography to set, and only the space ABOVE the note is about
+   how notes sit in a column. Set `--idea-heading-margin-top` in your own
+   stylesheet to go back to your site's scale (or anywhere else). */
+h2.idea,
+h3.idea,
+h4.idea,
+h5.idea,
+h6.idea {
+  margin-top: var(--idea-heading-margin-top, 0.75em);
+}
+
 /* ---- #window — a transcluded note -----------------------------------------
    The block gets a faint hover tint, which is what signals "this folds"; the
    disclosure marker is hidden (below), so without the tint the summary would
@@ -297,15 +321,15 @@ figure:has(> .idea-window) {
 /* The note's minted date, after the permalink — in a `#window`'s summary
    (`.idea-window-date`) and in `#idea`'s own heading (`.idea-date`), both
    opt-in via `show-date: true`. Same grey/light treatment as `.idea-label`,
-   including its exact `font-size` (kept as one literal in each place
-   deliberately — a window's summary and an idea's heading have different
-   ambient sizes to be `em`-relative to, so the two rules can't share a
-   single computed value, only the same authored number). */
+   and the same size through the same property: a date sits directly beside
+   the id it follows, so the two have to be one size or the pair reads as two
+   kinds of thing. Setting `--idea-label-size` moves both together, which is
+   the only sane way for them to move. */
 .idea-window-date,
 .idea-date {
   color: var(--idea-date-color, gray);
   font-weight: 200;
-  font-size: 0.57em;
+  font-size: var(--idea-label-size, 0.57rem);
   white-space: nowrap;
 }
 
@@ -327,11 +351,11 @@ figure:has(> .idea-window) {
 /* An open window needs more room beneath it than a closed one, or a column of
    folded windows reads as one undifferentiated block. */
 .idea-window-details {
-  margin-bottom: 0.4em;
+  margin-bottom: 0.2em;
 }
 
 .idea-window-details[open] {
-  margin-bottom: 1em;
+  margin-bottom: 0.5em;
 }
 
 /* ---- Footnotes — an idea's own, not the page's ----------------------------
