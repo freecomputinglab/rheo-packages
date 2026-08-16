@@ -792,9 +792,20 @@
     let d-attrs = if folded { (class: "idea-window-details") } else {
       (class: "idea-window-details", open: "open")
     }
+    // `_footnoted(shown)`, not `shown`: a transcluded body carries the origin
+    // note's footnote markers, and without a rule of its own here they would be
+    // claimed by whatever idea box encloses THIS window and numbered against a
+    // block that does not list them — dangling anchors, MEASURED on a
+    // `#window` written inside another note's body. Installing the same wrapper
+    // `#idea` uses gives the window its own block and its own numbering, and
+    // being nested it wins over the enclosing rule.
+    //
+    // `shown`, not the untruncated body — the caller already applied `limit:`,
+    // and a window must not list a footnote whose reference it truncated away.
+    // The block goes INSIDE `.idea-window-body` so it folds with the window.
     html.elem("div", attrs: _themed((class: "idea-window")),
       html.elem("details", attrs: d-attrs,
-        summary + html.elem("div", attrs: (class: "idea-window-body"), shown)))
+        summary + html.elem("div", attrs: (class: "idea-window-body"), _footnoted(shown))))
   } else {
     // No disclosure in a paged target — nothing to click, so a fold that
     // could not be opened would just hide the body: `folded` is ignored
@@ -808,7 +819,7 @@
     // `align(start)` because `#window` puts this inside a `figure`, and a
     // Typst figure CENTRES its body — see the note on `#idea`'s own paged
     // branch, which this shares the defect and the fix with.
-    align(start, block[#head#parbreak()#shown])
+    align(start, block[#head#parbreak()#_footnoted(shown)])
   }
 }
 
