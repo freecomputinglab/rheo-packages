@@ -1,7 +1,7 @@
 // The parity fixture. `test/parity.mjs` reads this via `typst eval` and diffs
 // every score against `score` in `src/rookery-search.js`. Not shipped: the
 // release archive tars `dist/`, which vite builds from `src/` alone.
-#import "/src/lib.typ": fuzzy-score, body-score
+#import "/src/lib.typ": _rank, body-score, fuzzy-score
 #let cases = (
   ("flat-ids", "flat"), ("flat-ids", "flat ids"), ("flat-ids", "flat-ids"),
   ("windows", "window"), ("window-depth", "window"), ("windows", "windows"),
@@ -20,8 +20,7 @@
 // A second fixture for `body-score` — the AND, full-text matcher over note
 // bodies. Its own labelled array, `<parity>` above kept untouched, because
 // `body-score` is a different rule with a different signature (`none` on ANY
-// missing term, not a fuzzy subsequence). Consumed by the JS port's own
-// parity bead, not by `test/parity.mjs` here.
+// missing term, not a fuzzy subsequence).
 #let body-cases = (
   // Long prose, a multi-term query where every term is present.
   (
@@ -68,3 +67,63 @@
   query: c.at(1),
   score: body-score(c.at(0), c.at(1)),
 ))) <body-parity>
+
+// A third fixture, for the layer ABOVE the two scorers: which tier a row lands
+// in, how the tiers order against each other, how ties break, and where `limit`
+// cuts. That rule is implemented twice — `_rank` here, `search` in
+// `src/rookery-search.js` — and diffing only the leaf scorers left it unchecked.
+//
+// ORDER IS THE THING UNDER TEST, so the runner compares the id SEQUENCE, not a
+// set. Rows are kept in ID ORDER because that is what `ideas()` hands `_rank`
+// (see its comment): Typst leans on a stable sort for ties where JavaScript
+// breaks them by id, and the two agree only for id-ordered input.
+//
+// Each row below exists for a boundary named in the comment beside it. `body` is
+// ABSENT from one row on purpose — that missing key is the whole implementation
+// of `body-search: false`, read as `""` on both sides.
+#let tier-rows = (
+  // Matches on TITLE only: "aaa" has no w-i-n-d-o-w subsequence.
+  (id: "idea:aaa", name: "aaa", text: "Window handling", body: "prose about nothing in particular"),
+  // Matches on BODY only, and carries `text: ""` — the branch that skips the
+  // title score entirely rather than scoring an empty haystack.
+  (id: "idea:bbb", name: "bbb", text: "", body: "win window windows, mentioned early and often"),
+  // NO `body` KEY AT ALL. Must never reach the body tier, and must not error.
+  (id: "idea:ccc", name: "ccc", text: ""),
+  // Two rows tying on score, so the tie must break by id: ddd before eee.
+  (id: "idea:ddd", name: "wnd", text: "Wnd"),
+  (id: "idea:eee", name: "wnd", text: "Wnd"),
+  // A WEAK name match: the query's letters appear scattered through a long
+  // haystack, so its score lands BELOW a strong body-tier score. It must still
+  // sort above every body row — that is the tiering rule, not a score contest.
+  (id: "idea:scatter", name: "wqqiqqnqqqqqqqqqqqqqqqqqqqqqqqq", text: ""),
+  // Two strong name matches that the length term separates (35 vs 40 for
+  // "window") — the pair the scorer's own comment cites.
+  (id: "idea:window-depth", name: "window-depth", text: "Controlling window depth"),
+  (id: "idea:windows", name: "windows", text: "Windows"),
+)
+// Emitted for the runner too, so the JavaScript side ranks THE SAME rows rather
+// than a hand-copied second corpus that could drift from this one.
+#metadata(tier-rows) <tier-rows>
+
+#let tier-cases = (
+  ("window", none), // full tiering, name rows above the body row
+  ("window", 2), // `limit` cutting INSIDE the name tier
+  ("window", 3), // `limit` landing exactly ON the tier boundary: the one body
+  // row is dropped, because the cut applies to the CONCATENATION and not per tier
+  ("window", 0), // a zero limit is empty, not unlimited
+  ("win", none), // body-tier score ABOVE a weak name-tier score
+  ("wnd", none), // a tie, broken by id
+  ("", none), // empty query: every row scores 0 in the name tier, id order
+  ("zzz", none), // no match anywhere
+  ("window depth", none), // multi-term: AND over the body, subsequence over names
+)
+#metadata(tier-cases.map(c => {
+  let hits = _rank(tier-rows, c.at(0), limit: c.at(1))
+  (
+    query: c.at(0),
+    limit: c.at(1),
+    ids: hits.map(h => h.id),
+    scores: hits.map(h => h.score),
+    kinds: hits.map(h => h.kind),
+  )
+})) <tier-parity>

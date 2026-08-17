@@ -143,6 +143,50 @@
   points
 }
 
+// ---- _rank — the tiering rule, over rows GIVEN rather than read ------------
+//
+// Split out of `#search-ideas` so `test/parity.typ` can run the rule on a
+// literal corpus. The rule is implemented TWICE by design — here, and as
+// `search` in `src/rookery-search.js` — and until this was a pure function of
+// its rows, only the two LEAF scorers could be diffed: the layer that decides
+// tiers, order and `limit` was duplicated and unchecked. `#search-ideas` below
+// is now this, plus its asserts, plus `ideas()`.
+//
+// ROWS MUST ARRIVE IN ID ORDER, which is exactly what `ideas()` guarantees
+// ("ordered by id so a build is reproducible"). Ties within a tier fall to
+// Typst's stable sort, i.e. to the incoming order, where the JavaScript side
+// breaks them by id explicitly. The two agree for id-ordered input and can
+// disagree for anything else, so an arbitrarily ordered corpus is outside the
+// parity guarantee — which is why the fixture keeps its rows id-ordered, and why
+// this comment is here rather than a defensive sort nobody needs.
+//
+// Private: the public surface is `#search-ideas`. `test/parity.typ` imports it
+// by relative path, the same way it imports `fuzzy-score`.
+#let _rank(rows, query, limit: none, body-search: true) = {
+  let name-hits = ()
+  let body-hits = ()
+  for e in rows {
+    let s-name = fuzzy-score(e.name, query)
+    let s-text = if e.text == "" { none } else { fuzzy-score(e.text, query) }
+    let name-score = if s-name == none {
+      s-text
+    } else if s-text == none { s-name } else { calc.max(s-name, s-text) }
+    if name-score != none {
+      name-hits.push((..e, score: name-score, kind: "name"))
+      continue
+    }
+    if not body-search { continue }
+    let body-score-val = body-score(e.at("body", default: ""), query)
+    if body-score-val != none {
+      body-hits.push((..e, score: body-score-val, kind: "body"))
+    }
+  }
+  name-hits = name-hits.sorted(key: e => -1 * e.score)
+  body-hits = body-hits.sorted(key: e => -1 * e.score)
+  let out = name-hits + body-hits
+  if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
+}
+
 // ---- #search-ideas — fuzzy lookup over a rookery's ids, titles and bodies -
 //
 //   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47, kind: "name"), ..)
@@ -201,28 +245,7 @@
     message: "@rheo/rookery-search: #search-ideas' `body-search` must be a "
       + "boolean — got " + repr(body-search),
   )
-  let name-hits = ()
-  let body-hits = ()
-  for e in ideas() {
-    let s-name = fuzzy-score(e.name, query)
-    let s-text = if e.text == "" { none } else { fuzzy-score(e.text, query) }
-    let name-score = if s-name == none {
-      s-text
-    } else if s-text == none { s-name } else { calc.max(s-name, s-text) }
-    if name-score != none {
-      name-hits.push((..e, score: name-score, kind: "name"))
-      continue
-    }
-    if not body-search { continue }
-    let body-score-val = body-score(e.at("body", default: ""), query)
-    if body-score-val != none {
-      body-hits.push((..e, score: body-score-val, kind: "body"))
-    }
-  }
-  name-hits = name-hits.sorted(key: e => -1 * e.score)
-  body-hits = body-hits.sorted(key: e => -1 * e.score)
-  let out = name-hits + body-hits
-  if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
+  _rank(ideas(), query, limit: limit, body-search: body-search)
 }
 
 // ---- #search-index — the corpus as a JSON island --------------------------
