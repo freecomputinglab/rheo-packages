@@ -512,7 +512,11 @@ const wireModal = (dialog, rows) => {
   const list = dialog.querySelector(".rookery-search-list");
   const preview = dialog.querySelector(".rookery-search-preview");
   if (input === null || list === null || preview === null) return null;
-  const limit = Number(dialog.dataset.rookerySearchLimit || "8");
+  // 30, not `wire`'s 8, and deliberately so: a full-height overlay pane has room
+  // a dropdown under an input does not, which is why `#search-modal`'s own
+  // default is 30 (`src/lib.typ:416`) where `#search-bar`'s is 8. Do not tidy
+  // the two into agreement.
+  const limit = Number(dialog.dataset.rookerySearchLimit || "30");
 
   let hits = [];
   let selected = 0;
