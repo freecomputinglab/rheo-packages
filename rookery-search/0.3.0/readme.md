@@ -97,11 +97,11 @@ itself, because a context function can only return content, and this returns
 data you can filter and count.
 
 Each entry is everything rookery's `#ideas()` gives you — `id`, `name`,
-`title`, `text`, `body`, `href`, `minted`, `updated` — plus `score` and `kind`.
-Sorted TWO TIERS deep: every `kind: "name"` row (matched on id or title) before
-every `kind: "body"` row (matched only on body text), best score first within
-each tier, ties falling back to id order, so a build is reproducible. `href`
-is `none` without rheo, since nothing mints note pages there; link to
+`title`, `text`, `tags`, `body`, `href`, `minted`, `updated` — plus `score` and
+`kind`. Sorted TWO TIERS deep: every `kind: "name"` row (matched on id or title)
+before every `kind: "body"` row (matched only on body text), best score first
+within each tier, ties falling back to id order, so a build is reproducible.
+`href` is `none` without rheo, since nothing mints note pages there; link to
 `label(e.id)` instead, as above.
 
 **`body-search: false` drops the second tier**, leaving ids and titles: no row
@@ -113,6 +113,10 @@ passing, above the note actually called that, is noise. The same switch is
 carried through `#search-index`, `#search-bar` and `#search-modal`, where it
 also stops shipping body text to the browser at all; see "Ids and titles only"
 below.
+
+**`tags: "phd"` narrows the corpus instead**, so `#search-ideas("", tags: "phd")`
+is a static index of just the notes tagged `phd`. It changes what is searched,
+not what the query matches; see "Scoping the corpus by tag" below.
 
 ### What matches, and what doesn't
 
@@ -145,7 +149,11 @@ times; a weighted sum only approximates that and needs constant retuning,
 where two tiers say it plainly. `kind` on each result is what tells a caller
 (and the modal's preview pane) which rule matched.
 
-Tags are not searched, for now, on either id/title or body.
+**Tags are not searched**, on id/title or on body. The query never matches a
+tag, so "phd" finds the note *called* that, not the notes *tagged* with it. What
+tags do instead is choose the corpus: `tags:` narrows WHICH notes are searched,
+before anything is scored. Two separate axes — see "Scoping the corpus by tag"
+below.
 
 **Accents are not folded**, on id/title or on body: "cafe" does not match
 "Café". Fixing it means Unicode normalisation that the JavaScript half of this
@@ -161,6 +169,75 @@ tense or a word like "the" has to be typed as it appears in the note.
 integer. Rank something other than notes with it, or sort matches your own way,
 without inventing a second rule that disagrees with the bar's.
 
+## Scoping the corpus by tag: `tags:` and `match:`
+
+`tags:` narrows WHICH notes are searched. **It does not make the query match
+tags** — ranking still looks at id and title, and at body text when
+`body-search` is on, and never at a tag. The two are different axes: `tags:`
+decides what is in the corpus at all, the query decides what scores inside it.
+
+Both parameters are rookery's own, passed straight through to its `#ideas()`:
+
+- `tags` — `none` (the whole rookery; the default), one tag as a string, or an
+  array of tags.
+- `match` — `"any"` (the default) or `"all"`. Given an array, `"any"` keeps a
+  note carrying at least one of those tags, `"all"` only a note carrying every
+  one of them.
+
+`#search-ideas`, `#search-index`, `#search-bar` and `#search-modal` all accept
+the pair. `tags: none` indexes the whole rookery exactly as it did before this
+existed, so no existing call changes behaviour.
+
+**The predicate is not reimplemented here.** This package does not filter by tag
+itself and does not import `#tags-of`: rookery owns the rule — the same one
+`#window(tags: …)` applies — and this is a pass-through. One rule written twice
+drifts, and it would drift silently, a bar and a window quietly disagreeing
+about what "tagged phd" means.
+
+Two things follow from narrowing in Typst rather than in the browser. An excluded
+note is never scored, and never pays for its plain-text body conversion either,
+because `#ideas()` filters before it builds each row. And the JSON island holds
+only the notes that survived, so a scoped bar ships a smaller island — inline on
+every page, so the saving is multiplied by the page count, the same arithmetic as
+the `body-search: false` measurement below.
+
+The island gains no `tags` field, deliberately. The selection is settled at
+compile time, so the browser has nothing left to decide, and a field it never
+reads would only make every page bigger.
+
+### A bar over one tag
+
+```typst
+#import "@rheo/rookery-search:0.3.0": search-bar
+#search-bar(tags: "phd", placeholder: "Search phd notes")
+```
+
+That bar finds the notes tagged `phd` and nothing else. A note without that tag
+is not in its island at all, so no query typed into it can reach one.
+
+### Two bars, two tags, one page
+
+Two scopes are two corpora, so they are two islands — `elem-id:` names them, and
+both bars keep `index: true`:
+
+```typst
+#search-bar(tags: "phd", elem-id: "phd-index", placeholder: "phd notes")
+#search-bar(tags: "trip", elem-id: "trip-index", placeholder: "trip notes")
+```
+
+Nothing new is needed for this. `elem-id:` already names the island a bar reads
+(the wrapper's `data-rookery-search` carries that name), and the markup carries
+no other id, so the pair coexists on one page. Note how it differs from the
+`index: false` case below: two bars over the SAME corpus share one island and the
+second passes `index: false`, where two bars over DIFFERENT corpora are two
+islands and each emits its own.
+
+`match: "all"` scopes to an intersection instead of a union:
+
+```typst
+#search-bar(tags: ("phd", "draft"), match: "all", elem-id: "phd-draft-index")
+```
+
 ## The corpus in the browser
 
 A compile-time search is not a search box. For that the browser needs the
@@ -175,6 +252,11 @@ is none), `body` (the plain-text body, `""` when there is none) and `href`.
 The field is `text` and not `title` deliberately — it is the same name,
 meaning and type as `search-ideas` returns, and a name that meant content in
 Typst and a string in JSON is how a consumer gets it wrong.
+
+**`tags:`/`match:` decide which notes reach the island**, and the row shape is
+unchanged by them — no `tags` field goes into the JSON, because the selection is
+already settled in Typst and the browser has nothing left to filter. See
+"Scoping the corpus by tag" above.
 
 **`body` is capped, not the whole note.** `search-index`'s `body-chars`
 parameter (1200 by default, `none` for no cap) truncates each row's body to
@@ -266,6 +348,10 @@ package's JavaScript wires together.
 - `body-search` — forwarded to `#search-index`. `false` leaves body text out of
   the island entirely, so the bar searches ids and titles only. See "Ids and
   titles only" above.
+- `tags` / `match` — forwarded to `#search-index`, which forwards them to
+  rookery's `#ideas()`. They scope which notes are in this bar's island at all;
+  they do not make the query match tags. `tags: none` (the default) indexes the
+  whole rookery. See "Scoping the corpus by tag" above.
 
 **It is rheo only, and it emits nothing at all without it.** Twice over: the
 script comes from this package's `js_scripts` manifest key, which only rheo
@@ -397,11 +483,12 @@ without them ever disagreeing about what "best match" means.
 - `trigger` — emit the trigger button. `true` by default; `false` for markup
   only, when you want to open the dialog from your own button.
 - `trigger-label` — the trigger's `aria-label` ("Search" by default).
-- `index` / `elem-id` / `body-chars` / `body-search` — the same parameters
-  `#search-bar` takes, forwarded to `#search-index` unchanged. With
-  `body-search: false` the modal searches ids and titles only, and its pane
+- `index` / `elem-id` / `body-chars` / `body-search` / `tags` / `match` — the
+  same parameters `#search-bar` takes, forwarded to `#search-index` unchanged.
+  With `body-search: false` the modal searches ids and titles only, and its pane
   shows "No preview" rather than an excerpt wherever the note's page cannot be
-  fetched.
+  fetched. With `tags:` set, a site-wide modal in a shared header is scoped to
+  that tag's notes on every page it renders on.
 
 There is no knob for the preview pane, because the preview costs the build
 nothing to produce: it is the note's own minted page, fetched when a reader

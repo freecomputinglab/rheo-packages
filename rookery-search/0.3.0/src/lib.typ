@@ -191,9 +191,10 @@
 //
 //   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47, kind: "name"), ..)
 //   #context search-ideas("flt", body-search: false)   // ids and titles only
+//   #context search-ideas("flt", tags: "phd")          // only notes tagged phd
 //
 // Returns a plain ARRAY of dictionaries — every field `@rheo/rookery`'s
-// `ideas()` provides (id, name, title, text, body, href, minted, updated)
+// `ideas()` provides (id, name, title, text, tags, body, href, minted, updated)
 // plus `score` and `kind` — so a caller renders it however it likes. Pure
 // Typst: no rheo needed, though `href` is `none` without it (nothing mints
 // note pages), in which case a caller links with `#link(label(id))` instead.
@@ -206,9 +207,15 @@
 // other note that happens to mention the word six times; tiering says that
 // plainly, where a weighted sum would only approximate it and need constant
 // retuning. `kind` is what the modal's preview pane uses to decide whether to
-// show a snippet. Tags are not searched at all; that is a deliberate deferral
-// (rookery's records do not carry them yet — see bead
-// rheo-packages-rookery-labels-dpq).
+// show a snippet.
+//
+// TAGS ARE NOT PART OF THE QUERY. Ranking matches a note's id and title (and
+// its body, when `body-search` is on) and nothing else, so the query "phd"
+// finds the note CALLED that, not the notes tagged with it. `tags:` below is a
+// different axis: it decides which notes are in the CORPUS at all, before a
+// single score is computed. Narrowing the corpus and matching the query are two
+// separate things, and this package keeps them separate rather than letting a
+// tag quietly become a search term.
 //
 // TWO SORTED PASSES CONCATENATED, not one sort on a compound key: Typst's
 // `.sorted(key:)` wants a comparable key and an array key is not reliably one
@@ -226,10 +233,29 @@
 // picks — and `#search-index` carries it through to the browser, where it also
 // stops shipping every note's body text on every page. See its comment.
 //
+// `tags:`/`match:` are rookery's OWN pair, passed straight through to `ideas()`
+// — `tags` is `none` (the whole rookery, the default), one string, or an array
+// of strings; `match` is "any" (the default) or "all". Nothing is re-filtered
+// here and `tags-of` is deliberately not imported: rookery owns the predicate
+// (`_tag-pred`, shared with `#window`), and one filter written twice is how two
+// copies drift. It also means an excluded note is never scored, and never pays
+// for its body conversion either, because `ideas()` filters before its `.map`.
+//
+// The rows come back CARRYING `tags` for free, in the author's own order (`()`
+// when untagged): a row is `(..e, score: .., kind: ..)` over whatever `ideas()`
+// returned, so every field rookery adds arrives here without this package
+// naming it. Group or re-filter on that field with no second registry read.
+//
 // Must be called INSIDE a `#context` block — `ideas()` reads a `state`'s
 // `.final()`. It is not itself a context function, because a context function
 // can only return content and the whole point here is to return data.
-#let search-ideas(query, limit: none, body-search: true) = {
+#let search-ideas(
+  query,
+  limit: none,
+  body-search: true,
+  tags: none,
+  match: "any",
+) = {
   assert(
     type(query) == str,
     message: "@rheo/rookery-search: #search-ideas' `query` must be a string — "
@@ -245,7 +271,24 @@
     message: "@rheo/rookery-search: #search-ideas' `body-search` must be a "
       + "boolean — got " + repr(body-search),
   )
-  _rank(ideas(), query, limit: limit, body-search: body-search)
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery-search: #search-ideas' `tags` must be none, a "
+      + "string, or an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery-search: #search-ideas' `match` must be \"any\" or "
+      + "\"all\" — got " + repr(match),
+  )
+  _rank(
+    ideas(tags: tags, match: match),
+    query,
+    limit: limit,
+    body-search: body-search,
+  )
 }
 
 // ---- #search-index — the corpus as a JSON island --------------------------
@@ -254,6 +297,7 @@
 //   #search-index(elem-id: "notes-index")  // a second, differently-keyed index
 //   #search-index(body-chars: 400)         // a tighter cap on body size
 //   #search-index(body-search: false)      // no body text in the island at all
+//   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
 // one row per note: `(id, name, text, body, href)`, where `text` is the
@@ -309,10 +353,23 @@
 // `body-search:` is forwarded to that call and none is wanted: an empty query
 // returns `none` from `body-score` for every note, so the body tier is empty
 // whatever the switch says, and every row arrives through the name tier.
+//
+// `tags:`/`match:` ARE forwarded there, and they scope the island: a note the
+// selection excludes is not in the JSON, so the browser cannot find it. That is
+// how a bar over just the notes tagged `phd` is built — see `#search-bar`.
+//
+// THE EMITTED ROW SHAPE IS UNCHANGED: no `tags` field goes into the island, even
+// though `search-ideas` now returns one. The selection is settled in Typst
+// before the island is written, so the JavaScript has nothing left to decide,
+// and a field it never reads only makes an island that ships inline on EVERY
+// page bigger. Scope a second corpus with a second index (`elem-id:`), not with
+// a tag the browser would have to filter on.
 #let search-index(
   elem-id: "rookery-search-index",
   body-chars: 1200,
   body-search: true,
+  tags: none,
+  match: "any",
 ) = context {
   if _target() != "html" { return }
   assert(
@@ -325,7 +382,19 @@
     message: "@rheo/rookery-search: #search-index's `body-search` must be a "
       + "boolean — got " + repr(body-search),
   )
-  let rows = search-ideas("")
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery-search: #search-index's `tags` must be none, a "
+      + "string, or an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery-search: #search-index's `match` must be \"any\" or "
+      + "\"all\" — got " + repr(match),
+  )
+  let rows = search-ideas("", tags: tags, match: match)
     .filter(e => e.href != none)
     // Built by insertion rather than as one literal, so `body` can be left out
     // entirely under `body-search: false` — an empty string would still cost a
@@ -367,11 +436,19 @@
 //   #search-bar(index: false)   // a SECOND bar on a page that already has one
 //   #search-bar(body-chars: 400) // a tighter cap on the island's body text
 //   #search-bar(body-search: false) // ids and titles only, no body text
+//   #search-bar(tags: "phd")        // a bar over only the notes tagged phd
 //
-// Emits the JSON island (via `search-index`, `body-chars:` and `body-search:`
-// forwarded to it unchanged), an `<input>`, and an empty results container;
-// `src/rookery-search.js`, injected by rheo from the manifest's `js_scripts`,
-// wires them together.
+// Emits the JSON island (via `search-index`, `body-chars:`, `body-search:`,
+// `tags:` and `match:` forwarded to it unchanged), an `<input>`, and an empty
+// results container; `src/rookery-search.js`, injected by rheo from the
+// manifest's `js_scripts`, wires them together.
+//
+// `tags:` SCOPES THE BAR by scoping its island, which is why it belongs here
+// rather than in the script: the corpus is chosen in Typst, and the browser
+// searches whatever it was handed. Two differently-scoped bars on one page are
+// therefore two islands — give each its own `elem-id:` and leave `index: true`
+// on both, where two bars over the SAME corpus want one island and
+// `index: false` on the second.
 //
 // PHRASING CONTENT ONLY — a `<span>` wrapper holding an `<input>` and a
 // `<span role="listbox">`, never a `<div>`/`<ul>`/`<li>`. A `<div>` inside a
@@ -397,6 +474,8 @@
   elem-id: "rookery-search-index",
   body-chars: 1200,
   body-search: true,
+  tags: none,
+  match: "any",
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -409,8 +488,26 @@
     message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
       + "string — got " + repr(class),
   )
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery-search: #search-bar's `tags` must be none, a "
+      + "string, or an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery-search: #search-bar's `match` must be \"any\" or "
+      + "\"all\" — got " + repr(match),
+  )
   if index {
-    search-index(elem-id: elem-id, body-chars: body-chars, body-search: body-search)
+    search-index(
+      elem-id: elem-id,
+      body-chars: body-chars,
+      body-search: body-search,
+      tags: tags,
+      match: match,
+    )
   }
   html.elem(
     "span",
@@ -439,6 +536,7 @@
 //   #search-modal()
 //   #search-modal(placeholder: "Search ideas", limit: 30, trigger-label: "Search")
 //   #search-modal(trigger: false)   // markup only; open it from your own button
+//   #search-modal(tags: "phd")      // only the notes tagged phd
 //
 // A telescope-style overlay: a trigger button for a site's topbar (a
 // magnifier icon and a `Ctrl K` hint), and a `<dialog>` holding a two-pane
@@ -454,9 +552,15 @@
 // exactly the wrong things.
 //
 // Emits, in order: the JSON island (via `search-index`, same `index:`/
-// `elem-id:`/`body-chars:`/`body-search:` `#search-bar` already takes), then the trigger
-// button (unless `trigger: false`), then the dialog. That is ALL it emits —
-// see below on where the preview pane's content comes from.
+// `elem-id:`/`body-chars:`/`body-search:`/`tags:`/`match:` `#search-bar` already
+// takes), then the trigger button (unless `trigger: false`), then the dialog.
+// That is ALL it emits — see below on where the preview pane's content comes
+// from.
+//
+// `tags:`/`match:` scope the island exactly as they do for `#search-bar`, so a
+// site-wide modal can be restricted to one tag's notes. A modal sitting in a
+// site's shared header is the case where that costs least to say and most to
+// get wrong: the scope is settled once, in Typst, on every page it renders on.
 //
 // THE PREVIEW PANE'S RICH CONTENT IS FETCHED, NOT BUILT IN. The pane shows the
 // selected note's real rendering — links, styling, footnotes, figures — and it
@@ -505,6 +609,8 @@
   elem-id: "rookery-search-index",
   body-chars: 1200,
   body-search: true,
+  tags: none,
+  match: "any",
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -517,8 +623,26 @@
     message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
       + "string — got " + repr(class),
   )
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery-search: #search-modal's `tags` must be none, a "
+      + "string, or an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery-search: #search-modal's `match` must be \"any\" or "
+      + "\"all\" — got " + repr(match),
+  )
   if index {
-    search-index(elem-id: elem-id, body-chars: body-chars, body-search: body-search)
+    search-index(
+      elem-id: elem-id,
+      body-chars: body-chars,
+      body-search: body-search,
+      tags: tags,
+      match: match,
+    )
   }
   if trigger {
     html.elem(
