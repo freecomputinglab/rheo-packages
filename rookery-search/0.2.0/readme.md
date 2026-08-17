@@ -1,8 +1,8 @@
 # @rheo/rookery-search
 
-Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.1.2) — a
-Typst primitive that ranks them, a JSON index of the corpus, and a search bar
-you can drop into a page.
+Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.1.2) — by
+id and title, and by full text — a Typst primitive that ranks them, a JSON
+index of the corpus, an inline search bar, and a site-wide overlay modal.
 
 It is a separate package rather than part of rookery because search is only
 worth having with JavaScript, and rookery is deliberately the one package here
@@ -46,7 +46,7 @@ it does not offer one.
 
 ## What needs rheo
 
-Three functions, and they do not all need the same things:
+Four functions, and they do not all need the same things:
 
 - **`search-ideas(query)` — no rheo, no JavaScript.** It ranks the corpus and
   hands you the matches; you render them however you like. Works under plain
@@ -55,18 +55,19 @@ Three functions, and they do not all need the same things:
 - **`search-index()` — rheo only.** Its rows link to minted note pages, and
   only rheo mints them. Without rheo every link would be `none`, so it emits
   nothing at all rather than shipping a browser a list of nulls.
-- **`search-bar()` — rheo only**, twice over: the same minted pages, plus a
-  script that rheo injects from this package's manifest. It emits nothing
-  without rheo, rather than rendering an input that could never work.
+- **`search-bar()` and `search-modal()` — rheo only**, twice over each: the
+  same minted pages, plus a script that rheo injects from this package's
+  manifest. Both emit nothing without rheo, rather than rendering an input or
+  a trigger that could never work.
 
-Neither of the last two is useful in a single-document build anyway — a PDF has
+None of the last three is useful in a single-document build anyway — a PDF has
 no pages to navigate between and nothing to run a script.
 
-Where rheo is what you build with, it must be **rheo >= 0.5.2**. Both
+Where rheo is what you build with, it must be **rheo >= 0.5.2**. All three
 rheo-only functions are downstream of the note pages rookery mints from its
 `.marrow.typ`, and inlining a package's `.marrow.typ` landed in 0.5.2. On an
 older rheo nothing errors — no pages are minted, so the index comes out empty
-and the bar has nothing to link to, which is the same silent failure as
+and the bar/modal have nothing to link to, which is the same silent failure as
 forgetting to import rookery at all.
 
 ## Searching, without JavaScript
@@ -96,16 +97,18 @@ itself, because a context function can only return content, and this returns
 data you can filter and count.
 
 Each entry is everything rookery's `#ideas()` gives you — `id`, `name`,
-`title`, `text`, `href`, `minted`, `updated` — plus `score`. Sorted by score,
-and ties fall back to id order, so a build is reproducible. `href` is `none`
-without rheo, since nothing mints note pages there; link to `label(e.id)`
-instead, as above.
+`title`, `text`, `body`, `href`, `minted`, `updated` — plus `score` and `kind`.
+Sorted TWO TIERS deep: every `kind: "name"` row (matched on id or title) before
+every `kind: "body"` row (matched only on body text), best score first within
+each tier, ties falling back to id order, so a build is reproducible. `href`
+is `none` without rheo, since nothing mints note pages there; link to
+`label(e.id)` instead, as above.
 
 ### What matches, and what doesn't
 
-Matching is a **subsequence** match against the note's **id and its title**,
-whichever scores better. So "wnd" finds `windows`, and a note is findable both
-by the name you type into `#window` and by the title you read on the page.
+**id and title** match by **subsequence** — the note's better-scoring one of
+the two. So "wnd" finds `windows`, and a note is findable both by the name you
+type into `#window` and by the title you read on the page.
 
 Scoring rewards, in rough order of weight: characters matched in a contiguous
 run, a prefix match, matching near the start, and the note being close in
@@ -115,17 +118,36 @@ length to the query. That last one is why "window" ranks `windows` above
 `-` and `_` fold to a space **on both sides**, so `flat-ids` is findable as
 "flat ids" — and still as "flat-ids", because the query folds too.
 
-**Bodies are never searched.** That is a full-text index, a different thing
-with different costs, and it would make nearly every note match nearly every
-query. Tags are not searched either, for now.
+**The body matches too, but by a different rule.** A subsequence match over a
+2000-character body is close to useless — it matches almost every query
+against almost every note, and the length term above collapses to zero for
+all of them, so the surviving score is noise. `body-score` is instead an
+**AND** match: split the (folded) query on whitespace, and EVERY term has to
+appear somewhere in the body, or the note does not match on body at all — one
+term missing is a miss, not a partial credit. Among notes that do match,
+earlier and more frequent term occurrences score higher, and the whole phrase
+appearing contiguously scores a bonus on top.
 
-**Accents are not folded**: "cafe" does not match "Café". Fixing it means
-Unicode normalisation that the JavaScript half of this package would have to
-reproduce character for character, and a rule that disagreed with itself
-between the static list and the live bar would be worse than one that is
-simply narrow.
+**A body match never outranks an id/title match** — that is the two tiers
+above, not a blended number. A reader looking for a note by name should never
+have it pushed below some other note that happens to mention the word six
+times; a weighted sum only approximates that and needs constant retuning,
+where two tiers say it plainly. `kind` on each result is what tells a caller
+(and the modal's preview pane) which rule matched.
 
-`#fuzzy-score(hay, query)` is public too — `none` for no match, otherwise an
+Tags are not searched, for now, on either id/title or body.
+
+**Accents are not folded**, on id/title or on body: "cafe" does not match
+"Café". Fixing it means Unicode normalisation that the JavaScript half of this
+package would have to reproduce character for character, and a rule that
+disagreed with itself between the static list and the live bar would be worse
+than one that is simply narrow.
+
+No stemming and no stop words either, on either rule — a plural, a different
+tense or a word like "the" has to be typed as it appears in the note.
+
+`#fuzzy-score(hay, query)` and `#body-score(body, query)` are public too —
+`none` for no match, otherwise an
 integer. Rank something other than notes with it, or sort matches your own way,
 without inventing a second rule that disagrees with the bar's.
 
@@ -307,6 +329,111 @@ their literals. So a site that sets `#show: rookery.with(theme: (link-color:
 twice — an agreement made in CSS, by name, so the two packages stay uncoupled
 in Typst.
 
+## The search modal
+
+`#search-bar` is not deprecated by this — it is the inline, in-page
+affordance, and stays exactly what it was. `#search-modal` is the site-wide
+one: a trigger button (for a topbar, typically) that opens a full-height
+telescope-style overlay with a results list and a preview pane side by side.
+One sentence to tell them apart: reach for the bar when the search belongs
+INSIDE a page, and for the modal when it should be reachable from EVERY page.
+Both share one island and one ranking rule, so a site is free to offer both
+without them ever disagreeing about what "best match" means.
+
+```typst
+#import "@rheo/rookery-search:0.2.0": search-modal
+#search-modal()
+#search-modal(placeholder: "Search ideas", limit: 30, trigger-label: "Search")
+#search-modal(trigger: false)   // markup only; open it from your own button
+```
+
+- `placeholder` — the input's placeholder, and its `aria-label`.
+- `limit` — how many results to show. A positive integer; 30 by default — a
+  modal is a full-height list rather than a dropdown under an input, so it
+  does not need the bar's smaller cap.
+- `class` — appended to the dialog's own `rookery-search-modal` class.
+- `trigger` — emit the trigger button. `true` by default; `false` for markup
+  only, when you want to open the dialog from your own button.
+- `trigger-label` — the trigger's `aria-label` ("Search" by default).
+- `index` / `elem-id` / `body-chars` — the same parameters `#search-bar`
+  takes, forwarded to `#search-index` unchanged.
+
+**It is rheo only, and it emits nothing at all without it** — the same two
+reasons as the bar: the script comes from this package's `js_scripts`, and the
+results link to minted note pages.
+
+### What it emits
+
+A trigger button and a `<dialog>`, found and paired by island name — the
+trigger's `data-rookery-search-modal` equals the dialog's
+`data-rookery-search`, the same attribute `#search-bar` uses to find its own
+island. So several triggers can open one modal, and nothing needs a hardcoded
+id. **A page should carry at most one modal per island name**; the script
+wires the first matching dialog.
+
+| | |
+| --- | --- |
+| `.rookery-search-trigger` | the trigger `<button>` |
+| `.rookery-search-icon` | its magnifier `<svg>` |
+| `.rookery-search-key` | its `Ctrl K` hint, `aria-hidden` |
+| `.rookery-search-modal` | the `<dialog>` |
+| `.rookery-search-modal-inner` | column: input, panes, hint |
+| `.rookery-search-panes` | the two-column grid |
+| `.rookery-search-list` | the left pane, one `.rookery-search-row` per hit |
+| `.rookery-search-preview` | the right pane |
+| `.rookery-search-hint` | the `↑↓ navigate · ↵ open · esc close` line |
+
+A `<dialog>` and `showModal()`, deliberately, rather than a hand-rolled overlay
+`<div>`: focus trapping, page inertness behind it, `::backdrop` dimming and
+Escape-to-close all come for free, and it renders in the browser's TOP LAYER,
+which escapes every stacking context — including a sticky, z-indexed site
+header that would trap a plain absolutely-positioned overlay underneath it.
+
+### Behaviour
+
+**`Ctrl+K` / `Cmd+K` opens the first modal on the page from anywhere** —
+ignored while typing in another input, textarea or contenteditable element, so
+a reader's literal keystroke still lands where they meant it to. Clicking a
+trigger opens its own paired dialog directly.
+
+**An empty query lists the whole corpus**, unlike the bar's dropdown, which
+stays shut until you type: a full-height modal is a browsable index as much as
+a search box, the way `nvim-telescope`'s own pickers behave with nothing
+typed.
+
+Arrow keys (and `Ctrl+N`/`Ctrl+P`) move the selection, clamped at the ends —
+no wrapping. Hovering a row selects it too, so pointer and keyboard always
+agree on what the preview is showing. Enter opens the selected row; Escape or
+a click on the backdrop closes the dialog, leaving the query in place so a
+reopen (`Ctrl+K` again, or the trigger) resumes exactly where you left off.
+
+**The preview pane shows the matched note's body as plain text**, with every
+matched term wrapped in `<mark>`. For a body-tier hit it is centred on the
+match; for a name-tier hit it is the body from its start, since there is no
+match position to centre on. A note with an empty body shows a muted "No
+preview" line instead of a blank pane.
+
+### Styling: the telescope layout, and the same escape hatch
+
+The modal's rules live in the same `@layer rookery-search` as the bar's, so the
+same unlayered-rule-always-wins escape hatch applies — see "Styling it: your
+CSS always wins" above. It reuses the bar's `--rookery-search-fg`/`-bg`/
+`-border`/`-radius`/`-hover`/`-id-color` properties, and adds:
+
+| property | default |
+| --- | --- |
+| `--rookery-search-modal-width` | `min(56rem, calc(100vw - 2rem))` |
+| `--rookery-search-modal-height` | `min(32rem, calc(100vh - 8rem))` |
+| `--rookery-search-backdrop` | `rgba(0, 0, 0, 0.5)` |
+| `--rookery-search-mark` | `--idea-link-color`, else `rgba(128, 0, 255, 0.25)` |
+
+Below a 40em (≈640px) viewport width the preview pane and the `Ctrl K` hint
+both disappear and the list takes the full width — a preview column that
+narrow shows about four words and is worse than none. That breakpoint is a
+literal in the package's CSS, not a custom property (a `@media` condition
+cannot read one); a site wanting a different breakpoint overrides the whole
+`@media` block, unlayered, like any other rule here.
+
 ## Working on it locally
 
 Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and
@@ -325,21 +452,27 @@ rookery's habits mislead: there, `src/` *is* the published package and an edit
 is live immediately. Here the loop is edit `src/`, `just build`, then rebuild
 the consuming project. `dist/` is a build artifact and is gitignored.
 
-### Keeping the two copies of the ranking rule honest
+### Keeping the two copies of each ranking rule honest
 
-The ranking exists twice: `fuzzy-score` in `src/lib.typ`, for the compile-time
-search, and `score` in `src/rookery-search.js`, for the live bar. Two
-implementations of one rule drift silently — a static list and a search box
-would simply start ranking differently, and nothing would fail.
+Each ranking rule exists twice: `fuzzy-score`/`score` for id and title, and
+`body-score`/`bodyScore` for the body — a Typst copy for the compile-time
+search, a JavaScript copy for the live bar and modal. Two implementations of
+one rule drift silently — a static list and a search box would simply start
+ranking differently, and nothing would fail.
+
+`snippet` in `src/rookery-search.js` is the one deliberate exception: the
+modal's preview excerpt has no Typst counterpart and needs none — a static
+listing shows titles, not excerpts — so it carries no parity requirement.
 
 ```sh
 just parity
 ```
 
-feeds one list of cases through both and diffs every score, failing loudly when
-they disagree. The cases live in `test/parity.typ`; extend them when you extend
-the rule, and change both copies in the same commit. It needs no build — the
-fixture imports `src/` on both sides.
+feeds two lists of cases (one per ranking rule) through both languages and
+diffs every score, failing loudly when they disagree. The cases live in
+`test/parity.typ`, as two labelled metadata arrays; extend them when you
+extend a rule, and change both copies in the same commit. It needs no build —
+the fixture imports `src/` on both sides.
 
 To develop against a live rheo project, symlink the package into the Typst
 package cache:

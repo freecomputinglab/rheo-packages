@@ -348,6 +348,8 @@ same material and do something else with it.
 #context {
   for e in ideas() {
     [#e.name — #e.text \ ]
+    // e.body is a plain string too: [#e.body.slice(0, 80)] previews a note's
+    // opening without rendering it.
   }
 }
 ```
@@ -368,8 +370,15 @@ Each entry is:
   Useful for matching, sorting and anything else that wants a string rather
   than something to render.
 - `body` — the note's body flattened to a plain string, `""` when there is
-  none. A plain string, not the content: matchable and excerptable, but not
-  renderable. `@rheo/rookery-search` uses this to rank and preview full text.
+  none. Block boundaries (a paragraph break, a list item) collapse to a
+  single space rather than gluing adjacent words together; a nested `#idea`'s
+  own text is excluded (it registers separately and owns its text); a
+  `#footnote`'s body is excluded too. A plain string, not the content:
+  matchable and excerptable, but not renderable — that is the whole reason it
+  exists where the content body still does not: `@rheo/rookery-search` ranks
+  and previews full text against it, and a string can be matched and
+  excerpted without turning every consumer into a second transclusion engine
+  the way handing out the content itself would.
 - `href` — a depth-relative link to the note's minted page, from wherever you
   are calling. See `#note-href()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
