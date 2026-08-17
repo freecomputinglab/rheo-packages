@@ -105,36 +105,40 @@
    The rule is the same `--idea-border-color` as the left rule below, so the two
    meet at the corner and read as one frame.
 
-   Drawn as two zero-height pseudo-elements with a `border-top` rather than as a
+   Drawn as a zero-height pseudo-element with a `border-top` rather than as a
    background line behind the text: a line that has to break BEHIND the id would
    need to know the page's background colour, which a package cannot know, and
    guessing it puts a grey box around every id on a dark site.
-   `align-items: center` is what puts the break at the id's vertical middle
-   instead of at its baseline. */
+   `align-items: center` is what puts the rule at the id's vertical middle
+   instead of at its baseline.
+
+   ONE stub, to the LEFT. The rule runs out of the corner and STOPS at the id —
+   it does not resume on the far side. The id is where the frame ends, not a word
+   set into a line that continues past it.
+
+   `margin-bottom` here rather than on the heading below it, because the tab owns
+   the gap under the rule: whatever comes next — a title, a date, or the note's
+   first paragraph when it has neither — sits that far below, and no further. See
+   the two rules that zero out what would otherwise be added to it. */
 .idea-tab {
   display: flex;
   align-items: center;
   gap: 0.3em;
+  margin-bottom: 0.25em;
 }
 
-.idea-tab::before,
-.idea-tab::after {
+.idea-tab::before {
   content: "";
   flex: 0 0 auto;
   border-top: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
-/* The left stub reaches back across the card's own `padding-left` (0.75em, set
-   on `.idea-box`/`.idea-window` below) PLUS the 2px of the left rule itself, so
-   it ends on that rule's OUTER edge and the corner has no notch in it. At 1px
-   the shortfall was invisible; at 2px it is a gap you can see. The right stub is
-   free — it only has to read as a rule. */
+/* The stub reaches back across the card's own `padding-left` (0.75em, set on
+   `.idea-box`/`.idea-window` below) PLUS the 2px of the left rule itself, so it
+   ends on that rule's OUTER edge and the corner has no notch in it. At 1px the
+   shortfall was invisible; at 2px it is a gap you can see. */
 .idea-tab::before {
   width: calc(0.75em + 2px);
-}
-
-.idea-tab::after {
-  width: 0.5em;
 }
 
 /* `.idea-label`'s 0.5em separates it from a title it follows. In a tab it
@@ -194,15 +198,31 @@
   margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem) - 2px);
 }
 
-/* The tab now carries the space above a note, so the heading under it does not
-   also need the site's (or this package's) heading margin. */
+/* The tab carries the space above a note, so the heading under it contributes
+   none of its own — neither the site's heading margin nor this package's. */
 .idea-tab + h1.idea,
 .idea-tab + h2.idea,
 .idea-tab + h3.idea,
 .idea-tab + h4.idea,
 .idea-tab + h5.idea,
 .idea-tab + h6.idea {
-  margin-top: 0.25em;
+  margin-top: 0;
+}
+
+/* THE SAME GAP FOR A NOTE WITH NO TITLE. Its heading element survives to carry
+   the `id` anchor but is empty and takes no space (below), so the thing under the
+   rule is the note's first block — a sibling of `.idea-head`, arriving with its
+   own margin-top, which is the site's paragraph spacing rather than this gap.
+   Zero it and the distance from the rule to the first thing under it is the tab's
+   `margin-bottom` in both cases, which is what makes titled and untitled notes
+   line up as the same object.
+
+   `:has` rather than a class, because whether the heading is empty is decided by
+   the author's arguments (`title:`, `show-date:`) at every call site, not by
+   anything the package could put in the markup once. `.idea-page-refs:has(li)`
+   already relies on the same selector. */
+.idea-head:has(> :empty) + * {
+  margin-top: 0;
 }
 
 /* A titleless, dateless note's heading survives only to carry the `id` anchor
