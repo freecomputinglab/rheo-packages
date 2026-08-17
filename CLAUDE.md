@@ -151,20 +151,28 @@ manifest's entrypoint already points at.
 
 ## Issue tracking
 
-This repo DEPARTS from the global rule that nothing under `.beads/` is
-committed. `.beads/issues.jsonl` — br's own full export — is TRACKED here, so
-bead state travels between machines rather than living in one checkout. The db
-and every lock/runtime file stay machine-local; the repo-root `.gitignore`
-spells out exactly which four files are tracked.
+`.beads/` is gitignored and local-only here, as it is everywhere else — the db,
+its lock files, and `issues.jsonl` all stay machine-local, and a `br` mutation
+therefore produces nothing to commit. Use `br` per the global workflow.
 
-Work `br` per the global workflow otherwise, with two additions:
+Tracking `issues.jsonl` was tried in this repo and reverted. It did carry bead
+state between machines, but br REIMPORTS from that file, so a copy arriving from
+another machine can silently revert a close, and two machines mutating beads at
+once conflict over the whole file. Bringing beads in from elsewhere is now an
+explicit act, not a side effect of a pull: put the entries in
+`.beads/issues.jsonl` and run `br sync --import-only --force` (plain
+`--import-only` short-circuits on an unchanged content hash and does nothing).
 
-- On a fresh checkout, build the db from the export: `br sync --import-only`.
-- `br` does NOT reliably re-export after a mutation — MEASURED, a `delete`
-  left the JSONL still holding the deleted issues as open. Run
-  `br sync --flush-only` and check `jj diff .beads/issues.jsonl` before
-  committing, and re-check with `br list` after mutating, since br reimports
-  from the JSONL and a stale copy silently reverts a close.
+Two things about `br` in this repo that cost time to find out:
+
+- **It does not reliably re-export after a mutation.** MEASURED: a
+  `br delete --force --hard` of eleven issues left all eleven in
+  `issues.jsonl` still marked `open`, so the next import resurrected them.
+  Run `br sync --flush-only --force` after any delete or close, and re-check
+  with `br list` — the export guard refuses a flush that would drop issues the
+  JSONL still holds, which is exactly the case after a delete.
+- **`br list -a` silently caps at 50 rows.** Pass `--limit` before trusting any
+  count or diff taken from it.
 
 The prefix is `rp`. Beads for this repo previously lived in the machine-global
 `~/.beads/` db — there was no `.beads/` here, so `br` fell back to it — which
