@@ -1,0 +1,21 @@
+{
+  "name": "rheo-justify",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/lib.js",
+  "scripts": {
+    "build": "vite build",
+    "test": "node --experimental-strip-types --test test/kp.test.ts test/encode.test.ts test/limits.test.ts test/hyphenate.test.ts"
+  },
+  "packageManager": "pnpm@10.21.0",
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.5",
+    "vite-plugin-static-copy": "^4.0.1"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.5",
+    "hypher": "^0.2.5",
+    "hyphenation.en-us": "^0.2.1"
+  }
+}
