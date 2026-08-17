@@ -197,6 +197,26 @@ export const readIndex = (elemId) => {
   }
 };
 
+// One `<a class="rookery-search-row">` per hit, carrying the title (or the id
+// when untitled) and the bracketed id — bracketed because that is how an id
+// reads everywhere else in a rookery: `[idea:etal]` beside a note's title, in
+// a window's summary, in an outline row. Shared by the dropdown (`wire`) and
+// the modal (`wireModal`) so the two never drift into building rows two ways.
+const renderRow = (hit) => {
+  const a = document.createElement("a");
+  a.className = "rookery-search-row";
+  a.setAttribute("role", "option");
+  a.href = hit.href;
+  const title = document.createElement("span");
+  title.className = "rookery-search-title";
+  title.textContent = hit.text === "" ? hit.name : hit.text;
+  const id = document.createElement("span");
+  id.className = "rookery-search-id";
+  id.textContent = `[${hit.id}]`;
+  a.append(title, id);
+  return a;
+};
+
 const wire = (root, rows, n) => {
   const input = root.querySelector(".rookery-search-input");
   const list = root.querySelector(".rookery-search-results");
@@ -224,21 +244,7 @@ const wire = (root, rows, n) => {
     input.setAttribute("aria-expanded", open ? "true" : "false");
     if (!open) return;
     for (const hit of search(rows, q, limit)) {
-      const a = document.createElement("a");
-      a.className = "rookery-search-row";
-      a.setAttribute("role", "option");
-      a.href = hit.href;
-      const title = document.createElement("span");
-      title.className = "rookery-search-title";
-      title.textContent = hit.text === "" ? hit.name : hit.text;
-      const id = document.createElement("span");
-      id.className = "rookery-search-id";
-      // Bracketed, because that is how an id reads everywhere else in a
-      // rookery: `[idea:etal]` beside a note's title, in a window's summary,
-      // in an outline row. A result should look like the thing it points at.
-      id.textContent = `[${hit.id}]`;
-      a.append(title, id);
-      list.append(a);
+      list.append(renderRow(hit));
     }
   };
 
@@ -268,10 +274,168 @@ const wire = (root, rows, n) => {
   };
 };
 
+// Renders `text` into `container` as text nodes plus `<mark>`s for every
+// range in `ranges` (cluster offsets into `text`, as `snippet` returns them).
+// Built with `document.createElement`/`textContent` throughout, never
+// `innerHTML` — `text` comes from the author's own notes, and `<mark>` is the
+// only markup this should ever produce.
+const renderMarked = (container, text, ranges) => {
+  const chars = [...text];
+  let cursor = 0;
+  for (const r of ranges) {
+    if (r.start > cursor) {
+      container.append(document.createTextNode(chars.slice(cursor, r.start).join("")));
+    }
+    const mark = document.createElement("mark");
+    mark.className = "rookery-search-mark";
+    mark.textContent = chars.slice(r.start, r.end).join("");
+    container.append(mark);
+    cursor = r.end;
+  }
+  if (cursor < chars.length) {
+    container.append(document.createTextNode(chars.slice(cursor).join("")));
+  }
+};
+
+// The preview excerpt's radius, in clusters, either side of a body match. Not
+// exposed as a knob: this is an implementation detail of the modal, not a
+// public contract the way `#search-index`'s `body-chars` is.
+const PREVIEW_RADIUS = 160;
+
+const wireModal = (dialog, rows) => {
+  const input = dialog.querySelector(".rookery-search-input");
+  const list = dialog.querySelector(".rookery-search-list");
+  const preview = dialog.querySelector(".rookery-search-preview");
+  if (input === null || list === null || preview === null) return null;
+  const limit = Number(dialog.dataset.rookerySearchLimit || "8");
+
+  let hits = [];
+  let selected = 0;
+
+  const renderPreview = () => {
+    preview.replaceChildren();
+    const hit = hits[selected];
+    if (hit === undefined) return;
+    const body = hit.body ?? "";
+    if (body === "") {
+      const empty = document.createElement("p");
+      empty.className = "rookery-search-preview-empty";
+      empty.textContent = "No preview";
+      preview.append(empty);
+      return;
+    }
+    // Centred on the match for a body hit; from the start for a name hit — a
+    // radius of Infinity makes `snippet` return the whole body with no
+    // truncation, since its window is clamped to the body's own length.
+    // EITHER WAY every matched term still gets wrapped in `<mark>`, because
+    // both paths go through the same `snippet` call.
+    const radius = hit.kind === "body" ? PREVIEW_RADIUS : Number.POSITIVE_INFINITY;
+    const { text, ranges } = snippet(body, input.value.trim(), radius);
+    const p = document.createElement("p");
+    renderMarked(p, text, ranges);
+    preview.append(p);
+  };
+
+  // Marks exactly one row selected (clamped, no wrap — see keyboard handling
+  // below), scrolls it into view, and re-renders the preview to match.
+  const select = (i) => {
+    const els = list.querySelectorAll(".rookery-search-row");
+    if (els.length === 0) return;
+    selected = Math.max(0, Math.min(i, els.length - 1));
+    for (const [idx, el] of els.entries()) {
+      if (idx === selected) {
+        el.setAttribute("aria-selected", "true");
+        el.setAttribute("data-rookery-search-selected", "true");
+      } else {
+        el.setAttribute("aria-selected", "false");
+        el.removeAttribute("data-rookery-search-selected");
+      }
+    }
+    els[selected].scrollIntoView({ block: "nearest" });
+    renderPreview();
+  };
+
+  const render = () => {
+    const q = input.value.trim();
+    list.replaceChildren();
+    // EMPTY QUERY shows the corpus, not nothing: `search(rows, "", limit)`
+    // already returns everything at score 0 in id order — telescope's
+    // empty-prompt behaviour, deliberately unlike `#search-bar`'s dropdown,
+    // which stays shut on an empty query.
+    hits = search(rows, q, limit);
+    for (const hit of hits) {
+      const row = renderRow(hit);
+      row.addEventListener("pointerenter", () => {
+        select([...list.children].indexOf(row));
+      });
+      list.append(row);
+    }
+    select(0);
+  };
+
+  input.addEventListener("input", render);
+
+  dialog.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowDown" || (ev.ctrlKey && ev.key === "n")) {
+      ev.preventDefault();
+      select(selected + 1);
+    } else if (ev.key === "ArrowUp" || (ev.ctrlKey && ev.key === "p")) {
+      ev.preventDefault();
+      select(selected - 1);
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      const hit = hits[selected];
+      if (hit !== undefined) window.location.href = hit.href;
+    } else if (ev.key === "Escape") {
+      // NOT left to native `<dialog>` Escape-to-close, despite that being the
+      // usual advice: MEASURED, a focused `type="search"` input with a
+      // non-empty value consumes Escape for its OWN default action (clearing
+      // the field) before it reaches the dialog's cancel algorithm, so the
+      // modal never closes on the first press. Closing explicitly here is
+      // reliable regardless of what the input holds.
+      ev.preventDefault();
+      dialog.close();
+    }
+  });
+
+  // A `<dialog>`'s backdrop clicks register on the dialog element itself, so
+  // the click target must BE the dialog (not a descendant) before closing —
+  // otherwise every click inside the panel would close it.
+  dialog.addEventListener("click", (ev) => {
+    if (ev.target === dialog) dialog.close();
+  });
+
+  // Resets selection state once the dialog has actually closed, by whatever
+  // means — the explicit Escape handler above, a backdrop click, or a caller
+  // closing it directly.
+  dialog.addEventListener("close", () => {
+    selected = 0;
+  });
+
+  return {
+    open: () => {
+      dialog.showModal();
+      render();
+      // Select the input's contents (not clear it), so a reopen starts a
+      // fresh query without losing what was there before.
+      input.focus();
+      input.select();
+    },
+  };
+};
+
 export const init = () => {
-  const roots = document.querySelectorAll("[data-rookery-search]");
-  if (roots.length === 0) return;
+  // The dialog ALSO carries `data-rookery-search` (it shares the bar's
+  // island-lookup attribute), so the bar query must exclude it — otherwise a
+  // page with both a bar and a modal would wire the dialog as a second,
+  // broken dropdown.
+  const roots = document.querySelectorAll("[data-rookery-search]:not(dialog)");
+  const dialogs = document.querySelectorAll("dialog[data-rookery-search]");
+  if (roots.length === 0 && dialogs.length === 0) return;
+
+  // Shared across bars AND modals, so a page with both parses the JSON once.
   const cache = new Map();
+
   const bars = [];
   let n = 0;
   for (const root of roots) {
@@ -285,21 +449,52 @@ export const init = () => {
     const bar = wire(root, rows, n++);
     if (bar) bars.push(bar);
   }
-  if (bars.length === 0) return;
+  if (bars.length > 0) {
+    // ONE listener for every bar on the page, not one each: the question a
+    // click asks is "which bars was this outside of", and that is naturally a
+    // single pass. Two bars therefore close independently and correctly — a
+    // click on one is outside the other, and dismisses only it.
+    //
+    // `pointerdown`, not `click`: it fires before focus moves, so the
+    // dropdown is gone by the time the reader's press lands and nothing
+    // flickers. A result link is INSIDE its own bar, so following one never
+    // counts as a click outside — navigation is unaffected.
+    document.addEventListener("pointerdown", (ev) => {
+      for (const bar of bars) {
+        if (!bar.root.contains(ev.target)) bar.dismiss();
+      }
+    });
+  }
 
-  // ONE listener for every bar on the page, not one each: the question a click
-  // asks is "which bars was this outside of", and that is naturally a single
-  // pass. Two bars therefore close independently and correctly — a click on
-  // one is outside the other, and dismisses only it.
-  //
-  // `pointerdown`, not `click`: it fires before focus moves, so the dropdown is
-  // gone by the time the reader's press lands and nothing flickers. A result
-  // link is INSIDE its own bar, so following one never counts as a click
-  // outside — navigation is unaffected.
-  document.addEventListener("pointerdown", (ev) => {
-    for (const bar of bars) {
-      if (!bar.root.contains(ev.target)) bar.dismiss();
-    }
+  const modals = new Map();
+  for (const dialog of dialogs) {
+    const elemId = dialog.dataset.rookerySearch || "rookery-search-index";
+    if (!cache.has(elemId)) cache.set(elemId, readIndex(elemId));
+    const rows = cache.get(elemId);
+    if (rows === null) continue;
+    const modal = wireModal(dialog, rows);
+    if (modal !== null) modals.set(elemId, modal);
+  }
+  if (modals.size === 0) return;
+
+  for (const trigger of document.querySelectorAll(".rookery-search-trigger")) {
+    const modal = modals.get(trigger.dataset.rookerySearchModal);
+    if (modal === undefined) continue;
+    trigger.addEventListener("click", () => modal.open());
+  }
+
+  // Registered once per page, not once per modal — opens the FIRST modal in
+  // document order, matching telescope's own convention of one global
+  // shortcut. `preventDefault()` because Ctrl+K is a browser binding in some
+  // browsers and the page must win here.
+  document.addEventListener("keydown", (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey) || ev.key.toLowerCase() !== "k") return;
+    // A reader typing in some other field means the literal keystroke, not
+    // the shortcut.
+    const t = ev.target;
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+    ev.preventDefault();
+    modals.values().next().value?.open();
   });
 };
 
