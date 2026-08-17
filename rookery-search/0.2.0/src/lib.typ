@@ -1,9 +1,11 @@
 // @rheo/rookery-search — fuzzy search over a rookery.
 //
 // Reads the corpus through `@rheo/rookery`'s public primitives and never
-// touches its internals: `ideas()` for the notes, `note-href()` for links,
-// `idea-body()` for the modal's preview pane (rookery 0.2.0's real-content
-// rendering — see `search-bodies` below).
+// touches its internals: `ideas()` for the notes, `note-href()` for links.
+// Nothing here RENDERS a note's body — the modal's preview pane fetches the
+// note's own minted page at runtime instead (see `search-modal` below), so
+// this package's build cost is one pass over the registry per page rather
+// than one full body render per note per page.
 //
 // Two layers, and the split matters:
 //   - `search-ideas(query)` is pure Typst and works under plain
@@ -16,7 +18,7 @@
 // comes from `just build` (vite copies this file and the CSS across and
 // bundles `src/rookery-search.js` into `dist/lib.js`). Editing `src/` does
 // NOT take effect until you rebuild — the one ergonomic cost of shipping JS.
-#import "@rheo/rookery:0.2.0": ideas, note-href, idea-body
+#import "@rheo/rookery:0.2.0": ideas, note-href
 
 // ---- Target detection — a deliberate copy of rookery's ---------------------
 //
@@ -280,111 +282,6 @@
   )
 }
 
-// ---- #search-bodies — real content, for the modal's preview pane ----------
-//
-//   #search-bodies()                       // usually not called directly
-//   #search-bodies(elem-id: "notes-index")  // paired with a differently-keyed index
-//
-// A hidden `<div data-rookery-search-body="idea:etal">…</div>` per note,
-// inside `<div id="rookery-search-index-bodies" hidden>…</div>` — real
-// Typst-rendered content (links, styling, footnotes, citations) MINUS
-// images, via rookery 0.2.0's `#idea-body()`, not the plain string
-// `#search-index` carries. See "IMAGES ARE STRIPPED" below: that omission is
-// what keeps this container's cost bounded, and it is load-bearing.
-//
-// A `<div>`, not a `<template>` — MEASURED: rheo's own HTML post-processing
-// (the pass that injects `<script>`/`<link>` tags into `<head>`) silently
-// empties a `<template>`'s content on the way out, on typst 0.15.1/rheo
-// 0.5.2, reproduced with nothing more than `html.elem("template", ..,
-// [text])`. A `<template>`'s children are not normal DOM until cloned, and
-// whatever rewrites the page evidently does not carry that content across
-// its own parse/reserialize step. A ordinary hidden `<div>` has no such
-// special content model and survives intact — the cost is that its content
-// is real (if invisible) DOM from the moment the page loads, rather than
-// inert until cloned, which costs nothing this package cares about.
-//
-// WHY THIS EXISTS, separate from `#search-index`. That JSON island's `body`
-// field is a flattened STRING — matchable and excerptable, which is all
-// ranking needs, but a code block inside it reads as bare unstyled source
-// text with no separation from the prose around it. Real content fixes that
-// at the root: the modal's preview pane clones actual rendered nodes,
-// highlights matched terms by walking their text nodes (never `innerHTML`),
-// and gets a real `<pre><code>` for a note that quotes any.
-//
-// ONLY THE MODAL USES THIS — `#search-bar`'s dropdown has no preview pane,
-// so it has no reason to pay for it. `elem-id` matches `#search-index`'s:
-// the two are a pair, and `#search-modal` calls both together under one name
-// with `-bodies` appended to this one's container id, so the script can find
-// the right pair without a second attribute to keep in step.
-//
-// `depth: 0` is HARDCODED, not a parameter — a nested `#window` always
-// collapses to its permalink rather than unfurling into the preview, no
-// matter what `window-depth:` a project sets on `#show: rookery.with(...)`.
-// Not a knob on purpose: this container ships on EVERY page, once per note,
-// so letting it unfurl nested windows would let a single project setting
-// blow up every page's size unpredictably — the opposite of what a size
-// concern like `body-chars` exists to prevent. A caller who genuinely wants
-// a deeper preview calls `#idea-body` directly with its own `depth:`.
-//
-// IMAGES ARE STRIPPED, via `show image: none` around the `#idea-body` call.
-// This is the single most important line in this function for build cost, and
-// it is not an aesthetic choice. MEASURED on weeknotes.ohrg.org (57 notes, 69
-// pages): Typst's HTML export inlines every `#image` as a
-// `src="data:image/png;base64,…"` URI, so a note carrying a 600 KB screenshot
-// carries 600 KB of base64 in its rendered body — and this container renders
-// EVERY note's body on EVERY page, so each of those bytes was landing 69
-// times over. Before stripping, `build/html` came to 312 MB of which 301 MB
-// (93.2%) was base64 image data, against 17 MB for the same site with
-// `#search-bodies` disabled entirely; one note (`idea:26w33-rookery`) was
-// 2.3 MB by itself, 2.1 MB of it a single inlined PNG. Stripping images is
-// what makes a per-note real-content preview affordable at all.
-//
-// Nothing is substituted in an image's place — no placeholder box, no alt
-// text. A search preview is an excerpt by construction, and the pane's job is
-// to show enough PROSE to recognise the note by; a reader who wants the
-// figure opens the note. Keeping this a plain omission also keeps the
-// stripping free: `show image: none` reaches into `#idea-body`'s content from
-// this call site (VERIFIED on typst 0.15.1 — a show rule installed in the
-// enclosing scope applies to content a nested `context` block realises), so
-// no `images:` parameter has to be threaded through rookery's public API.
-//
-// `limit` would bound how much of a long note's rendering ships on every
-// page, the same size concern `body-chars` answers for the JSON island — but
-// defaults to `none` (no truncation) rather than a number, because
-// `#idea-body`'s `limit:` has a real, MEASURED bug it inherits from
-// `#window`'s own: `_blocks` (rookery's shared block-splitter) drops the
-// literal space between two adjacent INLINE runs — a text run and a `raw`
-// span, say — when it slices and rejoins them, because it treats every
-// `space` CHILD as pure separator noise to discard, which is right for
-// space between BLOCK-level siblings (a browser draws that from margins, not
-// content) and wrong for a space node found the same way inside a single
-// paragraph's own inline sequence. MEASURED on rookery.ohrg.org, real
-// content: "...three layers, because..." truncated at a low `limit` came out
-// "...three layers,because...". This is `_blocks` itself, not something
-// specific to search-bodies — passing a `limit:` to `#window` can hit the
-// same thing — so the honest fix here is to not truncate by default rather
-// than risk silently mangled preview text. Pass a `limit:` explicitly if a
-// project would still rather cap preview size than wait for `_blocks` to be
-// fixed properly.
-#let search-bodies(elem-id: "rookery-search-index", limit: none) = context {
-  if _target() != "html" { return }
-  let rows = ideas().filter(e => e.href != none)
-  if rows.len() == 0 { return }
-  html.elem(
-    "div",
-    attrs: (id: elem-id + "-bodies", hidden: "hidden"),
-    rows
-      .map(e => html.elem(
-        "div",
-        attrs: ("data-rookery-search-body": e.id),
-        // `show image: none` — see the note above. Without it this one
-        // expression is responsible for ~93% of a real site's build output.
-        { show image: none; idea-body(e.name, depth: 0, limit: limit) },
-      ))
-      .join(),
-  )
-}
-
 // ---- #search-bar — the embeddable search UI. RHEO ONLY --------------------
 //
 //   #search-bar()
@@ -475,10 +372,33 @@
 // exactly the wrong things.
 //
 // Emits, in order: the JSON island (via `search-index`, same `index:`/
-// `elem-id:`/`body-chars:` `#search-bar` already takes), the hidden
-// real-content bodies (via `search-bodies`, gated on the same `index:` —
-// see its own comment for why), then the trigger button (unless
-// `trigger: false`), then the dialog.
+// `elem-id:`/`body-chars:` `#search-bar` already takes), then the trigger
+// button (unless `trigger: false`), then the dialog. That is ALL it emits —
+// see below on where the preview pane's content comes from.
+//
+// THE PREVIEW PANE'S RICH CONTENT IS FETCHED, NOT BUILT IN. The pane shows the
+// selected note's real rendering — links, styling, footnotes, figures — and it
+// gets it by `fetch`ing that note's own minted page (`ideas/<slug>.html`,
+// which rookery's `.marrow.typ` already emits) when the reader selects the row,
+// then caching it for the session. Nothing is rendered into this page.
+//
+// That is a build-cost decision, and a MEASURED one. This function sits in a
+// site's header, so it runs on EVERY page; an earlier version emitted a hidden
+// per-note container holding `#idea-body`'s rendering of every note, which is
+// `notes × pages` renders per build — 57 × 69 ≈ 3,900 on weeknotes.ohrg.org,
+// costing 14.6s against a 2.65s baseline and 312 MB of output (301 MB of it
+// base64 images, since Typst's HTML export inlines every `#image`). Stripping
+// the images cut the size to 33 MB but left the time at 14.6s, because the cost
+// is PER CALL, not per byte: rendering the same bodies at `limit: 1`, near
+// empty, still cost 10.3s. Truncation could not fix that; only not rendering
+// N×M could. Fetching reuses pages rheo already emits, so the marginal build
+// cost of a rich preview is now exactly zero.
+//
+// The trade, stated plainly: `fetch` does not work from `file://`, so opening
+// a build straight off disk gets the plain-text excerpt the JSON island's
+// `body` field already carries instead of the rich rendering. Rich previews
+// need http (`rheo watch`, or any served copy). Serve the build, or accept the
+// excerpt — a preview is an excerpt by construction either way.
 //
 // SAME ISLAND, SHARED BY NAME, NO IDS IN THE MARKUP — the rule `#search-bar`
 // follows (see its comment above). The trigger's `data-rookery-search-modal`
@@ -500,7 +420,6 @@
   index: true,
   elem-id: "rookery-search-index",
   body-chars: 1200,
-  preview-limit: none,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -513,10 +432,7 @@
     message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  if index {
-    search-index(elem-id: elem-id, body-chars: body-chars)
-    search-bodies(elem-id: elem-id, limit: preview-limit)
-  }
+  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
   if trigger {
     html.elem(
       "button",

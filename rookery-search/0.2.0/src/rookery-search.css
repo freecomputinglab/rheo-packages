@@ -297,8 +297,8 @@
   }
 
   /* NOTHING HERE strips `.idea-window`'s box (border, padding, hover tint)
-     for content inside this pane — rookery 0.2.0's `#idea-body` already
-     renders with a second class, `.idea-window-plain`, for exactly that
+     for content inside this pane — `extractNote` wraps a fetched note in
+     rookery's own `.idea-window-plain` modifier, which exists for exactly that
      reason. A downstream override attempted from here cannot win:
      rookery.css is UNLAYERED throughout, so a rule in THIS package's
      `@layer rookery-search` — however specific — always loses to it,
@@ -308,6 +308,18 @@
   .rookery-search-preview-empty {
     opacity: 0.6;
     font-style: italic;
+  }
+
+  /* Figures reach this pane now that its content is the note's own minted page
+     — the container this pane used to read from had to strip every image, since
+     Typst's HTML export inlines each one as base64 and the container shipped on
+     every page (312 MB of build output on a 57-note site, MEASURED). A fetched
+     page costs the build nothing, so its images come along. Typst writes
+     literal `width`/`height` attributes on them, so an unconstrained figure
+     lays out at its intrinsic size and overflows the column. */
+  .rookery-search-preview img {
+    max-width: 100%;
+    height: auto;
   }
 
   /* Strips `#ideas-outline` — a note that nests one inside its own body (a
@@ -325,12 +337,13 @@
     display: none;
   }
 
-  /* Only the plain-text FALLBACK excerpt (`renderMarked`'s output, when no
-     real-content div exists for a hit) is a single unstructured `<p>` that
-     needs to preserve `snippet`'s own whitespace and "…" markers verbatim.
-     Real content's own paragraphs wrap normally; scoping this to a direct
-     child keeps it from reaching into a code block's `<pre>`, which sets its
-     own `white-space` and must not have this override it. */
+  /* Only the plain-text excerpt (`renderMarked`'s output, shown while the
+     note's page is in flight and left in place when it cannot be fetched) is a
+     single unstructured `<p>` that needs to preserve `snippet`'s own whitespace
+     and "…" markers verbatim. A fetched note's own paragraphs wrap normally —
+     they sit inside `.idea-window-body`, not directly in the pane — and scoping
+     this to a direct child also keeps it out of a code block's `<pre>`, which
+     sets its own `white-space` and must not have this override it. */
   .rookery-search-preview > p {
     white-space: pre-wrap;
   }

@@ -309,30 +309,16 @@ const renderMarked = (container, text, ranges) => {
 };
 
 // The preview excerpt's radius, in clusters, either side of a body match.
-// Only used by the plain-text FALLBACK path below (no real-content div found
-// for a hit) — not exposed as a knob, since it is an implementation detail
-// of the modal, not a public contract the way `#search-index`'s `body-chars`
-// is.
+// Only used by the plain-text excerpt the pane shows before (or instead of)
+// the note's fetched page — not exposed as a knob, since it is an
+// implementation detail of the modal, not a public contract the way
+// `#search-index`'s `body-chars` is.
 const PREVIEW_RADIUS = 160;
 
-// Wraps every occurrence of every `terms` entry inside `root`'s text nodes in
-// a `<mark>`, walking the real DOM rather than reconstructing HTML from a
-// string — `root` is a clone of author-written, Typst-rendered content
-// (`#idea-body`'s output, via `#search-bodies`' hidden per-note divs), so
-// there is real markup to preserve: a link's `href`, a code span's
-// highlighting, and so on. Case-insensitive and `-`/`_`-folding, the same
-// `fold()` every other match in this module uses; `fold` is length-preserving
-// (each folded character replaces exactly one), so a match found in a text
-// node's FOLDED copy slices correctly out of the node's own original text.
-//
-// Plain `indexOf` in UTF-16 units, not the cluster-accurate search `snippet`
-// uses: this walks one DOM text node at a time rather than concatenating the
-// whole body into one string first, so there is no cross-language parity
-// requirement here to justify the extra care.
 // Every occurrence of every `terms` entry in `text`, folded and
 // case-insensitive, merged where they overlap. UTF-16 string offsets
 // throughout, not `snippet`'s cluster-accurate ones: neither a title/id row
-// nor a real-content clone's individual text nodes are ever diffed against a
+// nor a fetched note's individual text nodes are ever diffed against a
 // Typst counterpart, so there is no cross-language parity reason to pay for
 // cluster precision here. `fold` is length-preserving (each folded character
 // replaces exactly one), so an offset found in the FOLDED copy slices
@@ -379,10 +365,10 @@ const appendMarked = (container, text, ranges) => {
 
 // Wraps every occurrence of every `terms` entry inside `root`'s text nodes in
 // a `<mark>`, walking the real DOM rather than reconstructing HTML from a
-// string — `root` is a clone of author-written, Typst-rendered content
-// (`#idea-body`'s output, via `#search-bodies`' hidden per-note divs), so
-// there is real markup to preserve: a link's `href`, a code span's
-// highlighting, and so on.
+// string — `root` is author-written, Typst-rendered content lifted out of the
+// note's own minted page, so there is real markup to preserve: a link's
+// `href`, a code span's highlighting, and so on. Case-insensitive and
+// `-`/`_`-folding, the same `fold()` every other match here uses.
 const markTermsInNode = (root, terms) => {
   if (terms.length === 0) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -399,6 +385,110 @@ const markTermsInNode = (root, terms) => {
   }
 };
 
+// ---- The preview pane's rich content: the note's own minted page ----------
+//
+// `#search-modal` emits the JSON island and nothing else, so the pane's rich
+// rendering is FETCHED: the selected note's minted page (`ideas/<slug>.html`,
+// which rookery's `.marrow.typ` already emits) is requested the first time that
+// row is selected. See `search-modal`'s doc comment in `src/lib.typ` for the
+// measurement behind that: rendering every note's body into every page cost
+// `notes × pages` Typst renders — ~3,900 on a 57-note site, 14.6s against a
+// 2.65s baseline — and the cost was per CALL, so truncating the bodies did not
+// touch it. A page rheo already emits costs the build nothing at all.
+//
+// Keyed by href and holding the PROMISE, not the result: two quick selections
+// of one row must share a single request, and a MISS has to be remembered too
+// (as a resolved `null`), so a note whose page 404s is not re-fetched on every
+// arrow key. Session-lived — a `Map` in module scope, gone on navigation.
+const previewCache = new Map();
+
+// The note itself, lifted out of its minted page: every element between the
+// page's `<h1 class="idea">` and its `<footer class="idea-footer">` — body,
+// footnotes, references. Not the heading, because the selected result row above
+// the pane already carries the title and id; not the footer, because
+// Context/Backlinks are navigation for that page rather than content of the
+// note. `null` when the document holds no `h1.idea` (not a minted page) or the
+// range is empty.
+//
+// Returned inside `<div class="idea-window idea-window-plain">` wrapping a
+// `<div class="idea-window-body">`, wearing the h1's own `style`. Every part of
+// that is load-bearing. The nesting and the class names are EXACTLY what
+// rookery's `#idea-body` produces, which is what this pane used to be given, so
+// the stylesheet needs no new selectors and no second code path — including the
+// `.idea-window-body > :first-child` margin rule, which counts on the extra
+// level. `.idea-window-plain` is rookery's own modifier for "not a box": it
+// strips the accent rule and hover tint a real `#window` draws, which a preview
+// must not draw inside the pane's own frame. And the style attribute carries
+// `--idea-link-color` and the rest of the per-note theme custom properties,
+// which on a minted page live ON THE H1 (it is that page's theme container,
+// there being no `.idea-box` around it) — take the siblings and leave the h1
+// behind and the preview renders in rookery's default colours rather than the
+// project's own.
+//
+// Relative `href`/`src` values are resolved against the FETCHED page's URL, not
+// left as written. A note's page sits in `ideas/`, the modal can be open on a
+// vertebra at any depth, and a `../style.css` or `../index.html#loc-3` written
+// for the first resolves somewhere else entirely in the second. Fragment-only
+// links are left alone: they address content that travelled here too (a
+// footnote marker and its footnote are both inside this range).
+//
+// `<script>` elements are dropped. A minted page's own scripts sit outside this
+// range, so this guards against an author writing `html.elem("script", ..)`
+// inside a note body rather than against anything routine — but a search
+// preview should never run code merely to be looked at.
+const extractNote = (doc, pageUrl) => {
+  const h1 = doc.querySelector("h1.idea");
+  if (h1 === null) return null;
+  const box = document.createElement("div");
+  box.className = "idea-window idea-window-plain";
+  const style = h1.getAttribute("style");
+  if (style !== null) box.setAttribute("style", style);
+  const inner = document.createElement("div");
+  inner.className = "idea-window-body";
+  box.append(inner);
+  for (let el = h1.nextElementSibling; el !== null; el = el.nextElementSibling) {
+    if (el.matches("footer.idea-footer")) break;
+    inner.append(document.importNode(el, true));
+  }
+  if (inner.childNodes.length === 0) return null;
+  for (const script of box.querySelectorAll("script")) script.remove();
+  for (const el of box.querySelectorAll("[href], [src]")) {
+    for (const attr of ["href", "src"]) {
+      const raw = el.getAttribute(attr);
+      if (raw === null || raw === "" || raw.startsWith("#")) continue;
+      try {
+        el.setAttribute(attr, new URL(raw, pageUrl).href);
+      } catch {
+        // Not a resolvable URL — leave the value exactly as the author wrote
+        // it rather than guessing at a rewrite.
+      }
+    }
+  }
+  return box;
+};
+
+// One fetch-and-extract per href, memoised. Resolves to `extractNote`'s `<div>`
+// or to `null`, and NEVER rejects: no server (a build opened over `file://`), a
+// 404, a page that is not a minted note — all of them are a `null`, because the
+// caller's answer to "no rich content" is the plain-text excerpt it has already
+// rendered, not an error to report.
+const fetchNote = (href) => {
+  if (previewCache.has(href)) return previewCache.get(href);
+  const pending = fetch(href)
+    .then((res) => (res.ok ? res.text() : null))
+    .then((html) =>
+      html === null
+        ? null
+        : extractNote(
+            new DOMParser().parseFromString(html, "text/html"),
+            new URL(href, document.baseURI),
+          ),
+    )
+    .catch(() => null);
+  previewCache.set(href, pending);
+  return pending;
+};
+
 const wireModal = (dialog, rows) => {
   const input = dialog.querySelector(".rookery-search-input");
   const list = dialog.querySelector(".rookery-search-list");
@@ -408,29 +498,20 @@ const wireModal = (dialog, rows) => {
 
   let hits = [];
   let selected = 0;
+  // Bumped by every `renderPreview`, so a `fetch` that lands after the reader
+  // has moved on cannot paint over a later selection's pane. Arrow-keying down
+  // a list of hits starts a request per row it passes through and those can
+  // resolve in any order — without this, the slowest one wins the pane.
+  let previewGen = 0;
 
-  const renderPreview = () => {
-    preview.replaceChildren();
-    const hit = hits[selected];
-    if (hit === undefined) return;
-
-    // The real content `#search-bodies` emits, if the project's package
-    // version has it — a hidden `<div data-rookery-search-body="ID">`
-    // holding `#idea-body`'s actual rendering (links, styling, a real
-    // `<pre><code>` for a quoted code block, not the flattened string the
-    // JSON island carries). Cloned rather than moved, since the source div
-    // has to survive for the next preview too.
-    const real = document.querySelector(
-      `[data-rookery-search-body="${hit.id}"]`,
-    );
-    if (real !== null && real.textContent.trim() !== "") {
-      const clone = real.cloneNode(true);
-      const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
-      markTermsInNode(clone, terms);
-      preview.append(...clone.childNodes);
-      return;
-    }
-
+  // The plain-text excerpt from the JSON island's `body` field: centred on the
+  // match for a body-tier hit, from the start for a name-tier one — a radius of
+  // Infinity makes `snippet` return the whole (already `body-chars`-capped)
+  // body, its window being clamped to the body's own length. Either way every
+  // matched term is wrapped in `<mark>`, both paths going through one `snippet`
+  // call. A note with no body text at all gets a muted line rather than a blank
+  // pane.
+  const renderExcerpt = (hit) => {
     const body = hit.body ?? "";
     if (body === "") {
       const empty = document.createElement("p");
@@ -439,20 +520,36 @@ const wireModal = (dialog, rows) => {
       preview.append(empty);
       return;
     }
-    // FALLBACK, for a project on a `#search-index`-only build (no
-    // `#search-bodies`, e.g. an older `@rheo/rookery-search` or `index:
-    // false` with a hand-rolled index): the plain-text excerpt this pane
-    // always showed before real content existed. Centred on the match for a
-    // body hit; from the start for a name hit — a radius of Infinity makes
-    // `snippet` return the whole body with no truncation, since its window
-    // is clamped to the body's own length. EITHER WAY every matched term
-    // still gets wrapped in `<mark>`, because both paths go through the same
-    // `snippet` call.
     const radius = hit.kind === "body" ? PREVIEW_RADIUS : Number.POSITIVE_INFINITY;
     const { text, ranges } = snippet(body, input.value.trim(), radius);
     const p = document.createElement("p");
     renderMarked(p, text, ranges);
     preview.append(p);
+  };
+
+  const renderPreview = () => {
+    const hit = hits[selected];
+    const gen = ++previewGen;
+    preview.replaceChildren();
+    if (hit === undefined) return;
+
+    // EXCERPT FIRST, synchronously, then the fetched rendering replaces it when
+    // it arrives — rather than an empty pane and a spinner. Two reasons: the
+    // excerpt is already in hand (the island carries it, no request needed), and
+    // it is also the FINAL answer whenever the fetch cannot succeed — a build
+    // opened over `file://`, a note whose page 404s. Nothing has to work out in
+    // advance which of those it is in.
+    renderExcerpt(hit);
+    if (typeof hit.href !== "string" || hit.href === "") return;
+    fetchNote(hit.href).then((box) => {
+      if (box === null || gen !== previewGen) return;
+      const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
+      // Cloned, not moved: the cache holds this `<div>` for the rest of the
+      // session and `markTermsInNode` edits what it walks.
+      const clone = box.cloneNode(true);
+      markTermsInNode(clone, terms);
+      preview.replaceChildren(clone);
+    });
   };
 
   // Marks exactly one row selected (clamped, no wrap — see keyboard handling

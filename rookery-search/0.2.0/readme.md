@@ -357,17 +357,10 @@ without them ever disagreeing about what "best match" means.
 - `trigger-label` — the trigger's `aria-label` ("Search" by default).
 - `index` / `elem-id` / `body-chars` — the same parameters `#search-bar`
   takes, forwarded to `#search-index` unchanged.
-- `preview-limit` — how much of a note's REAL content (see "The preview pane
-  shows real content", below) ships in the hidden bodies container, in
-  `#idea-body`'s own block units. `none` (no cap) by default — NOT because
-  long notes are free, but because `#idea-body`'s `limit:` has a real,
-  MEASURED bug it inherits from `#window`'s own truncation machinery: cutting
-  a body at a block boundary can silently drop the space between two inline
-  runs (a text run and a `raw` span, say) when they get sliced and rejoined,
-  turning "layers, because" into "layers,because" — reproduced on
-  rookery.ohrg.org's own content. See `#search-bodies`'s doc comment for the
-  full account. Pass a number if a project would rather cap preview size than
-  wait for the underlying fix.
+
+There is no knob for the preview pane, because the preview costs the build
+nothing to produce: it is the note's own minted page, fetched when a reader
+selects the row. See "The preview pane fetches the note's page" below.
 
 **It is rheo only, and it emits nothing at all without it** — the same two
 reasons as the bar: the script comes from this package's `js_scripts`, and the
@@ -394,14 +387,8 @@ wires the first matching dialog.
 | `.rookery-search-preview` | the right pane |
 | `.rookery-search-hint` | the `↑↓ navigate · ↵ open · esc close` line |
 
-Alongside the JSON island, `#search-modal` also emits `#search-bodies`' hidden
-`<div id="…-bodies" hidden>` — one per-note `<div data-rookery-search-body=
-"idea:etal">` inside it, each holding `#idea-body`'s REAL rendering of that
-note. Not a `<script>` this time, and not a `<template>` either — see
-`#search-bodies`'s own doc comment for why a `<template>` specifically does
-not survive rheo's page post-processing intact. It is invisible, ordinary DOM
-from the moment the page loads, found by the same `data-rookery-search-body`
-attribute the preview pane looks up when it shows a hit.
+The JSON island, the trigger and the dialog: that is the whole of it. Nothing
+is emitted for the preview pane — see below.
 
 A `<dialog>` and `showModal()`, deliberately, rather than a hand-rolled overlay
 `<div>`: focus trapping, page inertness behind it, `::backdrop` dimming and
@@ -427,21 +414,39 @@ agree on what the preview is showing. Enter opens the selected row; Escape or
 a click on the backdrop closes the dialog, leaving the query in place so a
 reopen (`Ctrl+K` again, or the trigger) resumes exactly where you left off.
 
-**The preview pane shows the matched note's REAL content** — links, styling,
-footnotes, citations, a real syntax-highlighted `<pre><code>` for a note that
-quotes any — cloned from `#search-bodies`' hidden per-note div, not
-reconstructed from the JSON island's plain-text `body` field. That string is
-still what a code block used to look like in the old plain-text preview: bare
-source text with no separation from the prose around it. Every matched term
-is wrapped in `<mark>` regardless, by walking the clone's own text nodes
-(never `innerHTML` — the clone is real Typst-rendered markup, but the walk
-avoids string reconstruction all the same). A note with an empty body shows a
-muted "No preview" line instead of a blank pane.
+### The preview pane fetches the note's page
 
-**Falls back to the old plain-text excerpt** — centred on the match for a
-body-tier hit, from the start for a name-tier hit — when no real-content div
-exists for a hit: an older `@rheo/rookery-search` build, or a hand-rolled
-index that never called `#search-bodies`. Nothing breaks either way.
+**The pane shows the matched note's REAL content** — links, styling, footnotes,
+citations, figures, a real syntax-highlighted `<pre><code>` for a note that
+quotes any — and it gets it by `fetch`ing that note's own minted page
+(`ideas/<slug>.html`, which `@rheo/rookery` already emits) the first time the
+row is selected, then holding it for the rest of the session. Everything
+between the fetched page's `<h1 class="idea">` and its `<footer
+class="idea-footer">` comes across — the note, its footnotes and its
+references, not the heading the result row already shows and not the page's
+Context/Backlinks navigation. Relative links and image sources are resolved
+against the note's own URL on the way in, so they still point where they did.
+Every matched term is wrapped in `<mark>` by walking the fetched content's own
+text nodes, never `innerHTML`.
+
+**Why fetch rather than build it in.** An earlier version of this package
+emitted a hidden container holding `#idea-body`'s rendering of every note, and
+because `#search-modal` lives in a site's header, that ran on every page:
+`notes × pages` Typst renders. MEASURED on a 57-note, 69-page site, that cost
+14.6s against a 2.65s baseline, and 312 MB of output (301 MB of it base64, Typst's
+HTML export inlining every `#image`). The cost was per CALL, not per byte —
+rendering the same bodies near-empty at `limit: 1` still cost 10.3s — so no
+truncation knob could have fixed it. A page rheo already emits costs the build
+nothing, which is why there is no `preview-limit` any more and why figures can
+now reach the pane at all.
+
+**The trade: rich previews need http.** `fetch` does not work from `file://`, so
+a build opened straight off disk falls back to the plain-text excerpt from the
+island's own `body` field — centred on the match for a body-tier hit, from the
+start for a name-tier one. That excerpt is also what the pane shows for the
+moment before the fetch lands, and what it keeps if a note's page 404s. A note
+with no body text at all shows a muted "No preview" line rather than a blank
+pane. Nothing breaks in any of these cases; the pane is simply plainer.
 
 ### Styling: the telescope layout, and the same escape hatch
 
@@ -450,16 +455,18 @@ same unlayered-rule-always-wins escape hatch applies — see "Styling it: your
 CSS always wins" above. It reuses the bar's `--rookery-search-fg`/`-bg`/
 `-border`/`-radius`/`-hover`/`-id-color` properties, and adds:
 
-**The preview pane's real content styles itself, mostly for free.**
-`#idea-body`'s rendering carries rookery's own `.idea-window` class, so link
-colours, raw/code styling and footnote layout come from `@rheo/rookery`'s own
-stylesheet — the same theme a note gets everywhere else, including a
-project's `#show: rookery.with(theme: (...))`. This package strips only the
-BOX rookery.css draws around an actual `#window` (the left accent rule, its
-hover tint) via the `.idea-window-plain` modifier `#idea-body` applies for
-exactly this reason — a search preview is the pane's own content, not a
-window transcluded onto the page, and should not draw a second box inside the
-pane's first.
+**The preview pane's fetched content styles itself, mostly for free.** A note
+lifted out of its page arrives wrapped in rookery's own `.idea-window
+.idea-window-plain` pair, wearing the theme custom properties the minted page
+set on its `<h1>` — so link colours, raw/code styling and footnote layout come
+from `@rheo/rookery`'s stylesheet, in that note's own theme, including a
+project's `#show: rookery.with(theme: (...))`. `.idea-window-plain` is
+rookery's own modifier for "not a box": it strips the left accent rule and
+hover tint rookery.css draws around an actual `#window`, because a search
+preview is the pane's own content, not a window transcluded onto a page, and
+should not draw a second box inside the pane's first. Images are held to
+`max-width: 100%` — Typst writes literal `width`/`height` attributes, and a
+figure at its intrinsic size would overflow the column.
 
 | property | default |
 | --- | --- |
