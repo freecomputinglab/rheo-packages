@@ -2302,8 +2302,20 @@
       // The title in a span of its own, so the hairline marker and the row's
       // left rule can be positioned against the ROW while the link keeps the
       // hover treatment every other rookery link has.
-      (e, sub) => html.elem("li", attrs: (class: "idea-outline-row"),
-        link(e.loc, e.title) + if sub == none { [] } else { sub }),
+      //
+      // The note's tags go on the row as `idea-tag-<tag>` classes, built the
+      // same way `#idea` builds them for the heading and for the card — one
+      // convention, three emission sites, so a site styling a todo note in the
+      // body can style the same note's row in the index. It is also the zero-API
+      // half of tag filtering: with the classes here a site can grey, badge or
+      // hide rows in its own CSS, with no Typst-side filter at all. The package
+      // ships NO default rule for any of them — `#note`/`#todo` are sugar, not a
+      // recognised set, and styling one here would invent an opinion.
+      (e, sub) => html.elem(
+        "li",
+        attrs: (class: (("idea-outline-row",) + e.tags.map(l => "idea-tag-" + l)).join(" ")),
+        link(e.loc, e.title) + if sub == none { [] } else { sub },
+      ),
     )
   } else {
     // No theme container and no marker styling on the paged target: `#idea`
