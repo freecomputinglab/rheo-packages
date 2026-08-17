@@ -301,6 +301,57 @@
        excerpt below, which still needs `white-space: pre-wrap` of its own to
        preserve `snippet`'s "…" truncation markers as literal text. */
     overflow-wrap: anywhere;
+    /* The containing block for the loading indicator below, which is pinned to
+       this pane's own corner rather than to the dialog's. */
+    position: relative;
+  }
+
+  /* THE LOADING INDICATOR. `data-rookery-search-loading` is set on the pane
+     while the selected note's minted page is being fetched, and only on a cache
+     MISS — see the comment beside it in rookery-search.js. It is a
+     pseudo-element on the pane rather than a node in it because the pane is not
+     empty while it spins: the plain-text excerpt is already there, and the
+     indicator only says that a richer rendering is coming. So it must not
+     participate in the content flow, must not be scrolled away by the excerpt's
+     own overflow, and must not survive a `replaceChildren`.
+
+     `position: sticky` in the corner, not `absolute`: the pane scrolls, and an
+     absolutely positioned indicator would ride the scrolled content up out of
+     sight. Sticky with a zero-height `float`-free box keeps it in view at the
+     top-right for as long as the fetch is in flight. */
+  .rookery-search-preview[data-rookery-search-loading]::after {
+    content: "";
+    position: sticky;
+    float: right;
+    top: 0;
+    display: block;
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: 50%;
+    /* Two of the four sides drawn, so the rotation is legible as motion — a
+       full ring would look identical at every angle. The colour comes from the
+       same custom-property chain as every other border in this file, so it
+       follows a project's theme rather than introducing a colour of its own. */
+    border: 2px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-top-color: transparent;
+    border-right-color: transparent;
+    opacity: 0.6;
+    animation: rookery-search-spin 0.7s linear infinite;
+  }
+
+  @keyframes rookery-search-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* Reduced motion keeps the affordance and drops the spinning: the same circle,
+     static, which still reads as "something is pending" beside an excerpt. */
+  @media (prefers-reduced-motion: reduce) {
+    .rookery-search-preview[data-rookery-search-loading]::after {
+      animation: none;
+    }
   }
 
   /* The pane's own `padding` is the only top gap it should show. Without

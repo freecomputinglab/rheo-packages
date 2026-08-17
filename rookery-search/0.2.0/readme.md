@@ -444,7 +444,9 @@ now reach the pane at all.
 a build opened straight off disk falls back to the plain-text excerpt from the
 island's own `body` field — centred on the match for a body-tier hit, from the
 start for a name-tier one. That excerpt is also what the pane shows for the
-moment before the fetch lands, and what it keeps if a note's page 404s. A note
+moment before the fetch lands — with a small muted spinner in the pane's corner
+for as long as that request is in flight, and only for a note not already
+fetched this session — and what it keeps if a note's page 404s. A note
 with no body text at all shows a muted "No preview" line rather than a blank
 pane. Nothing breaks in any of these cases; the pane is simply plainer.
 

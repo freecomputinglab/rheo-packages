@@ -531,6 +531,11 @@ const wireModal = (dialog, rows) => {
     const hit = hits[selected];
     const gen = ++previewGen;
     preview.replaceChildren();
+    // `replaceChildren` replaces CHILDREN, so the loading flag set below
+    // outlives the content it belonged to unless it is deleted by hand. Cleared
+    // on the way in, not only when a request settles: this path also runs for a
+    // hit with no href to fetch, where nothing would ever clear it.
+    delete preview.dataset.rookerySearchLoading;
     if (hit === undefined) return;
 
     // EXCERPT FIRST, synchronously, then the fetched rendering replaces it when
@@ -541,7 +546,26 @@ const wireModal = (dialog, rows) => {
     // advance which of those it is in.
     renderExcerpt(hit);
     if (typeof hit.href !== "string" || hit.href === "") return;
+    // THE LOADING AFFORDANCE, and it is an attribute rather than an element: the
+    // pane's content is the excerpt above, which stays put, so all the indicator
+    // has to do is say that something further is on its way. One data attribute
+    // and one `::after` in the stylesheet keeps it out of the content flow
+    // entirely — nothing to append, nothing to remove, and no chance of it
+    // surviving a `replaceChildren` as a stray node.
+    //
+    // ONLY ON A CACHE MISS. `fetchNote` memoises by href, so a row visited
+    // earlier in the session resolves on a microtask; flagging that would flash
+    // a spinner for one frame every time the reader arrow-keys back up a list
+    // they have already been down.
+    if (!previewCache.has(hit.href)) preview.dataset.rookerySearchLoading = "true";
     fetchNote(hit.href).then((box) => {
+      // Cleared BEFORE the early return, so a miss stops the indicator too: a
+      // 404, a `file://` build, a page that is not a minted note all resolve to
+      // `null`, and the excerpt already on screen is the final answer in each
+      // case — an indicator left spinning over it would be promising a
+      // rendering that is never coming. Guarded on the generation like the paint
+      // below it, so a stale request cannot clear a later selection's indicator.
+      if (gen === previewGen) delete preview.dataset.rookerySearchLoading;
       if (box === null || gen !== previewGen) return;
       const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
       // Cloned, not moved: the cache holds this `<div>` for the rest of the
@@ -602,6 +626,11 @@ const wireModal = (dialog, rows) => {
     // one keystroke behind.
     if (hits.length === 0) {
       previewGen += 1;
+      // The generation bump above already orphans an in-flight request's paint,
+      // but its `.then` no longer clears the loading flag once it is orphaned —
+      // so this path has to clear it, or the filler sits under a spinner that
+      // never stops.
+      delete preview.dataset.rookerySearchLoading;
       const empty = document.createElement("p");
       empty.className = "rookery-search-preview-empty";
       empty.textContent = "No match found";
