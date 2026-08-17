@@ -47,16 +47,45 @@
 // filter at all rather than a filter matching nothing — asking for none of the
 // tags is not the same as asking for a tag no note has.
 //
+// `filter` is a caller's OWN predicate over the same tag array, ANDed with the
+// `tags`/`match` one — both must hold, never either. NAMED and defaulting to
+// `none` so the callers with no use for it (`#window`, `ideas()`) keep their
+// arity; `#ideas-outline` is the one that offers it, because `tags:`/`match:`
+// can say "any of these" and "all of these" and nothing else. It cannot say
+// `phd` but NOT `draft`, nor `(phd AND draft) OR todo`. Keyword parameters for
+// those would be a filter language grown one special case at a time —
+// `exclude:`, then `any-of:`/`all-of:`, then nested-array groups — and a Typst
+// function value already IS that language, in the caller's hands.
+//
+// The predicate sees the TAG ARRAY and nothing else: no title, no id, no depth.
+// Those are not tag filtering, and handing over a whole outline entry would make
+// the entry's shape a public contract this package then has to keep.
+//
+// Still `none` when neither is set, and that matters — it is what lets
+// `_prune-outline` skip its walk entirely for an unfiltered outline. Do not
+// replace it with an always-true closure.
+//
 // Defined HERE, above every caller, rather than beside the first one to want
 // it: a `#let` closure captures the scope visible AT DEFINITION time, so a
 // helper defined further down is invisible to `#window`. `_blocks` carries the
-// same note for the same reason. `#ideas-outline`'s own tag filter, when it
-// lands, reuses this — do not define a second copy next to it.
-#let _tag-pred(tags, match) = {
-  if tags == none { return none }
-  let want = if type(tags) == str { (tags,) } else { tags }
-  if want.len() == 0 { return none }
-  if match == "all" { t => want.all(x => x in t) } else { t => want.any(x => x in t) }
+// same note for the same reason. `#ideas-outline`'s tag filter reuses this —
+// do not define a second copy next to it.
+#let _tag-pred(tags, match, filter: none) = {
+  let by-tags = if tags == none { none } else {
+    let want = if type(tags) == str { (tags,) } else { tags }
+    if want.len() == 0 { none } else if match == "all" {
+      t => want.all(x => x in t)
+    } else {
+      t => want.any(x => x in t)
+    }
+  }
+  if by-tags == none and filter == none { none } else if filter == none {
+    by-tags
+  } else if by-tags == none {
+    filter
+  } else {
+    t => by-tags(t) and filter(t)
+  }
 }
 
 // ONE `../` per `:` level of the CURRENT page's handle, mirroring rheo's own

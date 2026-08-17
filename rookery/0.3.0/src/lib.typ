@@ -2187,7 +2187,10 @@
 // it was written.
 //
 // `tags`/`match` are the same pair `#window` and `ideas()` take, through the
-// same shared `_tag-pred`. What differs is that an outline is a TREE, so a
+// same shared `_tag-pred`, and `filter` is a predicate of the caller's own over
+// the same tag array, ANDed with them — see `_tag-pred` in `pure.typ` for why
+// exclusion and an OR of ANDs are a function value here rather than four more
+// keyword parameters. What differs is that an outline is a TREE, so a
 // filter cannot be a `.filter()`: `_nest-outline` reads a FLAT depth-tagged run
 // and assumes it is well formed, so a depth-1 entry left behind by a dropped
 // depth-0 parent is silently read as a sibling of whatever came before. Hence
@@ -2214,7 +2217,14 @@
   }
   out
 }
-#let ideas-outline(title: auto, depth: none, rookery-wide: false, tags: none, match: "any") = context {
+#let ideas-outline(
+  title: auto,
+  depth: none,
+  rookery-wide: false,
+  tags: none,
+  match: "any",
+  filter: none,
+) = context {
   assert(
     depth == none or (type(depth) == int and depth >= 1),
     message: "@rheo/rookery: #ideas-outline's `depth` must be none or a "
@@ -2237,13 +2247,18 @@
     message: "@rheo/rookery: #ideas-outline's `match` must be \"any\" or \"all\" "
       + "— got " + repr(match),
   )
+  assert(
+    filter == none or type(filter) == function,
+    message: "@rheo/rookery: #ideas-outline's `filter` must be none or a "
+      + "function taking the note's tag array — got " + repr(filter),
+  )
   let title-content = if title == auto { [Contents] } else { title }
   let entries = _ideas-outline-data(rookery-wide: rookery-wide)
   // Pruned BEFORE the `depth:` cap, and that order is the whole point: `depth`
   // then counts levels in the FILTERED tree, so `depth: 1` means "the top level
   // of what I asked for" rather than "whatever survived from the top level of
   // everything".
-  entries = _prune-outline(entries, _tag-pred(tags, match))
+  entries = _prune-outline(entries, _tag-pred(tags, match, filter: filter))
   if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
 
   // On HTML an explicit `h4` carrying a class, the same shape (and the same
