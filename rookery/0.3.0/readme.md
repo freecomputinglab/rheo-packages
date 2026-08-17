@@ -552,7 +552,7 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-references` and on any page with citations of its own
 `.idea-page-refs`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
-`.idea-page-list`, `.idea-page-row`, `.idea-page-head`.
+`.idea-page-list`, `.idea-page-row`, and around every note's header `.idea-head`.
 
 `.idea-tab` is the span wrapping a note's permalink above its heading: it draws
 the short rule across the top of the card, the id straddling it, in the same
@@ -560,11 +560,13 @@ the short rule across the top of the card, the id straddling it, in the same
 permalink standing in prose — a nested window with no depth budget left — has no
 tab, because there is no card for it to rule off.
 
-On a minted note page there is no `.idea-box`, so `.idea-page-head` wraps the tab
-and the `<h1>` together and is that page's theme container — the element a
-`theme:` override lands on, the way `.idea-box` is on a vertebra. It exists
-because the two have to be siblings for the rule to close the gap above the
-heading; emitted loose, Typst's HTML export wraps the tab in a `<p>` of its own.
+`.idea-head` is the element around the tab and the heading beneath it, in a card
+and on a minted note page alike. It exists because the two have to be real
+siblings for the stylesheet to close the gap between them, and loose content is
+not reliably that: Typst's HTML export wraps a leading inline run in a `<p>` of
+its own in some cards and not others. On a minted page, where there is no
+`.idea-box`, it is also that page's theme container — the element a `theme:`
+override lands on.
 
 The two footer sections have the same shape — a heading with rows flowing down
 from it — because they are the same kind of thing: places this note is

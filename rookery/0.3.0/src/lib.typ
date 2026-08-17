@@ -416,13 +416,37 @@
 //
 // Carries no theme properties of its own, for the same reason `_permalink`
 // does not: it is always emitted inside a container that does — `.idea-box`,
-// `.idea-window-summary`, or (on a minted page) the `.idea-page-head` wrapper
-// `.marrow.typ` puts around the tab and the `<h1>` together — and custom
-// properties inherit.
+// `.idea-window-summary`, or (on a minted page) the `.idea-head` wrapper — and
+// custom properties inherit.
 #let _permalink-tab(id, href: auto) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
   _permalink(id, href: href),
+)
+
+// The tab and the heading as ONE element, wherever a note wears a header.
+//
+// NOT two loose siblings, and this is measured rather than tidiness. Typst's
+// HTML export wraps a LEADING INLINE run in a `<p>` of its own depending on what
+// follows it, and it is not decidable per call site: in one build of this
+// package's own `demo/rheo`, one `.idea-box` came out
+// `<div class="idea-box"><p><span class="idea-tab">..</span></p><h2>` and the
+// next `<div class="idea-box"><span class="idea-tab">..</span><h2>` — same
+// construct, same run, different grouping, because their bodies differ. Every
+// stylesheet rule that positions the tab against its heading
+// (`.idea-tab + h*.idea`) silently stops matching in the first form.
+//
+// Inside one `html.elem` the two are always real siblings. `.idea-head` is also
+// the theme container on a minted note page, where there is no `.idea-box` to be
+// one — see `.marrow.typ`, which passes `_themed((:))` here.
+//
+// `#window`'s summary needs none of this: its tab is a direct child of
+// `<summary>`, whose content is inline throughout, and no `<p>` ever appears
+// there (checked in the same build).
+#let _head(tab, heading, attrs: (:)) = html.elem(
+  "div",
+  attrs: attrs + (class: "idea-head"),
+  tab + heading,
 )
 
 // Paged counterpart: no `html.elem`, and the fallback is the Typst label
@@ -1193,12 +1217,15 @@
       // Tab before the heading, and the `id == none` guard travels with it: an
       // auto-numbered nested note has no id to show, so it gets no tab either
       // and its card simply has no top rule.
-      let header = (if id == none { [] } else { _permalink-tab(id) }) + html.elem(
-        "h" + str(v.level + 1),
-        attrs: attrs,
-        (if v.title == none { [] } else {
-          html.elem("span", attrs: (class: "idea-title"), v.title)
-        }),
+      let header = _head(
+        if id == none { [] } else { _permalink-tab(id) },
+        html.elem(
+          "h" + str(v.level + 1),
+          attrs: attrs,
+          (if v.title == none { [] } else {
+            html.elem("span", attrs: (class: "idea-title"), v.title)
+          }),
+        ),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
@@ -1521,12 +1548,15 @@
         // destination of every `@idea:etal` fragment link, so dropping the
         // element would break them; `h*.idea:empty` in the stylesheet is what
         // keeps it from taking any space.
-        let header = _permalink-tab(id) + html.elem(
-          "h" + str(level + 1),
-          attrs: (id: id, class: cls.join(" ")),
-          (if ttl == none { [] } else {
-            html.elem("span", attrs: (class: "idea-title"), ttl)
-          }) + date-span,
+        let header = _head(
+          _permalink-tab(id),
+          html.elem(
+            "h" + str(level + 1),
+            attrs: (id: id, class: cls.join(" ")),
+            (if ttl == none { [] } else {
+              html.elem("span", attrs: (class: "idea-title"), ttl)
+            }) + date-span,
+          ),
         )
         // Header and body wrap together in one card, HTML/EPUB only — no box
         // for a paged target. The box classes mirror `cls` (tags included)

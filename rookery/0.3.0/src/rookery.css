@@ -141,9 +141,18 @@
   margin-left: 0;
 }
 
-/* Only inside a card: the negative margin cancels the card's padding-left, and a
-   minted page's <h1> has no such padding to cancel. */
-.idea-box > .idea-tab,
+/* `.idea-head` groups the tab with the heading under it, so the two are real
+   siblings whatever Typst's HTML export decides about paragraph grouping (see
+   `_head` in lib.typ — loose siblings came out `<p>`-wrapped in some cards and
+   not others). It is also the theme container on a minted note page, which has no
+   `.idea-box` to be one. Structural only: no box, no spacing of its own. */
+.idea-head {
+  display: block;
+}
+
+/* Only inside a card: the negative margin cancels the card's padding-left. A
+   minted page's `.idea-head` has no such padding to cancel. */
+.idea-box > .idea-head > .idea-tab,
 .idea-window-summary > .idea-tab {
   margin-left: -0.75em;
 }
