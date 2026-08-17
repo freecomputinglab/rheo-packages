@@ -8,9 +8,10 @@ Most packages also ship JS via `package.json`/vite — see "Pure-Typst
 packages" below for the one that doesn't.
 
 One dependency between packages so far: `@rheo/rookery-search` (fuzzy search
-over a rookery — ranking, a JSON index, an embeddable search bar) imports
-`@rheo/rookery` for its `ideas()` and `note-href()` primitives. It is built
-like every other JS package here; rookery is not. A project using it must
+over a rookery — ranking, a JSON index, an embeddable search bar, and an
+overlay search modal) imports `@rheo/rookery` for its `ideas()` and
+`note-href()` primitives. It is built like every other JS package here;
+rookery is not. A project using it must
 import BOTH in its own `.typ` files — see that package's readme for why.
 
 ## Build
