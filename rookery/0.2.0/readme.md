@@ -84,6 +84,15 @@ Depth is not free — each level re-renders the transcluded note's body, so `n`
 levels over a fan-out of `k` windows is `k^n` blocks in the page. Small
 numbers.
 
+A note's own **minted page** counts from one level further in, because a minted
+page is not a transclusion: it shows the note as the page's own top level, so a
+`#window` written in that note's body is a top-level window there and always
+renders in full, exactly as it does on the page the note was hatched in. What
+`window-depth` governs on a minted page is the windows nested inside *those* —
+at the default of `0` they collapse to their permalinks. (Before this, a minted
+page rendered its note as though the note were being windowed, which at the
+default left a page whose every window had collapsed to a bare id.)
+
 ### The theme
 
 Four colours, the whole of what the package will style for you:

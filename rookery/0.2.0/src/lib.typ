@@ -1252,9 +1252,13 @@
 }
 
 // A note's body at a given nested-window budget. `auto` takes the
-// document-wide default (`#show: rookery.with(window-depth: n)`), which is
-// what makes a `#window` and a minted note page agree on how far a nested
-// window unfurls without either of them naming a number.
+// document-wide default (`#show: rookery.with(window-depth: n)`), which is what
+// lets a `#window` unfurl by the document's setting without naming a number.
+//
+// `.marrow.typ` passes an EXPLICIT depth instead, `window-depth + 1`: a minted
+// page shows the note at the page's own top level rather than transcluding it,
+// so a window written in that body is a top-level window and must render in
+// full even at the default of 0. See the note beside `minted-depth` there.
 //
 // Must be called from inside `context`: `.final()` on both states.
 #let _body-at(rec, depth: auto) = {

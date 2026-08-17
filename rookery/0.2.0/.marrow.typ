@@ -99,8 +99,38 @@
     }
   }
 
+  // THE DEPTH A MINTED PAGE RENDERS ITS NOTE AT, and it is `window-depth` PLUS
+  // ONE rather than `window-depth` itself.
+  //
+  // A minted page shows the note as the page's own top level — it is not a
+  // transclusion of it. So a `#window` written directly in the note's body is
+  // a TOP-LEVEL window there, exactly as it is on the page the note was
+  // hatched in, and it renders in full whatever `window-depth` says. What
+  // `window-depth` governs is windows nested inside a transcluded body, and on
+  // a minted page the first body that is genuinely transcluded is the one
+  // inside that top-level window — one level in, which is why the budget is
+  // shifted by one rather than merely floored at 1.
+  //
+  // MEASURED DEFECT this fixes: `ideas/idea.html` on rookery.ohrg.org ended in
+  // two bare `[idea:hatching-ideas]` / `[idea:referencing-ideas]` permalinks,
+  // directly under prose reading "Try unfolding these windows below by
+  // clicking on their title panel" — there was nothing to unfold. Passing
+  // `depth: auto` here treated the note's own body as if it were being
+  // windowed, so its windows spent a budget that had never been meant for
+  // them and collapsed at the default of 0.
+  //
+  // Read ONCE, outside the loop: it is one document-wide state for every page
+  // this file mints.
+  let minted-depth = _window-depth.final() + 1
+
   for (id, rec) in registry.pairs() {
     let slug = id.trim(_pfx(), at: start)
+    // The note's body as this page renders it, flattened once and reused by
+    // all three of the things that need it — the rendering below, the footnote
+    // wrapper around it, and the citation walk. `_flatten` is pure, so a
+    // second call would only repeat the work; sharing one value also makes it
+    // impossible for the walks to disagree with what is on the page.
+    let flat = _body-at(rec, depth: minted-depth)
     // Built as a value rather than passed straight to `rheo-document`, so the
     // project's template can wrap the WHOLE page — heading, body and footer —
     // and see exactly what a vertebra's own `#show:` would.
@@ -119,11 +149,9 @@
         })
           + _permalink(id, href: "#" + id),
       )
-      // `_body-at`, not `rec.body`: a document that set `window-depth` wants a
-      // `#window` nested inside this note to unfurl the same way here as it
-      // does wherever the note is windowed. `depth: auto` takes that
-      // document-wide default, and at the default of 0 returns `rec.body`
-      // unchanged.
+      // `flat`, not `rec.body`: the note is rendered at `minted-depth` (see
+      // above), so a `#window` written in its body shows in full here and a
+      // window nested inside THAT one follows the document's `window-depth`.
       //
       // Wrapped in `_footnoted` — the same wrapper `#idea` and `#window` use —
       // so the note's footnote markers are claimed HERE and listed in a block
@@ -138,10 +166,13 @@
       // Context/Backlinks remain last as the navigational layer. Typst's stock
       // endnote section would have landed BELOW the footer instead.
       //
-      // Walks what it renders — `_body-at(rec)` rather than `rec.body` — so a
-      // nested window that `window-depth` unfurls contributes its footnotes to
-      // its own block rather than being missed.
-      #_footnoted(_body-at(rec))
+      // Walks what it renders — `flat` rather than `rec.body` — so a window
+      // this page unfurls contributes its footnotes to its own block rather
+      // than being missed. A rendered window wraps its body in `_footnoted` of
+      // its own, and that inner wrapper claims its markers before this outer
+      // one sees them (the inner-rule-wins fact recorded at `_flatten`), so
+      // the two do not fight over a window's footnotes.
+      #_footnoted(flat)
       // REFERENCES. A minted page renders the note's body, so it renders the
       // note's citations — and until this existed it had no bibliography of its
       // own. A citation with no bibliography FOLLOWING it does not error; it
@@ -151,8 +182,8 @@
       // sweep block belonging to an unrelated page, which then listed an entry
       // that no citation on that page pointed at. MEASURED.
       //
-      // Walks what it renders (`_body-at(rec)`, not `rec.body`) so a nested
-      // window that `window-depth` unfurls contributes its citations here too.
+      // Walks what it renders (`flat`, not `rec.body`) so a window this page
+      // unfurls contributes its citations here too.
       //
       // `id` gives the block a stable cross-page address —
       // `ideas/<slug>.html#refs-<slug>`. A plain HTML id, NOT a second
@@ -162,12 +193,17 @@
       // Before the footer, deliberately: the note's own apparatus stays
       // attached to the note, and Context/Backlinks stay last as the
       // navigational layer.
-      // `windows-claim` follows the depth budget: at the default of 0 a nested
-      // window on this page COLLAPSES to a permalink and claims nothing, so the
-      // note keeps its own citations. Get this wrong and the page emits no
-      // bibliography while still citing, and the citation lands on some other
-      // minted page's block. MEASURED.
-      #_refs-block(_own-cited-keys(_body-at(rec), windows-claim: _window-depth.final() > 0), id: "refs-" + slug)
+      // `windows-claim` follows the depth budget, and `minted-depth` is 1 at
+      // the lowest — so a window on this page always renders, always carries a
+      // References block of its own, and therefore always claims the citations
+      // written after it. It was `_window-depth.final() > 0` while the body was
+      // built at `depth: auto` and had to change with it: leave it false and
+      // the page lists an entry for a citation that the window below it is
+      // already listing. The inverse error is the one the note above records —
+      // claiming for a window that collapsed, so the page emits no bibliography
+      // while still citing, and the citation lands on another minted page's
+      // block. MEASURED.
+      #_refs-block(_own-cited-keys(flat, windows-claim: minted-depth > 0), id: "refs-" + slug)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
