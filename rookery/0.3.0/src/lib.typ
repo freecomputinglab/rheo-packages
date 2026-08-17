@@ -1518,8 +1518,14 @@
         tags: tags,
       )
       _registry.update(r => {
-        if id in r and r.at(id) != rec {
-          panic("rookery: duplicate note id " + id)
+        let existing = r.at(id, default: none)
+        if id in r and existing != rec {
+          panic(
+            "@rheo/rookery: duplicate note id " + id + " — already registered"
+              + (if existing.origin != none { " in " + existing.origin } else { "" })
+              + ", registered again" + (if origin != none { " in " + origin } else { "" })
+              + ". A pinned id must be unique across the whole rookery.",
+          )
         }
         r.insert(id, rec)
         r
