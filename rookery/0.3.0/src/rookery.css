@@ -209,6 +209,26 @@
   margin-top: 0;
 }
 
+/* A HEADING INSIDE THE HEAD CONTRIBUTES NOTHING BELOW IT EITHER, and this one is
+   a consequence of `.idea-head` being a block formatting context (see above).
+   Margins do not collapse across a BFC boundary, so a heading's own
+   `margin-bottom` — which used to collapse with the first body block's
+   `margin-top` and disappear into it — now ADDS to it instead.
+
+   MEASURED on rookery.ohrg.org: that site sets `h1..h6 { margin-bottom: 0.5em }`,
+   which at heading size plus the browser's own 1em paragraph margin put nearly
+   twice the space between "A rookery" and its first line than before the head
+   existed. Zero it, and the gap under a note's name is again the first block's to
+   set — exactly what the heading rule above has always said it should be. */
+.idea-head > h1.idea,
+.idea-head > h2.idea,
+.idea-head > h3.idea,
+.idea-head > h4.idea,
+.idea-head > h5.idea,
+.idea-head > h6.idea {
+  margin-bottom: 0;
+}
+
 /* THE SAME GAP FOR A NOTE WITH NO TITLE. Its heading element survives to carry
    the `id` anchor but is empty and takes no space (below), so the thing under the
    rule is the note's first block — a sibling of `.idea-head`, arriving with its
