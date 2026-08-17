@@ -32,6 +32,12 @@
      --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`,
                                       and the top tab rule (`.idea-tab`) that
                                       meets it at the corner
+     --idea-rule-width   rule-width   how THICK every one of those is, plus
+                                      `#ideas-outline`'s rule and its row
+                                      markers: one thickness for the whole frame
+                                      (2px). NOT the separators above a
+                                      footnotes/references block — those are
+                                      apparatus, not the note's frame
      --idea-external-color            the underline an OUTBOUND link takes on
                                       hover, where an internal one takes the
                                       fill above (defaults to the id colour)
@@ -130,7 +136,7 @@
 .idea-tab::before {
   content: "";
   flex: 0 0 auto;
-  border-top: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-top: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* The stub reaches back across the card's own `padding-left` (0.75em, set on
@@ -138,7 +144,7 @@
    ends on that rule's OUTER edge and the corner has no notch in it. At 1px the
    shortfall was invisible; at 2px it is a gap you can see. */
 .idea-tab::before {
-  width: calc(0.75em + 2px);
+  width: calc(0.75em + var(--idea-rule-width, 2px));
 }
 
 /* `.idea-label`'s 0.5em separates it from a title it follows. In a tab it
@@ -189,7 +195,7 @@
 .idea-window-summary > .idea-tab {
   line-height: 1;
   margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem));
-  margin-left: calc(-0.75em - 2px);
+  margin-left: calc(-0.75em - var(--idea-rule-width, 2px));
 }
 
 /* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
@@ -482,7 +488,7 @@ figure:has(> .idea-window) + figure:has(> .idea-window),
    level, rather than one ever-growing indent. */
 .idea-box,
 .idea-window {
-  border-left: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-left: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
   padding-left: .75em;
 }
 
@@ -794,7 +800,7 @@ h6.idea {
   /* 2px, the same weight as `.idea-box`/`.idea-window`'s rule: an outline is the
      page's notes listed, and its rule is the same object as theirs. Two weights
      on one page read as two different systems. */
-  border-left: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-left: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* A nested list is already indented by its parent row; it needs separating
@@ -837,7 +843,7 @@ h6.idea {
   margin-right: 0.5em;
   /* 2px, matching the rule it grows out of. A 1px marker on a 2px rule reads as
      a different, thinner kind of line rather than as a branch off that one. */
-  border-top: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-top: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* ---- Narrow screens: half the indent ---------------------------------------
@@ -882,11 +888,11 @@ h6.idea {
 
   .idea-box > .idea-head > .idea-tab,
   .idea-window-summary > .idea-tab {
-    margin-left: calc(-0.375em - 2px);
+    margin-left: calc(-0.375em - var(--idea-rule-width, 2px));
   }
 
   .idea-tab::before {
-    width: calc(0.375em + 2px);
+    width: calc(0.375em + var(--idea-rule-width, 2px));
   }
 
   .idea-outline {

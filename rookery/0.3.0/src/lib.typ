@@ -137,12 +137,22 @@
 // its own — `rookery.css` falls it back to `link-color` first, so a note's
 // rule and its links read as one colour until a theme sets `border-color`
 // apart from `link-color` deliberately.
+//
+// `rule-width` is the odd one out: a LENGTH, not a colour, and it sets ONE
+// thickness for every line that frames a note — the left rule on a card and a
+// window, the tab that rules off the top of both, and `#ideas-outline`'s own rule
+// and row markers. They are one system and they were four literals; a project
+// that wants a heavier or lighter frame moves this and they all follow, including
+// the corner arithmetic that has to know the rule's width to close on it. The
+// separators above a footnotes, references or page-references block are NOT
+// governed by it: those are apparatus rules, not the note's frame.
 #let _THEME-KEYS = (
   "link-color": "--idea-link-color",
   "fold-color": "--idea-fold-color",
   "id-color": "--idea-id-color",
   "date-color": "--idea-date-color",
   "border-color": "--idea-border-color",
+  "rule-width": "--idea-rule-width",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -2665,6 +2675,7 @@
   id-color: none,
   date-color: none,
   border-color: none,
+  rule-width: none,
   refs: true,
   ref-target: "page",
   doc,
@@ -2721,7 +2732,18 @@
 
   // One converter for both sources, so `theme: (link-color: c)` and
   // `link-color: c` cannot disagree about what a value may be.
-  let css(key, value) = {
+  // The one key that is not a colour. `repr` on a Typst length gives exactly the
+  // CSS it needs — `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work
+  // and neither needs a unit table here. A string passes through for the units
+  // Typst has no literal for, `px` above all, which is what a hairline wants.
+  let css(key, value) = if key == "rule-width" {
+    assert(
+      type(value) == length or type(value) == str,
+      message: "@rheo/rookery: theme `rule-width` must be a length (2pt, 0.15em) "
+        + "or a CSS length string (\"3px\") — got " + repr(value),
+    )
+    if type(value) == length { repr(value) } else { value }
+  } else {
     assert(
       type(value) == color or type(value) == str,
       message: "@rheo/rookery: theme `" + key + "` must be a colour or a CSS "
@@ -2746,6 +2768,7 @@
     id-color: id-color,
     date-color: date-color,
     border-color: border-color,
+    rule-width: rule-width,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }

@@ -103,6 +103,8 @@ Four colours, the whole of what the package will style for you:
 | `fold-color` | hover background on a foldable window block | `rgba(0, 100, 255, .05)` |
 | `id-color` | the `[idea:etal]` permalink's text | `gray` |
 | `date-color` | an idea's/window's date, where shown | `gray` |
+| `border-color` | the rule down a note, a window and an outline, and the tab that rules off the top of a card | falls back to `link-color` |
+| `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -132,6 +134,14 @@ Values are Typst colours, or raw CSS strings when you want something Typst's
 colour type can't express (`"rgba(0, 100, 255, .1)"`, `"var(--accent)"`,
 `"transparent"`). A misspelled key is a build error naming the valid ones, not
 a silently ignored colour.
+
+`rule-width` is the exception, being a length rather than a colour: pass a Typst
+length (`2pt`, `0.15em`) or a CSS length string (`"3px"`) — a string is the only
+way to say `px`, which Typst has no literal for. It is deliberately ONE value for
+every line that frames a note, so a card, a window, the tab across the top of
+both and `#ideas-outline`'s rule and row markers can never disagree about their
+own weight. The separators above a footnotes or references block are not governed
+by it: those are apparatus, not the frame.
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one
