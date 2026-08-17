@@ -2,7 +2,9 @@
 
    Thin on purpose, like rookery's own stylesheet: enough that the input and
    its dropdown read correctly out of the box, and nothing that presumes a page
-   design. No fonts, no font sizes, no page colours — only the affordances.
+   design. No fonts, no page colours, and no ABSOLUTE font size anywhere — the
+   sizes that are here are all factors of whatever the page already sets, so
+   they scale with it rather than replacing it.
 
    RHEO ONLY, but there is nothing to guard. `#search-bar` emits no markup
    without rheo, so these selectors simply never match; the file is inert
@@ -42,6 +44,12 @@
                                     not the dropdown's --max-height, since a
                                     modal is a fixed panel rather than a
                                     hugging-its-content dropdown)
+     --rookery-search-modal-font-size
+                                    the size of every piece of text inside the
+                                    modal, as a factor of the page's own body
+                                    size (default `0.67em`) — see the rule on
+                                    `.rookery-search-modal` for why the modal
+                                    is the one place this file does set a size
      --rookery-search-backdrop      the modal's `::backdrop` dimming
      --rookery-search-mark          the highlighted-term background inside a
                                     preview excerpt
@@ -183,6 +191,18 @@
   /* ---- #search-modal — the overlay's telescope-style two-pane layout ---- */
 
   .rookery-search-modal {
+    /* THE ONE PLACE THIS FILE SETS A SIZE, and the dropdown deliberately does
+       not. A dropdown shows titles only, a few of them, hanging off an input
+       the reader is looking straight at; it should read at the page's own size.
+       The modal is a two-pane telescope panel: a list on the left and a whole
+       note's body on the right, both inside a fixed box. At body size a site
+       with generous prose type (16pt, say) fits four or five results and a
+       paragraph of preview, which is not enough of either to choose between
+       them — and the panel cannot grow, since it is already capped to the
+       viewport. Smaller text is the only axis left, and it buys roughly half
+       again as many results and a preview long enough to recognise a note by.
+       `em`, so a site that scales its body type scales the modal with it. */
+    font-size: var(--rookery-search-modal-font-size, 0.67em);
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
