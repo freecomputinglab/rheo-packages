@@ -1,0 +1,66 @@
+# Tests and lints. Deliberately NOT folded into publish-packages.yml: a release
+# run must not be gated on a demo build, and a pull request needs these checks
+# before merge, where the publish workflow only runs on push to main.
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - uses: extractions/setup-just@v3
+
+      # Pinned to the version this repo is developed against, and the one both
+      # rookery manifests declare as their `compiler` floor (0.15.0). Installed
+      # from the release tarball rather than a third-party action: one pinned URL
+      # is easier to audit than an action's own moving parts.
+      - name: Install Typst 0.15.1
+        run: |
+          set -euo pipefail
+          curl -fsSL -o typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xJf typst.tar.xz
+          echo "$PWD/typst-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
+
+      # First, because it is the cheapest failure in the repo and the one that
+      # silently ships a broken release: a version directory cut by copying and
+      # bumping only the manifest leaves `.marrow.typ` importing its predecessor.
+      - name: Package specs agree with their manifests
+        run: just check-versions
+
+      - name: rookery unit fixture
+        run: cd rookery/0.3.0 && just test
+
+      # `just parity` is the only thing keeping the Typst and JavaScript copies
+      # of the ranking rule from drifting — two leaf scorers and the tiering rule
+      # above them. `just build` first: parity imports `src/`, but a build failure
+      # is worth catching here too, since publish-packages.yml only builds on main.
+      - name: rookery-search build and parity
+        run: cd rookery-search/0.3.0 && just build && just parity
+
+      # This repo's definition of "lint" is that a package's demo compiles
+      # (CLAUDE.md, "Build"). `demo/pure` is plain `typst compile`, so it runs
+      # anywhere. `demo/rheo` is NOT run here: it needs the `rheo` binary from the
+      # sibling `rheo/` crate, which is not installable from this repo — see that
+      # demo's own Justfile.
+      - name: rookery pure demo compiles, HTML and PDF
+        run: |
+          set -euo pipefail
+          cd rookery/0.3.0/demo/pure
+          mkdir -p build
+          typst compile --features html --format html --root ../.. root.typ build/root.html
+          typst compile --features html --root ../.. paged.typ build/paged.pdf
