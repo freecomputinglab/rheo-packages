@@ -332,6 +332,14 @@
 #let _IDEA-DIR = "ideas"
 #let _note-file(id) = _IDEA-DIR + "/" + id.trim(_pfx(), at: start) + ".html"
 
+// ONE `../` per `:` level of the CURRENT page's handle, mirroring rheo's own
+// cross-vertebra link rule. Shared by `_note-href` and `_page-href` so a note
+// href and a page href cannot disagree about depth.
+#let _rel-prefix(handle) = {
+  let depth = handle.split(":").len() - 1
+  if depth == 0 { "" } else { range(depth).map(x => "../").join() }
+}
+
 // Depth-relative href from the CURRENT page to a note's standalone page, or
 // `none` when no such page exists to link to:
 //   - plain `typst compile` with no rheo — nothing mints per-note pages;
@@ -351,9 +359,7 @@
   if c == none or c.at("ext", default: none) == none { return none }
   let handle = state("rheo-handle").get()
   if type(handle) != str { return none }
-  let depth = handle.split(":").len() - 1
-  let prefix = if depth == 0 { "" } else { range(depth).map(x => "../").join() }
-  prefix + _note-file(id)
+  _rel-prefix(handle) + _note-file(id)
 }
 
 // Shared href resolution for a "page" vs "anchor" link-to mode: `"page"`
@@ -1116,6 +1122,21 @@
   out
 }
 
+// The ONE `limit:` truncation — first `limit` blocks of a body, then a grey
+// ellipsis — shared by `_flatten`'s WK expansion, `#window` and `#idea-body`.
+// It lived as three verbatim copies, which is exactly the drift the rest of
+// this file factors things out to prevent. Defined HERE, beside `_blocks`
+// rather than beside `#window`, because a `#let` closure captures the scope
+// visible AT DEFINITION time and `_flatten` (below) is one of the three
+// callers. A `none` limit means no truncation; the callers assert away `0` and
+// negatives before reaching this, so it validates nothing itself.
+#let _truncate(body, limit) = {
+  if limit == none { return body }
+  let bs = _blocks(body)
+  if bs.len() <= limit { return body }
+  bs.slice(0, limit).join() + [#text(gray)[ ... ]]
+}
+
 // ONE rendering of ONE window — summary row, disclosure, body — shared by
 // `#window` itself and by `_flatten`'s WK rule when `depth` lets it expand a
 // nested window instead of collapsing it. Shared so the two cannot drift: an
@@ -1377,12 +1398,7 @@
       let inner = if depth == 1 { rec.body } else {
         _flatten(rec.raw, depth: depth - 1)
       }
-      let bs = _blocks(inner)
-      let shown = if v.limit != none and bs.len() > v.limit {
-        bs.slice(0, v.limit).join() + [#text(gray)[ ... ]]
-      } else {
-        inner
-      }
+      let shown = _truncate(inner, v.limit)
       _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 0), WK)
     }
   }
@@ -1937,12 +1953,7 @@
     let rec = reg.at(id)
 
     let body = _body-at(rec, depth: depth)
-    let bs = _blocks(body)
-    let shown = if limit != none and bs.len() > limit {
-      bs.slice(0, limit).join() + [#text(gray)[ ... ]]
-    } else {
-      body
-    }
+    let shown = _truncate(body, limit)
 
     // The marker an ENCLOSING `_flatten` reads when this window turns out to
     // be nested inside a transcluded body. It carries the presentation
@@ -2059,12 +2070,7 @@
   }
   let rec = reg.at(id)
   let body = _body-at(rec, depth: depth)
-  let bs = _blocks(body)
-  let shown = if limit != none and bs.len() > limit {
-    bs.slice(0, limit).join() + [#text(gray)[ ... ]]
-  } else {
-    body
-  }
+  let shown = _truncate(body, limit)
   let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 0))
   if _target() == "html" or _target() == "epub" {
     // `idea-window-plain`: this render has no chrome by design (no summary,
@@ -2505,9 +2511,7 @@
   if ext == none { return none }
   let here = state("rheo-handle").get()
   if type(here) != str { return none }
-  let depth = here.split(":").len() - 1
-  let prefix = if depth == 0 { "" } else { range(depth).map(x => "../").join() }
-  prefix + handle.replace(":", "/") + "." + ext
+  _rel-prefix(here) + handle.replace(":", "/") + "." + ext
 }
 
 // Plain text of a title, for `ideas()`. Typst has no built-in
