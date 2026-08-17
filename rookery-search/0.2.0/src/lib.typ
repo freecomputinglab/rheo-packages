@@ -287,9 +287,10 @@
 //
 // A hidden `<div data-rookery-search-body="idea:etal">…</div>` per note,
 // inside `<div id="rookery-search-index-bodies" hidden>…</div>` — real
-// Typst-rendered content (links, styling, footnotes, citations), via
-// rookery 0.2.0's `#idea-body()`, not the plain string `#search-index`
-// carries.
+// Typst-rendered content (links, styling, footnotes, citations) MINUS
+// images, via rookery 0.2.0's `#idea-body()`, not the plain string
+// `#search-index` carries. See "IMAGES ARE STRIPPED" below: that omission is
+// what keeps this container's cost bounded, and it is load-bearing.
 //
 // A `<div>`, not a `<template>` — MEASURED: rheo's own HTML post-processing
 // (the pass that injects `<script>`/`<link>` tags into `<head>`) silently
@@ -325,6 +326,28 @@
 // concern like `body-chars` exists to prevent. A caller who genuinely wants
 // a deeper preview calls `#idea-body` directly with its own `depth:`.
 //
+// IMAGES ARE STRIPPED, via `show image: none` around the `#idea-body` call.
+// This is the single most important line in this function for build cost, and
+// it is not an aesthetic choice. MEASURED on weeknotes.ohrg.org (57 notes, 69
+// pages): Typst's HTML export inlines every `#image` as a
+// `src="data:image/png;base64,…"` URI, so a note carrying a 600 KB screenshot
+// carries 600 KB of base64 in its rendered body — and this container renders
+// EVERY note's body on EVERY page, so each of those bytes was landing 69
+// times over. Before stripping, `build/html` came to 312 MB of which 301 MB
+// (93.2%) was base64 image data, against 17 MB for the same site with
+// `#search-bodies` disabled entirely; one note (`idea:26w33-rookery`) was
+// 2.3 MB by itself, 2.1 MB of it a single inlined PNG. Stripping images is
+// what makes a per-note real-content preview affordable at all.
+//
+// Nothing is substituted in an image's place — no placeholder box, no alt
+// text. A search preview is an excerpt by construction, and the pane's job is
+// to show enough PROSE to recognise the note by; a reader who wants the
+// figure opens the note. Keeping this a plain omission also keeps the
+// stripping free: `show image: none` reaches into `#idea-body`'s content from
+// this call site (VERIFIED on typst 0.15.1 — a show rule installed in the
+// enclosing scope applies to content a nested `context` block realises), so
+// no `images:` parameter has to be threaded through rookery's public API.
+//
 // `limit` would bound how much of a long note's rendering ships on every
 // page, the same size concern `body-chars` answers for the JSON island — but
 // defaults to `none` (no truncation) rather than a number, because
@@ -354,7 +377,9 @@
       .map(e => html.elem(
         "div",
         attrs: ("data-rookery-search-body": e.id),
-        idea-body(e.name, depth: 0, limit: limit),
+        // `show image: none` — see the note above. Without it this one
+        // expression is responsible for ~93% of a real site's build output.
+        { show image: none; idea-body(e.name, depth: 0, limit: limit) },
       ))
       .join(),
   )
