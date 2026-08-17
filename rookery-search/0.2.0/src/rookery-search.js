@@ -13,9 +13,12 @@
 // No dependencies, and it should stay that way — vite is bundling one file.
 //
 // PARITY. `score` below is a line-for-line port of `fuzzy-score` in
-// `src/lib.typ`. The two must agree, and `just parity` is what enforces it —
-// it feeds one list of (hay, query) pairs through both and diffs the scores.
-// Change one, change the other, re-run the fixture.
+// `src/lib.typ`, and `bodyScore` is the same port of `body-score`. The two
+// pairs must agree, and `just parity` is what enforces it — it feeds two
+// fixtures through both languages and diffs the scores. Change one side,
+// change the other, re-run the fixture. `snippet` below has NO Typst
+// counterpart and none is wanted (a static Typst listing shows titles, not
+// excerpts) — do not go looking for it in `lib.typ`.
 //
 // EMBEDDING. Every bar on the page is found by its `data-rookery-search`
 // attribute, whose VALUE is the id of the island it reads. So several bars can
@@ -58,20 +61,130 @@ export const score = (hay, query) => {
   return points;
 };
 
-// Same rule as `search-ideas`: match on the id AND the title, take the better
-// of the two, rank best-first, break ties by id so the order is stable.
+// Port of `body-score`: an AND, full-text match over a note's body. `null`
+// unless every whitespace-split term in `query` appears in `body`. The
+// earliness term counts CLUSTERS, not UTF-16 units — a bare `indexOf` is a
+// UTF-16 offset and would diverge from Typst's `.clusters()` count the moment
+// a body contains a non-ASCII character, so the match is re-measured through
+// a spread.
+export const bodyScore = (body, query) => {
+  const h = fold(body);
+  const q = fold(query);
+  if (q.trim() === "") return null;
+  const terms = q.split(" ").filter((t) => t !== "");
+  if (terms.length === 0) return null;
+  for (const term of terms) {
+    if (!h.includes(term)) return null;
+  }
+  let points = 0;
+  if (h.includes(q)) points += 6;
+  for (const term of terms) {
+    points += 2;
+    const i = h.indexOf(term);
+    const cl = [...h.slice(0, i)].length;
+    points += Math.max(0, 3 - Math.floor(cl / 200));
+  }
+  return points;
+};
+
+// Same rule as `search-ideas`: match on the id AND the title first (tier 0),
+// take the better of the two; failing that, match on the body (tier 1) via
+// `bodyScore`. Every tier-0 row ranks above every tier-1 row; within a tier,
+// best score first, ties broken by id so the order is stable. `row.body`
+// missing (an older or truncated island) is treated as `""` — it simply
+// never matches on body, it never throws.
 export const search = (rows, query, limit) => {
   const out = [];
   for (const row of rows) {
     const sName = score(row.name, query);
     const sText = row.text === "" ? null : score(row.text, query);
-    const s =
+    const nameScore =
       sName === null ? sText : sText === null ? sName : Math.max(sName, sText);
-    if (s === null) continue;
-    out.push({ ...row, score: s });
+    if (nameScore !== null) {
+      out.push({ ...row, score: nameScore, kind: "name" });
+      continue;
+    }
+    const bScore = bodyScore(row.body ?? "", query);
+    if (bScore !== null) out.push({ ...row, score: bScore, kind: "body" });
   }
-  out.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const tier = (hit) => (hit.kind === "name" ? 0 : 1);
+  out.sort(
+    (a, b) =>
+      tier(a) - tier(b) || b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
   return limit == null ? out : out.slice(0, limit);
+};
+
+// Cluster-accurate substring search over `h`'s cluster array — `score` and
+// `bodyScore` above only ever ask "does this appear", `snippet` also needs
+// "where", so it works in cluster space throughout rather than mixing UTF-16
+// offsets back in.
+const findClusterMatches = (hc, needle) => {
+  const positions = [];
+  if (needle.length === 0) return positions;
+  outer: for (let i = 0; i + needle.length <= hc.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (hc[i + j] !== needle[j]) continue outer;
+    }
+    positions.push({ start: i, end: i + needle.length });
+  }
+  return positions;
+};
+
+// The preview excerpt for the modal's right-hand pane. Finds the earliest
+// occurrence of the whole (folded) query as a contiguous phrase, or failing
+// that the earliest occurrence of any term, and takes `radius` clusters
+// either side of it — `body` (unfolded) is sliced, not `h`, so casing and
+// original punctuation survive in the excerpt. Prefixes/suffixes a "…" when
+// the excerpt is truncated. `ranges` are cluster offsets INTO `text` (i.e.
+// already account for a leading "…") of every term occurrence within the
+// excerpt, for the caller to wrap in `<mark>`.
+//
+// NO PARITY REQUIREMENT: there is no Typst counterpart, and none is wanted —
+// a static Typst listing shows titles, not excerpts.
+export const snippet = (body, query, radius) => {
+  const h = fold(body);
+  const q = fold(query);
+  const bc = [...body];
+  const hc = [...h];
+  const terms = q.split(" ").filter((t) => t !== "");
+  const termClusters = terms.map((t) => [...t]);
+
+  let anchor = null;
+  if (q !== "") {
+    const phraseMatches = findClusterMatches(hc, [...q]);
+    if (phraseMatches.length > 0) anchor = phraseMatches[0];
+  }
+  if (anchor === null) {
+    for (const tc of termClusters) {
+      const m = findClusterMatches(hc, tc)[0];
+      if (m !== undefined && (anchor === null || m.start < anchor.start)) anchor = m;
+    }
+  }
+  if (anchor === null) anchor = { start: 0, end: 0 };
+
+  const center = anchor.start + Math.floor((anchor.end - anchor.start) / 2);
+  const start = Math.max(0, center - radius);
+  const end = Math.min(bc.length, center + radius);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < bc.length ? "…" : "";
+  const text = prefix + bc.slice(start, end).join("") + suffix;
+
+  const ranges = [];
+  for (const tc of termClusters) {
+    for (const m of findClusterMatches(hc, tc)) {
+      if (m.end <= start || m.start >= end) continue;
+      const clippedStart = Math.max(m.start, start);
+      const clippedEnd = Math.min(m.end, end);
+      ranges.push({
+        start: prefix.length + (clippedStart - start),
+        end: prefix.length + (clippedEnd - start),
+      });
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start);
+
+  return { text, ranges };
 };
 
 export const readIndex = (elemId) => {
