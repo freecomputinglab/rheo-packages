@@ -37,6 +37,22 @@
                                   that, so this is a ceiling, not a width
      --rookery-search-max-height  the dropdown's scroll cap
      --rookery-search-z           the dropdown's stacking order
+     --rookery-search-modal-width   the modal's width
+     --rookery-search-modal-height  the modal's scroll cap (its own height,
+                                    not the dropdown's --max-height, since a
+                                    modal is a fixed panel rather than a
+                                    hugging-its-content dropdown)
+     --rookery-search-backdrop      the modal's `::backdrop` dimming
+     --rookery-search-mark          the highlighted-term background inside a
+                                    preview excerpt
+
+   THE MODAL'S BREAKPOINT IS NOT A PROPERTY. Every other size above is a
+   custom property because a site only ever needs to change a VALUE. The
+   point at which the preview pane disappears is different: a CSS custom
+   property cannot be read inside a `@media` condition, so a `40em` literal
+   sits directly in this file's `@media (max-width: 40em)` block below. A
+   site that wants a different breakpoint overrides that whole block (in its
+   own, unlayered stylesheet — same escape hatch as everything else here).
 
    Three of those colours fall back to ROOKERY's own theme properties before
    their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`,
@@ -162,5 +178,158 @@
     color: var(--rookery-search-id-color, var(--idea-id-color, gray));
     margin-left: 0.4em;
     white-space: nowrap;
+  }
+
+  /* ---- #search-modal — the overlay's telescope-style two-pane layout ---- */
+
+  .rookery-search-modal {
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-radius: var(--rookery-search-radius, 4px);
+    padding: 0;
+    width: var(--rookery-search-modal-width, min(56rem, calc(100vw - 2rem)));
+    max-height: var(--rookery-search-modal-height, min(32rem, calc(100vh - 8rem)));
+    /* Near the top of the viewport, not vertically centred: the list grows
+       downward as results come in, and a vertically centred dialog would jump
+       with every keystroke. This overrides the UA stylesheet's own
+       `margin: auto` centring for a modal `<dialog>` — safely, because UA
+       origin styles always lose to an author declaration, layered or not; the
+       layer only has to win against the SITE's CSS, never the browser's. */
+    margin-block-start: 4rem;
+    margin-inline: auto;
+  }
+
+  .rookery-search-modal::backdrop {
+    background-color: var(--rookery-search-backdrop, rgba(0, 0, 0, 0.5));
+  }
+
+  .rookery-search-modal-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    /* Lets the flex children shrink below their content size so the panes
+       below can scroll internally instead of pushing the dialog taller than
+       its own cap. */
+    min-height: 0;
+  }
+
+  /* Overrides the dropdown input's own width/border/radius — full width of
+     the modal, flat top, a rule beneath it instead of a box all the way
+     round, in place of a boxed input floating inside a boxed dialog. */
+  .rookery-search-modal .rookery-search-input {
+    width: auto;
+    border: none;
+    border-bottom: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-radius: 0;
+    padding: 0.75em 1em;
+  }
+
+  .rookery-search-panes {
+    display: grid;
+    /* The preview gets the larger share, as in telescope. `minmax(0, …)` on
+       both tracks — not just `1fr`/`2fr` — is what stops a long unbroken
+       token in either pane from blowing its track (and the grid) wider than
+       the dialog. */
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    flex: 1;
+    min-height: 0;
+  }
+
+  .rookery-search-list {
+    /* The pane's OWN overflow, not the dialog's — the input and hint stay
+       pinned while only the results scroll. */
+    overflow-y: auto;
+    border-right: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+  }
+
+  .rookery-search-preview {
+    overflow-y: auto;
+    padding: 1em;
+    /* Prose wraps, and a long id or URL cannot overflow the pane — the same
+       two properties the dropdown never needed, because a row's title and id
+       are short by construction and an excerpt is not. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .rookery-search-preview-empty {
+    opacity: 0.6;
+    font-style: italic;
+  }
+
+  /* The selected row and the hovered row must look identical, because the
+     script makes hovering select — reusing `--rookery-search-hover` rather
+     than a second colour keeps that true by construction, not by convention. */
+  .rookery-search-row[data-rookery-search-selected="true"] {
+    background-color: var(
+      --rookery-search-hover,
+      var(--idea-link-color, rgba(128, 0, 255, 0.12))
+    );
+  }
+
+  /* `color: inherit`, deliberately: a browser's default `<mark>` is black
+     text on bright yellow, and that combination fights every dark theme. */
+  .rookery-search-mark {
+    background-color: var(--rookery-search-mark, var(--idea-link-color, rgba(128, 0, 255, 0.25)));
+    color: inherit;
+  }
+
+  .rookery-search-hint {
+    padding: 0.4em 1em;
+    font-size: 0.85em;
+    opacity: 0.6;
+    border-top: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+  }
+
+  /* An unstyled-looking icon button: transparent background, inherited
+     colour, no border by default — a site's own button reset should not have
+     to fight this one for the right to look like nothing. */
+  .rookery-search-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 0.25em 0.5em;
+  }
+
+  .rookery-search-icon {
+    width: 1.1em;
+    height: 1.1em;
+    fill: currentColor;
+  }
+
+  .rookery-search-key {
+    font-size: 0.75em;
+    opacity: 0.6;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 0.05em 0.3em;
+  }
+
+  /* A preview column narrow enough to fit beside a list on a phone shows
+     about four words and is worse than none — below this width the list
+     takes the full pane instead. See the header comment for why this
+     breakpoint is a literal here rather than a custom property. */
+  @media (max-width: 40em) {
+    .rookery-search-panes {
+      grid-template-columns: 1fr;
+    }
+
+    .rookery-search-preview {
+      display: none;
+    }
+
+    .rookery-search-key {
+      display: none;
+    }
   }
 }
