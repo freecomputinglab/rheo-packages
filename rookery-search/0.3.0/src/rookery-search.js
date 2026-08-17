@@ -409,12 +409,22 @@ const markTermsInNode = (root, terms) => {
 const previewCache = new Map();
 
 // The note itself, lifted out of its minted page: every element between the
-// page's `<h1 class="idea">` and its `<footer class="idea-footer">` — body,
-// footnotes, references. Not the heading, because the selected result row above
-// the pane already carries the title and id; not the footer, because
-// Context/Backlinks are navigation for that page rather than content of the
-// note. `null` when the document holds no `h1.idea` (not a minted page) or the
-// range is empty.
+// page's heading and its `<footer class="idea-footer">` — body, footnotes,
+// references. Not the heading, because the selected result row above the pane
+// already carries the title and id; not the footer, because Context/Backlinks
+// are navigation for that page rather than content of the note. `null` when the
+// document holds no `h1.idea` (not a minted page) or the range is empty.
+//
+// THE RANGE STARTS AFTER `.idea-head`, NOT AFTER THE `<h1>`, and the two are
+// different elements. rookery 0.3.0 wraps a minted page's permalink tab and its
+// `<h1>` in one `<div class="idea-head">` (so the stylesheet's
+// `.idea-tab + h*.idea` rule always matches — Typst's HTML export otherwise
+// groups the leading inline run under a `<p>` unpredictably). Inside that
+// wrapper the `<h1>` is the LAST child, so walking ITS siblings finds nothing
+// and every preview collapsed to the plain-text excerpt. MEASURED against
+// `rookery.ohrg.org/build/html/ideas/*.html`. Falling back to the `<h1>` itself
+// keeps a page minted by rookery 0.2.0, where the heading really is a top-level
+// sibling of the body, working unchanged.
 //
 // Returned inside `<div class="idea-window idea-window-plain">` wrapping a
 // `<div class="idea-window-body">`, wearing the h1's own `style`. Every part of
@@ -426,10 +436,11 @@ const previewCache = new Map();
 // strips the accent rule and hover tint a real `#window` draws, which a preview
 // must not draw inside the pane's own frame. And the style attribute carries
 // `--idea-link-color` and the rest of the per-note theme custom properties,
-// which on a minted page live ON THE H1 (it is that page's theme container,
-// there being no `.idea-box` around it) — take the siblings and leave the h1
-// behind and the preview renders in rookery's default colours rather than the
-// project's own.
+// which on a minted page live on its heading container (there being no
+// `.idea-box` around it) — take the siblings and leave that behind and the
+// preview renders in rookery's default colours rather than the project's own.
+// Under rookery 0.3.0 that container is `.idea-head`; under 0.2.0 it was the
+// `<h1>` itself, so both are consulted, nearest first.
 //
 // Relative `href`/`src` values are resolved against the FETCHED page's URL, not
 // left as written. A note's page sits in `ideas/`, the modal can be open on a
@@ -445,14 +456,15 @@ const previewCache = new Map();
 const extractNote = (doc, pageUrl) => {
   const h1 = doc.querySelector("h1.idea");
   if (h1 === null) return null;
+  const head = h1.closest(".idea-head") ?? h1;
   const box = document.createElement("div");
   box.className = "idea-window idea-window-plain";
-  const style = h1.getAttribute("style");
+  const style = head.getAttribute("style") ?? h1.getAttribute("style");
   if (style !== null) box.setAttribute("style", style);
   const inner = document.createElement("div");
   inner.className = "idea-window-body";
   box.append(inner);
-  for (let el = h1.nextElementSibling; el !== null; el = el.nextElementSibling) {
+  for (let el = head.nextElementSibling; el !== null; el = el.nextElementSibling) {
     if (el.matches("footer.idea-footer")) break;
     inner.append(document.importNode(el, true));
   }
