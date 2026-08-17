@@ -199,19 +199,28 @@
        layer only has to win against the SITE's CSS, never the browser's. */
     margin-block-start: 4rem;
     margin-inline: auto;
-    /* `display: flex` here, not just on `.rookery-search-modal-inner`, is
-       what makes `max-height` actually CAP the box — MEASURED. A percentage
-       `height: 100%` on a child only resolves against a DEFINITE parent
-       height; `max-height` alone leaves this box's computed height `auto`,
-       so `.rookery-search-modal-inner`'s old `height: 100%` resolved to
-       nothing, the inner column grew to fit ALL of a long preview instead of
-       being capped, and the whole DIALOG grew past the viewport with it —
-       which is why the list stopped looking "sticky": both columns were
-       scrolling as one overgrown box, not two independent panes. Flex
-       children size by CONTENT unless told to grow, which is why this needs
-       no percentage at all: `.rookery-search-modal-inner` becomes `flex: 1`
-       below instead, filling whatever height this box actually ends up
-       with — the real rendered height, already bounded by `max-height`. */
+  }
+
+  /* `display: flex`, scoped to `[open]` — MEASURED REGRESSION, now fixed: an
+     unconditional `display: flex` on `.rookery-search-modal` overrode the UA
+     stylesheet's `dialog { display: none }` for the CLOSED state too (any
+     author declaration beats a UA one, open or not), so the modal rendered
+     inline in the page flow — visible in the header at all times — instead
+     of staying hidden until `showModal()` opens it. `[open]` is the boolean
+     attribute the dialog element itself carries only while open, so this
+     rule now only ever applies then.
+
+     This is also what makes `max-height` actually CAP the box while open —
+     see `.rookery-search-modal-inner` below for the rest of that story. A
+     percentage `height: 100%` on a child only resolves against a DEFINITE
+     parent height; `max-height` alone leaves this box's computed height
+     `auto`, so the inner column grew to fit ALL of a long preview instead of
+     being capped, and the whole DIALOG grew past the viewport with it. Flex
+     children size by CONTENT unless told to grow, which is why this needs no
+     percentage at all: `.rookery-search-modal-inner` becomes `flex: 1`
+     below instead, filling whatever height this box actually ends up with —
+     the real rendered height, already bounded by `max-height`. */
+  .rookery-search-modal[open] {
     display: flex;
     flex-direction: column;
   }
