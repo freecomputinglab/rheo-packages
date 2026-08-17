@@ -90,9 +90,15 @@ export const bodyScore = (body, query) => {
 // Same rule as `search-ideas`: match on the id AND the title first (tier 0),
 // take the better of the two; failing that, match on the body (tier 1) via
 // `bodyScore`. Every tier-0 row ranks above every tier-1 row; within a tier,
-// best score first, ties broken by id so the order is stable. `row.body`
-// missing (an older or truncated island) is treated as `""` — it simply
-// never matches on body, it never throws.
+// best score first, ties broken by id so the order is stable.
+//
+// `row.body` MISSING IS THE WHOLE IMPLEMENTATION OF `body-search: false`, not
+// merely tolerated: `#search-index(body-search: false)` omits the field, this
+// reads it as `""`, and `bodyScore("", q)` is `null` for every non-empty query,
+// so no row can reach tier 1 and the browser searches ids and titles only. Keep
+// the `?? ""` and keep `bodyScore` returning `null` on an absent term match —
+// between them they are what makes the switch need no JavaScript counterpart.
+// It also covers an older island that never carried bodies at all.
 export const search = (rows, query, limit) => {
   const out = [];
   for (const row of rows) {

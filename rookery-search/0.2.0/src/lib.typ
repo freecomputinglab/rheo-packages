@@ -146,6 +146,7 @@
 // ---- #search-ideas — fuzzy lookup over a rookery's ids, titles and bodies -
 //
 //   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47, kind: "name"), ..)
+//   #context search-ideas("flt", body-search: false)   // ids and titles only
 //
 // Returns a plain ARRAY of dictionaries — every field `@rheo/rookery`'s
 // `ideas()` provides (id, name, title, text, body, href, minted, updated)
@@ -172,10 +173,19 @@
 // in id order either way, because `ideas()` returns id-ordered rows and
 // Typst's sort is stable — that guarantee must survive within each tier.
 //
+// `body-search: false` DROPS THE SECOND TIER ENTIRELY — ids and titles are
+// searched, note bodies are not, and no row ever comes back `kind: "body"`. For
+// a rookery whose notes are looked up by name, full-text hits are noise: a
+// four-word query lands on the one note that happens to mention all four words
+// in passing, below the note actually called that. It is a per-project judgement
+// about the corpus, so it is a parameter rather than a default this package
+// picks — and `#search-index` carries it through to the browser, where it also
+// stops shipping every note's body text on every page. See its comment.
+//
 // Must be called INSIDE a `#context` block — `ideas()` reads a `state`'s
 // `.final()`. It is not itself a context function, because a context function
 // can only return content and the whole point here is to return data.
-#let search-ideas(query, limit: none) = {
+#let search-ideas(query, limit: none, body-search: true) = {
   assert(
     type(query) == str,
     message: "@rheo/rookery-search: #search-ideas' `query` must be a string — "
@@ -185,6 +195,11 @@
     limit == none or (type(limit) == int and limit >= 0),
     message: "@rheo/rookery-search: #search-ideas' `limit` must be none or a "
       + "non-negative integer — got " + repr(limit),
+  )
+  assert(
+    type(body-search) == bool,
+    message: "@rheo/rookery-search: #search-ideas' `body-search` must be a "
+      + "boolean — got " + repr(body-search),
   )
   let name-hits = ()
   let body-hits = ()
@@ -198,6 +213,7 @@
       name-hits.push((..e, score: name-score, kind: "name"))
       continue
     }
+    if not body-search { continue }
     let body-score-val = body-score(e.at("body", default: ""), query)
     if body-score-val != none {
       body-hits.push((..e, score: body-score-val, kind: "body"))
@@ -214,6 +230,7 @@
 //   #search-index()                       // usually not called directly
 //   #search-index(elem-id: "notes-index")  // a second, differently-keyed index
 //   #search-index(body-chars: 400)         // a tighter cap on body size
+//   #search-index(body-search: false)      // no body text in the island at all
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
 // one row per note: `(id, name, text, body, href)`, where `text` is the
@@ -239,6 +256,22 @@
 // cap stays FINDABLE by its opening, and fully findable through the Typst-side
 // `#search-ideas`, which never truncates.
 //
+// `body-search: false` OMITS THE `body` FIELD ALTOGETHER — a row is then
+// `(id, name, text, href)`, and the island shrinks to roughly the sum of the
+// corpus's ids and titles. It is the same switch `#search-ideas` takes and
+// means the same thing on both sides of the language boundary: the browser
+// searches ids and titles only. No JavaScript change is needed to enforce it,
+// and that is by construction rather than luck — `search()` in
+// `src/rookery-search.js` reads `row.body ?? ""`, and `bodyScore("", q)` is
+// `null` for every non-empty query, so a row with no body simply cannot produce
+// a body-tier hit. Leaving the field out is therefore the whole implementation.
+//
+// Two consequences worth stating plainly. A note findable ONLY by a word in its
+// body becomes unfindable — that is the point, not a regression. And the modal's
+// preview pane loses its plain-text excerpt, which is drawn from this field, so
+// on `file://` (where the rich preview cannot be fetched) it shows "No preview";
+// over http the fetched page is unaffected.
+//
 // WHY NOT A SEPARATE FETCHED JSON FILE, which would keep pages small: rheo
 // emits pages from typst, and there is no supported way for a package to emit
 // a standalone asset file next to them. An inline island is what the package
@@ -249,31 +282,53 @@
 // see `search-bar`'s `index:` parameter.
 //
 // The rows are `search-ideas("")` — the empty query matching everything — with
-// the fields JSON cannot carry dropped, and unmintable notes filtered out.
-#let search-index(elem-id: "rookery-search-index", body-chars: 1200) = context {
+// the fields JSON cannot carry dropped, and unmintable notes filtered out. No
+// `body-search:` is forwarded to that call and none is wanted: an empty query
+// returns `none` from `body-score` for every note, so the body tier is empty
+// whatever the switch says, and every row arrives through the name tier.
+#let search-index(
+  elem-id: "rookery-search-index",
+  body-chars: 1200,
+  body-search: true,
+) = context {
   if _target() != "html" { return }
   assert(
     body-chars == none or (type(body-chars) == int and body-chars >= 0),
     message: "@rheo/rookery-search: #search-index's `body-chars` must be none "
       + "or a non-negative integer — got " + repr(body-chars),
   )
+  assert(
+    type(body-search) == bool,
+    message: "@rheo/rookery-search: #search-index's `body-search` must be a "
+      + "boolean — got " + repr(body-search),
+  )
   let rows = search-ideas("")
     .filter(e => e.href != none)
-    .map(e => (
-      id: e.id,
-      name: e.name,
-      text: e.text,
-      // `array.join()` on an EMPTY array returns `none`, not `""` (MEASURED)
-      // — so a short body (or an empty one) that needs no truncation at all
-      // is passed through directly rather than round-tripped through
-      // `clusters().slice(..).join()`, which would crash on it.
-      body: if body-chars == none or e.body.clusters().len() <= body-chars {
-        e.body
-      } else {
-        e.body.clusters().slice(0, body-chars).join()
-      },
-      href: e.href,
-    ))
+    // Built by insertion rather than as one literal, so `body` can be left out
+    // entirely under `body-search: false` — an empty string would still cost a
+    // key per row, and a reader of the island would have to know that `""` here
+    // means "not indexed" rather than "an empty note". `href` is inserted after
+    // it either way, keeping a row's field order the documented one.
+    .map(e => {
+      let row = (id: e.id, name: e.name, text: e.text)
+      if body-search {
+        row.insert(
+          "body",
+          // `array.join()` on an EMPTY array returns `none`, not `""`
+          // (MEASURED) — so a short body (or an empty one) that needs no
+          // truncation at all is passed through directly rather than
+          // round-tripped through `clusters().slice(..).join()`, which would
+          // crash on it.
+          if body-chars == none or e.body.clusters().len() <= body-chars {
+            e.body
+          } else {
+            e.body.clusters().slice(0, body-chars).join()
+          },
+        )
+      }
+      row.insert("href", e.href)
+      row
+    })
   if rows.len() == 0 { return }
   html.elem(
     "script",
@@ -288,9 +343,10 @@
 //   #search-bar(placeholder: "Find a note", limit: 12, class: "topbar-search")
 //   #search-bar(index: false)   // a SECOND bar on a page that already has one
 //   #search-bar(body-chars: 400) // a tighter cap on the island's body text
+//   #search-bar(body-search: false) // ids and titles only, no body text
 //
-// Emits the JSON island (via `search-index`, `body-chars:` forwarded to it
-// unchanged), an `<input>`, and an empty results container;
+// Emits the JSON island (via `search-index`, `body-chars:` and `body-search:`
+// forwarded to it unchanged), an `<input>`, and an empty results container;
 // `src/rookery-search.js`, injected by rheo from the manifest's `js_scripts`,
 // wires them together.
 //
@@ -317,6 +373,7 @@
   index: true,
   elem-id: "rookery-search-index",
   body-chars: 1200,
+  body-search: true,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -329,7 +386,9 @@
     message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
+  if index {
+    search-index(elem-id: elem-id, body-chars: body-chars, body-search: body-search)
+  }
   html.elem(
     "span",
     attrs: (
@@ -372,7 +431,7 @@
 // exactly the wrong things.
 //
 // Emits, in order: the JSON island (via `search-index`, same `index:`/
-// `elem-id:`/`body-chars:` `#search-bar` already takes), then the trigger
+// `elem-id:`/`body-chars:`/`body-search:` `#search-bar` already takes), then the trigger
 // button (unless `trigger: false`), then the dialog. That is ALL it emits —
 // see below on where the preview pane's content comes from.
 //
@@ -398,7 +457,9 @@
 // a build straight off disk gets the plain-text excerpt the JSON island's
 // `body` field already carries instead of the rich rendering. Rich previews
 // need http (`rheo watch`, or any served copy). Serve the build, or accept the
-// excerpt — a preview is an excerpt by construction either way.
+// excerpt — a preview is an excerpt by construction either way. Note that
+// `body-search: false` removes that field, so the two together mean no preview
+// at all on `file://`; over http the fetched page is unaffected.
 //
 // SAME ISLAND, SHARED BY NAME, NO IDS IN THE MARKUP — the rule `#search-bar`
 // follows (see its comment above). The trigger's `data-rookery-search-modal`
@@ -420,6 +481,7 @@
   index: true,
   elem-id: "rookery-search-index",
   body-chars: 1200,
+  body-search: true,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -432,7 +494,9 @@
     message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
+  if index {
+    search-index(elem-id: elem-id, body-chars: body-chars, body-search: body-search)
+  }
   if trigger {
     html.elem(
       "button",

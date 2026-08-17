@@ -104,6 +104,16 @@ each tier, ties falling back to id order, so a build is reproducible. `href`
 is `none` without rheo, since nothing mints note pages there; link to
 `label(e.id)` instead, as above.
 
+**`body-search: false` drops the second tier**, leaving ids and titles: no row
+comes back `kind: "body"`, and a note findable only by a word buried in its own
+prose stops being findable at all. That is a judgement about a particular
+corpus, not a default worth picking — for a rookery whose notes are looked up
+by name, a four-word query landing on the one note that mentions all four in
+passing, above the note actually called that, is noise. The same switch is
+carried through `#search-index`, `#search-bar` and `#search-modal`, where it
+also stops shipping body text to the browser at all; see "Ids and titles only"
+below.
+
 ### What matches, and what doesn't
 
 **id and title** match by **subsequence** — the note's better-scoring one of
@@ -179,6 +189,35 @@ typst with no supported way to emit a standalone asset alongside them, so an
 inline island is what the package can actually produce — and it also works
 from `file://` with no fetch.
 
+### Ids and titles only: `body-search: false`
+
+`body-search: false` leaves the `body` field OUT of every row, so the island
+carries `id`, `name`, `text` and `href` and nothing else. It is the one switch
+for "search this rookery by name, not full text", and it is accepted by
+`#search-ideas`, `#search-index`, `#search-bar` and `#search-modal` alike —
+configure it where you invoke the package in your own files:
+
+```typst
+#import "@rheo/rookery-search:0.2.0": search-modal
+#search-modal(placeholder: "Search weeknotes", body-search: false)
+```
+
+MEASURED on weeknotes.ohrg.org (56 indexed notes, 69 output pages): the island
+goes from **54,610 bytes to 5,456**, a tenth of the size, and the whole build
+from 17 MB to 14 MB — the island ships inline on every page, so its bytes are
+multiplied by the page count. The `body-chars` cap bounds that cost; this
+removes it.
+
+No JavaScript counterpart is needed, and that is by construction rather than
+luck: the browser reads a missing `body` as `""`, and the body matcher returns
+no score for an empty haystack, so no row can reach the body tier.
+
+Two consequences, both intended. A note findable only by a word in its body
+becomes unfindable — that is the point. And the modal's plain-text preview
+excerpt comes from this same field, so with it gone the pane shows "No preview"
+wherever it cannot fetch the note's own page: `file://`. Over http the fetched
+preview is unaffected, so a served site loses nothing but the bytes.
+
 The hrefs are **relative to the page the call sits on**, so an index emitted
 from a site's shared template comes out right on a nested page too — `../ideas/…`
 there, `ideas/…` at the root. The rows are id-ordered, so the island is
@@ -224,6 +263,9 @@ package's JavaScript wires together.
   `false` on every bar after the first on a page, so one island serves them all.
 - `body-chars` — forwarded to `#search-index`'s cap on each row's body text, in
   clusters. 1200 by default; `none` for no cap.
+- `body-search` — forwarded to `#search-index`. `false` leaves body text out of
+  the island entirely, so the bar searches ids and titles only. See "Ids and
+  titles only" above.
 
 **It is rheo only, and it emits nothing at all without it.** Twice over: the
 script comes from this package's `js_scripts` manifest key, which only rheo
@@ -355,8 +397,11 @@ without them ever disagreeing about what "best match" means.
 - `trigger` — emit the trigger button. `true` by default; `false` for markup
   only, when you want to open the dialog from your own button.
 - `trigger-label` — the trigger's `aria-label` ("Search" by default).
-- `index` / `elem-id` / `body-chars` — the same parameters `#search-bar`
-  takes, forwarded to `#search-index` unchanged.
+- `index` / `elem-id` / `body-chars` / `body-search` — the same parameters
+  `#search-bar` takes, forwarded to `#search-index` unchanged. With
+  `body-search: false` the modal searches ids and titles only, and its pane
+  shows "No preview" rather than an excerpt wherever the note's page cannot be
+  fetched.
 
 There is no knob for the preview pane, because the preview costs the build
 nothing to produce: it is the note's own minted page, fetched when a reader
