@@ -199,6 +199,21 @@
        layer only has to win against the SITE's CSS, never the browser's. */
     margin-block-start: 4rem;
     margin-inline: auto;
+    /* `display: flex` here, not just on `.rookery-search-modal-inner`, is
+       what makes `max-height` actually CAP the box — MEASURED. A percentage
+       `height: 100%` on a child only resolves against a DEFINITE parent
+       height; `max-height` alone leaves this box's computed height `auto`,
+       so `.rookery-search-modal-inner`'s old `height: 100%` resolved to
+       nothing, the inner column grew to fit ALL of a long preview instead of
+       being capped, and the whole DIALOG grew past the viewport with it —
+       which is why the list stopped looking "sticky": both columns were
+       scrolling as one overgrown box, not two independent panes. Flex
+       children size by CONTENT unless told to grow, which is why this needs
+       no percentage at all: `.rookery-search-modal-inner` becomes `flex: 1`
+       below instead, filling whatever height this box actually ends up
+       with — the real rendered height, already bounded by `max-height`. */
+    display: flex;
+    flex-direction: column;
   }
 
   .rookery-search-modal::backdrop {
@@ -208,7 +223,10 @@
   .rookery-search-modal-inner {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* `flex: 1`, not `height: 100%` — see the comment on `.rookery-search-
+       modal` above for why the percentage never worked. This fills whatever
+       height the dialog actually has. */
+    flex: 1;
     /* Lets the flex children shrink below their content size so the panes
        below can scroll internally instead of pushing the dialog taller than
        its own cap. */
@@ -281,6 +299,21 @@
   .rookery-search-preview-empty {
     opacity: 0.6;
     font-style: italic;
+  }
+
+  /* Strips `#ideas-outline` — a note that nests one inside its own body (a
+     weekly index note, say) would otherwise preview its own table of
+     contents: a list of links to OTHER notes, which is noise in a pane meant
+     to preview THIS note. `display: none`, not removed from the DOM: safe
+     to leave `markTermsInNode` walking it (a hidden match highlights
+     nothing visible, costs nothing else), and safer than trying to strip it
+     Typst-side — `#idea-body` has no reason to know this package exists.
+     No cascade fight either: rookery.css sets no `display` on these classes
+     at all, so this layered rule only has to beat the UA default, which any
+     author declaration always does. */
+  .rookery-search-preview .idea-outline-title,
+  .rookery-search-preview .idea-outline {
+    display: none;
   }
 
   /* Only the plain-text FALLBACK excerpt (`renderMarked`'s output, when no
