@@ -418,6 +418,23 @@ Each entry is:
   are calling. See `#note-href()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
 
+`#ideas()` also takes `tags:` and `match:` — the same pair `#window` takes, with
+the same meanings and the same shared predicate behind them. `tags:` is a single
+string or an array; `match: "all"` demands every one of them where the default
+`"any"` takes a note carrying at least one:
+
+```typst
+#context ideas(tags: "phd")                            // tagged phd
+#context ideas(tags: ("phd", "draft"), match: "all")   // tagged both
+```
+
+An empty array (`tags: ()`) is no filter rather than a filter matching nothing —
+asking for none of the tags is not asking for a tag no note has. You could write
+the `"any"` case yourself as `ideas().filter(e => "phd" in e.tags)`; the
+parameter exists because it filters BEFORE each surviving row is built, and
+because `#search-bar` builds its index internally where your `.filter` cannot
+reach.
+
 The array is ordered by id, not by the order notes were written or the order
 their pages appear. Sorting is your business: an id order is the one order
 that is stable across builds, and it makes a diff of generated output mean

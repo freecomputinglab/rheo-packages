@@ -2271,7 +2271,9 @@
 
 // ---- #ideas — every registered note, as data ------------------------------
 //
-//   #context ideas()   // -> ((id: "idea:etal", name: "etal", ..), ..)
+//   #context ideas()                 // -> ((id: "idea:etal", name: "etal", ..), ..)
+//   #context ideas(tags: "phd")      // only the notes tagged phd
+//   #context ideas(tags: ("phd", "draft"), match: "all")  // both tags
 //
 // The whole rookery as a plain ARRAY of dictionaries, ordered by id so a build
 // is reproducible. This is the primitive other packages and custom site code
@@ -2319,14 +2321,41 @@
 // by name is what `#window` has always let an author do explicitly, and
 // `#idea-body` is that same permission, minus the chrome.
 //
+// `tags:`/`match:` narrow the corpus to the notes carrying a tag, and are the
+// SAME pair `#window` takes, with the same meanings, through the same shared
+// `_tag-pred`: `tags` is `none`, one string or an array; `match` is "any" (the
+// default) or "all". They exist because the workaround does not scale and does
+// not reach far enough — `ideas().filter(e => "phd" in tags-of(e.name))` works
+// and is VERIFIED, but it costs one `_registry.final()` read per row, and
+// `#search-bar` builds its index internally with no hook for a caller's filter
+// at all.
+//
+// Filtered BEFORE the `.map`, so a note that is dropped never pays for its
+// `_body-plain`/`_note-href`/`_plain` conversions. That is the whole reason the
+// parameter is here rather than left to a caller's own `.filter`.
+//
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
 // content and the whole point here is to return data.
-#let ideas() = {
+#let ideas(tags: none, match: "any") = {
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #ideas' `tags` must be none, a string, or an "
+      + "array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery: #ideas' `match` must be \"any\" or \"all\" — got "
+      + repr(match),
+  )
   let reg = _registry.final()
+  let keep = _tag-pred(tags, match)
   reg
     .pairs()
     .sorted(key: p => p.at(0))
+    .filter(p => keep == none or keep(p.at(1).at("tags", default: ())))
     .map(p => {
       let (id, rec) = p
       (
