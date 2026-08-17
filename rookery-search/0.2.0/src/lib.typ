@@ -347,3 +347,115 @@
       + html.elem("span", attrs: (class: "rookery-search-results", role: "listbox"), []),
   )
 }
+
+// ---- #search-modal — the overlay search UI. RHEO ONLY ---------------------
+//
+//   #search-modal()
+//   #search-modal(placeholder: "Search ideas", limit: 30, trigger-label: "Search")
+//   #search-modal(trigger: false)   // markup only; open it from your own button
+//
+// A telescope-style overlay: a trigger button for a site's topbar (a
+// magnifier icon and a `Ctrl K` hint), and a `<dialog>` holding a two-pane
+// listbox-plus-preview layout. `#search-bar` STAYS — it is the right thing
+// for an inline or in-page bar, and both share `#search-index`; this is
+// additive, not a replacement.
+//
+// A NATIVE `<dialog>` and `showModal()`, not a hand-rolled overlay div: focus
+// trapping, page inertness behind it, `::backdrop` and Escape-to-close all
+// come free and correct. It also renders in the TOP LAYER, which escapes
+// every stacking context — load-bearing here because a sticky, z-indexed site
+// header would otherwise trap a plain absolutely-positioned overlay under
+// exactly the wrong things.
+//
+// Emits, in order: the JSON island (via `search-index`, same `index:`/
+// `elem-id:`/`body-chars:` `#search-bar` already takes), then the trigger
+// button (unless `trigger: false`), then the dialog.
+//
+// SAME ISLAND, SHARED BY NAME, NO IDS IN THE MARKUP — the rule `#search-bar`
+// follows (see its comment above). The trigger's `data-rookery-search-modal`
+// equals the dialog's `data-rookery-search`, so several triggers can drive
+// one modal and nothing here needs an id of its own. A page should carry AT
+// MOST ONE modal per island name; the script wires the first matching dialog.
+//
+// The `<kbd>` hint is `aria-hidden`: a screen reader should hear the button's
+// `aria-label`, not the literal keys.
+//
+// EMITS NOTHING without rheo or on a non-HTML target, same reason and same
+// silent no-op as `#search-bar`.
+#let search-modal(
+  placeholder: "Search notes",
+  limit: 30,
+  class: none,
+  trigger: true,
+  trigger-label: "Search",
+  index: true,
+  elem-id: "rookery-search-index",
+  body-chars: 1200,
+) = context {
+  if _target() != "html" or _rheo-ctx() == none { return }
+  assert(
+    type(limit) == int and limit > 0,
+    message: "@rheo/rookery-search: #search-modal's `limit` must be a positive "
+      + "integer — got " + repr(limit),
+  )
+  assert(
+    class == none or type(class) == str,
+    message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
+      + "string — got " + repr(class),
+  )
+  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
+  if trigger {
+    html.elem(
+      "button",
+      attrs: (
+        class: "rookery-search-trigger",
+        type: "button",
+        "data-rookery-search-modal": elem-id,
+        "aria-label": trigger-label,
+      ),
+      html.elem(
+        "svg",
+        attrs: (class: "rookery-search-icon", viewBox: "0 0 24 24", "aria-hidden": "true"),
+        html.elem("path", attrs: (
+          d: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3"
+            + " 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49"
+            + " 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+        )),
+      )
+        + html.elem("kbd", attrs: (class: "rookery-search-key", "aria-hidden": "true"), [Ctrl K]),
+    )
+  }
+  html.elem(
+    "dialog",
+    attrs: (
+      class: if class == none { "rookery-search-modal" } else { "rookery-search-modal " + class },
+      "data-rookery-search": elem-id,
+      "data-rookery-search-limit": str(limit),
+    ),
+    html.elem(
+      "div",
+      attrs: (class: "rookery-search-modal-inner"),
+      html.elem("input", attrs: (
+        class: "rookery-search-input",
+        type: "search",
+        role: "combobox",
+        autocomplete: "off",
+        "aria-autocomplete": "list",
+        "aria-expanded": "false",
+        placeholder: placeholder,
+        "aria-label": placeholder,
+      ))
+        + html.elem(
+          "div",
+          attrs: (class: "rookery-search-panes"),
+          html.elem("div", attrs: (class: "rookery-search-list", role: "listbox"), [])
+            + html.elem("div", attrs: (class: "rookery-search-preview", "aria-live": "polite"), []),
+        )
+        + html.elem(
+          "div",
+          attrs: (class: "rookery-search-hint"),
+          [↑↓ navigate · ↵ open · esc close],
+        ),
+    ),
+  )
+}
