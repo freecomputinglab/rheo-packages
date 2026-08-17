@@ -449,6 +449,31 @@ figure:has(> .idea-window) {
   padding-top: 0;
 }
 
+/* WINDOW AFTER WINDOW GETS A GAP, and it has to be said three times because a
+   run of windows reaches the page in three different shapes:
+
+     - `#window((<a>, <b>, <c>))`, the array form, emits several `.idea-window`
+       divs inside ONE figure. They are plain siblings with nothing between them,
+       so they abutted — MEASURED on rookery.ohrg.org's own `ideas/windows.html`,
+       where two windows met with no space at all.
+     - two separate `#window` calls each get their own figure, which took the
+       browser's 1em figure margin: a gap, but a much larger one than the array
+       form, so the same sequence read differently depending on how it was
+       written.
+     - inside a minted page's footer every figure margin is zeroed (see
+       `.idea-footer figure` above), which is right for the label above the list
+       and wrong between the backlink windows in it.
+
+   One value for all three, so a run of windows looks like a run of windows
+   however it was authored. 0.5em rather than the browser's 1em: these are
+   stacked cards of one kind, not unrelated blocks, and they should read as a
+   list. */
+.idea-window + .idea-window,
+figure:has(> .idea-window) + figure:has(> .idea-window),
+.idea-footer figure + figure {
+  margin-top: 0.5em;
+}
+
 /* A note and a transclusion of one indent identically, from a rule in the same
    place: they are the same kind of thing, and a `#window` that sat further in
    than the note beside it would read as subordinate to it rather than as
@@ -743,7 +768,7 @@ h6.idea {
    that has no themed ancestor to inherit from.
 
    `padding-left` is larger than `.idea-box`'s `.75em` because the row's
-   marker lives in it: 0.75em of hairline plus 0.5em of gap before the text. */
+   marker lives in it: 0.75em of rule plus 0.5em of gap before the text. */
 /* "Contents", above an outline. Pinned to the same size and weight as
    `.idea-footnotes-title` and for the same reason: both label a block of
    apparatus rather than open a section, and left to a site's heading scale
@@ -766,7 +791,10 @@ h6.idea {
   list-style: none;
   margin: 0.4em 0;
   padding-left: 1.25em;
-  border-left: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  /* 2px, the same weight as `.idea-box`/`.idea-window`'s rule: an outline is the
+     page's notes listed, and its rule is the same object as theirs. Two weights
+     on one page read as two different systems. */
+  border-left: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* A nested list is already indented by its parent row; it needs separating
@@ -779,7 +807,7 @@ h6.idea {
   margin-bottom: 0.25em;
 }
 
-/* THE BULLET, at every level: a hairline rather than a disc, in the same
+/* THE BULLET, at every level: a short rule rather than a disc, in the same
    colour as the rule it grows out of. The negative `margin-left` is the
    negation of the list's `padding-left`, which puts the hairline's own left
    end exactly ON that rule — so the marker reads as a tick off the rule, the
@@ -787,7 +815,8 @@ h6.idea {
    its later lines at the text edge rather than under the marker.
 
    Drawn as a `border-top` on a zero-height box rather than as a glyph in
-   `::marker`: a "hairline" is 1px whatever the font, `::marker` accepts
+   `::marker`: the marker is a RULE, matched to the outline's own at 2px
+     whatever the font, and `::marker` accepts
    `content` in far fewer readers than `::before`, and a disc scaled down to
    look like a rule is at the mercy of the font's own bullet metrics. Where
    `::before` is unsupported the rows simply lose their markers — the rule and
@@ -806,7 +835,9 @@ h6.idea {
   height: 0;
   margin-left: -1.25em;
   margin-right: 0.5em;
-  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  /* 2px, matching the rule it grows out of. A 1px marker on a 2px rule reads as
+     a different, thinner kind of line rather than as a branch off that one. */
+  border-top: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* ---- Narrow screens: half the indent ---------------------------------------
