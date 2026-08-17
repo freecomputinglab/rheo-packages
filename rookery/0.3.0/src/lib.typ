@@ -1132,9 +1132,6 @@
     // `#idea` uses gives the window its own block and its own numbering, and
     // being nested it wins over the enclosing rule.
     //
-    // `shown`, not the untruncated body — the caller already applied `limit:`,
-    // and a window must not list a footnote whose reference it truncated away.
-    // The block goes INSIDE `.idea-window-body` so it folds with the window.
     // References go in the window's own body too, for the same reason its
     // footnotes do: a transcluded body carries the origin note's citations, a
     // citation link is a same-page fragment, and a window on page B therefore
@@ -1148,8 +1145,10 @@
     // format the marker itself — which means parsing the bibliography and
     // reimplementing what Typst already does. Do not reintroduce them.
     //
-    // `shown`, not the untruncated body: the caller already applied `limit:`.
-    // Inside `.idea-window-body` so it folds away with the window.
+    // Both take `shown`, not the untruncated body — the caller already applied
+    // `limit:`, and a window must not list a footnote or a citation whose
+    // reference it truncated away. Both blocks sit INSIDE
+    // `.idea-window-body`, so they fold away with the window.
     html.elem("div", attrs: _themed((class: "idea-window")),
       html.elem("details", attrs: d-attrs,
         summary + html.elem("div", attrs: (class: "idea-window-body"),
@@ -1751,42 +1750,8 @@
 // always rebuilt in full whatever the budget (that is `_flatten`'s IK rule,
 // and it cannot cycle — an idea's body is finite and literally contains its
 // nested ones), so `depth` measures exactly the thing that can cycle.
-
-// ONE rendering, whatever `folded` says. `folded` sets only the INITIAL
-// disclosure state — `false` (the default) renders `<details open>`, `true`
-// renders it closed. It is not a second layout: a folded window and an unfolded
-// one are the same block, so a reader who opens one sees exactly what a
-// `#window` beside it already shows. `limit:` is therefore meaningful in both
-// (it truncates the body that folding hides) and the two are orthogonal.
 //
-// CLICK BUDGET (HTML/EPUB) — the whole point of this shape, modelled on
-// Forester (www.forester-notes.org, whose `tree.xsl` renders every transcluded
-// tree as a `<details>` whose `<summary>` holds the title and an
-// `<a class="slug">[tfmt-0006]</a>`):
-//
-//   - clicking ANYWHERE in the summary — title, date, the whitespace between
-//     them — folds or unfolds, and does nothing else;
-//   - clicking the `[idea:etal]` permalink, and only that, opens the note's
-//     own page.
-//
-// So the transcluded body is NOT a link and there is no trailing arrow. Both
-// were tried and removed. An outer <a> around the body is invalid the moment
-// that body contains its own link (MEASURED: browsers and typst's HTML export
-// both truncate the outer anchor where the inner one starts and never resume
-// it, so only "the first bit" stays clickable), and the arrow was a second
-// navigational affordance competing with the permalink for the same click.
-//
-// The disclosure is native `<details>`/`<summary>`: this package ships no JS,
-// and a `:target`/checkbox CSS hack would need a unique control id per window.
-// An `<a>` INSIDE `<summary>` does not break the toggle — only an `<a>` around
-// the whole summary does, which is what the earlier folded-row design got
-// wrong. The permalink navigates on its own click; the summary keeps the rest.
-//
-// `show-date` is OFF by default, same as `#idea`'s own — a date is always
-// RESOLVED and stored on the note's registry record regardless, so passing
-// `show-date: true` here can surface it even for a note whose own `#idea`
-// call left it hidden; the two are independent per call site, not one shared
-// setting.
+// Rendering — `folded`, `show-date`, `limit:`, click budget: `_window-content`.
 #let window(
   ..args,
   limit: none,
