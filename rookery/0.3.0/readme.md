@@ -214,16 +214,13 @@ Three ways, pick by how much ceremony you want:
   content-level blocks (paragraphs, grouped list items, ...) plus "…", in
   every target, not just HTML.
 
-  **KNOWN BUG, MEASURED:** a `limit:` that lands mid-paragraph — between two
-  inline runs, a plain text run and a `raw` span, say — can silently drop the
-  space between them: `_blocks`, the truncation's internal splitter, treats
-  every `space` CHILD as separator noise to discard, correct for space
-  between BLOCK-level siblings (a browser draws that from margins) and wrong
-  for a space node inside one paragraph's own inline sequence. Caught via
-  `@rheo/rookery-search`'s preview pane, which defaults its own `limit:`
-  equivalent to `none` for exactly this reason — see that package's readme.
-  Prefer `limit: none` (the default) until this is fixed properly, or check
-  the output by eye if you do pass one.
+  A limit can no longer land mid-paragraph. One paragraph is one block however
+  many inline runs it is made of, so a plain text run and the `raw` span beside
+  it are never separated, and the space between them survives — the MEASURED
+  defect that once rendered "three layers, because" as "three layers,because".
+  A block-level element (a heading, a table, a block quote) is still a block of
+  its own, and the whitespace around it is still dropped, because that gap is
+  drawn by margins rather than content.
 
   `folded: true` starts the block CLOSED. That is all it does: a folded window
   and an open one are the same block, so `limit:` stays meaningful under
@@ -438,9 +435,8 @@ citations) rather than describe it in a string, one note at a time:
 ```
 
 `limit:` truncates by block, the same unit and the same "…" `#window`'s own
-`limit:` uses — including the same MEASURED bug ("Referencing a note" above):
-a limit landing mid-paragraph can drop the space between two inline runs.
-`depth:` is the same nested-window budget `#window` takes, but
+`limit:` uses — so a paragraph is one block here too, and a limit cannot land
+inside a sentence. `depth:` is the same nested-window budget `#window` takes, but
 defaults to `0` here rather than `auto` — a caller asking for one note's body
 is usually about to show a LOT of them (`@rheo/rookery-search`'s preview
 pane calls this once per note in the whole rookery), and letting each one

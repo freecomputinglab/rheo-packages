@@ -17,8 +17,8 @@
 // demo-based beads.
 
 #import "/src/lib.typ": (
-  _bib, _bib-keys, _blocks, _body-plain, _body-text, _dedup-tag, _join,
-  _nest-outline, _norm, _note-file, _plain, _sort-ids, _tag-pred,
+  _bib, _bib-keys, _blocks, _body-plain, _body-text, _dedup-tag, _is-inline,
+  _join, _nest-outline, _norm, _note-file, _plain, _sort-ids, _tag-pred,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -116,6 +116,38 @@
 #assert.eq(_blocks([A.#parbreak()#parbreak()B.]).len(), 2)
 // A childless body is one block, itself.
 #assert.eq(_blocks([A]).len(), 1)
+
+// ---- _blocks — an inline run is ONE block, and keeps its spaces (akb) -------
+// MEASURED DEFECT: children here are `text space raw space text`, and dropping
+// every `space` made a truncating slice rejoin the runs as "layers,because".
+// The whole paragraph is one block now, so `limit:` cannot land inside it, and
+// the spaces survive either way.
+#let _inline-raw = [Some text #raw("x") and more text here.]
+#assert.eq(_blocks(_inline-raw).len(), 1)
+#assert.eq(_body-plain(_blocks(_inline-raw).first()), "Some text x and more text here.")
+// A block-level sibling still starts its own block, and the `space` before it
+// is still dropped — that gap is drawn by margins, not content. Children:
+// `space heading space text space`, and note there is NO `parbreak` between a
+// heading and the paragraph after it, so the split cannot come from one.
+#let _heading-then-text = [
+  = Head
+  Body text.
+]
+#assert.eq(_blocks(_heading-then-text).len(), 2)
+// `#idea`'s own marker is `metadata`: invisible, and it used to take a whole
+// block — and therefore a whole `limit` slot — to itself.
+#assert.eq(_blocks([A#metadata((k: 1))B]).len(), 1)
+// `raw`/`quote`/`equation` name both their forms, so they are asked, not looked
+// up: the block form is a block, the inline form joins the run.
+#assert(_is-inline(raw("x")))
+#assert(not _is-inline(raw("x", block: true)))
+#assert(_is-inline(quote[q]))
+#assert(not _is-inline(quote(block: true)[q]))
+#assert(_is-inline($x$))
+#assert(not _is-inline($ x $))
+// An unrecognised element is a block, so it keeps the pre-list behaviour.
+#assert(not _is-inline(table(columns: 1, [a])))
+#assert(not _is-inline(figure([a])))
 
 // ---- _tag-pred — an EMPTY tags array is no filter, not match-nothing ------
 #assert.eq(_tag-pred(none, "any"), none)

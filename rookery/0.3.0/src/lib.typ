@@ -1042,22 +1042,76 @@
 // also used: `_flatten`'s WK rule applies `limit:` too when it expands a
 // nested window, and a `#let` closure captures the scope visible AT
 // DEFINITION time.
+//
+// A `space` between two INLINE siblings is not separator noise either, and
+// dropping it is what made truncation rejoin two runs with nothing between
+// them. MEASURED on rookery.ohrg.org content: "...three layers, because..."
+// came out "...three layers,because..." once a `limit:` slice put a text run
+// back against a `raw` span. Between BLOCK-level siblings the gap really is
+// drawn by margins rather than content, so there the node must still go.
+//
+// So inline siblings ACCUMULATE into one block, keeping the `space` nodes
+// between them, and only a block-level sibling starts a new one. That is also
+// the fix for the count: a body that is one paragraph is now ONE block, so
+// `limit: n` counts the blocks the name promises and can no longer cut a
+// sentence in half. It is why neither `#idea-body` nor `#search-modal` could
+// ship a default `limit:` before.
+//
+// Inline and block are told apart BY NAME, because typst exposes no predicate.
+// MEASURED `repr(func())` values (typst 0.15.1) that decide the shape of the
+// test: `raw`, `quote` and `equation` each name BOTH their inline and their
+// block form, so those three are asked for their own `block` field instead; a
+// `"..."` smartquote arrives as a `sequence`; `#text(gray)[x]` arrives as
+// `styled`; `#idea`'s own marker arrives as `metadata`, invisible, and used to
+// consume a whole `limit` slot on its own.
+//
+// UNKNOWN NAMES DEFAULT TO BLOCK, deliberately: an element missing from the
+// list then behaves exactly as every element did before the list existed — its
+// own block — so the worst a gap in it can do is leave one old dropped space
+// in place. The other direction would merge two real blocks into one and make
+// `limit:` show more than it was asked for.
+#let _INLINE-FUNCS = (
+  "text", "emph", "strong", "link", "footnote", "super", "sub", "strike",
+  "underline", "overline", "highlight", "box", "h", "linebreak", "metadata",
+  "sequence", "styled",
+)
+#let _is-inline(c) = {
+  let f = repr(c.func())
+  if f in ("raw", "quote", "equation") { return not c.at("block", default: false) }
+  f in _INLINE-FUNCS
+}
 #let _blocks(body) = {
   let body = body
   while repr(body.func()) == "styled" { body = body.child }
   if not body.has("children") { return (body,) }
   let out = ()
   let prev-item = false
+  let prev-inline = false
+  // The `space` node seen since the last kept child, held back until we know
+  // whether what follows it is inline (keep it) or block (drop it).
+  let gap = none
   for c in body.children {
     let f = repr(c.func())
-    if f == "space" { continue }
-    if f == "parbreak" { prev-item = false; continue }
-    if f == "item" and prev-item {
-      out.at(-1) = out.at(-1) + c
+    if f == "space" { gap = c; continue }
+    if f == "parbreak" { prev-item = false; prev-inline = false; gap = none; continue }
+    if f == "item" {
+      if prev-item { out.at(-1) = out.at(-1) + c } else { out.push(c) }
+      prev-item = true
+      prev-inline = false
+      gap = none
+      continue
+    }
+    let inline = _is-inline(c)
+    if inline and prev-inline {
+      let run = out.at(-1)
+      if gap != none { run = run + gap }
+      out.at(-1) = run + c
     } else {
       out.push(c)
-      prev-item = f == "item"
     }
+    prev-item = false
+    prev-inline = inline
+    gap = none
   }
   out
 }
