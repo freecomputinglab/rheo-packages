@@ -1010,6 +1010,23 @@
 // Compares `repr(c.func())` against "space"/"parbreak" because there is no
 // public element function to compare those against directly.
 //
+// THE TWO WHITESPACE KINDS ARE NOT THE SAME BOUNDARY, and treating them as one
+// is what stopped the item grouping ever firing. MEASURED (typst 0.15.1) — the
+// children of `[Intro. #parbreak() - a - b]` are, in order:
+//
+//   space text space parbreak space item space item space
+//
+// Every markup list carries a `space` BETWEEN its items, so clearing
+// `prev-item` on `space` cleared it before the next `item` was ever seen: each
+// item became its own block and `#window("x", limit: 2)` on an intro plus a
+// four-item list showed the intro and ONE bullet, the cut-a-list-in-half
+// outcome the grouping exists to prevent. A `space` between two `item`s is list
+// punctuation; a `parbreak` between them genuinely ends the list. So only
+// `parbreak` resets the run. Both still emit no block of their own.
+//
+// `item` covers all three list kinds — `-`, `+` and `/ term:` items are all
+// `item` children (measured), so one branch groups all three.
+//
 // MEASURED REGRESSION FIX: every registry body has been through `_flatten`
 // since v6y.7, which wraps it in a `show`-rule scope — Typst represents that
 // as a `styled` node with `.has("children") == false`, not the `sequence` it
@@ -1033,7 +1050,8 @@
   let prev-item = false
   for c in body.children {
     let f = repr(c.func())
-    if f == "space" or f == "parbreak" { prev-item = false; continue }
+    if f == "space" { continue }
+    if f == "parbreak" { prev-item = false; continue }
     if f == "item" and prev-item {
       out.at(-1) = out.at(-1) + c
     } else {

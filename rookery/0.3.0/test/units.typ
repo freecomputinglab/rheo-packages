@@ -78,20 +78,40 @@
   [First.#parbreak()Second.]
 }
 #assert.eq(_blocks(_styled-two-blocks).len(), 2)
-// PINS A DEFECT, NOT THE INTENT (bead rheo-packages-rtd.1). `_blocks` means to
-// group consecutive `item`s into one block so `limit:` cannot cut a list in
-// half, but every markup list carries a `space` BETWEEN its items — children
-// here are `space text space parbreak space item space item space` — and the
-// `space` branch clears `prev-item` before the next `item` is seen. So each
-// item becomes its own block and this is 3, not the 2 the comment promises.
-// Flip this to 2 when that bead lands.
+// Consecutive `item`s are ONE block, so `limit:` cannot cut a list in half.
+// Children here are `space text space parbreak space item space item space`, so
+// this holds only because a `space` between two items no longer clears the run:
+// it is list punctuation, not a block boundary (bead rheo-packages-rtd.1).
 #let _text-then-list = [
   Intro.
   #parbreak()
   - a
   - b
 ]
-#assert.eq(_blocks(_text-then-list).len(), 3)
+#assert.eq(_blocks(_text-then-list).len(), 2)
+// A `parbreak` between two items DOES end the list — that is the one whitespace
+// kind that still clears the run. Children: `space item parbreak item space`.
+#let _list-parbreak-list = [
+  - a
+
+  - b
+]
+#assert.eq(_blocks(_list-parbreak-list).len(), 2)
+// `+` and `/ term:` rows are `item` children too, so they group the same way.
+#let _text-then-enum = [
+  Intro.
+
+  + one
+  + two
+]
+#assert.eq(_blocks(_text-then-enum).len(), 2)
+#let _text-then-terms = [
+  Intro.
+
+  / a: x
+  / b: y
+]
+#assert.eq(_blocks(_text-then-terms).len(), 2)
 // `space` and `parbreak` are separators, never blocks of their own.
 #assert.eq(_blocks([A.#parbreak()#parbreak()B.]).len(), 2)
 // A childless body is one block, itself.
