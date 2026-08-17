@@ -145,16 +145,51 @@
    siblings whatever Typst's HTML export decides about paragraph grouping (see
    `_head` in lib.typ — loose siblings came out `<p>`-wrapped in some cards and
    not others). It is also the theme container on a minted note page, which has no
-   `.idea-box` to be one. Structural only: no box, no spacing of its own. */
+   `.idea-box` to be one. Structural only: no box, no spacing of its own.
+
+   `flow-root`, NOT `block`, and that is the difference between a closed corner
+   and no corner at all. The tab is lifted by a negative `margin-top` (below) to
+   straddle the card's top edge. As a plain block this element has no border and
+   no padding, so that margin ADJOINS its own — it collapses out through
+   `.idea-head`, and then out through `.idea-box`, which has no top border or
+   padding either. MEASURED: the whole card moved up by the lift, left rule
+   included, so the stub stayed exactly as far below the rule's top end as
+   before. `flow-root` makes this a block formatting context, which is precisely
+   the rule that stops a child's margin escaping its parent. */
 .idea-head {
-  display: block;
+  display: flow-root;
 }
 
-/* Only inside a card: the negative margin cancels the card's padding-left. A
-   minted page's `.idea-head` has no such padding to cancel. */
+/* A REAL TOP-LEFT CORNER, and both margins are what make it one.
+   `margin-left` cancels the card's `padding-left` so the stub starts exactly on
+   the left rule's own line. `margin-top` lifts the tab so it STRADDLES the card's
+   top edge — half above, half below — because the stub is drawn at the tab's
+   vertical middle, and the top END of the left rule is at the edge. Without the
+   lift the stub sat half an id BELOW that end and the rule stuck up past it.
+
+   `line-height: 1` is what makes the arithmetic exact rather than a guess: it
+   collapses the tab's box to exactly the id's own height, whatever line-height
+   the host page sets, so half of it is half of `--idea-label-size`. The lift is
+   expressed against that variable for the same reason the id's size is — move the
+   variable and the corner follows.
+
+   `font-size` is deliberately NOT set here: the stub widths and the gap below are
+   in `em`, and re-basing them on the id's 0.57rem would shrink the rule and break
+   `margin-left`'s cancellation of a padding measured in the card's own em.
+
+   Only inside a card. A minted page's `.idea-head` has no border and no padding
+   to meet, so its tab stays in flow. */
 .idea-box > .idea-head > .idea-tab,
 .idea-window-summary > .idea-tab {
+  line-height: 1;
+  margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem));
   margin-left: -0.75em;
+}
+
+/* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
+   to clear that too or the corner lands 2px low. */
+.idea-window-summary > .idea-tab {
+  margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem) - 2px);
 }
 
 /* The tab now carries the space above a note, so the heading under it does not
