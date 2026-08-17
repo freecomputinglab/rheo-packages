@@ -2283,10 +2283,22 @@
 //    name:    "etal",          // the id with the prefix stripped
 //    title:   [Et al.],        // the title as CONTENT, or none
 //    text:    "Et al.",        // the same title as plain text, "" if none
+//    tags:    ("note", "draft"), // as the author gave them, () if untagged
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
 //    minted:  datetime or none,
 //    updated: datetime or none)
+//
+// `tags` is in the AUTHOR'S OWN ORDER, which is not alphabetical and not the
+// order they were written either: `#note`/`#todo` PREPEND their own tag through
+// `_dedup-tag`, so `#todo("b", tags: ("draft",))` reads `("todo", "draft")`.
+// A consumer sorting them is welcome to; this hands them over as given.
+//
+// `#tags-of(name)` exposes ONE note's tags too, and still does. This field is
+// the bulk form and the cheap one: `tags-of` resolves `_registry.final()` once
+// PER NOTE, where `ideas()` resolves it once for the whole pass — and
+// `@rheo/rookery-search`'s `#search-index` runs on every page of a site, so the
+// difference is one state resolution per note per page against one per page.
 //
 // NOT exposed IN BULK: `raw`, `body`-as-CONTENT and `links`. `body` above is
 // a plain STRING derived from `raw` — matchable and excerptable, but not
@@ -2322,6 +2334,7 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
+        tags: rec.at("tags", default: ()),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         minted: rec.at("minted", default: none),

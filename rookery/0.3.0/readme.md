@@ -398,6 +398,12 @@ Each entry is:
 - `text` — that title flattened to a plain string, `""` when there is none.
   Useful for matching, sorting and anything else that wants a string rather
   than something to render.
+- `tags` — the note's tags as an array of strings, `()` when it has none. In
+  the author's own order, which is neither alphabetical nor quite the order
+  they were written: `#note` and `#todo` prepend their own tag, so
+  `#todo("b", tags: ("draft",))` arrives as `("todo", "draft")`. `#tags-of()`
+  below asks the same question about one note; this is the bulk form, and the
+  cheaper one when you are walking the whole rookery.
 - `body` — the note's body flattened to a plain string, `""` when there is
   none. Block boundaries (a paragraph break, a list item) collapse to a
   single space rather than gluing adjacent words together; a nested `#idea`'s
