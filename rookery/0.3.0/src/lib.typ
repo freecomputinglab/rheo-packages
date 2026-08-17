@@ -2258,7 +2258,8 @@
   // then counts levels in the FILTERED tree, so `depth: 1` means "the top level
   // of what I asked for" rather than "whatever survived from the top level of
   // everything".
-  entries = _prune-outline(entries, _tag-pred(tags, match, filter: filter))
+  let pred = _tag-pred(tags, match, filter: filter)
+  entries = _prune-outline(entries, pred)
   if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
 
   // On HTML an explicit `h4` carrying a class, the same shape (and the same
@@ -2278,7 +2279,17 @@
   } else {
     heading(depth: 1, outlined: false, numbering: none, title-content)
   }
-  if entries.len() == 0 { return title-heading }
+  // An empty UNFILTERED outline is an answer: the page said "here is the index
+  // of this page's notes", there are none, and the heading is the sentence. An
+  // empty FILTERED one is a promise the filter already ruled out — a page
+  // carrying `#ideas-outline(title: [Todos], tags: "todo")` on every section
+  // would render a "Todos" heading over emptiness on every section without one.
+  // So the two cases differ on purpose, and `pred != none` is exactly "a filter
+  // is active" — no separate flag, and no `hide-when-empty:` knob.
+  //
+  // `depth:` deliberately does NOT count as a filter here. It drops levels below
+  // the first, so it cannot empty an outline that had anything in it at all.
+  if entries.len() == 0 { return if pred == none { title-heading } else { none } }
 
   let list-content = if _target() == "html" or _target() == "epub" {
     _nest-outline(
