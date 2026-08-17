@@ -202,17 +202,27 @@ export const readIndex = (elemId) => {
 // reads everywhere else in a rookery: `[idea:etal]` beside a note's title, in
 // a window's summary, in an outline row. Shared by the dropdown (`wire`) and
 // the modal (`wireModal`) so the two never drift into building rows two ways.
-const renderRow = (hit) => {
+//
+// `terms` highlights every occurrence it finds in the title/id text, the
+// same `<mark>` the preview pane uses. This is a literal-substring
+// highlight, not a reconstruction of `fuzzy-score`'s own SUBSEQUENCE match —
+// the two can disagree (a scattered subsequence match highlights nothing
+// here), but a literal substring is what a reader actually typed most of the
+// time, and highlighting it is far more useful than highlighting nothing at
+// all rather than trying to be exactly right for every fuzzy match.
+const renderRow = (hit, terms) => {
   const a = document.createElement("a");
   a.className = "rookery-search-row";
   a.setAttribute("role", "option");
   a.href = hit.href;
   const title = document.createElement("span");
   title.className = "rookery-search-title";
-  title.textContent = hit.text === "" ? hit.name : hit.text;
+  const titleText = hit.text === "" ? hit.name : hit.text;
+  appendMarked(title, titleText, matchRanges(titleText, terms));
   const id = document.createElement("span");
   id.className = "rookery-search-id";
-  id.textContent = `[${hit.id}]`;
+  const idText = `[${hit.id}]`;
+  appendMarked(id, idText, matchRanges(idText, terms));
   a.append(title, id);
   return a;
 };
@@ -243,8 +253,9 @@ const wire = (root, rows, n) => {
     root.dataset.rookerySearchOpen = open ? "true" : "false";
     input.setAttribute("aria-expanded", open ? "true" : "false");
     if (!open) return;
+    const terms = fold(q).split(" ").filter((t) => t !== "");
     for (const hit of search(rows, q, limit)) {
-      list.append(renderRow(hit));
+      list.append(renderRow(hit, terms));
     }
   };
 
@@ -318,6 +329,60 @@ const PREVIEW_RADIUS = 160;
 // uses: this walks one DOM text node at a time rather than concatenating the
 // whole body into one string first, so there is no cross-language parity
 // requirement here to justify the extra care.
+// Every occurrence of every `terms` entry in `text`, folded and
+// case-insensitive, merged where they overlap. UTF-16 string offsets
+// throughout, not `snippet`'s cluster-accurate ones: neither a title/id row
+// nor a real-content clone's individual text nodes are ever diffed against a
+// Typst counterpart, so there is no cross-language parity reason to pay for
+// cluster precision here. `fold` is length-preserving (each folded character
+// replaces exactly one), so an offset found in the FOLDED copy slices
+// correctly out of `text` itself.
+const matchRanges = (text, terms) => {
+  const folded = fold(text);
+  const ranges = [];
+  for (const term of terms) {
+    if (term === "") continue;
+    let from = 0;
+    while (true) {
+      const idx = folded.indexOf(term, from);
+      if (idx === -1) break;
+      ranges.push({ start: idx, end: idx + term.length });
+      from = idx + term.length;
+    }
+  }
+  if (ranges.length === 0) return [];
+  ranges.sort((a, b) => a.start - b.start);
+  const merged = [ranges[0]];
+  for (const r of ranges.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (r.start <= last.end) last.end = Math.max(last.end, r.end);
+    else merged.push({ ...r });
+  }
+  return merged;
+};
+
+// Appends `text` into `container` as plain text nodes plus `<mark>`s for
+// every range `matchRanges` found — never `innerHTML`, matching every other
+// mark-insertion in this module.
+const appendMarked = (container, text, ranges) => {
+  let cursor = 0;
+  for (const r of ranges) {
+    if (r.start > cursor) container.append(document.createTextNode(text.slice(cursor, r.start)));
+    const mark = document.createElement("mark");
+    mark.className = "rookery-search-mark";
+    mark.textContent = text.slice(r.start, r.end);
+    container.append(mark);
+    cursor = r.end;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+};
+
+// Wraps every occurrence of every `terms` entry inside `root`'s text nodes in
+// a `<mark>`, walking the real DOM rather than reconstructing HTML from a
+// string — `root` is a clone of author-written, Typst-rendered content
+// (`#idea-body`'s output, via `#search-bodies`' hidden per-note divs), so
+// there is real markup to preserve: a link's `href`, a code span's
+// highlighting, and so on.
 const markTermsInNode = (root, terms) => {
   if (terms.length === 0) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -326,39 +391,10 @@ const markTermsInNode = (root, terms) => {
   while ((n = walker.nextNode()) !== null) textNodes.push(n);
 
   for (const textNode of textNodes) {
-    const text = textNode.textContent;
-    const folded = fold(text);
-    const ranges = [];
-    for (const term of terms) {
-      if (term === "") continue;
-      let from = 0;
-      while (true) {
-        const idx = folded.indexOf(term, from);
-        if (idx === -1) break;
-        ranges.push({ start: idx, end: idx + term.length });
-        from = idx + term.length;
-      }
-    }
+    const ranges = matchRanges(textNode.textContent, terms);
     if (ranges.length === 0) continue;
-    ranges.sort((a, b) => a.start - b.start);
-    const merged = [ranges[0]];
-    for (const r of ranges.slice(1)) {
-      const last = merged[merged.length - 1];
-      if (r.start <= last.end) last.end = Math.max(last.end, r.end);
-      else merged.push({ ...r });
-    }
-
     const frag = document.createDocumentFragment();
-    let cursor = 0;
-    for (const r of merged) {
-      if (r.start > cursor) frag.append(document.createTextNode(text.slice(cursor, r.start)));
-      const mark = document.createElement("mark");
-      mark.className = "rookery-search-mark";
-      mark.textContent = text.slice(r.start, r.end);
-      frag.append(mark);
-      cursor = r.end;
-    }
-    if (cursor < text.length) frag.append(document.createTextNode(text.slice(cursor)));
+    appendMarked(frag, textNode.textContent, ranges);
     textNode.replaceWith(frag);
   }
 };
@@ -446,8 +482,9 @@ const wireModal = (dialog, rows) => {
     // empty-prompt behaviour, deliberately unlike `#search-bar`'s dropdown,
     // which stays shut on an empty query.
     hits = search(rows, q, limit);
+    const terms = fold(q).split(" ").filter((t) => t !== "");
     for (const hit of hits) {
-      const row = renderRow(hit);
+      const row = renderRow(hit, terms);
       row.addEventListener("pointerenter", () => {
         select([...list.children].indexOf(row));
       });
