@@ -135,13 +135,27 @@ A compile-time search is not a search box. For that the browser needs the
 corpus, and `#search-index()` puts it on the page as JSON:
 
 ```html
-<script type="application/json" id="rookery-search-index">[{"id":"idea:flat-ids","name":"flat-ids","text":"Flat ids, and why","href":"ideas/flat-ids.html"}, ...]</script>
+<script type="application/json" id="rookery-search-index">[{"id":"idea:flat-ids","name":"flat-ids","text":"Flat ids, and why","body":"Flat ids are …","href":"ideas/flat-ids.html"}, ...]</script>
 ```
 
 One row per note: `id`, `name`, `text` (the plain-text title, `""` when there
-is none) and `href`. The field is `text` and not `title` deliberately — it is
-the same name, meaning and type as `search-ideas` returns, and a name that
-meant content in Typst and a string in JSON is how a consumer gets it wrong.
+is none), `body` (the plain-text body, `""` when there is none) and `href`.
+The field is `text` and not `title` deliberately — it is the same name,
+meaning and type as `search-ideas` returns, and a name that meant content in
+Typst and a string in JSON is how a consumer gets it wrong.
+
+**`body` is capped, not the whole note.** `search-index`'s `body-chars`
+parameter (1200 by default, `none` for no cap) truncates each row's body to
+that many CLUSTERS before it goes into the JSON, because this island is
+**inline in every page**, not fetched once. MEASURED for rookery.ohrg.org: its
+`content/*.typ` sources total ~31 KB across roughly 40 notes, so an uncapped
+index costs on the order of 20-25 KB of JSON on every page (it compresses
+well, being prose). A note longer than the cap stays findable by its opening,
+and fully findable through the Typst-side `#search-ideas`, which never
+truncates. No separate fetched JSON file, on purpose: rheo emits pages from
+typst with no supported way to emit a standalone asset alongside them, so an
+inline island is what the package can actually produce — and it also works
+from `file://` with no fetch.
 
 The hrefs are **relative to the page the call sits on**, so an index emitted
 from a site's shared template comes out right on a nested page too — `../ideas/…`
@@ -186,6 +200,8 @@ package's JavaScript wires together.
   can target one bar without touching the rest.
 - `index` — emit the JSON island alongside the bar. `true` by default; pass
   `false` on every bar after the first on a page, so one island serves them all.
+- `body-chars` — forwarded to `#search-index`'s cap on each row's body text, in
+  clusters. 1200 by default; `none` for no cap.
 
 **It is rheo only, and it emits nothing at all without it.** Twice over: the
 script comes from this package's `js_scripts` manifest key, which only rheo

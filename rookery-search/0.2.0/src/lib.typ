@@ -209,17 +209,36 @@
 //
 //   #search-index()                       // usually not called directly
 //   #search-index(elem-id: "notes-index")  // a second, differently-keyed index
+//   #search-index(body-chars: 400)         // a tighter cap on body size
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
-// one row per note: `(id, name, text, href)`, where `text` is the plain-text
-// title ("" when untitled) and `href` is the depth-relative path to the note's
-// minted page — computed against the page this call sits on, so an island in a
-// site's shared chrome comes out right on a nested vertebra too.
+// one row per note: `(id, name, text, body, href)`, where `text` is the
+// plain-text title ("" when untitled), `body` is the plain-text body ("" when
+// empty), and `href` is the depth-relative path to the note's minted page —
+// computed against the page this call sits on, so an island in a site's
+// shared chrome comes out right on a nested vertebra too.
 //
 // The field is `text`, not `title`, on purpose: same name, same meaning, same
 // type as `search-ideas` returns. `title` there is CONTENT, which JSON cannot
 // carry, and one name meaning two types across two surfaces is how a consumer
 // gets it wrong.
+//
+// `body-chars` CAPS each note's body at that many CLUSTERS (never bytes, so
+// the cap cannot split a character) before it goes into the JSON — `none`
+// means no cap, ship the whole body. No ellipsis is appended in the DATA; the
+// preview pane excerpts and adds its own. This matters because the island is
+// INLINE IN EVERY PAGE, not fetched once: MEASURED for rookery.ohrg.org, its
+// `content/*.typ` sources total ~31 KB across roughly 40 notes, so an
+// uncapped index costs on the order of 20-25 KB of JSON on every page (it
+// compresses well, being prose). The default of 1200 clusters per note keeps
+// that bounded for a rookery with hundreds of notes; a note longer than the
+// cap stays FINDABLE by its opening, and fully findable through the Typst-side
+// `#search-ideas`, which never truncates.
+//
+// WHY NOT A SEPARATE FETCHED JSON FILE, which would keep pages small: rheo
+// emits pages from typst, and there is no supported way for a package to emit
+// a standalone asset file next to them. An inline island is what the package
+// can actually produce, and it also works from `file://` with no fetch.
 //
 // `search-bar` emits this itself, so most projects never call it. Call it
 // directly when building a custom UI, or when several bars share one index —
@@ -227,11 +246,30 @@
 //
 // The rows are `search-ideas("")` — the empty query matching everything — with
 // the fields JSON cannot carry dropped, and unmintable notes filtered out.
-#let search-index(elem-id: "rookery-search-index") = context {
+#let search-index(elem-id: "rookery-search-index", body-chars: 1200) = context {
   if _target() != "html" { return }
+  assert(
+    body-chars == none or (type(body-chars) == int and body-chars >= 0),
+    message: "@rheo/rookery-search: #search-index's `body-chars` must be none "
+      + "or a non-negative integer — got " + repr(body-chars),
+  )
   let rows = search-ideas("")
     .filter(e => e.href != none)
-    .map(e => (id: e.id, name: e.name, text: e.text, href: e.href))
+    .map(e => (
+      id: e.id,
+      name: e.name,
+      text: e.text,
+      // `array.join()` on an EMPTY array returns `none`, not `""` (MEASURED)
+      // — so a short body (or an empty one) that needs no truncation at all
+      // is passed through directly rather than round-tripped through
+      // `clusters().slice(..).join()`, which would crash on it.
+      body: if body-chars == none or e.body.clusters().len() <= body-chars {
+        e.body
+      } else {
+        e.body.clusters().slice(0, body-chars).join()
+      },
+      href: e.href,
+    ))
   if rows.len() == 0 { return }
   html.elem(
     "script",
@@ -245,10 +283,12 @@
 //   #search-bar()
 //   #search-bar(placeholder: "Find a note", limit: 12, class: "topbar-search")
 //   #search-bar(index: false)   // a SECOND bar on a page that already has one
+//   #search-bar(body-chars: 400) // a tighter cap on the island's body text
 //
-// Emits the JSON island (via `search-index`), an `<input>`, and an empty
-// results container; `src/rookery-search.js`, injected by rheo from the
-// manifest's `js_scripts`, wires them together.
+// Emits the JSON island (via `search-index`, `body-chars:` forwarded to it
+// unchanged), an `<input>`, and an empty results container;
+// `src/rookery-search.js`, injected by rheo from the manifest's `js_scripts`,
+// wires them together.
 //
 // PHRASING CONTENT ONLY — a `<span>` wrapper holding an `<input>` and a
 // `<span role="listbox">`, never a `<div>`/`<ul>`/`<li>`. A `<div>` inside a
@@ -272,6 +312,7 @@
   class: none,
   index: true,
   elem-id: "rookery-search-index",
+  body-chars: 1200,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -284,7 +325,7 @@
     message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  if index { search-index(elem-id: elem-id) }
+  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
   html.elem(
     "span",
     attrs: (
