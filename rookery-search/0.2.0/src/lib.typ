@@ -1,7 +1,9 @@
 // @rheo/rookery-search — fuzzy search over a rookery.
 //
 // Reads the corpus through `@rheo/rookery`'s public primitives and never
-// touches its internals: `ideas()` for the notes, `note-href()` for links.
+// touches its internals: `ideas()` for the notes, `note-href()` for links,
+// `idea-body()` for the modal's preview pane (rookery 0.2.0's real-content
+// rendering — see `search-bodies` below).
 //
 // Two layers, and the split matters:
 //   - `search-ideas(query)` is pure Typst and works under plain
@@ -14,11 +16,11 @@
 // comes from `just build` (vite copies this file and the CSS across and
 // bundles `src/rookery-search.js` into `dist/lib.js`). Editing `src/` does
 // NOT take effect until you rebuild — the one ergonomic cost of shipping JS.
-#import "@rheo/rookery:0.1.2": ideas, note-href
+#import "@rheo/rookery:0.2.0": ideas, note-href, idea-body
 
 // ---- Target detection — a deliberate copy of rookery's ---------------------
 //
-// The originals are `_rheo-ctx` and `_target` in `rookery/0.1.2/src/lib.typ`,
+// The originals are `_rheo-ctx` and `_target` in `rookery/0.2.0/src/lib.typ`,
 // where they are underscore-private. They are copied rather than exported and
 // imported: six lines of `sys.inputs` read, against making rookery widen its
 // public surface with something no author would ever call. `sys.inputs` is
@@ -278,6 +280,75 @@
   )
 }
 
+// ---- #search-bodies — real content, for the modal's preview pane ----------
+//
+//   #search-bodies()                       // usually not called directly
+//   #search-bodies(elem-id: "notes-index")  // paired with a differently-keyed index
+//
+// A hidden `<div data-rookery-search-body="idea:etal">…</div>` per note,
+// inside `<div id="rookery-search-index-bodies" hidden>…</div>` — real
+// Typst-rendered content (links, styling, footnotes, citations), via
+// rookery 0.2.0's `#idea-body()`, not the plain string `#search-index`
+// carries.
+//
+// A `<div>`, not a `<template>` — MEASURED: rheo's own HTML post-processing
+// (the pass that injects `<script>`/`<link>` tags into `<head>`) silently
+// empties a `<template>`'s content on the way out, on typst 0.15.1/rheo
+// 0.5.2, reproduced with nothing more than `html.elem("template", ..,
+// [text])`. A `<template>`'s children are not normal DOM until cloned, and
+// whatever rewrites the page evidently does not carry that content across
+// its own parse/reserialize step. A ordinary hidden `<div>` has no such
+// special content model and survives intact — the cost is that its content
+// is real (if invisible) DOM from the moment the page loads, rather than
+// inert until cloned, which costs nothing this package cares about.
+//
+// WHY THIS EXISTS, separate from `#search-index`. That JSON island's `body`
+// field is a flattened STRING — matchable and excerptable, which is all
+// ranking needs, but a code block inside it reads as bare unstyled source
+// text with no separation from the prose around it. Real content fixes that
+// at the root: the modal's preview pane clones actual rendered nodes,
+// highlights matched terms by walking their text nodes (never `innerHTML`),
+// and gets a real `<pre><code>` for a note that quotes any.
+//
+// ONLY THE MODAL USES THIS — `#search-bar`'s dropdown has no preview pane,
+// so it has no reason to pay for it. `elem-id` matches `#search-index`'s:
+// the two are a pair, and `#search-modal` calls both together under one name
+// with `-bodies` appended to this one's container id, so the script can find
+// the right pair without a second attribute to keep in step.
+//
+// `depth: 0` is HARDCODED, not a parameter — a nested `#window` always
+// collapses to its permalink rather than unfurling into the preview, no
+// matter what `window-depth:` a project sets on `#show: rookery.with(...)`.
+// Not a knob on purpose: this container ships on EVERY page, once per note,
+// so letting it unfurl nested windows would let a single project setting
+// blow up every page's size unpredictably — the opposite of what a size
+// concern like `body-chars` exists to prevent. A caller who genuinely wants
+// a deeper preview calls `#idea-body` directly with its own `depth:`.
+//
+// `limit` bounds how much of a long note's rendering ships on every page,
+// the same size concern `body-chars` answers for the JSON island. It counts
+// BLOCKS in `_blocks`'s sense, which is finer than "paragraphs" — MEASURED:
+// a single paragraph mixing plain text with a link or an emphasis run counts
+// each run as its own block, so a short but link-heavy paragraph can use up
+// more of the budget than its length suggests. The default is generous
+// rather than exact for exactly that reason.
+#let search-bodies(elem-id: "rookery-search-index", limit: 20) = context {
+  if _target() != "html" { return }
+  let rows = ideas().filter(e => e.href != none)
+  if rows.len() == 0 { return }
+  html.elem(
+    "div",
+    attrs: (id: elem-id + "-bodies", hidden: "hidden"),
+    rows
+      .map(e => html.elem(
+        "div",
+        attrs: ("data-rookery-search-body": e.id),
+        idea-body(e.name, depth: 0, limit: limit),
+      ))
+      .join(),
+  )
+}
+
 // ---- #search-bar — the embeddable search UI. RHEO ONLY --------------------
 //
 //   #search-bar()
@@ -368,8 +439,10 @@
 // exactly the wrong things.
 //
 // Emits, in order: the JSON island (via `search-index`, same `index:`/
-// `elem-id:`/`body-chars:` `#search-bar` already takes), then the trigger
-// button (unless `trigger: false`), then the dialog.
+// `elem-id:`/`body-chars:` `#search-bar` already takes), the hidden
+// real-content bodies (via `search-bodies`, gated on the same `index:` —
+// see its own comment for why), then the trigger button (unless
+// `trigger: false`), then the dialog.
 //
 // SAME ISLAND, SHARED BY NAME, NO IDS IN THE MARKUP — the rule `#search-bar`
 // follows (see its comment above). The trigger's `data-rookery-search-modal`
@@ -391,6 +464,7 @@
   index: true,
   elem-id: "rookery-search-index",
   body-chars: 1200,
+  preview-limit: 20,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
@@ -403,7 +477,10 @@
     message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  if index { search-index(elem-id: elem-id, body-chars: body-chars) }
+  if index {
+    search-index(elem-id: elem-id, body-chars: body-chars)
+    search-bodies(elem-id: elem-id, limit: preview-limit)
+  }
   if trigger {
     html.elem(
       "button",

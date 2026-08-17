@@ -297,10 +297,71 @@ const renderMarked = (container, text, ranges) => {
   }
 };
 
-// The preview excerpt's radius, in clusters, either side of a body match. Not
-// exposed as a knob: this is an implementation detail of the modal, not a
-// public contract the way `#search-index`'s `body-chars` is.
+// The preview excerpt's radius, in clusters, either side of a body match.
+// Only used by the plain-text FALLBACK path below (no real-content div found
+// for a hit) — not exposed as a knob, since it is an implementation detail
+// of the modal, not a public contract the way `#search-index`'s `body-chars`
+// is.
 const PREVIEW_RADIUS = 160;
+
+// Wraps every occurrence of every `terms` entry inside `root`'s text nodes in
+// a `<mark>`, walking the real DOM rather than reconstructing HTML from a
+// string — `root` is a clone of author-written, Typst-rendered content
+// (`#idea-body`'s output, via `#search-bodies`' hidden per-note divs), so
+// there is real markup to preserve: a link's `href`, a code span's
+// highlighting, and so on. Case-insensitive and `-`/`_`-folding, the same
+// `fold()` every other match in this module uses; `fold` is length-preserving
+// (each folded character replaces exactly one), so a match found in a text
+// node's FOLDED copy slices correctly out of the node's own original text.
+//
+// Plain `indexOf` in UTF-16 units, not the cluster-accurate search `snippet`
+// uses: this walks one DOM text node at a time rather than concatenating the
+// whole body into one string first, so there is no cross-language parity
+// requirement here to justify the extra care.
+const markTermsInNode = (root, terms) => {
+  if (terms.length === 0) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let n;
+  while ((n = walker.nextNode()) !== null) textNodes.push(n);
+
+  for (const textNode of textNodes) {
+    const text = textNode.textContent;
+    const folded = fold(text);
+    const ranges = [];
+    for (const term of terms) {
+      if (term === "") continue;
+      let from = 0;
+      while (true) {
+        const idx = folded.indexOf(term, from);
+        if (idx === -1) break;
+        ranges.push({ start: idx, end: idx + term.length });
+        from = idx + term.length;
+      }
+    }
+    if (ranges.length === 0) continue;
+    ranges.sort((a, b) => a.start - b.start);
+    const merged = [ranges[0]];
+    for (const r of ranges.slice(1)) {
+      const last = merged[merged.length - 1];
+      if (r.start <= last.end) last.end = Math.max(last.end, r.end);
+      else merged.push({ ...r });
+    }
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    for (const r of merged) {
+      if (r.start > cursor) frag.append(document.createTextNode(text.slice(cursor, r.start)));
+      const mark = document.createElement("mark");
+      mark.className = "rookery-search-mark";
+      mark.textContent = text.slice(r.start, r.end);
+      frag.append(mark);
+      cursor = r.end;
+    }
+    if (cursor < text.length) frag.append(document.createTextNode(text.slice(cursor)));
+    textNode.replaceWith(frag);
+  }
+};
 
 const wireModal = (dialog, rows) => {
   const input = dialog.querySelector(".rookery-search-input");
@@ -316,6 +377,24 @@ const wireModal = (dialog, rows) => {
     preview.replaceChildren();
     const hit = hits[selected];
     if (hit === undefined) return;
+
+    // The real content `#search-bodies` emits, if the project's package
+    // version has it — a hidden `<div data-rookery-search-body="ID">`
+    // holding `#idea-body`'s actual rendering (links, styling, a real
+    // `<pre><code>` for a quoted code block, not the flattened string the
+    // JSON island carries). Cloned rather than moved, since the source div
+    // has to survive for the next preview too.
+    const real = document.querySelector(
+      `[data-rookery-search-body="${hit.id}"]`,
+    );
+    if (real !== null && real.textContent.trim() !== "") {
+      const clone = real.cloneNode(true);
+      const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
+      markTermsInNode(clone, terms);
+      preview.append(...clone.childNodes);
+      return;
+    }
+
     const body = hit.body ?? "";
     if (body === "") {
       const empty = document.createElement("p");
@@ -324,11 +403,15 @@ const wireModal = (dialog, rows) => {
       preview.append(empty);
       return;
     }
-    // Centred on the match for a body hit; from the start for a name hit — a
-    // radius of Infinity makes `snippet` return the whole body with no
-    // truncation, since its window is clamped to the body's own length.
-    // EITHER WAY every matched term still gets wrapped in `<mark>`, because
-    // both paths go through the same `snippet` call.
+    // FALLBACK, for a project on a `#search-index`-only build (no
+    // `#search-bodies`, e.g. an older `@rheo/rookery-search` or `index:
+    // false` with a hand-rolled index): the plain-text excerpt this pane
+    // always showed before real content existed. Centred on the match for a
+    // body hit; from the start for a name hit — a radius of Infinity makes
+    // `snippet` return the whole body with no truncation, since its window
+    // is clamped to the body's own length. EITHER WAY every matched term
+    // still gets wrapped in `<mark>`, because both paths go through the same
+    // `snippet` call.
     const radius = hit.kind === "body" ? PREVIEW_RADIUS : Number.POSITIVE_INFINITY;
     const { text, ranges } = snippet(body, input.value.trim(), radius);
     const p = document.createElement("p");

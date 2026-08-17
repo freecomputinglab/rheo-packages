@@ -1,6 +1,6 @@
 # @rheo/rookery-search
 
-Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.1.2) — by
+Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.2.0) — by
 id and title, and by full text — a Typst primitive that ranks them, a JSON
 index of the corpus, an inline search bar, and a site-wide overlay modal.
 
@@ -16,7 +16,7 @@ Typst ranking works without rheo; the index and the bar need it. Both are
 spelled out below.
 
 ```typst
-#import "@rheo/rookery:0.1.2": idea, rookery
+#import "@rheo/rookery:0.2.0": idea, rookery
 #import "@rheo/rookery-search:0.2.0": search-bar
 #show: rookery
 
@@ -357,6 +357,11 @@ without them ever disagreeing about what "best match" means.
 - `trigger-label` — the trigger's `aria-label` ("Search" by default).
 - `index` / `elem-id` / `body-chars` — the same parameters `#search-bar`
   takes, forwarded to `#search-index` unchanged.
+- `preview-limit` — how much of a note's REAL content (see "The preview pane
+  shows real content", below) ships in the hidden bodies container, in
+  `#idea-body`'s own block units. 20 by default, generous rather than exact —
+  see `#search-bodies`'s own doc comment for why a "block" is finer-grained
+  than a paragraph.
 
 **It is rheo only, and it emits nothing at all without it** — the same two
 reasons as the bar: the script comes from this package's `js_scripts`, and the
@@ -383,6 +388,15 @@ wires the first matching dialog.
 | `.rookery-search-preview` | the right pane |
 | `.rookery-search-hint` | the `↑↓ navigate · ↵ open · esc close` line |
 
+Alongside the JSON island, `#search-modal` also emits `#search-bodies`' hidden
+`<div id="…-bodies" hidden>` — one per-note `<div data-rookery-search-body=
+"idea:etal">` inside it, each holding `#idea-body`'s REAL rendering of that
+note. Not a `<script>` this time, and not a `<template>` either — see
+`#search-bodies`'s own doc comment for why a `<template>` specifically does
+not survive rheo's page post-processing intact. It is invisible, ordinary DOM
+from the moment the page loads, found by the same `data-rookery-search-body`
+attribute the preview pane looks up when it shows a hit.
+
 A `<dialog>` and `showModal()`, deliberately, rather than a hand-rolled overlay
 `<div>`: focus trapping, page inertness behind it, `::backdrop` dimming and
 Escape-to-close all come for free, and it renders in the browser's TOP LAYER,
@@ -407,11 +421,21 @@ agree on what the preview is showing. Enter opens the selected row; Escape or
 a click on the backdrop closes the dialog, leaving the query in place so a
 reopen (`Ctrl+K` again, or the trigger) resumes exactly where you left off.
 
-**The preview pane shows the matched note's body as plain text**, with every
-matched term wrapped in `<mark>`. For a body-tier hit it is centred on the
-match; for a name-tier hit it is the body from its start, since there is no
-match position to centre on. A note with an empty body shows a muted "No
-preview" line instead of a blank pane.
+**The preview pane shows the matched note's REAL content** — links, styling,
+footnotes, citations, a real syntax-highlighted `<pre><code>` for a note that
+quotes any — cloned from `#search-bodies`' hidden per-note div, not
+reconstructed from the JSON island's plain-text `body` field. That string is
+still what a code block used to look like in the old plain-text preview: bare
+source text with no separation from the prose around it. Every matched term
+is wrapped in `<mark>` regardless, by walking the clone's own text nodes
+(never `innerHTML` — the clone is real Typst-rendered markup, but the walk
+avoids string reconstruction all the same). A note with an empty body shows a
+muted "No preview" line instead of a blank pane.
+
+**Falls back to the old plain-text excerpt** — centred on the match for a
+body-tier hit, from the start for a name-tier hit — when no real-content div
+exists for a hit: an older `@rheo/rookery-search` build, or a hand-rolled
+index that never called `#search-bodies`. Nothing breaks either way.
 
 ### Styling: the telescope layout, and the same escape hatch
 
@@ -419,6 +443,17 @@ The modal's rules live in the same `@layer rookery-search` as the bar's, so the
 same unlayered-rule-always-wins escape hatch applies — see "Styling it: your
 CSS always wins" above. It reuses the bar's `--rookery-search-fg`/`-bg`/
 `-border`/`-radius`/`-hover`/`-id-color` properties, and adds:
+
+**The preview pane's real content styles itself, mostly for free.**
+`#idea-body`'s rendering carries rookery's own `.idea-window` class, so link
+colours, raw/code styling and footnote layout come from `@rheo/rookery`'s own
+stylesheet — the same theme a note gets everywhere else, including a
+project's `#show: rookery.with(theme: (...))`. This package strips only the
+BOX rookery.css draws around an actual `#window` (the left accent rule, its
+hover tint) via the `.idea-window-plain` modifier `#idea-body` applies for
+exactly this reason — a search preview is the pane's own content, not a
+window transcluded onto the page, and should not draw a second box inside the
+pane's first.
 
 | property | default |
 | --- | --- |

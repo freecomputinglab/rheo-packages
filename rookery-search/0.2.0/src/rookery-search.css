@@ -249,16 +249,48 @@
   .rookery-search-preview {
     overflow-y: auto;
     padding: 1em;
-    /* Prose wraps, and a long id or URL cannot overflow the pane — the same
-       two properties the dropdown never needed, because a row's title and id
-       are short by construction and an excerpt is not. */
-    white-space: pre-wrap;
+    /* A long id or URL cannot overflow the pane — real content wraps like the
+       block-level elements it is made of, unlike the plain-text FALLBACK
+       excerpt below, which still needs `white-space: pre-wrap` of its own to
+       preserve `snippet`'s "…" truncation markers as literal text. */
     overflow-wrap: anywhere;
   }
+
+  /* The pane's own `padding` is the only top gap it should show. Without
+     this, the first thing inside it carries its own top margin — a
+     browser's UA default `margin` on the FALLBACK path's bare `<p>`, or on
+     the first block `#idea-body` renders, three levels down inside
+     `.idea-window .idea-window-body` for the real-content path — stacking
+     with the pane's padding into visibly TOO MUCH top space. MEASURED.
+     Both selectors, because the two paths nest their first block at
+     different depths. */
+  .rookery-search-preview > :first-child,
+  .rookery-search-preview .idea-window-body > :first-child {
+    margin-top: 0;
+  }
+
+  /* NOTHING HERE strips `.idea-window`'s box (border, padding, hover tint)
+     for content inside this pane — rookery 0.2.0's `#idea-body` already
+     renders with a second class, `.idea-window-plain`, for exactly that
+     reason. A downstream override attempted from here cannot win:
+     rookery.css is UNLAYERED throughout, so a rule in THIS package's
+     `@layer rookery-search` — however specific — always loses to it,
+     MEASURED. See rookery.css's own comment beside
+     `.idea-window.idea-window-plain`. */
 
   .rookery-search-preview-empty {
     opacity: 0.6;
     font-style: italic;
+  }
+
+  /* Only the plain-text FALLBACK excerpt (`renderMarked`'s output, when no
+     real-content div exists for a hit) is a single unstructured `<p>` that
+     needs to preserve `snippet`'s own whitespace and "…" markers verbatim.
+     Real content's own paragraphs wrap normally; scoping this to a direct
+     child keeps it from reaching into a code block's `<pre>`, which sets its
+     own `white-space` and must not have this override it. */
+  .rookery-search-preview > p {
+    white-space: pre-wrap;
   }
 
   /* The selected row and the hovered row must look identical, because the
