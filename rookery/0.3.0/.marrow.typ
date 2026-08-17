@@ -37,10 +37,11 @@
 // guarantee. Passing the handle makes the depth this page's own property. It
 // mirrors the path — `ideas/<slug>.html` <-> `ideas:<slug>` — with both halves
 // coming from `_IDEA-DIR`/`_note-file`, so minting and linking cannot drift.
-// The permalink comes from lib.typ's `_permalink`, with the href forced to
-// this page's own fragment — a minted page must not link to itself. Building
-// the <a> by hand here instead is how it came to miss the configurable hover
-// property that every other permalink carries.
+// The permalink comes from lib.typ's `_permalink-tab` — the same top rule a
+// note wears inside a card — with the href forced to this page's own fragment,
+// because a minted page must not link to itself. Building the <a> by hand here
+// instead is how it came to miss the configurable hover property that every
+// other permalink carries.
 // CONTEXT FOOTER. A minted page shows the note stripped of everything around
 // it, which is the point — but a reader who lands on one has no way back to
 // the argument it was written inside. The footer names that page and links to
@@ -69,7 +70,7 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.3.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _IDEA-DIR, window
+#import "@rheo/rookery:0.3.0": _registry, _note-file, _pfx, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _IDEA-DIR, window
 
 #context {
   let registry = _registry.final()
@@ -135,19 +136,44 @@
     // project's template can wrap the WHOLE page — heading, body and footer —
     // and see exactly what a vertebra's own `#show:` would.
     let page = [
+      // The id as this page's top rule, above the <h1> rather than inside it —
+      // the same treatment a note gets in a card or a window summary, so a
+      // minted page reads as the same object.
+      //
+      // `href: "#" + id` is the whole reason this call passes one: a note's own
+      // page must permalink to itself as a FRAGMENT, not to the page it is.
+      //
+      // WRAPPED IN A DIV, and that is not decoration. MEASURED: emitted as two
+      // loose siblings in this content block, Typst's HTML export wraps the
+      // leading inline span in a `<p>` of its own — so the markup came out
+      // `<p><span class="idea-tab">..</span></p><h1>..`, which (a) breaks the
+      // `.idea-tab + h*.idea` adjacency rule the stylesheet uses to close the
+      // gap above the heading, and (b) hands the tab a paragraph's margins.
+      // Inside one `html.elem` call the two are real siblings and neither
+      // happens. `#idea`'s own card never hit this: its header already sits
+      // inside the box `div`.
+      //
+      // The theme goes on the WRAPPER now rather than on the <h1>: a minted page
+      // has no `.idea-box`, so something has to be the container, and the
+      // wrapper is the only thing that encloses BOTH the tab and the heading.
+      // On the <h1> alone, a project that themed `border-color` got the package
+      // default on every note page's tab, since a sibling inherits nothing.
       #html.elem(
-        "h1",
-        // The <h1> is this page's theme container — there is no `.idea-box`
-        // here, so it is what the permalink inherits its colours from.
-        attrs: _themed((id: id, class: "idea")),
-        // Title in a span, exactly as `#idea` does it: `.idea-label:first-child`
-        // is what un-indents a TITLELESS note, and CSS `:first-child` counts
-        // elements only — so a bare title leaves the permalink first either way
-        // and the rule strips the separator from a titled heading too.
-        (if rec.title == none { [] } else {
-          html.elem("span", attrs: (class: "idea-title"), rec.title)
-        })
-          + _permalink(id, href: "#" + id),
+        "div",
+        attrs: _themed((class: "idea-page-head")),
+        _permalink-tab(id, href: "#" + id)
+          + html.elem(
+            "h1",
+            // The <h1> keeps the `id` — it is this page's anchor, the
+            // destination of `#link(label(id))` from a Context footer — and the
+            // `idea` class every heading rule matches on.
+            attrs: (id: id, class: "idea"),
+            // Title in a span, exactly as `#idea` does it — a hook, not a
+            // requirement.
+            (if rec.title == none { [] } else {
+              html.elem("span", attrs: (class: "idea-title"), rec.title)
+            }),
+          ),
       )
       // `flat`, not `rec.body`: the note is rendered at `minted-depth` (see
       // above), so a `#window` written in its body shows in full here and a

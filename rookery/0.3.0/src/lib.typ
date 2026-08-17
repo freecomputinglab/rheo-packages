@@ -401,6 +401,30 @@
   )
 }
 
+// The permalink as a card's TOP RULE rather than as a word in its heading:
+// `.idea-tab` draws the rule (see rookery.css) and this is the id that
+// straddles it. Used by every site that renders a note's HEADER — `#idea`, a
+// transcluded `#idea`, a `#window` summary, a minted page's `<h1>` — and by
+// nothing else: a bare permalink standing in prose (a depth-exhausted nested
+// window, below) keeps `_permalink` itself, because a rule across the top of it
+// would be a rule across the top of nothing.
+//
+// `span`, NOT `div`: this goes inside `<summary>` on the window path, whose
+// content model is phrasing content, and EPUB output is XHTML, where that
+// distinction is enforced rather than merely stated. `display: flex` in the
+// stylesheet is what makes it behave as a block.
+//
+// Carries no theme properties of its own, for the same reason `_permalink`
+// does not: it is always emitted inside a container that does — `.idea-box`,
+// `.idea-window-summary`, or (on a minted page) the `.idea-page-head` wrapper
+// `.marrow.typ` puts around the tab and the `<h1>` together — and custom
+// properties inherit.
+#let _permalink-tab(id, href: auto) = html.elem(
+  "span",
+  attrs: (class: "idea-tab"),
+  _permalink(id, href: href),
+)
+
 // Paged counterpart: no `html.elem`, and the fallback is the Typst label
 // rather than an HTML fragment.
 #let _permalink-paged(id) = {
@@ -1043,19 +1067,22 @@
   } else { none }
 
   if _target() == "html" or _target() == "epub" {
-    // A titleless note contributes no title span at all, so the permalink
-    // comes first in the summary — "at the top of the window", the id doing
-    // double duty as the note's name. `#idea`'s own heading does the same.
+    // The id leads the summary as the window's own top rule, so a titleless
+    // note needs no special case: the tab is there either way, and the title
+    // span is simply absent beneath it. `#idea`'s own heading does the same.
     let title-span = if rec.title == none { [] } else {
       html.elem("span", attrs: (class: "idea-window-title"), rec.title)
     }
     let date-span = if date == none { [] } else {
       html.elem("span", attrs: (class: "idea-window-date"), date)
     }
+    // The tab stays INSIDE the `<summary>`, as its first child. Moving it into
+    // the `<details>` body would hide the id whenever the window is folded, and
+    // it has to be visible and clickable in both states.
     let summary = html.elem(
       "summary",
       attrs: (class: "idea-window-summary"),
-      title-span + _permalink(id) + date-span,
+      _permalink-tab(id) + title-span + date-span,
     )
     // `open` is a BOOLEAN html attribute: present means open and there is no
     // value meaning closed, so the attrs dictionary itself has to differ
@@ -1163,12 +1190,15 @@
     if _target() == "html" or _target() == "epub" {
       let attrs = (class: cls.join(" "))
       if id != none { attrs = attrs + (id: id) }
-      let header = html.elem(
+      // Tab before the heading, and the `id == none` guard travels with it: an
+      // auto-numbered nested note has no id to show, so it gets no tab either
+      // and its card simply has no top rule.
+      let header = (if id == none { [] } else { _permalink-tab(id) }) + html.elem(
         "h" + str(v.level + 1),
         attrs: attrs,
         (if v.title == none { [] } else {
           html.elem("span", attrs: (class: "idea-title"), v.title)
-        }) + (if id == none { [] } else { _permalink(id) }),
+        }),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
@@ -1473,24 +1503,31 @@
       if _target() == "html" or _target() == "epub" {
         // The permalink is the ONLY way to discover an auto-generated id —
         // there is no `show heading` rule and no template to hook into, so
-        // `#idea` appends it directly, always (even with no title), showing
+        // `#idea` emits it directly, always (even with no title), showing
         // the FULL `idea:name` id so it is copy-pasteable straight into
         // `#window("...")`. `#window` renders the identical affordance in its own
-        // summary; both go through `_permalink`.
-        // The title goes in a span even though nothing styles it by default,
-        // so that `.idea-label:first-child` can mean "this note has no title".
-        // A bare title is a TEXT node, and CSS `:first-child` counts elements
-        // only — so without the span the permalink is the first element child
-        // either way, and the rule that un-indents a titleless note would
-        // strip the separating margin from a titled one too. `#window`'s summary
-        // has always wrapped its title for the same reason.
+        // summary; both go through `_permalink-tab`.
+        //
+        // ABOVE the heading, not inside it: the id is the card's top rule (see
+        // `_permalink-tab` and `.idea-tab`), so a titleless note needs no
+        // special case — the tab is the same either way. The title keeps its
+        // span, which nothing styles by default: it stays a hook a project can
+        // reach for, and `#window`'s summary wraps its title the same way.
         let date-span = if date == none { [] } else {
           html.elem("span", attrs: (class: "idea-date"), date)
         }
-        let header = html.elem("h" + str(level + 1), attrs: (id: id, class: cls.join(" ")),
-                  (if ttl == none { [] } else {
-                    html.elem("span", attrs: (class: "idea-title"), ttl)
-                  }) + _permalink(id) + date-span)
+        // The heading element survives even with NO children — a titleless,
+        // dateless note. Its `id` attribute is the note's in-page anchor, the
+        // destination of every `@idea:etal` fragment link, so dropping the
+        // element would break them; `h*.idea:empty` in the stylesheet is what
+        // keeps it from taking any space.
+        let header = _permalink-tab(id) + html.elem(
+          "h" + str(level + 1),
+          attrs: (id: id, class: cls.join(" ")),
+          (if ttl == none { [] } else {
+            html.elem("span", attrs: (class: "idea-title"), ttl)
+          }) + date-span,
+        )
         // Header and body wrap together in one card, HTML/EPUB only — no box
         // for a paged target. The box classes mirror `cls` (tags included)
         // so a tag can style the whole card, not just the heading; the

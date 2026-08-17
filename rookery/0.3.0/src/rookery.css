@@ -9,8 +9,8 @@
    because it is the whole interaction model:
 
      - the summary of a `#window` folds and unfolds. That is all it does.
-     - `.idea-label` — the `[idea:etal]` permalink, beside the title or alone
-       at the top of a titleless window — is the ONLY link inside a window, and it
+     - `.idea-label` — the `[idea:etal]` permalink, on the tab that rules off
+       the top of a card (`.idea-tab`) — is the ONLY link inside a window, and it
        goes to the note's standalone page. (`.idea-ref` is the other anchor
        this package emits, but an author asks for that one by writing
        `@idea:other`; it is prose, not window chrome.)
@@ -29,7 +29,9 @@
      --idea-fold-color   fold-color   hover background on a foldable window block
      --idea-id-color     id-color     the [idea:etal] permalink's text
      --idea-date-color   date-color   an idea's/window's date, where shown
-     --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`
+     --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`,
+                                      and the top tab rule (`.idea-tab`) that
+                                      meets it at the corner
      --idea-external-color            the underline an OUTBOUND link takes on
                                       hover, where an internal one takes the
                                       fill above (defaults to the id colour)
@@ -47,10 +49,11 @@
    Setting them yourself in your own stylesheet works just as well, and wins
    nothing over the Typst-side route — they are the same properties. */
 
-/* The permalink, in both `#idea`'s heading and `#window`'s summary — the same
-   affordance meaning the same thing in both places. Grey and light so it
-   reads as an id rather than as body text, and unstyled by any inherited link
-   decoration so it does not shout inside a heading. `white-space: nowrap`
+/* The permalink, on the tab above `#idea`'s heading and above `#window`'s title
+   — the same affordance meaning the same thing in both places, and in prose on
+   its own where a nested window ran out of depth. Grey and light so it reads as
+   an id rather than as body text, and unstyled by any inherited link decoration
+   so it does not shout. `white-space: nowrap`
    keeps "[idea:etal]" from breaking mid-id. (`idea:` is the default prefix;
    `#show: rookery.with(prefix: ...)` changes the TEXT, never the class.)
 
@@ -83,12 +86,89 @@
   border-radius: 3px;
 }
 
-/* The 0.5em separates the permalink from a TITLE. A titleless note has none —
-   the permalink is the first thing in the heading or summary — and the margin
-   then reads as a stray indent, leaving titleless notes visibly further right
-   than titled ones in the same list. */
+/* The 0.5em separates the permalink from a TITLE it follows — which, since the
+   id moved onto the tab below, is only the case for a permalink standing in
+   ordinary prose (a nested window with no depth budget left). Kept for that one,
+   and for any stylesheet that positioned the id the old way. */
 .idea-label:first-child {
   margin-left: 0;
+}
+
+/* THE TOP RULE. A note's id is not a word in its heading — it is the card's top
+   edge, as wide as the id needs and no wider, with the id straddling it:
+
+     -[idea:etal]-
+     |
+     | Note title
+     | Body text of the note runs on from here...
+
+   The rule is the same `--idea-border-color` as the left rule below, so the two
+   meet at the corner and read as one frame.
+
+   Drawn as two zero-height pseudo-elements with a `border-top` rather than as a
+   background line behind the text: a line that has to break BEHIND the id would
+   need to know the page's background colour, which a package cannot know, and
+   guessing it puts a grey box around every id on a dark site.
+   `align-items: center` is what puts the break at the id's vertical middle
+   instead of at its baseline. */
+.idea-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.idea-tab::before,
+.idea-tab::after {
+  content: "";
+  flex: 0 0 auto;
+  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+}
+
+/* The left stub reaches back across the card's own `padding-left` (0.75em, set
+   on `.idea-box`/`.idea-window` below) so it lands ON the left rule and the
+   corner closes. The right stub is free — it only has to read as a rule. */
+.idea-tab::before {
+  width: 0.75em;
+}
+
+.idea-tab::after {
+  width: 0.5em;
+}
+
+/* `.idea-label`'s 0.5em separates it from a title it follows. In a tab it
+   follows nothing. */
+.idea-tab .idea-label {
+  margin-left: 0;
+}
+
+/* Only inside a card: the negative margin cancels the card's padding-left, and a
+   minted page's <h1> has no such padding to cancel. */
+.idea-box > .idea-tab,
+.idea-window-summary > .idea-tab {
+  margin-left: -0.75em;
+}
+
+/* The tab now carries the space above a note, so the heading under it does not
+   also need the site's (or this package's) heading margin. */
+.idea-tab + h1.idea,
+.idea-tab + h2.idea,
+.idea-tab + h3.idea,
+.idea-tab + h4.idea,
+.idea-tab + h5.idea,
+.idea-tab + h6.idea {
+  margin-top: 0.25em;
+}
+
+/* A titleless, dateless note's heading survives only to carry the `id` anchor
+   every `@idea:etal` fragment link resolves to. It has no content and must take
+   no space. */
+h1.idea:empty,
+h2.idea:empty,
+h3.idea:empty,
+h4.idea:empty,
+h5.idea:empty,
+h6.idea:empty {
+  margin: 0;
 }
 
 /* THE LINK HOVER — every link rookery is responsible for, which is what makes
@@ -370,9 +450,17 @@ h6.idea {
    text baseline despite their three different weights/sizes. */
 .idea-window-summary {
   display: flex;
+  /* The tab is now the first item in this row, and without wrapping it would sit
+     on the same line as the title instead of above it. */
+  flex-wrap: wrap;
   align-items: baseline;
   list-style: none;
   cursor: pointer;
+}
+
+/* Its own line above the title, not another item in the title's row. */
+.idea-window-summary > .idea-tab {
+  flex: 0 0 100%;
 }
 
 .idea-window-summary::marker,

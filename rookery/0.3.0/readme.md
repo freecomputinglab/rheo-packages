@@ -543,7 +543,7 @@ get Typst's plain nested `list()` instead: there is no `.idea-box` rule there
 for an outline to be in line with.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
-`.idea-title`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
+`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
 `.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
 `.idea-outline-row`, on an idea that carries footnotes `.idea-fn-ref`,
@@ -552,7 +552,19 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-references` and on any page with citations of its own
 `.idea-page-refs`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
-`.idea-page-list`, `.idea-page-row`.
+`.idea-page-list`, `.idea-page-row`, `.idea-page-head`.
+
+`.idea-tab` is the span wrapping a note's permalink above its heading: it draws
+the short rule across the top of the card, the id straddling it, in the same
+`--idea-border-color` as the left rule so the two meet at the corner. A bare
+permalink standing in prose — a nested window with no depth budget left — has no
+tab, because there is no card for it to rule off.
+
+On a minted note page there is no `.idea-box`, so `.idea-page-head` wraps the tab
+and the `<h1>` together and is that page's theme container — the element a
+`theme:` override lands on, the way `.idea-box` is on a vertebra. It exists
+because the two have to be siblings for the rule to close the gap above the
+heading; emitted loose, Typst's HTML export wraps the tab in a `<p>` of its own.
 
 The two footer sections have the same shape — a heading with rows flowing down
 from it — because they are the same kind of thing: places this note is
