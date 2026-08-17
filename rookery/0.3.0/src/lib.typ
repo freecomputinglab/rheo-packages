@@ -1839,6 +1839,13 @@
     message: "@rheo/rookery: #window's `depth` must be auto or a non-negative "
       + "integer — got " + repr(depth),
   )
+  // `>= 1`, not `>= 0`: a window showing nothing but an ellipsis truncates
+  // nothing, so `limit: 0` reads as a mistake rather than a request.
+  assert(
+    limit == none or (type(limit) == int and limit >= 1),
+    message: "@rheo/rookery: #window's `limit` must be none or a positive "
+      + "integer (the number of leading blocks to show) — got " + repr(limit),
+  )
   assert(
     tags == none
       or type(tags) == str
@@ -2031,6 +2038,20 @@
 //
 // Must be called INSIDE a `#context` block — it reads `_registry.final()`.
 #let idea-body(name, depth: 0, limit: none) = context {
+  // Both asserts are copied verbatim from `#window`, which takes the same two
+  // parameters with the same meaning — the messages have to agree, or one call
+  // site teaches a rule the other contradicts. `>= 1` on `limit` for the reason
+  // stated there.
+  assert(
+    depth == auto or (type(depth) == int and depth >= 0),
+    message: "@rheo/rookery: #idea-body's `depth` must be auto or a "
+      + "non-negative integer — got " + repr(depth),
+  )
+  assert(
+    limit == none or (type(limit) == int and limit >= 1),
+    message: "@rheo/rookery: #idea-body's `limit` must be none or a positive "
+      + "integer (the number of leading blocks to show) — got " + repr(limit),
+  )
   let id = _pfx() + _norm(name)
   let reg = _registry.final()
   if id not in reg {

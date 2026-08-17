@@ -212,7 +212,9 @@ Three ways, pick by how much ceremony you want:
   label, or an array of names (`#window(("etal", "second"))` renders both in
   order, each its own block). `limit: n` truncates the body to the first `n`
   content-level blocks (paragraphs, grouped list items, ...) plus "…", in
-  every target, not just HTML.
+  every target, not just HTML. `n` must be `none` or a positive integer:
+  `limit: 0` would show an ellipsis and nothing else, which reads as a mistake
+  rather than a request, so it is rejected along with negatives and non-integers.
 
   A limit can no longer land mid-paragraph. One paragraph is one block however
   many inline runs it is made of, so a plain text run and the `raw` span beside
@@ -435,8 +437,9 @@ citations) rather than describe it in a string, one note at a time:
 ```
 
 `limit:` truncates by block, the same unit and the same "…" `#window`'s own
-`limit:` uses — so a paragraph is one block here too, and a limit cannot land
-inside a sentence. `depth:` is the same nested-window budget `#window` takes, but
+`limit:` uses — so a paragraph is one block here too, a limit cannot land inside
+a sentence, and the same `none`-or-positive-integer rule applies.
+`depth:` is the same nested-window budget `#window` takes, but
 defaults to `0` here rather than `auto` — a caller asking for one note's body
 is usually about to show a LOT of them (`@rheo/rookery-search`'s preview
 pane calls this once per note in the whole rookery), and letting each one
