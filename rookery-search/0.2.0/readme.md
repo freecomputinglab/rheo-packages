@@ -359,9 +359,15 @@ without them ever disagreeing about what "best match" means.
   takes, forwarded to `#search-index` unchanged.
 - `preview-limit` — how much of a note's REAL content (see "The preview pane
   shows real content", below) ships in the hidden bodies container, in
-  `#idea-body`'s own block units. 20 by default, generous rather than exact —
-  see `#search-bodies`'s own doc comment for why a "block" is finer-grained
-  than a paragraph.
+  `#idea-body`'s own block units. `none` (no cap) by default — NOT because
+  long notes are free, but because `#idea-body`'s `limit:` has a real,
+  MEASURED bug it inherits from `#window`'s own truncation machinery: cutting
+  a body at a block boundary can silently drop the space between two inline
+  runs (a text run and a `raw` span, say) when they get sliced and rejoined,
+  turning "layers, because" into "layers,because" — reproduced on
+  rookery.ohrg.org's own content. See `#search-bodies`'s doc comment for the
+  full account. Pass a number if a project would rather cap preview size than
+  wait for the underlying fix.
 
 **It is rheo only, and it emits nothing at all without it** — the same two
 reasons as the bar: the script comes from this package's `js_scripts`, and the

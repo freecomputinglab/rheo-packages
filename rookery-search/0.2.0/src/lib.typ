@@ -325,14 +325,25 @@
 // concern like `body-chars` exists to prevent. A caller who genuinely wants
 // a deeper preview calls `#idea-body` directly with its own `depth:`.
 //
-// `limit` bounds how much of a long note's rendering ships on every page,
-// the same size concern `body-chars` answers for the JSON island. It counts
-// BLOCKS in `_blocks`'s sense, which is finer than "paragraphs" — MEASURED:
-// a single paragraph mixing plain text with a link or an emphasis run counts
-// each run as its own block, so a short but link-heavy paragraph can use up
-// more of the budget than its length suggests. The default is generous
-// rather than exact for exactly that reason.
-#let search-bodies(elem-id: "rookery-search-index", limit: 20) = context {
+// `limit` would bound how much of a long note's rendering ships on every
+// page, the same size concern `body-chars` answers for the JSON island — but
+// defaults to `none` (no truncation) rather than a number, because
+// `#idea-body`'s `limit:` has a real, MEASURED bug it inherits from
+// `#window`'s own: `_blocks` (rookery's shared block-splitter) drops the
+// literal space between two adjacent INLINE runs — a text run and a `raw`
+// span, say — when it slices and rejoins them, because it treats every
+// `space` CHILD as pure separator noise to discard, which is right for
+// space between BLOCK-level siblings (a browser draws that from margins, not
+// content) and wrong for a space node found the same way inside a single
+// paragraph's own inline sequence. MEASURED on rookery.ohrg.org, real
+// content: "...three layers, because..." truncated at a low `limit` came out
+// "...three layers,because...". This is `_blocks` itself, not something
+// specific to search-bodies — passing a `limit:` to `#window` can hit the
+// same thing — so the honest fix here is to not truncate by default rather
+// than risk silently mangled preview text. Pass a `limit:` explicitly if a
+// project would still rather cap preview size than wait for `_blocks` to be
+// fixed properly.
+#let search-bodies(elem-id: "rookery-search-index", limit: none) = context {
   if _target() != "html" { return }
   let rows = ideas().filter(e => e.href != none)
   if rows.len() == 0 { return }
@@ -464,7 +475,7 @@
   index: true,
   elem-id: "rookery-search-index",
   body-chars: 1200,
-  preview-limit: 20,
+  preview-limit: none,
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
   assert(
