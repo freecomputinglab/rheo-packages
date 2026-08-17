@@ -575,12 +575,17 @@ now reach the pane at all.
 **The trade: rich previews need http.** `fetch` does not work from `file://`, so
 a build opened straight off disk falls back to the plain-text excerpt from the
 island's own `body` field — centred on the match for a body-tier hit, from the
-start for a name-tier one. That excerpt is also what the pane shows for the
-moment before the fetch lands — with a small muted spinner in the pane's corner
-for as long as that request is in flight, and only for a note not already
-fetched this session — and what it keeps if a note's page 404s. A note
-with no body text at all shows a muted "No preview" line rather than a blank
-pane. Nothing breaks in any of these cases; the pane is simply plainer.
+start for a name-tier one. That fallback is what the pane shows when the request
+cannot succeed: a `file://` build, a note whose page 404s, a hit with no minted
+page at all. A note with no body text shows a muted "No preview" line rather than
+a blank pane. Nothing breaks in any of these cases; the pane is simply plainer.
+
+**Nothing is shown before the fetch lands.** While a request is in flight the pane
+holds a small muted spinner in its corner and no text — the fetched rendering is
+the first and only text it shows. The excerpt used to render synchronously first,
+which meant every selection visibly reflowed from plain text to the same note as
+real content a few milliseconds later: a worse rendering of the thing that was
+about to replace it.
 
 A query that matches NOTHING is a different state again, and the pane says so:
 a muted "No match found" line, rather than the previous query's preview left

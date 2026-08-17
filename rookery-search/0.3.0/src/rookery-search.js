@@ -560,35 +560,53 @@ const wireModal = (dialog, rows) => {
     delete preview.dataset.rookerySearchLoading;
     if (hit === undefined) return;
 
-    // EXCERPT FIRST, synchronously, then the fetched rendering replaces it when
-    // it arrives — rather than an empty pane and a spinner. Two reasons: the
-    // excerpt is already in hand (the island carries it, no request needed), and
-    // it is also the FINAL answer whenever the fetch cannot succeed — a build
-    // opened over `file://`, a note whose page 404s. Nothing has to work out in
-    // advance which of those it is in.
-    renderExcerpt(hit);
-    if (typeof hit.href !== "string" || hit.href === "") return;
-    // THE LOADING AFFORDANCE, and it is an attribute rather than an element: the
-    // pane's content is the excerpt above, which stays put, so all the indicator
-    // has to do is say that something further is on its way. One data attribute
-    // and one `::after` in the stylesheet keeps it out of the content flow
-    // entirely — nothing to append, nothing to remove, and no chance of it
-    // surviving a `replaceChildren` as a stray node.
+    // NO EXCERPT UP FRONT. The fetched rendering is the first and only text this
+    // pane shows; until it lands there is the indicator below and nothing else.
     //
-    // ONLY ON A CACHE MISS. `fetchNote` memoises by href, so a row visited
-    // earlier in the session resolves on a microtask; flagging that would flash
-    // a spinner for one frame every time the reader arrow-keys back up a list
-    // they have already been down.
-    if (!previewCache.has(hit.href)) preview.dataset.rookerySearchLoading = "true";
+    // The excerpt used to render synchronously here, on the reasoning that it was
+    // already in hand and cost no request. What that bought was a visible reflow
+    // on EVERY selection — plain text for a few milliseconds, then the same note
+    // again as real content, a different and worse rendering of the thing about to
+    // replace it. It also pinned the island's `body` field to being readable
+    // prose, which is what stopped that field being compressed into a note's most
+    // distinctive terms.
+    //
+    // `renderExcerpt` stays, as the FAILED-FETCH fallback only: a build opened
+    // over `file://`, a note whose page 404s, a hit with no href at all. Those
+    // are the cases where there is no rendering coming and the excerpt is the
+    // final answer.
+    if (typeof hit.href !== "string" || hit.href === "") {
+      renderExcerpt(hit);
+      return;
+    }
+    // THE LOADING AFFORDANCE, and it is an attribute rather than an element: one
+    // data attribute and one `::after` in the stylesheet keeps it out of the
+    // content flow entirely — nothing to append, nothing to remove, and no
+    // chance of it surviving a `replaceChildren` as a stray node.
+    //
+    // Set whenever there is an href, no longer only on a cache MISS. The
+    // cache-miss guard existed because the pane already held the excerpt, so
+    // flagging a memoised row would flash a spinner over content for one frame
+    // every time the reader arrow-keyed back up a list they had been down. With
+    // the pane empty the indicator IS the pane's only content, and a memoised
+    // href resolves on a microtask — the attribute is set and cleared inside one
+    // task, before a paint, so there is nothing left to flash.
+    preview.dataset.rookerySearchLoading = "true";
     fetchNote(hit.href).then((box) => {
       // Cleared BEFORE the early return, so a miss stops the indicator too: a
       // 404, a `file://` build, a page that is not a minted note all resolve to
-      // `null`, and the excerpt already on screen is the final answer in each
-      // case — an indicator left spinning over it would be promising a
-      // rendering that is never coming. Guarded on the generation like the paint
-      // below it, so a stale request cannot clear a later selection's indicator.
+      // `null`, and an indicator left spinning would be promising a rendering
+      // that is never coming. Guarded on the generation like the paint below it,
+      // so a stale request cannot clear a later selection's indicator.
       if (gen === previewGen) delete preview.dataset.rookerySearchLoading;
-      if (box === null || gen !== previewGen) return;
+      if (gen !== previewGen) return;
+      // The fallback, and the ONLY place the excerpt is rendered for a hit that
+      // had an href: the fetch is settled and it failed, so there is no richer
+      // rendering coming and the island's own text is the final answer.
+      if (box === null) {
+        renderExcerpt(hit);
+        return;
+      }
       const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
       // Cloned, not moved: the cache holds this `<div>` for the rest of the
       // session and `markTermsInNode` edits what it walks.

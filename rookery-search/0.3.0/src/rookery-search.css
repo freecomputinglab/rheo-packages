@@ -306,14 +306,16 @@
     position: relative;
   }
 
-  /* THE LOADING INDICATOR. `data-rookery-search-loading` is set on the pane
-     while the selected note's minted page is being fetched, and only on a cache
-     MISS — see the comment beside it in rookery-search.js. It is a
-     pseudo-element on the pane rather than a node in it because the pane is not
-     empty while it spins: the plain-text excerpt is already there, and the
-     indicator only says that a richer rendering is coming. So it must not
-     participate in the content flow, must not be scrolled away by the excerpt's
-     own overflow, and must not survive a `replaceChildren`.
+  /* THE LOADING INDICATOR. `data-rookery-search-loading` is set on the pane for
+     as long as the selected note's minted page is being fetched — see the comment
+     beside it in rookery-search.js. The pane is EMPTY while it spins: the excerpt
+     no longer renders up front, so the fetched rendering is the first text the
+     pane shows and this is the only thing in it until then.
+
+     Still a pseudo-element rather than a node, for the three reasons it always
+     was: it must not participate in the content flow, must not be scrolled away
+     by the content's own overflow once that content lands, and must not survive a
+     `replaceChildren` as a stray node.
 
      `position: sticky` in the corner, not `absolute`: the pane scrolls, and an
      absolutely positioned indicator would ride the scrolled content up out of
