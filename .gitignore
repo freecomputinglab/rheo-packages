@@ -1,3 +1,22 @@
 .direnv/**
-.beads/**
 
+# Beads: the SQLite db and every lock/runtime file stay machine-local (see
+# .beads/.gitignore), but `issues.jsonl` — br's own full export, rewritten
+# wholesale on every mutation — is TRACKED, so bead state travels between
+# machines instead of living only in one checkout. Rebuild the db from it with
+# `br sync --import-only`.
+#
+# The trade, deliberately accepted: two machines mutating beads produce
+# whole-file conflicts in issues.jsonl, and br reimports from it, so a stale
+# copy can revert a close. Flush before committing, pull before mutating.
+#
+# ORDER MATTERS, and the first line is not redundant: the machine-global ignore
+# (~/.config/git/ignore) excludes `**/.beads/` as a DIRECTORY, and a negation
+# cannot re-enter a directory excluded as a directory. So re-admit the
+# directory first, then exclude its contents, then name the exceptions.
+!/.beads/
+/.beads/*
+!/.beads/.gitignore
+!/.beads/config.yaml
+!/.beads/metadata.json
+!/.beads/issues.jsonl

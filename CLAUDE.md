@@ -151,5 +151,23 @@ manifest's entrypoint already points at.
 
 ## Issue tracking
 
-`.beads/` is gitignored and local-only — never commit it, never `br sync`. Use
-`br` per the global workflow.
+This repo DEPARTS from the global rule that nothing under `.beads/` is
+committed. `.beads/issues.jsonl` — br's own full export — is TRACKED here, so
+bead state travels between machines rather than living in one checkout. The db
+and every lock/runtime file stay machine-local; the repo-root `.gitignore`
+spells out exactly which four files are tracked.
+
+Work `br` per the global workflow otherwise, with two additions:
+
+- On a fresh checkout, build the db from the export: `br sync --import-only`.
+- `br` does NOT reliably re-export after a mutation — MEASURED, a `delete`
+  left the JSONL still holding the deleted issues as open. Run
+  `br sync --flush-only` and check `jj diff .beads/issues.jsonl` before
+  committing, and re-check with `br list` after mutating, since br reimports
+  from the JSONL and a stale copy silently reverts a close.
+
+The prefix is `rp`. Beads for this repo previously lived in the machine-global
+`~/.beads/` db — there was no `.beads/` here, so `br` fell back to it — which
+is why the CLOSED history of the rookery/rookery-search work carries
+`br-vio-core-*` ids and is absent from this repo's db. Source comments citing
+bead ids like `rookery-bib-minted-m6h` refer to that history.
