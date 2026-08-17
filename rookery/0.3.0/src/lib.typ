@@ -2086,7 +2086,16 @@
     if m == none { continue }
     let v = m.value
     if v.title == none { continue }
-    out.push((depth: idea-depth, title: v.title, loc: el.location(), handle: handle))
+    // `tags` with a default, not `v.tags`: this metadata is read on the paged
+    // and no-rheo paths too, and a default costs nothing where a missing key
+    // would panic.
+    out.push((
+      depth: idea-depth,
+      title: v.title,
+      loc: el.location(),
+      handle: handle,
+      tags: v.at("tags", default: ()),
+    ))
   }
 
   // SPINE ORDER, explicitly. `query()` returns document order, and MEASURED
@@ -2176,7 +2185,36 @@
 // holds it (see "Flat ids, and why" in the readme); an index that led with
 // filenames would put that back. Entries link straight to the idea wherever
 // it was written.
-#let ideas-outline(title: auto, depth: none, rookery-wide: false) = context {
+//
+// `tags`/`match` are the same pair `#window` and `ideas()` take, through the
+// same shared `_tag-pred`. What differs is that an outline is a TREE, so a
+// filter cannot be a `.filter()`: `_nest-outline` reads a FLAT depth-tagged run
+// and assumes it is well formed, so a depth-1 entry left behind by a dropped
+// depth-0 parent is silently read as a sibling of whatever came before. Hence
+// `_prune-outline` below, which prunes AND PROMOTES.
+#let _prune-outline(entries, pred) = {
+  if pred == none { return entries }
+  // `kept` holds the ORIGINAL depths of the entries that survived. Popping every
+  // one whose depth is >= the current entry's leaves exactly the surviving
+  // ANCESTORS on the stack, so `kept.len()` is the re-based depth: a matching
+  // idea whose parent was filtered out lands at its nearest kept ancestor's
+  // level rather than dangling at a depth with no parent above it.
+  //
+  // REJECTED: keeping unmatched ancestors as unlinked scaffolding, for context.
+  // It puts notes in the index the filter said to exclude, and this package has
+  // no styling for a row that is not a link.
+  let kept = ()
+  let out = ()
+  for e in entries {
+    while kept.len() > 0 and kept.last() >= e.depth { kept = kept.slice(0, kept.len() - 1) }
+    if pred(e.tags) {
+      out.push((..e, depth: kept.len()))
+      kept.push(e.depth)
+    }
+  }
+  out
+}
+#let ideas-outline(title: auto, depth: none, rookery-wide: false, tags: none, match: "any") = context {
   assert(
     depth == none or (type(depth) == int and depth >= 1),
     message: "@rheo/rookery: #ideas-outline's `depth` must be none or a "
@@ -2187,8 +2225,25 @@
     message: "@rheo/rookery: #ideas-outline's `rookery-wide` must be a boolean "
       + "— got " + repr(rookery-wide),
   )
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #ideas-outline's `tags` must be none, a string, or "
+      + "an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery: #ideas-outline's `match` must be \"any\" or \"all\" "
+      + "— got " + repr(match),
+  )
   let title-content = if title == auto { [Contents] } else { title }
   let entries = _ideas-outline-data(rookery-wide: rookery-wide)
+  // Pruned BEFORE the `depth:` cap, and that order is the whole point: `depth`
+  // then counts levels in the FILTERED tree, so `depth: 1` means "the top level
+  // of what I asked for" rather than "whatever survived from the top level of
+  // everything".
+  entries = _prune-outline(entries, _tag-pred(tags, match))
   if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
 
   // On HTML an explicit `h4` carrying a class, the same shape (and the same
