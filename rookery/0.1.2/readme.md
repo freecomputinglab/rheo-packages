@@ -367,6 +367,9 @@ Each entry is:
 - `text` — that title flattened to a plain string, `""` when there is none.
   Useful for matching, sorting and anything else that wants a string rather
   than something to render.
+- `body` — the note's body flattened to a plain string, `""` when there is
+  none. A plain string, not the content: matchable and excerptable, but not
+  renderable. `@rheo/rookery-search` uses this to rank and preview full text.
 - `href` — a depth-relative link to the note's minted page, from wherever you
   are calling. See `#note-href()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
@@ -376,11 +379,11 @@ their pages appear. Sorting is your business: an id order is the one order
 that is stable across builds, and it makes a diff of generated output mean
 something.
 
-A note's `body`, its `raw` source and its backlinks are deliberately absent.
-The body is the largest thing rookery holds, and handing it out would turn
-every consumer into a second transclusion engine — one that does not agree
-with `#window` about folding, depth or dates. If you want a note rendered,
-render it with `#window`.
+A note's body AS CONTENT, its `raw` source and its backlinks are deliberately
+absent — only the plain-string form above is exposed. Handing out the content
+itself would turn every consumer into a second transclusion engine — one that
+does not agree with `#window` about folding, depth or dates. If you want a
+note rendered, render it with `#window`.
 
 `#note-href(name)` gives you the same link `href` carries, for a note you name
 yourself:

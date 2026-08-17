@@ -2287,6 +2287,40 @@
   } else { "" }
 }
 
+// Plain text of a note's BODY, for `ideas()`. Every registry body has been
+// through `_flatten` since v6y.7, wrapping it in a `show`-rule scope that
+// Typst represents as a `styled` node hanging off `.child` — unwrap that
+// first, the same way `_blocks` above does. Otherwise follows `_plain`'s
+// branches (`.has("text")`, a space element, `.children`, `.body`), except a
+// `parbreak` or `item` emits a boundary space so blocks and list entries
+// don't glue together the way `_plain`'s title walker would let them
+// (MEASURED: without this, "raw code.A second paragraph" loses its
+// paragraph break). `metadata` and anything unrecognised contribute "".
+#let _body-text(c) = {
+  if c == none { "" } else if type(c) == str { c } else if type(c) != content {
+    ""
+  } else {
+    let c = c
+    while repr(c.func()) == "styled" { c = c.child }
+    let f = repr(c.func())
+    if c == none { "" } else if c.func() == metadata { "" } else if f == "parbreak" {
+      " "
+    } else if f == "item" {
+      let inner = if c.has("children") { c.children.map(_body-text).join() } else if c.has(
+        "body",
+      ) { _body-text(c.body) } else { "" }
+      " " + inner + " "
+    } else if c.has("text") { c.text } else if c.func() == [ ].func() { " " } else if c.has(
+      "children",
+    ) { c.children.map(_body-text).join() } else if c.has("body") { _body-text(c.body) } else { "" }
+  }
+}
+
+// Collapses `_body-text`'s raw walk into one search-ready string: runs of
+// whitespace (including the boundary spaces `_body-text` inserts) become a
+// single space, and the ends are trimmed.
+#let _body-plain(c) = _body-text(c).replace(regex("\s+"), " ").trim()
+
 // ---- #note-href — where a note's minted page lives, from here -------------
 //
 //   #context note-href("etal")   // -> "../ideas/etal.html", or none
@@ -2317,15 +2351,18 @@
 //    name:    "etal",          // the id with the prefix stripped
 //    title:   [Et al.],        // the title as CONTENT, or none
 //    text:    "Et al.",        // the same title as plain text, "" if none
+//    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
 //    minted:  datetime or none,
 //    updated: datetime or none)
 //
-// NOT exposed: `raw`, `body` and `links`. A note's body is large, and handing
-// it out would make every consumer a transclusion engine; `links` is backlink
-// plumbing that `.marrow.typ` already owns. Add fields here when a consumer
-// genuinely needs them — this list is a contract other packages depend on, so
-// removing one is a breaking change.
+// NOT exposed: `raw`, `body`-as-CONTENT and `links`. `body` above is a plain
+// STRING derived from `raw` — matchable and excerptable, but not renderable,
+// so it does not make a consumer a transclusion engine the way handing out
+// the content itself would; `links` is backlink plumbing that `.marrow.typ`
+// already owns. Add fields here when a consumer genuinely needs them — this
+// list is a contract other packages depend on, so removing one is a breaking
+// change.
 //
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
@@ -2342,6 +2379,7 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
+        body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         minted: rec.at("minted", default: none),
         updated: rec.at("updated", default: none),
