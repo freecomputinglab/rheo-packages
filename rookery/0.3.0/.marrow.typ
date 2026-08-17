@@ -12,8 +12,10 @@
 //
 // The `<prefix>:` stripped off each id to get a slug comes from `_pfx` (the
 // document-wide prefix state), never a literal — a project running
-// `#show: rookery.with(prefix: "note")` must mint at the same paths lib.typ's
-// `_note-file` links to, and both read the one state.
+// `#show: rookery.with(prefix: "note")` must mint at the same paths lib.typ
+// links to. This file no longer strips it itself for the minting path:
+// `_note-page` returns the slug, the file and the handle together, and reads
+// that one state on this file's behalf.
 //
 // Deliberately does NOT re-declare the note's `<prefix>:<id>` Typst label on the
 // minted page. Two elements sharing one label break every #link/#window/
@@ -36,7 +38,7 @@
 // `ideas/<slug>` is. That is a coincidence of this spine's shape, not a
 // guarantee. Passing the handle makes the depth this page's own property. It
 // mirrors the path — `ideas/<slug>.html` <-> `ideas:<slug>` — with both halves
-// coming from `_IDEA-DIR`/`_note-file`, so minting and linking cannot drift.
+// coming from lib.typ's `_note-page`, so minting and linking cannot drift.
 // The permalink comes from lib.typ's `_permalink-tab` — the same top rule a
 // note wears inside a card — with the href forced to this page's own fragment,
 // because a minted page must not link to itself. Building the <a> by hand here
@@ -70,7 +72,10 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.3.0": _registry, _note-file, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _IDEA-DIR, window
+// Every name here is INTERNAL to `@rheo/rookery` and load-bearing for this
+// file. lib.typ carries the matching "CONSUMED BY .marrow.typ" banner; renaming
+// or re-signing any of them means changing both files in the same commit.
+#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
 
 #context {
   let registry = _registry.final()
@@ -125,7 +130,11 @@
   let minted-depth = _window-depth.final() + 1
 
   for (id, rec) in registry.pairs() {
-    let slug = id.trim(_pfx(), at: start)
+    // Slug, minted path and minted handle from ONE helper, so this file cannot
+    // disagree with what rookery links to (`_note-page`, and the comment above
+    // it in lib.typ).
+    let page-at = _note-page(id)
+    let slug = page-at.slug
     // The note's body as this page renders it, flattened once and reused by
     // all three of the things that need it — the rendering below, the footnote
     // wrapper around it, and the citation walk. `_flatten` is pure, so a
@@ -322,8 +331,8 @@
     // can reach the title, dates, origin and outbound links without querying
     // anything.
     rheo-document(
-      _note-file(id),
-      handle: _IDEA-DIR + ":" + slug,
+      page-at.file,
+      handle: page-at.handle,
       format: "html",
       title: if rec.title == none { slug } else { rec.title },
       if tpl == none { page } else { tpl(id: id, note: rec, page) },

@@ -60,6 +60,55 @@
 // `"@rheo/rookery:0.3.0"` by name.
 #import "pure.typ": *
 
+// ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
+//
+// `.marrow.typ` (this package's own, at the package root) imports SEVENTEEN
+// names from `"@rheo/rookery:0.3.0"`, sixteen of them underscore-private. They
+// are as load-bearing as anything public here, and nothing else in this file
+// says so. RENAMING OR RE-SIGNING ANY OF THEM MEANS CHANGING `.marrow.typ` IN
+// THE SAME COMMIT.
+//
+// The failure mode is why this banner exists rather than a convention. rheo's
+// `package_marrow_source` returns None for a marrow it cannot read instead of
+// erroring, so a broken marrow does not fail a build: the package installs,
+// compiles, and simply mints none of the pages it exists to mint. Nothing goes
+// red. The site just quietly loses every note page.
+//
+//   _registry            the note store; marrow walks `.final()` to mint one
+//                        page per note, and inverts its `links` for backlinks
+//   _note-page           slug + minted path + minted handle for one note, the
+//                        one place that mirror lives (see "Note page URLs")
+//   _pfx                 the `<prefix>:` to strip off a BACKLINK id, for the
+//                        `#window` call that renders the backlinks list
+//   _head                per-page <head> contributions
+//   _permalink           a note's `[idea:x]` permalink
+//   _permalink-tab       the top-rule permalink tab a note wears in a card,
+//                        reused on the minted page with a self-fragment href
+//   _themed              carries the document's theme as inline custom props
+//   _handle-title        the human title of the vertebra a handle names, for
+//                        the Context section's links back into the spine
+//   _page-links          which notes a given PAGE links to directly
+//   _page-href           depth-relative href from this page to another page
+//   _body-at             a note's body at a given nested-window budget
+//   _footnoted           wraps a body with its own Footnotes block
+//   _refs-block          the References block for a set of citation keys
+//   _own-cited-keys      which keys a body cites, minus the windowed ones
+//   _window-depth        the document-wide nested-window budget state
+//   _idea-page-template  the project's own minted-page template, if any
+//   window               public, but listed for completeness: marrow renders
+//                        the backlinks list as folded windows
+//
+// Their DEFINITIONS are deliberately not gathered here. Several (`_footnoted`,
+// `_body-at`) sit where they do because a `#let` closure captures the scope
+// visible at definition time, and moving them to satisfy a banner would break
+// the thing the banner is protecting.
+//
+// NOT COVERED BY CI, and this is the gap: `demo/rheo` is the only thing that
+// proves marrow still mints, and it needs the `rheo` binary, which no published
+// release can supply yet — package-`.marrow.typ` support landed after v0.5.1.
+// Until a release carries it (the same release bead rheo-packages-2ps waits on),
+// this banner and a local `demo/rheo` run are the whole guard.
+
 // The human title of the vertebra a handle names — "Rookery under Rheo" for
 // `index`. Read from `rheo-context`'s `spine-flat`, which every vertebra and
 // every marrow contribution sees identically (it is spine-wide, not per-file),
@@ -330,6 +379,19 @@
 // happen, so both now read this.
 #let _IDEA-DIR = "ideas"
 #let _note-file(id) = _IDEA-DIR + "/" + id.trim(_pfx(), at: start) + ".html"
+
+// The three halves of one note page, in one place: the slug, the file
+// `.marrow.typ` mints it to, and the handle it mints it under. `.marrow.typ`
+// used to derive all three itself — `id.trim(_pfx(), at: start)` for the slug,
+// `_note-file(id)` for the path, `_IDEA-DIR + ":" + slug` for the handle — which
+// is the mirroring the comment above worries about, spelled out across two
+// files. Now the mirror lives here and marrow reads it.
+//
+// Must be called from inside `context`: `_pfx` reads the prefix state.
+#let _note-page(id) = {
+  let slug = id.trim(_pfx(), at: start)
+  (slug: slug, file: _note-file(id), handle: _IDEA-DIR + ":" + slug)
+}
 
 // Depth-relative href from the CURRENT page to a note's standalone page, or
 // `none` when no such page exists to link to:
