@@ -1,2 +1,16 @@
 default:
     @echo "rookery: pure Typst package, entrypoint is src/lib.typ directly — nothing to build"
+
+# Unit fixture for the pure helpers. No runner: `assert.eq` inside `test/units.typ`
+# fails the compile with a line number, and a passing compile is the green light.
+#
+# `--root .` so the fixture's `#import "/src/lib.typ"` resolves against THIS
+# package (not the `../..` that `demo/pure` needs — that file sits two levels
+# down, this one sits at the package root). `--features html` is mandatory
+# regardless of output format: `std.target` is gated by the feature, and
+# `src/lib.typ` reads it at import time. `--format pdf` with a `/dev/null`
+# output because typst cannot infer a format from that path, and nothing here
+# is rendered — only asserted.
+test:
+    typst compile --features html --root . --format pdf test/units.typ /dev/null
+    @echo "units OK"
