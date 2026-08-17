@@ -121,14 +121,16 @@
 .idea-tab::after {
   content: "";
   flex: 0 0 auto;
-  border-top: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-top: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
 }
 
 /* The left stub reaches back across the card's own `padding-left` (0.75em, set
-   on `.idea-box`/`.idea-window` below) so it lands ON the left rule and the
-   corner closes. The right stub is free — it only has to read as a rule. */
+   on `.idea-box`/`.idea-window` below) PLUS the 2px of the left rule itself, so
+   it ends on that rule's OUTER edge and the corner has no notch in it. At 1px
+   the shortfall was invisible; at 2px it is a gap you can see. The right stub is
+   free — it only has to read as a rule. */
 .idea-tab::before {
-  width: 0.75em;
+  width: calc(0.75em + 2px);
 }
 
 .idea-tab::after {
@@ -183,7 +185,7 @@
 .idea-window-summary > .idea-tab {
   line-height: 1;
   margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem));
-  margin-left: -0.75em;
+  margin-left: calc(-0.75em - 2px);
 }
 
 /* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
@@ -415,7 +417,7 @@ figure:has(> .idea-window) {
    level, rather than one ever-growing indent. */
 .idea-box,
 .idea-window {
-  border-left: 1px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-left: 2px solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
   padding-left: .75em;
 }
 
@@ -792,12 +794,28 @@ h6.idea {
    neither survives halving the padding alone, which detaches the bullet from
    the rule and looks, at a glance, merely a bit tighter.
 
-   `border-left` deliberately does NOT halve. A hairline is 1px at every width;
-   0.5px renders inconsistently across displays and on some not at all. */
+   `border-left` deliberately does NOT halve: the rule is 2px at every width. A
+   phone showing a 1px rule would read as a different design rather than a
+   tighter one, and the fractional widths that halving invites render
+   inconsistently across displays and on some not at all.
+
+   THE TAB'S OFFSET DOES halve, and must. Its `margin-left` cancels this
+   `padding-left` (plus the rule's own 2px), so leaving it at the desktop value
+   would drag the id 0.375em to the left of the corner it is supposed to sit on —
+   and `::before`'s width, which spans the same distance, with it. */
 @media (max-width: 600px) {
   .idea-box,
   .idea-window {
     padding-left: .375em;
+  }
+
+  .idea-box > .idea-head > .idea-tab,
+  .idea-window-summary > .idea-tab {
+    margin-left: calc(-0.375em - 2px);
+  }
+
+  .idea-tab::before {
+    width: calc(0.375em + 2px);
   }
 
   .idea-outline {
