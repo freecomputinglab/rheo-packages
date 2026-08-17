@@ -365,6 +365,52 @@ Where the output is a single document — the combined PDF, or plain `typst
 compile` with no rheo — the two forms agree and both list everything. That is
 the same set: there is only one page.
 
+**`tags:` and `match:`** are the same pair `#window` and `#ideas()` take,
+through the same shared predicate: `tags:` is `none`, a string or an array of
+strings, `match:` is `"any"` (the default) or `"all"`. An empty array
+(`tags: ()`) is no filter at all rather than a filter matching nothing — asking
+for none of the tags is not the same as asking for a tag no note has.
+
+```typst
+#ideas-outline(tags: "todo")
+#ideas-outline(tags: ("todo", "phd"))               // ANY of them
+#ideas-outline(tags: ("todo", "phd"), match: "all") // ALL of them
+#ideas-outline(title: [Open], filter: t => "todo" in t and "done" not in t)
+```
+
+**`filter:`** is a predicate of your own over the note's TAG ARRAY, returning a
+boolean, ANDed with `tags:`/`match:` when both are given — both must hold, never
+either. It exists because `tags:`/`match:` can say "any of these" and "all of
+these" and nothing else: they cannot say `phd` but NOT `draft`, nor
+`(phd AND draft) OR todo`. Keyword parameters for those would be a filter
+language grown one special case at a time (`exclude:`, then `any-of:`, then
+nested groups), and a Typst function value already is that language. It sees the
+tag array and nothing else — no title, no id, no depth.
+
+**A filter prunes AND PROMOTES.** A matching note whose parent does NOT match is
+re-based to its nearest KEPT ancestor's level, so the tree never shows a hole
+where an excluded parent was. MEASURED on `Top` (tagged `phd`) > `Mid`
+(untagged) > `Deep` (tagged `phd`): `#ideas-outline(tags: "phd")` renders `Top`
+with `Deep` nested directly under it, one level shallower than the unfiltered
+outline puts it. Keeping unmatched ancestors as unlinked scaffolding was
+rejected — it would put notes in the index the filter said to exclude.
+
+**`depth:` counts levels in the FILTERED tree**, because pruning happens BEFORE
+the depth cap. MEASURED on the same three notes,
+`#ideas-outline(tags: "phd", depth: 1)` renders `Top` alone: `depth: 1` means
+"the top level of what I asked for", not "whatever survived from the top level
+of everything".
+
+**A filtered outline that matches nothing renders NOTHING AT ALL, heading
+included.** An unfiltered empty outline still prints its heading — that case is
+unchanged, and the two differ on purpose. An empty unfiltered outline is an
+answer ("here are this page's notes", there are none, the heading is the
+sentence); an empty filtered one is a promise the filter already ruled out, and
+a `#ideas-outline(title: [Todos], tags: "todo")` carried on every section would
+otherwise render a "Todos" heading over emptiness on every section without one.
+`depth:` deliberately does not count as a filter here: it drops levels below the
+first, so it cannot empty an outline that had anything in it at all.
+
 ## The corpus, as data
 
 `#ideas()` hands you the whole rookery as a plain array of dictionaries. It is
@@ -586,6 +632,19 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
 `.idea-page-list`, `.idea-page-row`, and around every note's header `.idea-head`.
 
+An outline ROW carries the note's tags too, built the same way `#idea` builds
+them for a note's heading and its card — one convention, three emission sites,
+so a site that styles a todo note in the body can style the same note's row in
+the index. MEASURED: a `#todo` row is
+`<li class="idea-outline-row idea-tag-todo">`, a two-tag note's row is
+`<li class="idea-outline-row idea-tag-phd idea-tag-draft">` in the author's own
+order, and an untagged note's row is exactly `<li class="idea-outline-row">`.
+This is also the zero-API half of tag filtering: with the classes there, a site
+can grey, badge or hide rows in its own CSS with no Typst-side filter at all.
+The package ships NO default rule for any `.idea-tag-*`, here or on a note —
+`#note`/`#todo` are sugar, not a recognised set, and styling one would invent an
+opinion.
+
 `.idea-tab` is the span wrapping a note's permalink above its heading: it draws
 the short rule across the top of the card, the id straddling it, in the same
 `--idea-border-color` as the left rule so the two meet at the corner. A bare
@@ -655,6 +714,15 @@ tagged subset of your notes without reaching into rookery's internals.
 
 Rookery uses this itself: `#window(tags: ...)` transcludes every note carrying
 a tag, alongside any it was given by name. See "Referencing a note" above.
+`#ideas-outline(tags: ..., match: ..., filter: ...)` narrows an INDEX the same
+way — see "Outlining notes" above.
+
+Filtering an index by a tag does not make tags a taxonomy or a task tracker
+either, though it is the feature that most invites the opposite reading.
+`tags: "todo"` looks like a status field and is not one: nothing validates the
+string, no tag is recognised or reserved, a note carrying `todo` means only that
+you wrote `todo` on it, and a filter is a question asked at one call site rather
+than a schema the rookery holds you to. Free-form array of strings, still.
 
 ## Dates
 
