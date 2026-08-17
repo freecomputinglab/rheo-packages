@@ -1,0 +1,166 @@
+/* rookery-search — default styling for the search bar.
+
+   Thin on purpose, like rookery's own stylesheet: enough that the input and
+   its dropdown read correctly out of the box, and nothing that presumes a page
+   design. No fonts, no font sizes, no page colours — only the affordances.
+
+   RHEO ONLY, but there is nothing to guard. `#search-bar` emits no markup
+   without rheo, so these selectors simply never match; the file is inert
+   rather than conditional.
+
+   THE LAYER, and why it is not optional. rheo links a PACKAGE's stylesheet
+   AFTER the project's own (`crates/core/src/assets/mod.rs` pushes user pairs
+   first, package pairs second, and emits the <link>s in that order). So on
+   equal specificity this file would win every tie, and a project could not fix
+   it by writing its rule "later" — there is no later. Wrapping everything in a
+   cascade layer named `rookery-search` inverts that: any UNLAYERED rule in the
+   project's CSS beats any layered rule here, whatever its specificity or
+   position. A plain `.rookery-search-input { border: 2px solid red }` in the
+   site's own stylesheet just works — no importance flags, no specificity arms
+   race. That is the guarantee, and it is why nothing in this file sits outside
+   the layer.
+
+   THE PROPERTIES. Every colour and size is `var(--x, <default>)`, the default
+   being the literal in the var() call right here. Set one on `.rookery-search`
+   (or anywhere it inherits from) and you have themed the bar without
+   overriding a rule at all:
+
+     --rookery-search-fg          text in the input and in a row
+     --rookery-search-bg          input and dropdown background
+     --rookery-search-border      input border, and the dropdown's edge
+     --rookery-search-radius      corner radius, both
+     --rookery-search-hover       row hover/focus background
+     --rookery-search-id-color    the `idea:etal` id beside a row's title
+     --rookery-search-width       the input's width
+     --rookery-search-max-width   how wide the dropdown may grow before its
+                                  longest row wraps; it hugs its content below
+                                  that, so this is a ceiling, not a width
+     --rookery-search-max-height  the dropdown's scroll cap
+     --rookery-search-z           the dropdown's stacking order
+
+   Three of those colours fall back to ROOKERY's own theme properties before
+   their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`,
+   and the border through `--idea-border-color` to the same place a note's left
+   rule and an outline's take their colour from. So a site that sets
+   `#show: rookery.with(theme: (link-color: ...))` tints the search bar to match
+   its notes for free, and the two packages stay uncoupled in Typst: the
+   agreement is made here, in CSS, by name.
+
+   That fallback only reaches the bar where a rookery element is an ANCESTOR of
+   it, since `--idea-*` arrives as an inline property on `.idea-box` and its
+   kin. A bar in a site's header — the usual place — inherits from `<body>` and
+   sees none of them, so set `--rookery-search-border` there explicitly. */
+
+@layer rookery-search {
+  .rookery-search {
+    position: relative;
+    /* Inline-block, not block: the bar is phrasing content and has to sit
+       mid-sentence, in a heading or in a table cell without breaking the line
+       box. A project wanting a full-width bar sets `display: block` and wins,
+       because of the layer. */
+    display: inline-block;
+  }
+
+  .rookery-search-input {
+    font: inherit;
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-radius: var(--rookery-search-radius, 4px);
+    padding: 0.25em 0.5em;
+    width: var(--rookery-search-width, 16em);
+  }
+
+  .rookery-search-results {
+    /* `display: block` is required, not cosmetic: the results container is a
+       <span>, because a <div> inside a paragraph would be invalid HTML and
+       would rule out embedding the bar mid-sentence. */
+    display: block;
+    position: absolute;
+    /* Above a sticky site header, which is the thing a dropdown most often
+       has to clear — and high enough by default that a site does not discover
+       the problem only once results are overlapping its chrome. Raise it with
+       the property rather than by writing a rule. */
+    z-index: var(--rookery-search-z, 1000);
+    /* WIDER THAN THE INPUT, and sized to its content. A row is a title with
+       its bracketed id trailing after it, and an input sized for typing into
+       is not wide enough to hold both: at the input's width even a short title
+       wraps against its own id. So the panel takes the width of its longest
+       row and no more.
+       `max-content` is right BECAUSE the row flows left. While the id was
+       pinned to the right-hand edge, a content-sized panel meant every row's
+       id hung off the end of the longest one, with a ragged trench of empty
+       space between each title and its own id — so the width had to be fixed
+       to keep that gap honest. Now that the id sits directly after the title, the only
+       thing width controls is how much empty margin trails the longest row,
+       and hugging the content is simply the tighter answer.
+       `min-width` keeps it from ever being narrower than the input it hangs
+       from, and the `min()` in `max-width` is a floor under the property
+       rather than a second knob: whatever cap a site asks for, the panel still
+       cannot grow past the viewport it has to fit inside. Without that, a cap
+       generous enough for a desktop header spills off the side of a phone.
+       Anchored at the LEFT edge of the input, so it extends rightward. A bar
+       sitting at the right-hand end of a header wants the opposite — set
+       `left: auto; right: 0` in your own stylesheet, which is what this
+       package's own docs site does. */
+    left: 0;
+    right: auto;
+    width: max-content;
+    min-width: 100%;
+    max-width: min(var(--rookery-search-max-width, 28em), calc(100vw - 2rem));
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-radius: var(--rookery-search-radius, 4px);
+    max-height: var(--rookery-search-max-height, 20em);
+    overflow-y: auto;
+  }
+
+  /* Visibility is driven off the wrapper's state attribute, which the script
+     owns, rather than a class it toggles — one source of truth for "open". */
+  .rookery-search[data-rookery-search-open="false"] .rookery-search-results {
+    display: none;
+  }
+
+  /* A row reads the way a note reads inline: its title, then its bracketed id
+     trailing after it. Plain inline flow rather than a flex row with the id
+     pushed to the far edge — spacing the two apart made them look like two
+     columns of a table, which is a claim that the id is a separate FIELD
+     rather than the note's own name for itself. Left-aligned and adjacent,
+     they read as one label.
+     Undecorated, because the title is not a link inside a row; the whole row
+     is. Note that a site whose own `a { text-decoration: underline }` sits
+     outside a cascade layer will beat this — layered loses to unlayered — so
+     an underline here is the site's to turn off, in the site's stylesheet. */
+  .rookery-search-row {
+    display: block;
+    padding: 0.25em 0.5em;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Focus as well as hover: the dropdown is keyboard-reachable, and a row a
+     reader has tabbed to must look the same as one they are pointing at. */
+  .rookery-search-row:hover,
+  .rookery-search-row:focus {
+    background-color: var(
+      --rookery-search-hover,
+      var(--idea-link-color, rgba(128, 0, 255, 0.12))
+    );
+  }
+
+  /* Same size as the title it follows, deliberately unlike `.idea-label`
+     inline, which is set small so an id does not compete with the heading it
+     sits beside. Here there is no heading to compete with — a result is one
+     line of small text already, and shrinking half of it again just makes the
+     id hard to read. Colour still separates the two.
+     `nowrap` so a bracketed id never breaks across lines; a long title wraps
+     and the id follows it, exactly as it would in prose. */
+  .rookery-search-id {
+    color: var(--rookery-search-id-color, var(--idea-id-color, gray));
+    margin-left: 0.4em;
+    white-space: nowrap;
+  }
+}
