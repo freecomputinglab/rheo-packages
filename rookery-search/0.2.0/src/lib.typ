@@ -98,27 +98,75 @@
   points
 }
 
-// ---- #search-ideas — fuzzy lookup over a rookery's ids and titles ---------
+// Full-text AND match over a note's body: `none` unless every whitespace-split
+// term in `query` appears somewhere in `body`, otherwise an integer score,
+// higher is better. Deliberately NOT `fuzzy-score` — that is a subsequence
+// matcher, good over a 40-character id but useless over a 2000-character body,
+// where its length term (line 97) clamps to 0 for nearly everything and the
+// surviving score is noise.
 //
-//   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47), ..)
+// AND across terms — every term must appear — is what keeps a multi-word
+// query from behaving like an OR and dragging in the whole corpus.
+//
+// +6 for the whole query appearing as one contiguous phrase; +2 per term for
+// simply being present; up to +3 per term for appearing early, in coarse
+// 200-CLUSTER buckets. Clusters, not bytes: `str.position` returns a byte
+// offset and JavaScript's `indexOf` returns a UTF-16 offset, and those
+// disagree the moment a body contains a non-ASCII character — counting
+// clusters is the one measure both languages can produce identically, the
+// same reason `fuzzy-score` already works in `.clusters()`.
+//
+// Integer arithmetic throughout, same reason as `fuzzy-score` (line 69):
+// `src/rookery-search.js` ports this rule for the live bar and `just parity`
+// diffs the two number for number.
+#let body-score(body, query) = {
+  let h = _fold(body)
+  let q = _fold(query)
+  if q.trim() == "" { return none }
+  let terms = q.split(" ").filter(t => t != "")
+  if terms.len() == 0 { return none }
+  for term in terms {
+    if not h.contains(term) { return none }
+  }
+  let points = 0
+  if h.contains(q) { points += 6 }
+  for term in terms {
+    points += 2
+    let i = h.position(term)
+    let cl = h.slice(0, i).clusters().len()
+    points += calc.max(0, 3 - int(cl / 200))
+  }
+  points
+}
+
+// ---- #search-ideas — fuzzy lookup over a rookery's ids, titles and bodies -
+//
+//   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47, kind: "name"), ..)
 //
 // Returns a plain ARRAY of dictionaries — every field `@rheo/rookery`'s
-// `ideas()` provides (id, name, title, text, href, minted, updated) plus
-// `score` — so a caller renders it however it likes. Pure Typst: no rheo
-// needed, though `href` is `none` without it (nothing mints note pages), in
-// which case a caller links with `#link(label(id))` instead.
+// `ideas()` provides (id, name, title, text, body, href, minted, updated)
+// plus `score` and `kind` — so a caller renders it however it likes. Pure
+// Typst: no rheo needed, though `href` is `none` without it (nothing mints
+// note pages), in which case a caller links with `#link(label(id))` instead.
 //
-// MATCHES ON id AND TITLE, taking the better of the two scores, because both
-// are things an author remembers a note by: the id is what they type into
-// `#window`, the title is what they read. The BODY is deliberately not
-// searched — that is a full-text index, a different thing, and it would make
-// every note match almost every query. Tags are not searched either; that is a
-// deliberate deferral (rookery's records do not carry them yet — see bead
+// TWO TIERS, not one blended number. `kind: "name"` rows — matched on id or
+// title, via `fuzzy-score`, taking the better of the two — always sort above
+// every `kind: "body"` row — matched only on body text, via `body-score`. A
+// body match and a title match are not the same KIND of evidence, and a
+// reader looking for a note by name must never have it pushed below some
+// other note that happens to mention the word six times; tiering says that
+// plainly, where a weighted sum would only approximate it and need constant
+// retuning. `kind` is what the modal's preview pane uses to decide whether to
+// show a snippet. Tags are not searched at all; that is a deliberate deferral
+// (rookery's records do not carry them yet — see bead
 // rheo-packages-rookery-labels-dpq).
 //
-// ONE sort, not two: `ideas()` already returns the corpus in id order and
-// Typst's sort is stable, so sorting by score alone leaves ties in id order
-// and the ranking is reproducible between builds.
+// TWO SORTED PASSES CONCATENATED, not one sort on a compound key: Typst's
+// `.sorted(key:)` wants a comparable key and an array key is not reliably one
+// here. Each tier is filtered out, sorted by score descending, and the two are
+// joined — `limit:` is applied to the concatenation, not per tier. Ties stay
+// in id order either way, because `ideas()` returns id-ordered rows and
+// Typst's sort is stable — that guarantee must survive within each tier.
 //
 // Must be called INSIDE a `#context` block — `ideas()` reads a `state`'s
 // `.final()`. It is not itself a context function, because a context function
@@ -134,17 +182,26 @@
     message: "@rheo/rookery-search: #search-ideas' `limit` must be none or a "
       + "non-negative integer — got " + repr(limit),
   )
-  let out = ()
+  let name-hits = ()
+  let body-hits = ()
   for e in ideas() {
     let s-name = fuzzy-score(e.name, query)
     let s-text = if e.text == "" { none } else { fuzzy-score(e.text, query) }
-    let score = if s-name == none {
+    let name-score = if s-name == none {
       s-text
     } else if s-text == none { s-name } else { calc.max(s-name, s-text) }
-    if score == none { continue }
-    out.push((..e, score: score))
+    if name-score != none {
+      name-hits.push((..e, score: name-score, kind: "name"))
+      continue
+    }
+    let body-score-val = body-score(e.at("body", default: ""), query)
+    if body-score-val != none {
+      body-hits.push((..e, score: body-score-val, kind: "body"))
+    }
   }
-  out = out.sorted(key: e => -1 * e.score)
+  name-hits = name-hits.sorted(key: e => -1 * e.score)
+  body-hits = body-hits.sorted(key: e => -1 * e.score)
+  let out = name-hits + body-hits
   if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
 }
 
