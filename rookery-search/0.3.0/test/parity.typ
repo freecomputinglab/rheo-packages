@@ -1,7 +1,10 @@
 // The parity fixture. `test/parity.mjs` reads this via `typst eval` and diffs
 // every score against `score` in `src/rookery-search.js`. Not shipped: the
 // release archive tars `dist/`, which vite builds from `src/` alone.
-#import "/src/lib.typ": _rank, body-score, fuzzy-score
+#import "/src/lib.typ": (
+  _fold, _rank, body-score, eval-tag-query, fuzzy-score, parse-tag-query,
+  split-query,
+)
 #let cases = (
   ("flat-ids", "flat"), ("flat-ids", "flat ids"), ("flat-ids", "flat-ids"),
   ("windows", "window"), ("window-depth", "window"), ("windows", "windows"),
@@ -127,3 +130,50 @@
     kinds: hits.map(h => h.kind),
   )
 })) <tier-parity>
+
+// A fourth fixture, for the `tags:` query parser and its evaluator — the one
+// rule here whose output is not a number. It is diffed AS DATA: a flattened RPN
+// string, the residual text, and a boolean per fixed tag set, all three of which
+// a JavaScript twin can produce character for character. That is the whole
+// reason the parser is shunting-yard and emits a token array (see
+// `parse-tag-query`), rather than a recursive descent whose only comparable
+// output would be its final verdict.
+//
+// THESE 19 CASES ARE THE EXACT SET THE SPIKE VERIFIED — do not thin them out.
+// They are the only place precedence, `!`'s right-associativity, the frozen
+// escape set, folding, the space that ends an expression, and every repair path
+// (`unclosed-open`, `unmatched-close`, a dangling operator, a trailing `\`) are
+// pinned. A case that looks redundant is holding one of those down.
+//
+// Note that `\\` in a Typst string literal is ONE backslash in the query, which
+// is what a reader would actually type: `"tags:a\\&b"` is the query `tags:a\&b`.
+#let tag-cases = (
+  "tags:(a|b)&c", "tags:a|b&c", "tags:!draft", "tags:!(draft|todo)&note",
+  "tags:draft window depth", "tags:draft   window  depth ", "tags:a\\&b",
+  "tags:a\\|b|c", "tags:\\(paren\\)", "tags:a\\ b", "tags:(a|", "tags:a&",
+  "tags:)a", "tags:", "tags:a\\", "TAGS:note", "window depth",
+  "tags:note&&draft", "tags:((note))",
+)
+// One fixed ladder of tag sets, evaluated for EVERY case, so the runner compares
+// a whole boolean row rather than a single verdict — the last set is the untagged
+// note, which is where a negation has to keep working.
+#let tag-sets = (("note",), ("note", "draft"), ("draft",), ("a", "c"), ("b", "c"), ())
+#let _rpn-str(rpn) = {
+  let s = rpn.map(t => if t.at(0) == "atom" { "\"" + t.at(1) + "\"" } else { t.at(1) }).join(" ")
+  // `array.join()` on an EMPTY array returns `none`, not `""` (MEASURED, and
+  // documented at `#search-index` in `src/lib.typ`), and an empty RPN is a case
+  // here twice over — `tags:` and `window depth` both produce one.
+  if s == none { "" } else { s }
+}
+// `eval-tag-query` wants FOLDED tags (its atoms are folded at push time), so the
+// fixture folds each set with `_fold` exactly as a real caller must — the one
+// step a port could skip and still look right on ASCII single-word tags.
+#metadata(tag-cases.map(c => {
+  let r = split-query(c)
+  (
+    query: c,
+    rpn: _rpn-str(r.rpn),
+    text: r.text,
+    evals: tag-sets.map(ts => eval-tag-query(r.rpn, ts.map(_fold))),
+  )
+})) <tag-parity>
