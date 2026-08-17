@@ -913,11 +913,12 @@ at all.
 
 ## Limitations
 
-- **`#window` expands exactly ONE level.** A note transcluded via `#window`
-  renders its content once; if that content itself contains a `#window`, the
-  inner one collapses to its own `[idea:x]` permalink instead of expanding
-  further. This is deliberate and permanent (it's what makes self-windows and
-  window cycles safe to compile), not a tunable depth.
+- **`#window` expands one level by default.** A note transcluded via `#window`
+  renders its content once, and a `#window` inside that content collapses to
+  its own `[idea:x]` permalink; `window-depth: n` (or `depth: n` on one call
+  site) unfurls `n` further levels before collapsing. What is permanent is that
+  the budget is finite — that is what makes self-windows and window cycles safe
+  to compile. See "Nested windows, and `window-depth`" above.
 - An author's own `<label>` written inside a note's body is duplicated if
   that note is transcluded elsewhere — a note owns exactly one id, attached
   by `#idea` itself.
