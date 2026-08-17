@@ -1130,11 +1130,27 @@
 // visible AT DEFINITION time and `_flatten` (below) is one of the three
 // callers. A `none` limit means no truncation; the callers assert away `0` and
 // negatives before reaching this, so it validates nothing itself.
+//
+// Joined with `parbreak()`, not with nothing. `_blocks` drops the `parbreak`
+// children that separated the blocks — right, because a block is not its
+// separator — and putting them back is this join's job. MEASURED before it did:
+// a two-block truncation rendered as
+// `Only three layers, <code>because</code> derived.Second paragraph here. …`,
+// one run of inline content with no space, no break, and no `<p>` wrappers at
+// all, where the same note UNtruncated emits one `<p>` per paragraph. Typst's
+// HTML export decides paragraphs by the `parbreak`s it finds, so restoring them
+// restores the `<p>`s with them.
+//
+// No separator before the ellipsis, so it trails the last kept block rather
+// than standing apart from it. MEASURED, and the two cases differ for a reason:
+// after a paragraph it lands INSIDE that `<p>`, which reads as "this paragraph
+// continues"; after a grouped list it comes out as its own `<p>` after the
+// `</ul>`, because an ellipsis cannot sit inside a list. Both are right.
 #let _truncate(body, limit) = {
   if limit == none { return body }
   let bs = _blocks(body)
   if bs.len() <= limit { return body }
-  bs.slice(0, limit).join() + [#text(gray)[ ... ]]
+  bs.slice(0, limit).join(parbreak()) + [#text(gray)[ ... ]]
 }
 
 // ONE rendering of ONE window — summary row, disclosure, body — shared by

@@ -19,6 +19,7 @@
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _dedup-tag, _is-inline,
   _join, _nest-outline, _norm, _note-file, _plain, _sort-ids, _tag-pred,
+  _truncate,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -148,6 +149,20 @@
 // An unrecognised element is a block, so it keeps the pre-list behaviour.
 #assert(not _is-inline(table(columns: 1, [a])))
 #assert(not _is-inline(figure([a])))
+
+// ---- _truncate — the ONE `limit:` truncation, joined with a parbreak -------
+#let _three-paras = [One.#parbreak()Two.#parbreak()Three.]
+// `none` is not a truncation: the body comes back untouched, identity included,
+// because the three call sites pass their own `limit:` straight through.
+#assert(_truncate(_three-paras, none) == _three-paras)
+// A limit at or above the block count is not one either.
+#assert(_truncate(_three-paras, 3) == _three-paras)
+#assert(_truncate(_three-paras, 9) == _three-paras)
+// Below it: the kept blocks plus the ellipsis, and NOTHING dropped between them
+// — the join re-inserts the `parbreak` `_blocks` discarded, which is what makes
+// typst's HTML export emit one `<p>` per kept block instead of one run-on.
+#assert.eq(_body-plain(_truncate(_three-paras, 2)), "One. Two. …")
+#assert.eq(_blocks(_truncate(_three-paras, 2)).len(), 2)
 
 // ---- _tag-pred — an EMPTY tags array is no filter, not match-nothing ------
 #assert.eq(_tag-pred(none, "any"), none)
