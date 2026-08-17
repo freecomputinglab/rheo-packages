@@ -25,12 +25,20 @@ import BOTH in its own `.typ` files — see that package's readme for why.
 ## Local development against a live rheo project
 
 `@rheo/<pkg>` resolves from the Typst package cache
-(`~/.cache/typst/packages/rheo/<pkg>`). For local iteration, symlink the
-in-repo package into the cache (mirrors how `justify` is wired):
+(`~/.cache/typst/packages/rheo/<pkg>`). The whole NAMESPACE is symlinked at once
+on this machine, so every package and every version directory already resolves
+live out of the repo with no per-package step:
 
 ```sh
-ln -sfn "$PWD/<pkg>" ~/.cache/typst/packages/rheo/<pkg>
+ln -sfn "$PWD" ~/.cache/typst/packages/rheo   # one time, per machine
 ```
+
+Do NOT symlink a single package into the cache
+(`ln -sfn "$PWD/<pkg>" ~/.cache/typst/packages/rheo/<pkg>`). Under the namespace
+symlink the link argument resolves back into the repo, where `<pkg>/` already
+exists — and `ln -sfn TARGET DIR` on an existing directory writes the link
+*inside* it, leaving a self-referential `<pkg>/<pkg>` symlink that jj reports as
+a new file.
 
 Then `just build` the package (skip this for a dist-less pure-Typst package —
 see "Pure-Typst packages" below) and `rheo compile` a test project that
