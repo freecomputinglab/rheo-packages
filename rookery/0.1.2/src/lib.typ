@@ -2296,6 +2296,15 @@
 // don't glue together the way `_plain`'s title walker would let them
 // (MEASURED: without this, "raw code.A second paragraph" loses its
 // paragraph break). `metadata` and anything unrecognised contribute "".
+//
+// BUG FIX, MEASURED: `array.join()` on an EMPTY array returns `none`, not
+// `""` — an idea with an empty body (`#idea("x")[]`) has a `sequence` node
+// with zero children, and the naive `c.children.map(_body-text).join()`
+// therefore returned `none` and crashed the caller's `.replace(...)`. Both
+// join call sites below go through `_join`, which special-cases the empty
+// array.
+#let _join(arr) = if arr.len() == 0 { "" } else { arr.join() }
+
 #let _body-text(c) = {
   if c == none { "" } else if type(c) == str { c } else if type(c) != content {
     ""
@@ -2306,13 +2315,13 @@
     if c == none { "" } else if c.func() == metadata { "" } else if f == "parbreak" {
       " "
     } else if f == "item" {
-      let inner = if c.has("children") { c.children.map(_body-text).join() } else if c.has(
+      let inner = if c.has("children") { _join(c.children.map(_body-text)) } else if c.has(
         "body",
       ) { _body-text(c.body) } else { "" }
       " " + inner + " "
     } else if c.has("text") { c.text } else if c.func() == [ ].func() { " " } else if c.has(
       "children",
-    ) { c.children.map(_body-text).join() } else if c.has("body") { _body-text(c.body) } else { "" }
+    ) { _join(c.children.map(_body-text)) } else if c.has("body") { _body-text(c.body) } else { "" }
   }
 }
 
