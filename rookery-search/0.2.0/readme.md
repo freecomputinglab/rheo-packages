@@ -448,6 +448,10 @@ moment before the fetch lands, and what it keeps if a note's page 404s. A note
 with no body text at all shows a muted "No preview" line rather than a blank
 pane. Nothing breaks in any of these cases; the pane is simply plainer.
 
+A query that matches NOTHING is a different state again, and the pane says so:
+a muted "No match found" line, rather than the previous query's preview left
+sitting beside an empty result list.
+
 ### Styling: the telescope layout, and the same escape hatch
 
 The modal's rules live in the same `@layer rookery-search` as the bar's, so the

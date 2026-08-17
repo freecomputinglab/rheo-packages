@@ -587,6 +587,27 @@ const wireModal = (dialog, rows) => {
       });
       list.append(row);
     }
+    // NO HITS: the pane has to be emptied HERE, because `select` cannot do it.
+    // It returns on `els.length === 0` before reaching its `renderPreview()`
+    // call, and `renderPreview` is the only thing that ever clears the pane —
+    // so a query matching nothing used to leave the LAST match's preview on
+    // screen beside an empty result list. Not fixed inside `select`, which is
+    // about which row is highlighted and is also called from `pointerenter`
+    // above, where there is by construction a row to select.
+    //
+    // `previewGen` is bumped for the same reason `renderPreview` bumps it: a
+    // `fetchNote` begun for the previous query is still in flight, and its
+    // `.then` paints the pane unless the generation has moved on. Without this
+    // the stale note reappears over the filler a moment later — the same bug,
+    // one keystroke behind.
+    if (hits.length === 0) {
+      previewGen += 1;
+      const empty = document.createElement("p");
+      empty.className = "rookery-search-preview-empty";
+      empty.textContent = "No match found";
+      preview.replaceChildren(empty);
+      return;
+    }
     select(0);
   };
 
