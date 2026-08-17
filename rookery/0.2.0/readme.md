@@ -10,7 +10,7 @@ generates a sequential id and shows it to you as a `[idea:1]`-style permalink
 next to the note, since with no name there's no other way to know it.
 
 ```typst
-#import "@rheo/rookery:0.1.2": idea
+#import "@rheo/rookery:0.2.0": idea
 
 #idea[A frictionless note — reads its generated id off the [idea:1] permalink.]
 #idea("etal")[A pinned note — its id is always `idea:etal`.]
@@ -27,7 +27,7 @@ Nothing above needed any setup, and that stays true. One optional template
 does all of it in a line, and is the only place anything is configurable:
 
 ```typst
-#import "@rheo/rookery:0.1.2": rookery, idea, window
+#import "@rheo/rookery:0.2.0": rookery, idea, window
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
   window-depth: 1,                // a window inside a window unfurls one level
@@ -239,7 +239,7 @@ Three ways, pick by how much ceremony you want:
   Without it, apply the exported `link-to-page` by hand:
 
   ```typst
-  #import "@rheo/rookery:0.1.2": idea, window, link-to-page
+  #import "@rheo/rookery:0.2.0": idea, window, link-to-page
   #show ref: link-to-page
   ```
 
@@ -265,7 +265,7 @@ Three ways, pick by how much ceremony you want:
   unconditionally, like `#link(label("idea:etal"))` does:
 
   ```typst
-  #import "@rheo/rookery:0.1.2": idea, window, link-to-anchor
+  #import "@rheo/rookery:0.2.0": idea, window, link-to-anchor
   #show ref: link-to-anchor
   ```
 
@@ -278,7 +278,7 @@ Three ways, pick by how much ceremony you want:
 `#ideas-outline()` lists the current page's own notes as a nested tree.
 
 ```typst
-#import "@rheo/rookery:0.1.2": ideas-outline
+#import "@rheo/rookery:0.2.0": ideas-outline
 #ideas-outline()
 #ideas-outline(title: none, depth: 2)
 #ideas-outline(title: [Everything], rookery-wide: true)
@@ -344,7 +344,7 @@ the way rookery thinks they should be rendered, and this is where you take the
 same material and do something else with it.
 
 ```typst
-#import "@rheo/rookery:0.1.2": ideas, note-href
+#import "@rheo/rookery:0.2.0": ideas, note-href
 #context {
   for e in ideas() {
     [#e.name — #e.text \ ]
@@ -389,10 +389,43 @@ that is stable across builds, and it makes a diff of generated output mean
 something.
 
 A note's body AS CONTENT, its `raw` source and its backlinks are deliberately
-absent — only the plain-string form above is exposed. Handing out the content
-itself would turn every consumer into a second transclusion engine — one that
-does not agree with `#window` about folding, depth or dates. If you want a
-note rendered, render it with `#window`.
+absent from THIS array — only the plain-string form above is exposed here.
+Handing out every note's content in bulk would turn every consumer into a
+second transclusion engine — one that does not agree with `#window` about
+folding, depth or dates. If you want a note rendered, render it with
+`#window`, or — for the body alone, no chrome — with `#idea-body`, next.
+
+### `#idea-body` — one note's body, rendered
+
+`#window`'s content, without the summary and the disclosure — for a consumer
+that wants to SHOW a note's actual prose (links, styling, footnotes,
+citations) rather than describe it in a string, one note at a time:
+
+```typst
+#import "@rheo/rookery:0.2.0": idea-body
+#context idea-body("etal")                // the whole body
+#context idea-body("etal", limit: 3)       // the first three blocks
+```
+
+`limit:` truncates by block, the same unit and the same "…" `#window`'s own
+`limit:` uses. `depth:` is the same nested-window budget `#window` takes, but
+defaults to `0` here rather than `auto` — a caller asking for one note's body
+is usually about to show a LOT of them (`@rheo/rookery-search`'s preview
+pane calls this once per note in the whole rookery), and letting each one
+unfurl its own nested windows by the document's `window-depth` setting could
+blow that up unpredictably. Pass `depth:` explicitly if you want more.
+
+**Why not just call `#window`?** `#window` ANNOUNCES the note it shows, the
+same marker `#ideas()`'s backlink data reads at registration time — a note
+shown in a `#window` counts as a link TO it from wherever the window sits.
+Right for a window an author writes into their own prose; wrong for a
+function meant to run once per note on every page, which would otherwise
+leave every page "linking" to every note in the rookery. `#idea-body` skips
+the announcement — it only renders.
+
+This is bulk-safe in the way handing out every note's CONTENT from `#ideas()`
+is not: `#idea-body` still renders one note at a time, on request, the same
+permission `#window` has always given an author explicitly.
 
 `#note-href(name)` gives you the same link `href` carries, for a note you name
 yourself:
@@ -416,9 +449,10 @@ exists so that you do not have to reach into the package's internals to do it.
 An index page, a feed, a "recently minted" list, a graph of the rookery: all
 of them are a `for` loop over `ideas()`.
 
-**Search is one of them, and it lives in `@rheo/rookery-search`** — fuzzy
-ranking, a JSON index, an embeddable search bar — written entirely against
-these two functions. It is a separate package on purpose. A search box is only
+**Search is one of them, and it lives in `@rheo/rookery-search`** — fuzzy and
+full-text ranking, a JSON index, an embeddable search bar, and an overlay
+search modal — written entirely against `#ideas()`, `#note-href()` and
+`#idea-body()`. It is a separate package on purpose. A search box is only
 worth having with JavaScript, and this package ships none: no `package.json`,
 no build step, `typst.toml` pointing straight at `src/`. Keeping search out
 keeps that true. Install it alongside rookery if you want it; nothing here
@@ -590,7 +624,7 @@ to be showing it. Import `footnote` alongside `idea` and write it exactly as
 you always have:
 
 ```typst
-#import "@rheo/rookery:0.1.2": idea, footnote
+#import "@rheo/rookery:0.2.0": idea, footnote
 
 #idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
 ```

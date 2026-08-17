@@ -333,6 +333,31 @@ h6.idea {
   background-color: var(--idea-fold-color, rgba(0, 100, 255, 0.05));
 }
 
+/* `#idea-body`'s wrapper carries this SECOND CLASS to opt out of the box —
+   border, padding, radius, hover tint — while keeping every rule above that
+   is keyed to `.idea-window` alone: link colours, raw/code styling,
+   footnote/reference layout. `#idea-body` renders a note's body with no
+   chrome by design (see its own doc comment in lib.typ), and a consumer
+   embedding that body somewhere with a box of its own — `@rheo/rookery-
+   search`'s preview pane, say — should not also get THIS box nested inside
+   it.
+   TWO CLASSES, not a new selector list added to every rule above: this file
+   is UNLAYERED throughout, so a plain `.idea-window-plain { border: none }`
+   written by a downstream package (even inside ITS OWN `@layer`) can never
+   beat an unlayered rule here regardless of specificity — MEASURED. Winning
+   requires either matching unlayered specificity, or being MORE specific
+   within this same unlayered sheet; `.idea-window.idea-window-plain` is the
+   latter, and lives here rather than fighting the cascade from outside it. */
+.idea-window.idea-window-plain {
+  border-left: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.idea-window.idea-window-plain:hover {
+  background-color: transparent;
+}
+
 /* Marker hidden in both spellings — `::marker` for standards-mode browsers,
    `::-webkit-details-marker` for older WebKit, and `list-style: none` on the
    summary itself, which is what actually suppresses it in Safari. The summary

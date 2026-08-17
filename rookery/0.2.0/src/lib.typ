@@ -782,7 +782,7 @@
 // `show ref:` rule implicitly; it must be an exported rule the author opts
 // into:
 //
-//   #import "@rheo/rookery:0.1.2": idea, window, hyperlink
+//   #import "@rheo/rookery:0.2.0": idea, window, hyperlink
 //   #show ref: hyperlink                          // the default: the note's own minted page
 //   #show ref: hyperlink.with(link-to: "anchor")   // in-context anchor, like #hyperlink(..., link-to: "anchor")
 //
@@ -1412,7 +1412,7 @@
           "@rheo/rookery: `#footnote` inside an idea is Typst's, not rookery's — "
             + "its body would land in the page's endnote section instead of this "
             + "idea's Footnotes block. Add `footnote` to your import: "
-            + "`#import \"@rheo/rookery:0.1.2\": idea, footnote`.",
+            + "`#import \"@rheo/rookery:0.2.0\": idea, footnote`.",
         )
       }
 
@@ -1579,7 +1579,7 @@
 //
 // Import it alongside `#idea` and write footnotes exactly as before:
 //
-//   #import "@rheo/rookery:0.1.2": idea, footnote
+//   #import "@rheo/rookery:0.2.0": idea, footnote
 //   #idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
 //
 // Emits nothing on its own — it is an invisible marker. Inside an idea,
@@ -1838,6 +1838,106 @@
       WK,
     )
   }
+  }
+}
+
+// ---- #idea-body — one note's body, as CONTENT ------------------------------
+//
+//   #context idea-body("etal")                 // -> content, or a panic
+//   #context idea-body("etal", limit: 3)        // first three blocks
+//
+// The note's body as the REAL Typst-rendered thing — links, styling,
+// footnotes, citations — not the plain string `#ideas()`'s `body` field
+// gives out. For a consumer that wants to show the actual note rather than
+// tell about it, the way `@rheo/rookery-search`'s preview pane does: a
+// `body` string can be matched and excerpted, and that is exactly what it is
+// for, but a code block inside it reads as bare, unstyled source text with
+// no separation from the prose around it — MEASURED as "Typst markup peeking
+// through" the moment a note quotes any code at all. Rendering the real
+// content fixes that at the root: the browser gets an actual `<pre><code>`,
+// not a paragraph that happens to contain one.
+//
+// NOT `#window`, despite doing almost the same rendering underneath. Two
+// differences, both load-bearing:
+//
+//   1. `#window` ANNOUNCES the note it shows, up front, via the same
+//      `metadata((rookery-window: ids))` marker `_outbound` reads at
+//      REGISTRATION time to build the backlinks graph — a note shown in a
+//      `#window` counts as a link TO it from wherever the window sits. That
+//      is correct for a window written into a note's own prose, and
+//      catastrophic for a call site meant to run once per note on EVERY
+//      page, as a search preview does: every page on the site would end up
+//      "linking" to every note in the whole rookery. `idea-body` skips the
+//      announcement entirely — it renders, and nothing more.
+//   2. `#window` draws chrome: a summary line (title, permalink, date) and a
+//      `<details>` disclosure. `idea-body` is body only, always fully shown
+//      — a caller wanting a title has it already, from whatever listed the
+//      note in the first place (`#ideas()`'s `text` field, here).
+//
+// STILL `_bracket`ed, the same edges `#window` draws, for the same reason
+// `#window` needs them: `_page-links` walks a page's own outbound links by
+// COUNTING BRACKET DEPTH (see `_edge`), and unbracketed content here would
+// make every link inside every previewed note look like a link the page
+// itself wrote — corrupting the page-backlinks half of `.marrow.typ`'s
+// Backlinks section for every page that calls this.
+//
+// Wrapped in `.idea-window`/`.idea-window-body` — the same classes
+// `#window` wraps its own body in — so it inherits every rule rookery.css
+// already writes for prose inside a window: link colours, raw/code styling,
+// list and footnote layout. A consumer never has to restyle any of that
+// itself. `_themed` carries the document's theme along as an inline style,
+// the same way every other container this package emits does, since a
+// caller's own container (rookery-search's hidden preview templates, say)
+// has no `.idea-*` ancestor to inherit the custom properties from.
+//
+// `limit:` truncates by BLOCK — a paragraph, a list — the same unit
+// `#window`'s own `limit:` uses, because that is the unit that can be cut
+// without leaving half a sentence. `none` (the default) shows the whole
+// body.
+//
+// `depth` is the same nested-window budget `#window` takes; `0` (the
+// default) collapses a nested `#window` to its permalink rather than
+// unfurling it, which keeps a preview's own size bounded regardless of how
+// deep the note it is showing nests.
+//
+// HTML/EPUB only, like `#window`'s own chrome — its only realistic consumer
+// is a web preview, and `html.elem` is what builds the `.idea-window`
+// wrapping. On a paged target the body still renders, just without that
+// wrapping, so a stray direct call does not hard-error.
+//
+// Must be called INSIDE a `#context` block — it reads `_registry.final()`.
+#let idea-body(name, depth: 0, limit: none) = context {
+  let id = _pfx() + _norm(name)
+  let reg = _registry.final()
+  if id not in reg {
+    panic("@rheo/rookery: #idea-body unknown note '" + id + "'")
+  }
+  let rec = reg.at(id)
+  let body = _body-at(rec, depth: depth)
+  let bs = _blocks(body)
+  let shown = if limit != none and bs.len() > limit {
+    bs.slice(0, limit).join() + [#text(gray)[ ... ]]
+  } else {
+    body
+  }
+  let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 0))
+  if _target() == "html" or _target() == "epub" {
+    // `idea-window-plain`: this render has no chrome by design (no summary,
+    // no disclosure), so it should not carry `.idea-window`'s BOX either —
+    // the border, padding and hover tint that make sense around an actual
+    // on-page `#window`, not around a body a caller is embedding inside a
+    // box of its own. See rookery.css for why this needs a second class
+    // rather than a downstream override.
+    _bracket(
+      html.elem(
+        "div",
+        attrs: _themed((class: "idea-window idea-window-plain")),
+        html.elem("div", attrs: (class: "idea-window-body"), inner),
+      ),
+      WK,
+    )
+  } else {
+    _bracket(align(start, block(inner)), WK)
   }
 }
 
@@ -2365,13 +2465,24 @@
 //    minted:  datetime or none,
 //    updated: datetime or none)
 //
-// NOT exposed: `raw`, `body`-as-CONTENT and `links`. `body` above is a plain
-// STRING derived from `raw` — matchable and excerptable, but not renderable,
-// so it does not make a consumer a transclusion engine the way handing out
-// the content itself would; `links` is backlink plumbing that `.marrow.typ`
+// NOT exposed IN BULK: `raw`, `body`-as-CONTENT and `links`. `body` above is
+// a plain STRING derived from `raw` — matchable and excerptable, but not
+// renderable, so returning it in an array of every note in the rookery does
+// not make a consumer a second transclusion engine the way handing out every
+// note's content here would; `links` is backlink plumbing that `.marrow.typ`
 // already owns. Add fields here when a consumer genuinely needs them — this
 // list is a contract other packages depend on, so removing one is a breaking
 // change.
+//
+// A SINGLE note's body-as-content IS available, on request: `#idea-body(name)`
+// below renders one note at a time, the same rendering `#window` gives it —
+// links, styling, footnotes, citations — for a consumer that wants to show
+// the actual note rather than describe it. The distinction is bulk vs.
+// one-at-a-time: `#ideas()` handing out `title` (content) for the WHOLE
+// rookery would already be the transclusion-engine problem above if it
+// contained the full body instead of a heading; asking for one note's body
+// by name is what `#window` has always let an author do explicitly, and
+// `#idea-body` is that same permission, minus the chrome.
 //
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
@@ -2398,7 +2509,7 @@
 
 // ---- #show: rookery — the setup, and the knobs ----------------------------
 //
-//   #import "@rheo/rookery:0.1.2": rookery, idea, window
+//   #import "@rheo/rookery:0.2.0": rookery, idea, window
 //   #show: rookery.with(
 //     prefix: "note",
 //     theme: (link-color: rgb("#ffe08a"), fold-color: rgb("#fffbe8")),
