@@ -491,12 +491,17 @@
   // — otherwise a `tags:draft window` query would hand the literal "tags:draft"
   // to `fuzzy-score` and match nothing.
   //
-  // THE EMPTY RESIDUAL NEEDS NO SPECIAL CASE, verified rather than assumed:
-  // `fuzzy-score` returns 0 for an empty query (its own first guard), so with
-  // `q == ""` every surviving note scores 0 in the NAME tier and the stable sort
-  // leaves them in the id order `ideas()` gave — which is exactly the wanted
-  // answer for a bare `tags:draft`. The body tier stays empty for it, `body-score`
-  // returning `none` for an empty query.
+  // THE EMPTY RESIDUAL IS NO LONGER "NO SPECIAL CASE": `fuzzy-score` still
+  // returns 0 for an empty query, so every surviving note ties at score 0 in the
+  // NAME tier — but a plain stable sort over that tie is no longer the wanted
+  // answer. For `q == ""` (a bare `""` query, or a `tags:`-only query with no
+  // residual) the DEFAULT/BROWSE listing sorts dated notes newest-first, with
+  // undated notes falling to the end in their old id order. This mirrors
+  // `_sort-ids` in `rookery/0.3.0/src/pure.typ` (`sort: "date"`) — same
+  // dated/undated split, same zero-padded `[year][month][day]` stamp comparison,
+  // same dedup-and-walk-descending — applied here to `e.updated` instead of to
+  // an id's registry-looked-up `minted`. The body tier stays empty for `q == ""`
+  // either way, `body-score` returning `none` for an empty query.
   let tq = split-query(query)
   let q = tq.text
   let name-hits = ()
@@ -540,7 +545,27 @@
       body-hits.push((..e, score: body-score-val, kind: "body"))
     }
   }
-  name-hits = name-hits.sorted(key: e => -1 * e.score)
+  // A REAL SEARCH (`q != ""`) sorts by score, descending — untouched. THE
+  // EMPTY RESIDUAL (`q == ""`) instead sorts by date, newest first, mirroring
+  // `_sort-ids` in `rookery/0.3.0/src/pure.typ`: split into dated/undated
+  // (each `.filter` preserves `name-hits`' existing id-ascending order within
+  // its split, same as `_sort-ids`), walk the dated group's distinct stamps
+  // newest to oldest, and append the undated group unchanged at the end.
+  name-hits = if q != "" {
+    name-hits.sorted(key: e => -1 * e.score)
+  } else {
+    let stamp-of(e) = {
+      let u = e.at("updated", default: none)
+      if u == none { none } else { u.display("[year][month][day]") }
+    }
+    let dated = name-hits.filter(e => stamp-of(e) != none)
+    let undated = name-hits.filter(e => stamp-of(e) == none)
+    let ordered = ()
+    for s in dated.map(stamp-of).dedup().sorted().rev() {
+      ordered += dated.filter(e => stamp-of(e) == s)
+    }
+    ordered + undated
+  }
   body-hits = body-hits.sorted(key: e => -1 * e.score)
   let out = name-hits + body-hits
   if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
@@ -573,7 +598,8 @@
 // the rest of the query is a normal text search over the survivors:
 //
 //   tags:draft window depth   notes tagged draft*, ranked by "window depth"
-//   tags:draft                notes tagged draft*, no ranking, id order
+//   tags:draft                notes tagged draft*, no residual: the browse
+//                              order — dated newest-first, undated by id
 //   window depth              unchanged — no `tags:` prefix, no filter
 //   tags:                     the whole corpus; an empty expression is no filter
 //
@@ -908,10 +934,14 @@
 //   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
-// one row per note: `(id, name, text, tags, body, href)`, where `text` is the
-// plain-text title ("" when untitled), `tags` is the note's own tag array (THE KEY
-// IS ABSENT when it has none), `body` is that note's compressed term
-// string ("" when it compresses to nothing), and `href` is the depth-relative
+// one row per note: `(id, name, text, tags, body, updated, href)`, where `text`
+// is the plain-text title ("" when untitled), `tags` is the note's own tag
+// array (THE KEY IS ABSENT when it has none), `body` is that note's compressed
+// term string ("" when it compresses to nothing), `updated` is that note's
+// resolved date as a zero-padded `"[year][month][day]"` string (THE KEY IS
+// ABSENT when the note is undated — never shipped as `""` or `null`; this is
+// the same stamp `_rank` computes from `e.updated` for the default/browse
+// listing, see its comment), and `href` is the depth-relative
 // path to the note's minted page — computed against the page this call sits on,
 // so an island in a site's shared chrome comes out right on a nested vertebra
 // too.
@@ -1087,6 +1117,11 @@
     let row = (id: e.id, name: e.name, text: e.text)
     if e.tags.len() > 0 { row.insert("tags", e.tags) }
     if body-search { row.insert("body", bodies.at(i)) }
+    // Same `"[year][month][day]"` stamp `_rank`'s `stamp-of` computes from
+    // `e.updated` — omitted, never `""` or `none`, for an undated note, the
+    // same convention `tags`/`body` above already use.
+    let u = e.at("updated", default: none)
+    if u != none { row.insert("updated", u.display("[year][month][day]")) }
     row.insert("href", e.href)
     row
   })
