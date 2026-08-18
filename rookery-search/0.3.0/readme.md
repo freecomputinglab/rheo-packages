@@ -39,12 +39,14 @@ spelled out below.
   see "Filtering by tag" below for the grammar itself.
 - **Tag chips render on result rows, and keyboard navigation works in
   `#search-bar`'s dropdown** — see "Working it from the keyboard" below.
-- **Both `#search-bar` and `#search-modal` now emit rookery's own theme**
-  onto their own containers, so `--idea-*` custom properties reach a bar or a
-  dialog even in a site header, for the first time. The last-resort fallback
-  colour of every rule moved from `rgba(0, 0, 0, 0.25)` to rookery's own
-  `rgba(128, 0, 255, 0.12)`. A site with no explicit theme override sees a
-  visible colour change.
+- **Both `#search-bar` and `#search-modal` now pick up rookery's own theme**
+  even in a site header, for the first time: `--idea-*` custom properties reach
+  them by inheriting rookery's document-scope `:root` rule (`@rheo/rookery`
+  publishes it once per page), the same rule any other element on the page
+  inherits from — no per-container copy needed on this package's side. The
+  last-resort fallback colour of every rule moved from `rgba(0, 0, 0, 0.25)` to
+  rookery's own `rgba(128, 0, 255, 0.12)`. A site with no explicit theme
+  override sees a visible colour change.
 - **Focusing the search-bar input or the modal input now thickens the
   input's own rule/border**, rather than drawing the browser's default blue
   focus ring.
