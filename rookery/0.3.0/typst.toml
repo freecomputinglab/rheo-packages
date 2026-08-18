@@ -8,5 +8,8 @@ license = "MIT"
 description = "Atomic, interlinked, transcludable notes for Typst - Zettelkasten-style, rheo-aware"
 repository = "https://github.com/freecomputinglab/rheo-packages"
 
+[tool.rheo]
+min_version = "0.5.2"
+
 [tool.rheo.html]
 css_stylesheet = "src/rookery.css"

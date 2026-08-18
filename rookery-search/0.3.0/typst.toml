@@ -8,6 +8,9 @@ license = "MIT"
 description = "Fuzzy search over @rheo/rookery notes — Typst primitive, JSON index, and an embeddable search bar"
 repository = "https://github.com/freecomputinglab/rheo-packages"
 
+[tool.rheo]
+min_version = "0.5.2"
+
 [tool.rheo.html]
 js_scripts = "dist/lib.js"
 css_stylesheet = "dist/rookery-search.css"
