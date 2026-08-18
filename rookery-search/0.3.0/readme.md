@@ -217,7 +217,7 @@ ordinary text query over the notes that survived.
 
 ```
 tags:draft window depth     among my drafts, ranked by "window depth"
-tags:draft                  every draft, in id order
+tags:draft                  every draft, newest-dated first, undated by id
 window depth                no prefix, no filter — unchanged
 tags:                       an empty expression is no filter: everything
 ```
@@ -261,7 +261,8 @@ terms.
 ```
 tags:draft   window  depth      residual "window  depth" — the extra spaces are dropped
 tags:draft                      residual "", so every survivor sits in the name
-                                tier at score 0, in id order
+                                tier at score 0 — the default browse order,
+                                newest-dated first, undated by id
 ```
 
 Only a **leading** `tags:` is recognised, case-insensitively (`TAGS:note`
@@ -355,9 +356,10 @@ paths cannot be diffed against each other.
 A tag match adds **no third tier and no score bonus**, and leaves the two-tier
 ranking above exactly as it was. Tags decide which notes are CANDIDATES; the
 residual text decides how they rank. With no residual text there is nothing to
-rank by, and no special case is needed for it: `fuzzy-score` returns 0 for an
-empty query, so every survivor lands in the name tier at score 0 and the stable
-sort leaves them in the id order `#ideas()` gave.
+rank by: `fuzzy-score` returns 0 for an empty query, so every survivor lands in
+the name tier at score 0 — and THAT tie breaks by date, newest first, undated
+notes falling to the end in `#ideas()`'s own id order (the same default browse
+order described above).
 
 **Highlighting uses the residual only.** MEASURED in a browser, `tags:phd alpha`
 marks "Alpha" in a title and "alpha" in an id and nothing else — the literal
