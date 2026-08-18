@@ -207,7 +207,15 @@
 // rule and its links read as one colour until a theme sets `border-color`
 // apart from `link-color` deliberately.
 //
-// `rule-width` is the odd one out: a LENGTH, not a colour, and it sets ONE
+// `pad` is the other length. It is the indent between a note's rule and its
+// content — and, on a window, that window's right padding too, so the content sits
+// the same distance from both edges. The tab's offset and the top rule's stub span
+// exactly this distance in order to close the corner on the rule, so they read the
+// same value and a retheme cannot leave a notch. Halved under 600px by the
+// stylesheet's own media query, which overrides the one property rather than the
+// four rules that depend on it.
+//
+// `rule-width` is the other odd one out: a LENGTH, not a colour, and it sets ONE
 // thickness for every line that frames a note — the left rule on a card and a
 // window, the tab that rules off the top of both, and `#ideas-outline`'s own rule
 // and row markers. They are one system and they were four literals; a project
@@ -222,6 +230,7 @@
   "date-color": "--idea-date-color",
   "border-color": "--idea-border-color",
   "rule-width": "--idea-rule-width",
+  "pad": "--idea-pad",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -2553,6 +2562,7 @@
   date-color: none,
   border-color: none,
   rule-width: none,
+  pad: none,
   refs: true,
   ref-target: "page",
   doc,
@@ -2613,10 +2623,10 @@
   // CSS it needs — `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work
   // and neither needs a unit table here. A string passes through for the units
   // Typst has no literal for, `px` above all, which is what a hairline wants.
-  let css(key, value) = if key == "rule-width" {
+  let css(key, value) = if key in ("rule-width", "pad") {
     assert(
       type(value) == length or type(value) == str,
-      message: "@rheo/rookery: theme `rule-width` must be a length (2pt, 0.15em) "
+      message: "@rheo/rookery: theme `" + key + "` must be a length (2pt, 0.15em) "
         + "or a CSS length string (\"3px\") — got " + repr(value),
     )
     if type(value) == length { repr(value) } else { value }
@@ -2646,6 +2656,7 @@
     date-color: date-color,
     border-color: border-color,
     rule-width: rule-width,
+    pad: pad,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }

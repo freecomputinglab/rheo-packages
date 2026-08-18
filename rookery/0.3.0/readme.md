@@ -95,7 +95,7 @@ default left a page whose every window had collapsed to a bare id.)
 
 ### The theme
 
-Four colours, the whole of what the package will style for you:
+Four colours and two lengths, the whole of what the package will style for you:
 
 | key | what it colours | default |
 | --- | --- | --- |
@@ -105,6 +105,7 @@ Four colours, the whole of what the package will style for you:
 | `date-color` | an idea's/window's date, where shown | `gray` |
 | `border-color` | the rule down a note, a window and an outline, and the tab that rules off the top of a card | falls back to `link-color` |
 | `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
+| `pad` | the indent between a note's rule and its content, and a window's right padding | `0.5em` (halved under 600px) |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -135,13 +136,21 @@ colour type can't express (`"rgba(0, 100, 255, .1)"`, `"var(--accent)"`,
 `"transparent"`). A misspelled key is a build error naming the valid ones, not
 a silently ignored colour.
 
-`rule-width` is the exception, being a length rather than a colour: pass a Typst
-length (`2pt`, `0.15em`) or a CSS length string (`"3px"`) — a string is the only
-way to say `px`, which Typst has no literal for. It is deliberately ONE value for
-every line that frames a note, so a card, a window, the tab across the top of
-both and `#ideas-outline`'s rule and row markers can never disagree about their
-own weight. The separators above a footnotes or references block are not governed
-by it: those are apparatus, not the frame.
+`rule-width` and `pad` are the exceptions, being lengths rather than colours: pass
+a Typst length (`2pt`, `0.15em`) or a CSS length string (`"3px"`) — a string is the
+only way to say `px`, which Typst has no literal for.
+
+`rule-width` is deliberately ONE value for every line that frames a note, so a
+card, a window, the tab across the top of both and `#ideas-outline`'s rule and row
+markers can never disagree about their own weight. The separators above a footnotes
+or references block are not governed by it: those are apparatus, not the frame.
+
+`pad` is the matching ONE value for the indent — how far a note's content sits from
+the rule beside it, and on a window how far it sits from the right edge, so the two
+sides agree. Three other things measure the same distance in order to close the
+frame's corner on that rule: the tab's own offset, the top rule's stub, and a folded
+window's tint. They all read this, so a value of your own keeps the corner shut
+rather than opening a notch in it.
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one

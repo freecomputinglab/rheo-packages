@@ -32,6 +32,12 @@
      --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`,
                                       and the top tab rule (`.idea-tab`) that
                                       meets it at the corner
+     --idea-pad          pad          how far a card's or a window's content sits
+                                      from the rule beside it, and a window's own
+                                      right padding: ONE indent (0.5em, halved
+                                      under 600px). The tab's offset and the top
+                                      rule's stub span the same distance and read
+                                      this, so the corner closes at any value
      --idea-rule-width   rule-width   how THICK every one of those is, plus the
                                       floor under a FOLDED window's summary and
                                       `#ideas-outline`'s rule and its row
@@ -148,7 +154,7 @@
    ends on that rule's OUTER edge and the corner has no notch in it. At 1px the
    shortfall was invisible; at 2px it is a gap you can see. */
 .idea-tab::before {
-  width: calc(var(--idea-pad-left, 0.75em) + var(--idea-rule-width, 2px));
+  width: calc(var(--idea-pad, 0.5em) + var(--idea-rule-width, 2px));
 }
 
 /* `.idea-label`'s 0.5em separates it from a title it follows. In a tab it
@@ -219,7 +225,7 @@
      From the custom property, never a pixel count, so a project retheming
      `--idea-label-size` keeps the alignment. */
   margin-top: calc(-1 * var(--idea-label-size, 0.57rem));
-  margin-left: calc(-1 * var(--idea-pad-left, 0.75em) - var(--idea-rule-width, 2px));
+  margin-left: calc(-1 * var(--idea-pad, 0.5em) - var(--idea-rule-width, 2px));
 }
 
 /* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
@@ -537,14 +543,27 @@ figure:has(> .idea-window) + figure:has(> .idea-window),
      and they all follow — MEASURED, the wash still carried a hardcoded `0.75em`
      and spilled 6px past the frame at 390px wide while the padding beside it was
      6px. Declared on `.idea-head` too, so a MINTED page's tab (not inside a card)
-     inherits it rather than falling back to the desktop literal. */
-  --idea-pad-left: 0.75em;
+     inherits it rather than falling back to the literal. */
+  --idea-pad: 0.5em;
+}
+
+/* A CARD'S head must DEFER to the card rather than re-declare the default over it.
+   The rule above names `.idea-head` for the minted page's sake, but inside a card
+   that element sits INSIDE `.idea-box` — so it shadowed the value the theme sets as
+   an inline property on the card itself. MEASURED with `theme: (pad: 2em)`: the
+   card's stub came out 11px instead of 35px and its tab started at the content edge
+   instead of the frame's, i.e. the corner came apart while the window's held.
+   Two classes beats one, so this wins over both the rule above and the
+   narrow-screen override, and what it inherits is whichever of those applies to the
+   card itself. */
+.idea-box > .idea-head {
+  --idea-pad: inherit;
 }
 
 .idea-box,
 .idea-window {
   border-left: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
-  padding-left: var(--idea-pad-left, 0.75em);
+  padding-left: var(--idea-pad, 0.5em);
 }
 
 /* An idea's heading is an <h2>–<h6> (`#idea`'s `level:` + 1) and would
@@ -577,7 +596,10 @@ h6.idea {
 .idea-window {
   border-radius: 0 5px 5px 0;
   padding-top: 2px;
-  padding-right: 10px;
+  /* THE SAME `--idea-pad` as the left indent, not a literal of its own: a window's
+     content sits the same distance from the rule on its left as from its right
+     edge, and one variable is what keeps that true when a project retheme's it. */
+  padding-right: var(--idea-pad, 0.5em);
   padding-bottom: 2px;
 }
 
@@ -756,10 +778,10 @@ h6.idea {
      pieces that are one colour everywhere else must not part company here. Ending
      at the inner edge leaves the border painting on the page, as it does in a card,
      and the tint starts where the content does. */
-  margin-left: calc(-1 * var(--idea-pad-left, 0.75em));
-  padding-left: var(--idea-pad-left, 0.75em);
-  margin-right: -10px;
-  padding-right: 10px;
+  margin-left: calc(-1 * var(--idea-pad, 0.5em));
+  padding-left: var(--idea-pad, 0.5em);
+  margin-right: calc(-1 * var(--idea-pad, 0.5em));
+  padding-right: var(--idea-pad, 0.5em);
   /* BALANCE, and it is a different sum now the id sits ABOVE the border. The tab
      is lifted clear of the box, so what remains inside it above the title is the
      tab's own `margin-bottom` (0.25em) and nothing else — the window's 2px
@@ -1086,7 +1108,7 @@ h6.idea {
   .idea-box,
   .idea-window,
   .idea-head {
-    --idea-pad-left: 0.375em;
+    --idea-pad: 0.25em;
   }
 
   .idea-outline {
