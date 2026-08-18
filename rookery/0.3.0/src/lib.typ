@@ -2878,6 +2878,46 @@
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
   _theme.update(resolved)
+  // DOCUMENT-SCOPE theme publication, ADDITIVE to the per-container INLINE
+  // styling `_themed` still applies everywhere it already did (see that
+  // function and its callers) — this does not replace them, it gives
+  // anything ELSE on the page a `:root` to inherit from. Custom properties
+  // inherit DOWN the DOM, but only from an ancestor that carries them: before
+  // this, that was ever only `.idea-box`/`.idea-window`/etc, so a sibling
+  // element with no rookery ancestor (a `<dialog>` in a site's own header, a
+  // search bar not nested inside a note) saw nothing. MEASURED bug this
+  // fixes: `@rheo/rookery-search`'s `#search-modal` reading an empty string
+  // for `--idea-border-color` and having to carry its own copy of the theme
+  // table to cope (see the banner above `_THEME-KEYS`).
+  //
+  // EXACTLY ONCE PER OUTPUT PAGE: `#show: rookery` is applied PER FILE, and
+  // under rheo one FILE is one VERTEBRA is one OUTPUT PAGE (the same fact
+  // `_prefix`/`_bib`/`_theme` above are already document-wide state for) —
+  // so one call to this function is one page, and this line runs exactly
+  // once per call. `demo/rheo/content/lib.typ` is the shape every multi-page
+  // project already uses: ONE shared `#show: rookery.with(..)` wrapper that
+  // EVERY vertebra applies, so every page gets its own `<style>`, all of them
+  // carrying the same document-wide `.final()` theme. A minted note page
+  // (`.marrow.typ`) is a separate `#document` that never calls `rookery()`
+  // again, so it is untouched by this — same as it always was.
+  //
+  // Reuses `_theme-style()` rather than re-deriving anything: it already
+  // returns `none` for an unconfigured theme, so an unthemed project's
+  // `<style>` count stays exactly zero, matching the promise inline theming
+  // already keeps ("an unconfigured document emits nothing extra at all").
+  //
+  // GATED to html/epub, exactly like every other `html.elem` call in this
+  // file: `html.elem` renders nothing meaningful on the paged (PDF) target,
+  // and unconditionally calling it there is what `demo/pure`'s two PDF roots
+  // exist to catch.
+  context {
+    if _target() == "html" or _target() == "epub" {
+      let style = _theme-style()
+      if style != none {
+        html.elem("style", ":root { " + style + "; }")
+      }
+    }
+  }
   // The fallback for a rookery `#footnote` written OUTSIDE any idea: page-wide
   // numbering and a body in the page's own endnote section, exactly as Typst's
   // own footnote behaves. `#idea` installs a nested rule that wins over this
