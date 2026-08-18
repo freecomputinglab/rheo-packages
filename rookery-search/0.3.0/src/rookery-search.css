@@ -120,6 +120,38 @@
     width: var(--rookery-search-width, 16em);
   }
 
+  /* FOCUS IS THE BORDER GETTING THICKER, and nothing else. The browser's own
+     indicator is an `outline: auto` in `-webkit-focus-ring-color` — blue in a
+     default profile, and a colour no project's theme can move. Replacing it with
+     the border this element already has means an active field reads as the same
+     object, drawn harder, in whatever colour the site chose.
+
+     `:focus-visible`, not `:focus`. It is also what draws the UA ring, so
+     suppressing the outline here suppresses it in every case the UA would have
+     drawn one — and a text field matches it on CLICK as well as on Tab (the UA
+     always considers focus visible on an element that takes keyboard input), so
+     the thickened rule IS a complete replacement rather than a keyboard-only one.
+     MEASURED, headless chromium 151: `input.matches(":focus-visible")` is true
+     after focus, `outline-style` goes `auto` -> `none`, and the border-width goes
+     1px -> 2px.
+
+     THE PADDING PAYS FOR THE PIXEL. Taking `border-width` from 1px to 2px would
+     otherwise grow the box on all four sides and shove the line of text, so the
+     padding gives back exactly what the border takes: MEASURED, the input's
+     `getBoundingClientRect()` is 156 x 28 focused and unfocused alike. The
+     alternative — a permanently 2px border that merely changes contrast — was
+     rejected because thickening is the whole affordance.
+
+     SCOPED TO THE BAR with `>`, and that is not decoration: the modal's input
+     carries this same class, has its own borderless rule below, and gets its own
+     focus rule beside it. Unscoped, the two would collide at equal specificity
+     and be settled by source order. */
+  .rookery-search > .rookery-search-input:focus-visible {
+    outline: none;
+    border-width: 2px;
+    padding: calc(0.25em - 1px) calc(0.5em - 1px);
+  }
+
   .rookery-search-results {
     /* `display: block` is required, not cosmetic: the results container is a
        <span>, because a <div> inside a paragraph would be invalid HTML and
@@ -371,6 +403,30 @@
       var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: 0;
     padding: 0.75em 1em;
+  }
+
+  /* THE ONE RULE IN THE MODAL THAT MOVES, and it only gets thicker. The divider
+     between the input and the panes below it is the modal's most prominent line,
+     and the browser's focus ring landed right on top of it: the input is
+     full-width and square, so the ring's top and side edges have the dialog's own
+     edges behind them and only its bottom edge reads — as that divider, turned
+     blue. So focusing the search now thickens the divider instead, in the theme's
+     own colour.
+
+     NO COLOUR HERE, deliberately: `border-bottom` above already carries the
+     `--rookery-search-border` -> `--idea-border-color` chain, so naming only the
+     WIDTH leaves one place where a rule's colour is decided (and this width
+     doubles whatever that chain resolved to, themed or not).
+
+     `padding-bottom` gives back the pixel the border takes, so the panes do not
+     jump down by 1px when the field takes focus. MEASURED, headless chromium 151:
+     the input is 29.0625px tall and `.rookery-search-panes` sits at y=94.0625,
+     focused and unfocused alike. See the bar's own focus rule above for why
+     `:focus-visible` is the right pseudo-class and why the ring is the UA's. */
+  .rookery-search-modal .rookery-search-input:focus-visible {
+    outline: none;
+    border-bottom-width: 2px;
+    padding-bottom: calc(0.75em - 1px);
   }
 
   .rookery-search-panes {
