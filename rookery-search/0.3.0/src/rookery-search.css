@@ -81,10 +81,23 @@
    its notes for free, and the two packages stay uncoupled in Typst: the
    agreement is made here, in CSS, by name.
 
-   That fallback only reaches the bar where a rookery element is an ANCESTOR of
-   it, since `--idea-*` arrives as an inline property on `.idea-box` and its
-   kin. A bar in a site's header — the usual place — inherits from `<body>` and
-   sees none of them, so set `--rookery-search-border` there explicitly. */
+   THAT FALLBACK USED TO BE UNREACHABLE, and this is the one thing to know about
+   it. `--idea-*` arrives as an INLINE property on `.idea-box` and its kin, and a
+   custom property inherits down the DOM — so a bar or a dialog in a site's
+   header, which is nobody's descendant but `<body>`'s, saw none of them and every
+   rule below shipped its last-resort literal whatever the project's theme said.
+   MEASURED on rookery.ohrg.org: `getComputedStyle(dialog).getPropertyValue(
+   "--idea-border-color")` was the empty string. `#search-bar` and `#search-modal`
+   now emit the theme onto their OWN containers as well, from the same
+   `state("rheo-idea-theme")` rookery writes — see the theme block near the top of
+   `src/lib.typ`. Setting `--rookery-search-border` on a wrapper still wins, since
+   it is the first link in every chain; it is no longer the only thing that works.
+
+   THE LAST RESORT IS ROOKERY'S, deliberately: `rgba(128, 0, 255, 0.12)`, the
+   literal ending `.idea-box`'s left rule and `.idea-tab`'s top rule. It was
+   `rgba(0, 0, 0, 0.25)` here, so an UNTHEMED site drew its note frames faint
+   purple and its search rules grey — two colours for one system, on the one kind
+   of site that has no theme to reconcile them. Change one and change the other. */
 
 @layer rookery-search {
   .rookery-search {
@@ -101,7 +114,7 @@
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     padding: 0.25em 0.5em;
     width: var(--rookery-search-width, 16em);
@@ -147,7 +160,7 @@
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     max-height: var(--rookery-search-max-height, 20em);
     overflow-y: auto;
@@ -292,7 +305,7 @@
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     padding: 0;
     width: var(--rookery-search-modal-width, min(56rem, calc(100vw - 2rem)));
@@ -355,7 +368,7 @@
     width: auto;
     border: none;
     border-bottom: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: 0;
     padding: 0.75em 1em;
   }
@@ -376,7 +389,7 @@
        pinned while only the results scroll. */
     overflow-y: auto;
     border-right: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
   }
 
   .rookery-search-preview {
@@ -421,7 +434,7 @@
        same custom-property chain as every other border in this file, so it
        follows a project's theme rather than introducing a colour of its own. */
     border: 2px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-top-color: transparent;
     border-right-color: transparent;
     opacity: 0.6;
@@ -540,7 +553,7 @@
   .rookery-search-keyword {
     padding: 0.1em 0.45em;
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     /* NO `white-space: nowrap` HERE, though a term carrying an internal `-` or
        `.` (`rheo-context`, `0.3.0` — the compression preserves both precisely so
@@ -576,7 +589,7 @@
     font-size: 0.85em;
     opacity: 0.6;
     border-top: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
   }
 
   /* An unstyled-looking icon button: transparent background, inherited

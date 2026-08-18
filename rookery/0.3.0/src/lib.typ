@@ -223,6 +223,17 @@
 // the corner arithmetic that has to know the rule's width to close on it. The
 // separators above a footnotes, references or page-references block are NOT
 // governed by it: those are apparatus rules, not the note's frame.
+// CONSUMED BY @rheo/rookery-search, and not through an import. That package
+// emits rookery's properties onto its own `#search-bar` span and `#search-modal`
+// dialog, because neither has an `.idea-*` ancestor to inherit them from — a
+// search UI lives in a site's header, not inside a note card. It reaches them by
+// reading `state("rheo-idea-theme")` BY NAME (a Typst state is global per key)
+// and by keeping its own copy of the table below, exactly as it keeps a copy of
+// `_rheo-ctx`. So THREE things here are a cross-package contract, not private
+// detail: the state's key string, the shape of the dictionary it holds (theme key
+// -> already-stringified CSS value), and every property spelling in the table.
+// Change any of them and change `rookery-search/0.3.0/src/lib.typ` in the same
+// commit.
 #let _THEME-KEYS = (
   "link-color": "--idea-link-color",
   "fold-color": "--idea-fold-color",

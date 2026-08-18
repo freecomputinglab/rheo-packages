@@ -42,6 +42,78 @@
   if c != none and "target" in c { c.target } else { std.target() }
 }
 
+// ---- The rookery theme — carried across the package boundary BY STATE KEY ----
+//
+// This package's stylesheet reads rookery's own custom properties before its
+// literals — `var(--rookery-search-border, var(--idea-border-color, ...))` and
+// friends — so a site that themes its notes tints the search UI to match with no
+// second configuration. That only works if the properties are IN SCOPE, and
+// rookery emits them as an INLINE style on its own containers (`.idea-box`,
+// `.idea-window`, `.idea-outline`): a custom property inherits DOWN the DOM, so
+// anything that is not inside a note card sees none of them.
+//
+// MEASURED 2026-08-18 on rookery.ohrg.org, headless chromium 151: `#search-modal`
+// puts its `<dialog>` in the site header — ancestry `html > body >
+// header.site-header > div.site-header-inner > dialog` — with no `.idea-*` element
+// anywhere above it, and `getComputedStyle(dialog).getPropertyValue(
+// "--idea-border-color")` came back the empty string both closed and open. (A
+// `<dialog>` promoted to the top layer still inherits from its DOM parent; top
+// layer changes paint order, not inheritance. The emptiness is the ancestry, not
+// the layer.) So the fallback chain could never reach the theme, and the modal's
+// three dividers always shipped their last-resort literal, whatever the project
+// configured.
+//
+// THE FIX IS THE ONE ROOKERY ALREADY USES: emit the properties on OUR OWN
+// containers too. `#idea` cannot reach a dialog in a site's header, but
+// `#search-modal` can, because it emits the dialog itself.
+//
+// AND THE CONTRACT IS THE STATE KEY, not an import. `state("rheo-idea-theme")` is
+// keyed by a STRING, and a Typst state is global per key, so reading it here
+// reads exactly the value `#show: rookery` wrote — no widening of rookery's
+// public surface, and no importing an underscore-private `_themed`. The same
+// bargain as `_rheo-ctx` above, and the same obligation: rookery's
+// `_THEME-KEYS`/`_theme`/`_themed` (`rookery/0.3.0/src/lib.typ`, near the top)
+// are the originals and carry a banner pointing back here. IF THE KEY OR THE
+// SHAPE OF THAT DICTIONARY CHANGES, BOTH FILES CHANGE.
+//
+// Copying the whole key table rather than the three properties the stylesheet
+// happens to read today: a table that agrees with rookery's cannot drift into
+// disagreeing about a spelling, and an unset key emits nothing either way.
+#let _IDEA-THEME-KEYS = (
+  "link-color": "--idea-link-color",
+  "fold-color": "--idea-fold-color",
+  "id-color": "--idea-id-color",
+  "date-color": "--idea-date-color",
+  "border-color": "--idea-border-color",
+  "rule-width": "--idea-rule-width",
+  "pad": "--idea-pad",
+)
+#let _idea-theme = state("rheo-idea-theme", (:))
+
+// The `style` attribute value for rookery's configured theme, or `none` when
+// nothing is configured — in which case no attribute is emitted at all and the
+// stylesheet's own literals stand, exactly as before this existed.
+//
+// `.final()`, matching rookery's, so the answer does not depend on whether the
+// bar is emitted above or below the `#show: rookery` that set it. Both
+// `#search-bar` and `#search-modal` are `context` functions already, which is
+// what makes the read legal here.
+#let _theme-style() = {
+  let t = _idea-theme.final()
+  let decls = _IDEA-THEME-KEYS
+    .pairs()
+    .filter(((key, prop)) => t.at(key, default: none) != none)
+    .map(((key, prop)) => prop + ": " + t.at(key))
+  if decls.len() == 0 { none } else { decls.join("; ") }
+}
+
+// Add that style to an attrs dictionary, or leave it untouched. Every container
+// this package emits goes through here, so none can drift.
+#let _themed(attrs) = {
+  let s = _theme-style()
+  if s == none { attrs } else { attrs + (style: s) }
+}
+
 // Lowercase, and `-`/`_` read as a space. Applied to the HAYSTACK AND THE
 // QUERY, which is what makes an id findable by how a person types it: the note
 // `flat-ids` matches "flat ids", and the exact string "flat-ids" still matches
@@ -1112,12 +1184,16 @@
   }
   html.elem(
     "span",
-    attrs: (
+    // Themed for the same reason the dialog below is: a bar in a site's header
+    // has no `.idea-*` ancestor to inherit rookery's properties from, so its own
+    // border and its dropdown's edge fell back to a literal. See the theme block
+    // near the top of this file.
+    attrs: _themed((
       class: if class == none { "rookery-search" } else { "rookery-search " + class },
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
       "data-rookery-search-open": "false",
-    ),
+    )),
     html.elem("input", attrs: (
       class: "rookery-search-input",
       type: "search",
@@ -1274,11 +1350,15 @@
   }
   html.elem(
     "dialog",
-    attrs: (
+    // THE THEME GOES ON THE DIALOG ITSELF, and nowhere else will do: this element
+    // is emitted wherever the author calls `#search-modal` — in practice a site's
+    // header — and inherits from its DOM parent, which is not a note card. See the
+    // theme block near the top of this file for the measurement.
+    attrs: _themed((
       class: if class == none { "rookery-search-modal" } else { "rookery-search-modal " + class },
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
-    ),
+    )),
     html.elem(
       "div",
       attrs: (class: "rookery-search-modal-inner"),
