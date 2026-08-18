@@ -31,3 +31,14 @@ demo:
 # demo needs and none of it is covered by `just test`.
 check: demo
     ./demo/check.sh
+
+# Pins the retired Rust Atom generator's parity matrix (bead
+# rheo-packages-parity-qrd) that `demo`/`check` above cannot exercise
+# without changing what that demo demonstrates — a required `title`
+# failing the build, a project that imports the package but never
+# `configure`s it, and per-entry overrides composed over `spine()`. Same
+# unreleased-rheo requirement as `demo`/`check` — see verify/*/rheo.toml and
+# this package's readme.md. Builds its own fixtures (`verify/run.sh` does,
+# unlike `check` above), since a couple of them are SUPPOSED to fail.
+verify:
+    ./verify/run.sh
