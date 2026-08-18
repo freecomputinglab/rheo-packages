@@ -44,64 +44,24 @@ done
 grep -q '>Backlinks</h2>' "$H/ideas/root-note.html" ||
   note "ideas/root-note.html has no Backlinks section — sub-note windows it"
 
-# 4. No minted page is named as a PLACE A NOTE WAS WRITTEN. `_is-vertebra`
+# 4. No minted page appears in another note's PAGE backlinks. `_is-vertebra`
 #    filters them out, and its own comment records six wrong backlinks from the
 #    build where that filter was missing: a minted page links to the notes it
 #    transcludes, so without the filter every note lists every other note's page
 #    as a place it was "written".
-#
-#    Scoped to the PAGE ROWS (`.idea-page-row`), not to every href in the Context
-#    block, and that distinction is the point. Context now renders a `#window` of
-#    the containing NOTE where there is one, and that window's permalink
-#    legitimately points at `ideas/<container>.html` — a note link, not a claim
-#    about provenance. Asserting over the whole block flagged it: a wrong answer to
-#    the right question.
 python3 - "$H" <<'PY'
 import re, sys, pathlib
 root = pathlib.Path(sys.argv[1])
 bad = 0
 for page in sorted((root / "ideas").glob("*.html")):
     html = page.read_text()
-    for block in re.findall(r'<li class="idea-page-row">.*?</li>', html, re.S):
+    for block in re.findall(r'<div class="idea-context">.*?</div>', html, re.S):
         for href in re.findall(r'href="([^"]+)"', block):
             if "ideas/" in href:
                 print(f"FAIL: {page.name}'s Context lists a minted page: {href}")
                 bad += 1
 sys.exit(1 if bad else 0)
 PY
-
-# 5. A NESTED note's Context is a WINDOW of the note containing it; a TOP-LEVEL
-#    note's Context stays a page-row link naming the vertebra it was written on.
-#    Both halves are asserted, because the interesting failure is the first
-#    silently becoming the second — an auto-id container that fails to resolve
-#    falls back to the page link and looks exactly like "has no container".
-python3 - "$H" <<'PYCTX'
-import re, sys, pathlib
-root = pathlib.Path(sys.argv[1])
-def context_of(name):
-    html = (root / "ideas" / name).read_text()
-    m = re.search(r'<div class="idea-context">(.*?)</div></div>', html, re.S) \
-        or re.search(r'<div class="idea-context">(.*?)</div>', html, re.S)
-    return m.group(1) if m else ""
-bad = 0
-inner = context_of("inner-note.html")
-if "idea-window" not in inner:
-    print("FAIL: inner-note is nested in root-note, so its Context must be a window")
-    bad += 1
-if "idea:root-note" not in inner:
-    print("FAIL: inner-note's Context window does not name root-note")
-    bad += 1
-for top in ("root-note.html", "sub-note.html"):
-    c = context_of(top)
-    if "idea-page-row" not in c:
-        print("FAIL: %s is top-level, so its Context must stay a page link" % top)
-        bad += 1
-    if "idea-window" in c:
-        print("FAIL: %s is top-level and must not window anything under Context" % top)
-        bad += 1
-sys.exit(1 if bad else 0)
-PYCTX
-[ "$?" -eq 0 ] || note "Context sections are wrong"
 
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"

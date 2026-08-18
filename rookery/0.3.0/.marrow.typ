@@ -75,7 +75,7 @@
 // Every name here is INTERNAL to `@rheo/rookery` and load-bearing for this
 // file. lib.typ carries the matching "CONSUMED BY .marrow.typ" banner; renaming
 // or re-signing any of them means changing both files in the same commit.
-#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _containers, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
+#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
 
 #context {
   let registry = _registry.final()
@@ -141,9 +141,6 @@
 
   // CONTAINMENT: `note id -> containing note id or none`, for the Context
   // section below. Built ONCE for the whole run, like the backlink maps above —
-  // `_containers` walks the entire document, so calling it per page would walk
-  // it once per note.
-  let containers = _containers()
 
   for (id, rec) in registry.pairs() {
     // Slug, minted path and minted handle from ONE helper, so this file cannot
@@ -292,29 +289,13 @@
         // does — not as a banner across the top. It links to the note's own
         // anchor on that page rather than to the top of it.
         //
-        // A CONTAINING NOTE, where there is one, is the more precise answer to
-        // "where does this sit" than the page is, and there IS a note behind it
-        // to fold open — so it renders as a `#window`, exactly as a note
-        // backlink does. `folded: true, depth: 1` are pinned for the reasons the
-        // Backlinks comment below records (a MEASURED `window-depth: 2` project
-        // unfurled an index entry down to a window of the very page it sat on),
-        // and `window` re-adds the prefix itself, hence the same trim.
         //
-        // `depth: 1`, NOT `0`, since the rebasing of the scale (see
-        // `_window-depth`): 1 is "render this note, unfurl nothing inside it",
-        // which is what `0` meant before, and 0 now means "emit a bare link" —
-        // which would silently degrade Context to the page-row shape it already
-        // has a separate branch for.
-        //
-        // `container in registry` as well as non-`none`: a container is always a
-        // registered note in practice, and this keeps a container id the walk
-        // could not reconstruct from panicking a whole build — it falls back to
-        // the page link, which is the answer this section gave before.
-        let container = containers.at(id, default: none)
-        let context-part = if container != none and container in registry {
-          section("idea-context", [Context],
-            window(container.trim(_pfx(), at: start), folded: true, depth: 1))
-        } else if origin == none { [] } else {
+        // ALWAYS THE PAGE, never a window of the containing note. A note nested
+        // inside another was tried here and reverted: Context answers "where was
+        // this hatched", and the answer is the vertebra it was written on, whether
+        // or not another note happens to enclose it. A window would answer a
+        // different question and bury this one.
+        let context-part = if origin == none { [] } else {
           section("idea-context", [Context],
             page-list((link(label(id), _handle-title(origin)),)))
         }

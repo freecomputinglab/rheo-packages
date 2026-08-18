@@ -62,7 +62,7 @@
 
 // ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
 //
-// `.marrow.typ` (this package's own, at the package root) imports EIGHTEEN
+// `.marrow.typ` (this package's own, at the package root) imports SEVENTEEN
 // names from `"@rheo/rookery:0.3.0"`, seventeen of them underscore-private. They
 // are as load-bearing as anything public here, and nothing else in this file
 // says so. RENAMING OR RE-SIGNING ANY OF THEM MEANS CHANGING `.marrow.typ` IN
@@ -87,9 +87,6 @@
 //   _themed              carries the document's theme as inline custom props
 //   _handle-title        the human title of the vertebra a handle names, for
 //                        the Context section's links back into the spine
-//   _containers          note id -> containing note id, so the Context section
-//                        can window a note's containing NOTE where there is one
-//                        instead of only naming the page it was written on
 //   _page-links          which notes a given PAGE links to directly
 //   _page-href           depth-relative href from this page to another page
 //   _body-at             a note's body at a given nested-window budget
@@ -2428,102 +2425,6 @@
   if title-heading == none { list-content } else { title-heading + list-content }
 }
 
-// ---- Containment — which note a note sits INSIDE --------------------------
-//
-// `note id -> containing note id or none`, for the whole rookery, from the same
-// query-time walk `_ideas-outline-data` does above. Containment is a query-time
-// fact and the registry deliberately records no parent field, so this is the one
-// derivation of it and there is no second source of truth to drift from.
-//
-// A SIBLING of `_ideas-outline-data`, not a field added to it, because the two
-// disagree about what to skip and `#ideas-outline`'s output must not move.
-// That function drops a note with NO TITLE — an outline row is a heading text,
-// and there is nothing to print. Containment does not care: an untitled note is
-// still its children's container and still has a container of its own, so every
-// note walked gets an entry here.
-//
-// The id is NOT in the marker payload (`body`/`title`/`named`/`base`/`level`/
-// `tags` — see `#idea`), so it is rebuilt exactly the way `#idea` builds it: a
-// named note is `_pfx() + base`, an auto-numbered one is its `rheo-ideas-seq`
-// value. Read with `.at(el.location())`, not `.get()`, since this runs outside
-// the note — at the bundle root, from `.marrow.typ`'s own `#context`.
-//
-// Walks the whole document, so call it ONCE per run and reuse the dictionary
-// (`.marrow.typ` does, outside its minting loop).
-#let _containers() = {
-  let c = _rheo-ctx()
-  // The two guards `_ideas-outline-data`'s `rookery-wide` form carries, for the
-  // same measured reasons. Only vertebrae count where minted pages exist: a
-  // minted page re-renders a stored body, whose nested `figure(kind: IK)`s stay
-  // queryable through the show rule that rebuilds them, and those echoes arrive
-  // AFTER the whole spine — one seen at depth 0 would overwrite a real parent
-  // with `none`. Gated on multi-page output because the combined PDF gives every
-  // vertebra the empty handle and plain `typst compile` publishes none at all.
-  let spine = if c == none { () } else {
-    c.at("spine-flat", default: ()).map(v => v.at("handle", default: none))
-  }
-  let multi-page = c != none and c.at("ext", default: none) != none
-  let idea-depth = 0
-  let window-depth = 0
-  // The open ancestors KEYED BY DEPTH, plus the last note seen. A plain stack
-  // push is not enough: a note's `figure(kind: IK)` is seen one step BEFORE the
-  // bracket that wraps its own body opens, so at the moment an `open` edge
-  // arrives the id it belongs to is already behind us — `pending` — rather than
-  // being carried by the edge itself.
-  let open = (:)
-  let pending = none
-  let out = (:)
-  for el in query(selector(metadata).or(selector(figure.where(kind: IK)))) {
-    if el.func() == metadata {
-      let v = el.value
-      if type(v) != dictionary { continue }
-      let edge = v.at("rookery-edge", default: none)
-      let container = v.at("rookery-container", default: none)
-      if edge == "open" and container == IK {
-        idea-depth += 1
-        open.insert(str(idea-depth - 1), pending)
-      }
-      if edge == "close" and container == IK { idea-depth -= 1 }
-      if edge == "open" and container == WK { window-depth += 1 }
-      if edge == "close" and container == WK { window-depth -= 1 }
-      continue
-    }
-    // Inside a `#window`, at any cascade depth: an echo of a note stored (and
-    // possibly authored) elsewhere, not this page's own structure — the same
-    // reason `_ideas-outline-data` skips it.
-    if window-depth > 0 { continue }
-    if multi-page {
-      let handle = state("rheo-handle").at(el.location())
-      if type(handle) == str and handle not in spine { continue }
-    }
-    let m = el.body.children.find(x => x.func() == metadata)
-    if m == none { continue }
-    let v = m.value
-    let id = if v.at("named", default: false) {
-      _pfx() + v.base
-    } else {
-      // `+ 1`, and it is not a fudge: `#idea` emits this metadata marker and THEN
-      // steps `rheo-ideas-seq`, reading the stepped value in a later `context`. So
-      // at the FIGURE's location the counter is still pre-step for this very note,
-      // and the reconstruction is one behind.
-      //
-      // MEASURED without it, two auto notes: the registry held `idea:1`/`idea:2`
-      // while this walker produced `idea:0`/`idea:1`. It failed SILENTLY rather
-      // than loudly — `.marrow.typ` guards with `container in registry`, so an
-      // auto-id container simply fell back to the page link and looked like a note
-      // that had no container at all.
-      _pfx() + str(counter("rheo-ideas-seq").at(el.location()).first() + 1)
-    }
-    // The figure precedes its own `open` edge, so `idea-depth` HERE is the depth
-    // of the note's PARENT context — 0 for a note at the top level of its page.
-    out.insert(
-      id,
-      if idea-depth == 0 { none } else { open.at(str(idea-depth - 1), default: none) },
-    )
-    pending = id
-  }
-  out
-}
 
 // Depth-relative href from the CURRENT page to another vertebra's page — the
 // same arithmetic as `_note-href`, against a spine handle rather than a note
