@@ -137,6 +137,51 @@ export const evalTagQuery = (rpn, tags) => {
   return st.length === 0 ? true : st[st.length - 1];
 };
 
+// The atoms whose PRESENCE on a note is evidence for the query — i.e. every
+// atom not negated. Walked over the RPN with the same small stack
+// `evalTagQuery` uses, so a `!` consumes the atom below it. Nothing here
+// reproduces the boolean result; a chip is marked when it is evidence, not
+// when it is decisive.
+//
+// Per stack slot the SET of atoms that produced it: `!` replaces that set with
+// the empty set (nothing on the row is evidence for an absence — there is no
+// element to mark), `&`/`|` union the two below, and the surviving
+// top-of-stack set is the answer. So `!draft` yields nothing, `a|b` yields
+// both (a note carrying both is satisfied twice and both chips are evidence),
+// and `!(draft|todo)&note` yields only `note`.
+//
+// Lenient exactly as `evalTagQuery` is — a missing operand is skipped, never
+// thrown on, because a live search box types every prefix of a valid query on
+// the way to it.
+//
+// NO PARITY REQUIREMENT: there is no Typst counterpart, and none is wanted.
+// `#search-ideas` returns data; which chip to highlight is presentation, and
+// the Typst side renders no chips.
+//
+// PRESENTATION ONLY, and subordinate: if this and `evalTagQuery` ever disagree
+// about a note, `evalTagQuery` is right by definition — it decides which rows
+// exist, this only decides what is marked on one.
+export const positiveAtoms = (rpn) => {
+  const st = [];
+  for (const tok of rpn) {
+    if (tok.t === "atom") {
+      st.push(new Set([tok.v]));
+      continue;
+    }
+    if (tok.v === "!") {
+      if (st.length === 0) continue;
+      st.pop();
+      st.push(new Set());
+      continue;
+    }
+    if (st.length < 2) continue;
+    const b = st.pop();
+    const a = st.pop();
+    st.push(new Set([...a, ...b]));
+  }
+  return st.length === 0 ? [] : [...st[st.length - 1]];
+};
+
 // Port of `split-query`. Only a LEADING `tags:` is recognised, so a note
 // body containing "tags:" can never be mistaken for a filter.
 export const splitQuery = (q) => {
@@ -321,15 +366,20 @@ export const readIndex = (elemId) => {
 // mechanism: no `showTags` parameter, no branch on which surface called, no
 // second row builder — the sharing above exists precisely to stop the two
 // surfaces drifting into building rows two ways, and a visibility rule is
-// something CSS can express without breaking it. It also leaves this
-// function's signature at `(hit, terms)` for the third argument bead
-// rheo-packages-tagq-mark-a5z wants.
+// something CSS can express without breaking it.
 //
 // The tags are why a `tags:` query is legible at all: an atom matches a tag by
 // PREFIX (`evalTagQuery`'s `tg.startsWith(tok.v)` above, so `tags:note` also
 // matches `notebook`), and a row that shows its own tags explains its own
 // presence in the list instead of looking like a mystery hit.
-const renderRow = (hit, terms) => {
+//
+// `atoms` is `positiveAtoms(rpn)` — passed in rather than re-parsed here,
+// because both callers already hold the split query. It is the THIRD argument
+// the tag pills left room for, and it is only ever the positive atoms: a
+// negation marks nothing (see `positiveAtoms`), and the residual TEXT `terms`
+// never mark a chip, because the text query does not search tags and marking
+// one would claim it does.
+const renderRow = (hit, terms, atoms = []) => {
   const a = document.createElement("a");
   a.className = "rookery-search-row";
   a.setAttribute("role", "option");
@@ -365,10 +415,22 @@ const renderRow = (hit, terms) => {
   // emits a broken two-class `idea-tag-my tag` in rookery itself. Not
   // sanitised here — that would silently disagree with rookery's own output.
   //
-  // TEXT, NOT `<mark>`. Highlighting the tag that MATCHED is bead
-  // rheo-packages-tagq-mark-a5z and deliberately separate: with `!` in the
-  // grammar "which tag matched" is not well defined for every expression.
-  // `createElement`/`textContent` regardless, never `innerHTML` — a tag comes
+  // A CHIP THAT IS EVIDENCE FOR THE QUERY IS MARKED, and only the PREFIX an
+  // atom actually matched — `notebook` under `tags:note` shows `note` marked
+  // and `book` plain, which is the whole point: the mark is what explains a
+  // prefix match. The LONGEST matching atom wins, so `tags:note|noteb` marks
+  // `noteb` rather than stopping at whichever atom came first in the RPN.
+  //
+  // `fold` is length-preserving (each folded character replaces exactly one —
+  // see `matchRanges`), so an atom's length measured against the folded copy
+  // slices correctly out of the chip's own text. That is what makes marking a
+  // prefix safe with no cluster arithmetic.
+  //
+  // A chip that did NOT contribute gets no mark at all: no `atoms` entry is its
+  // prefix, `ranges` is empty, and `appendMarked` degrades to a single text
+  // node. Same `<mark class="rookery-search-mark">` as the title, the id, the
+  // keyword chips and the fetched page, via the file's one mark-inserting pair.
+  // `createElement`/`textContent` throughout, never `innerHTML` — a tag comes
   // out of the author's own notes and must never be able to inject markup.
   const tags = hit.tags ?? [];
   if (tags.length > 0) {
@@ -377,7 +439,12 @@ const renderRow = (hit, terms) => {
     for (const t of tags) {
       const chip = document.createElement("span");
       chip.className = `rookery-search-tag idea-tag-${t}`;
-      chip.textContent = t;
+      const folded = fold(t);
+      let len = 0;
+      for (const atom of atoms) {
+        if (atom.length > len && folded.startsWith(atom)) len = atom.length;
+      }
+      appendMarked(chip, t, len === 0 ? [] : [{ start: 0, end: len }]);
       tagBox.append(chip);
     }
     a.append(tagBox);
@@ -418,9 +485,14 @@ const wire = (root, rows, n) => {
     // Note the `open` test above still reads the RAW input, on purpose — a bare
     // `tags:draft` with no residual text should open the dropdown, and it is
     // non-empty even though its residual is "".
-    const terms = fold(splitQuery(q).text).split(" ").filter((t) => t !== "");
+    //
+    // The tag expression's POSITIVE atoms travel beside them, so a chip an atom
+    // prefix-matched is marked too. Computed once per render, not per row.
+    const { rpn, text } = splitQuery(q);
+    const terms = fold(text).split(" ").filter((t) => t !== "");
+    const atoms = positiveAtoms(rpn);
     for (const hit of search(rows, q, limit)) {
-      list.append(renderRow(hit, terms));
+      list.append(renderRow(hit, terms, atoms));
     }
   };
 
@@ -842,10 +914,14 @@ const wireModal = (dialog, rows) => {
     // FILTERED corpus at score 0 in id order — the same sentence one level in.
     hits = search(rows, q, limit);
     // The residual, not the raw input: see `wire`'s `render` above. Marking the
-    // literal "tags:" in every note is the failure this avoids.
-    const terms = fold(splitQuery(q).text).split(" ").filter((t) => t !== "");
+    // literal "tags:" in every note is the failure this avoids. And the tag
+    // expression's positive atoms alongside, for the chips — this is the surface
+    // where they are visible at all.
+    const { rpn, text } = splitQuery(q);
+    const terms = fold(text).split(" ").filter((t) => t !== "");
+    const atoms = positiveAtoms(rpn);
     for (const hit of hits) {
-      const row = renderRow(hit, terms);
+      const row = renderRow(hit, terms, atoms);
       row.addEventListener("pointerenter", () => {
         select([...list.children].indexOf(row));
       });
