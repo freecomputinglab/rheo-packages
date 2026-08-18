@@ -298,7 +298,8 @@
      background (`.rookery-search-row:hover` and
      `[data-rookery-search-selected="true"]`), and the modal always has a
      selected row — a chip keyed off it would dissolve into exactly the row a
-     reader is looking at. A currentColor tint instead, which follows the row's
+     reader is looking at. (The dropdown starts with NO selected row, by design;
+     the modal is the case that matters here, since pills only show there.) A currentColor tint instead, which follows the row's
      own ink into a dark theme; the gray literal above it is the fallback for an
      engine without `color-mix`.
 
@@ -623,9 +624,15 @@
        any width. That is the case where breaking beats overflowing. */
   }
 
-  /* The selected row and the hovered row must look identical, because the
-     script makes hovering select — reusing `--rookery-search-hover` rather
-     than a second colour keeps that true by construction, not by convention. */
+  /* The selected row and the hovered row must look identical, because in the
+     MODAL hovering selects — reusing `--rookery-search-hover` rather than a
+     second colour keeps that true by construction, not by convention.
+
+     UNSCOPED, and now deliberately so: `#search-bar`'s dropdown drives the same
+     attribute from the same `selection` helper (see `rookery-search.js`), so its
+     arrow-key highlight is this rule without a second one to keep in step.
+     Hovering does NOT select in the dropdown — there is no preview pane for it to
+     drive — so there the two states are independent and merely look alike. */
   .rookery-search-row[data-rookery-search-selected="true"] {
     background-color: var(
       --rookery-search-hover,

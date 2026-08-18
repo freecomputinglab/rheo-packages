@@ -499,6 +499,93 @@ const renderRow = (hit, terms, atoms = []) => {
   return a;
 };
 
+// ---- The active option, shared by the bar and the modal --------------------
+//
+// ONE implementation for both surfaces, because it is one job: mark exactly one
+// row of a `role="listbox"` as the active option, tell the `role="combobox"`
+// input which one that is, and keep it in view. The two differ only in what
+// FOLLOWS a selection — the modal repaints its preview pane, the bar does
+// nothing — so that is the parameter.
+//
+// It was the modal's alone (`wireModal`'s `select`) while the bar had no keyboard
+// navigation at all: the bar announced the full combobox pattern
+// (`role="combobox"`, `aria-autocomplete="list"`, `aria-expanded`,
+// `aria-controls`) over rows carrying `role="option"`, and then answered no arrow
+// key, set `aria-selected` on nothing, and never named an active descendant. A
+// reader who tabbed in and typed could only reach a result by tabbing through
+// every one of them, with nothing to say which was current.
+//
+// `-1` MEANS NO ACTIVE OPTION, and it is a real state rather than a sentinel for
+// zero. The modal opens on a selected first row, because its preview pane needs
+// something to show and an empty pane beside a full list reads as broken. The bar
+// must NOT: its dropdown appears under a field the reader is still typing in, and
+// pre-highlighting a row there would claim Enter goes somewhere before they have
+// looked. So the bar clears to `-1` on every render and the first ArrowDown lands
+// on row 0.
+//
+// CLAMPED, NEVER WRAPPED, at both ends: arrowing past the last row keeps the last
+// row rather than jumping to the first. A wrap in a list whose length changes on
+// every keystroke loses the reader's place. From `-1`, ArrowUp clamps to row 0
+// too — the first press activates the list either way, which is more predictable
+// than "up from nothing means the end".
+//
+// `aria-activedescendant` is on the INPUT, which is where the combobox pattern
+// puts it and the only place it can be: focus never leaves the field on either
+// surface, so a screen reader learns the current option from this attribute or
+// not at all. That needs per-row ids, which cannot live in the markup — a bar is
+// placeable more than once on a page — so they are assigned here from the list's
+// own id, itself assigned at runtime for the same reason.
+let listSeq = 0;
+const selection = (list, input, onSelect = null) => {
+  if (list.id === "") list.id = `rookery-search-list-${listSeq++}`;
+  let selected = -1;
+
+  const rows = () => list.querySelectorAll(".rookery-search-row");
+
+  // Selecting nothing: the attribute is REMOVED rather than set empty, because an
+  // empty `aria-activedescendant` is a reference to an element with no id rather
+  // than the absence of one.
+  const clear = () => {
+    selected = -1;
+    input.removeAttribute("aria-activedescendant");
+    for (const el of rows()) {
+      el.setAttribute("aria-selected", "false");
+      el.removeAttribute("data-rookery-search-selected");
+    }
+  };
+
+  const select = (i) => {
+    const els = rows();
+    if (els.length === 0) {
+      clear();
+      return;
+    }
+    selected = Math.max(0, Math.min(i, els.length - 1));
+    for (const [idx, el] of els.entries()) {
+      el.id = `${list.id}-opt-${idx}`;
+      if (idx === selected) {
+        el.setAttribute("aria-selected", "true");
+        el.setAttribute("data-rookery-search-selected", "true");
+      } else {
+        el.setAttribute("aria-selected", "false");
+        el.removeAttribute("data-rookery-search-selected");
+      }
+    }
+    input.setAttribute("aria-activedescendant", els[selected].id);
+    els[selected].scrollIntoView({ block: "nearest" });
+    if (onSelect !== null) onSelect();
+  };
+
+  return {
+    select,
+    clear,
+    // `selected + d` through `select`, so the clamp is in one place.
+    move: (d) => select(selected + d),
+    index: () => selected,
+    current: () => rows()[selected] ?? null,
+  };
+};
+
 const wire = (root, rows, n) => {
   const input = root.querySelector(".rookery-search-input");
   const list = root.querySelector(".rookery-search-results");
@@ -518,9 +605,15 @@ const wire = (root, rows, n) => {
   // brings it back, which is the one unambiguous signal that they want it.
   let dismissed = false;
 
+  const sel = selection(list, input);
+
   const render = () => {
     const q = input.value.trim();
     list.replaceChildren();
+    // BEFORE the early return below, not after the rows are appended: the rows
+    // this cleared against are already gone, and a closed dropdown must not leave
+    // the input pointing at an option that no longer exists.
+    sel.clear();
     const open = q !== "" && !dismissed;
     root.dataset.rookerySearchOpen = open ? "true" : "false";
     input.setAttribute("aria-expanded", open ? "true" : "false");
@@ -548,7 +641,33 @@ const wire = (root, rows, n) => {
     render();
   });
   input.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
+    // ArrowDown/ArrowUp plus Ctrl-n/Ctrl-p, the same pair the modal takes, so a
+    // reader does not have to learn two sets of keys for one search.
+    //
+    // `preventDefault` on the arrows because a `type="search"` input would
+    // otherwise move the text caret to the end or the start of the value — the
+    // arrows belong to the list while the list is open, which is exactly what
+    // `open` tests. With the dropdown shut they are the caret's again.
+    const open = root.dataset.rookerySearchOpen === "true";
+    if (open && (ev.key === "ArrowDown" || (ev.ctrlKey && ev.key === "n"))) {
+      ev.preventDefault();
+      sel.move(1);
+    } else if (open && (ev.key === "ArrowUp" || (ev.ctrlKey && ev.key === "p"))) {
+      ev.preventDefault();
+      sel.move(-1);
+    } else if (ev.key === "Enter") {
+      // THE HREF COMES OFF THE ROW, not out of a parallel `hits` array the way
+      // the modal reads it: the row IS an `<a>`, so its `href` property is the
+      // resolved URL and there is no second copy of the result list to keep in
+      // step with the DOM. Enter with nothing selected is left alone — the field
+      // may be inside a form, and swallowing a submit no reader asked us to
+      // swallow is worse than doing nothing.
+      const row = sel.current();
+      if (row !== null) {
+        ev.preventDefault();
+        window.location.href = row.href;
+      }
+    } else if (ev.key === "Escape") {
       input.value = "";
       dismissed = false;
       render();
@@ -782,7 +901,6 @@ const wireModal = (dialog, rows) => {
   const limit = Number(dialog.dataset.rookerySearchLimit || "30");
 
   let hits = [];
-  let selected = 0;
   // Bumped by every `renderPreview`, so a `fetch` that lands after the reader
   // has moved on cannot paint over a later selection's pane. Arrow-keying down
   // a list of hits starts a request per row it passes through and those can
@@ -859,7 +977,11 @@ const wireModal = (dialog, rows) => {
   };
 
   const renderPreview = () => {
-    const hit = hits[selected];
+    // `sel` is declared BELOW this function and read only when it runs, which is
+    // always after `selection(..)` has returned it — the closure is what makes
+    // that legal, and the alternative (threading the index through every caller)
+    // would put two copies of "which row is active" in one file.
+    const hit = hits[sel.index()];
     const gen = ++previewGen;
     preview.replaceChildren();
     // `replaceChildren` replaces CHILDREN, so the loading flag set below
@@ -930,28 +1052,29 @@ const wireModal = (dialog, rows) => {
     });
   };
 
-  // Marks exactly one row selected (clamped, no wrap — see keyboard handling
-  // below), scrolls it into view, and re-renders the preview to match.
-  const select = (i) => {
-    const els = list.querySelectorAll(".rookery-search-row");
-    if (els.length === 0) return;
-    selected = Math.max(0, Math.min(i, els.length - 1));
-    for (const [idx, el] of els.entries()) {
-      if (idx === selected) {
-        el.setAttribute("aria-selected", "true");
-        el.setAttribute("data-rookery-search-selected", "true");
-      } else {
-        el.setAttribute("aria-selected", "false");
-        el.removeAttribute("data-rookery-search-selected");
-      }
-    }
-    els[selected].scrollIntoView({ block: "nearest" });
-    renderPreview();
-  };
+  // Marks exactly one row selected (clamped, no wrap), names it as the input's
+  // active descendant, scrolls it into view, and re-renders the preview to match.
+  // The first three are `selection`'s, shared with `#search-bar`'s dropdown; the
+  // preview is this surface's own, which is why it is passed in.
+  //
+  // `aria-controls` alongside, because `selection` has just given the list an id
+  // and the combobox pattern this input already claims (`role="combobox"`,
+  // `aria-expanded`) is incomplete without it. The dropdown wired its own at
+  // `wire`; the modal never did.
+  const sel = selection(list, input, () => renderPreview());
+  input.setAttribute("aria-controls", list.id);
+  const select = sel.select;
 
   const render = () => {
     const q = input.value.trim();
     list.replaceChildren();
+    // CLEARED HERE, with the rows it referred to, and NOT left to `select(0)` at
+    // the bottom: the no-hits path below returns before reaching it, so
+    // `aria-activedescendant` survived pointing at a row that had just been
+    // removed from the document. MEASURED — after a query matching nothing, the
+    // input still named `…-opt-0` while the list held zero rows. `select(0)` sets
+    // it again on every path that has something to select.
+    sel.clear();
     // EMPTY QUERY shows the corpus, not nothing: `search(rows, "", limit)`
     // already returns everything at score 0 in id order — telescope's
     // empty-prompt behaviour, deliberately unlike `#search-bar`'s dropdown,
@@ -1008,13 +1131,13 @@ const wireModal = (dialog, rows) => {
   dialog.addEventListener("keydown", (ev) => {
     if (ev.key === "ArrowDown" || (ev.ctrlKey && ev.key === "n")) {
       ev.preventDefault();
-      select(selected + 1);
+      sel.move(1);
     } else if (ev.key === "ArrowUp" || (ev.ctrlKey && ev.key === "p")) {
       ev.preventDefault();
-      select(selected - 1);
+      sel.move(-1);
     } else if (ev.key === "Enter") {
       ev.preventDefault();
-      const hit = hits[selected];
+      const hit = hits[sel.index()];
       if (hit !== undefined) window.location.href = hit.href;
     } else if (ev.key === "Escape") {
       // NOT left to native `<dialog>` Escape-to-close, despite that being the
@@ -1037,9 +1160,11 @@ const wireModal = (dialog, rows) => {
 
   // Resets selection state once the dialog has actually closed, by whatever
   // means — the explicit Escape handler above, a backdrop click, or a caller
-  // closing it directly.
+  // closing it directly. `clear`, not `select(0)`: the list has not been
+  // re-rendered yet, so there is no row 0 to point `aria-activedescendant` at,
+  // and the next `open` re-renders and selects for itself.
   dialog.addEventListener("close", () => {
-    selected = 0;
+    sel.clear();
   });
 
   return {

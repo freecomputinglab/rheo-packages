@@ -634,11 +634,47 @@ The wrapper also carries `data-rookery-search-open="true|false"`, flipped as the
 results open and close — that is the hook to show and hide the list, so the CSS
 does not have to guess at emptiness.
 
-Escape clears the input, closes the list and blurs. Clicking anywhere outside
-the bar closes it too, but **leaves what you typed in the field** — dismissing a
-dropdown is not the same as abandoning a search. It stays shut while that query
-sits there, including if you click back into the input; typing again is what
-brings it back, being the one gesture that unambiguously asks for it.
+### Working it from the keyboard
+
+The dropdown is reachable without a pointer, and by the same keys as the modal —
+one search, one set of keys:
+
+| key | what it does |
+| --- | --- |
+| `↓` / `Ctrl+N` | move down the results |
+| `↑` / `Ctrl+P` | move up |
+| `↵` | open the highlighted result |
+| `esc` | clear the input, close the list, blur |
+
+**Nothing is highlighted until you ask.** The dropdown opens under a field you
+are still typing in, so pre-selecting its first row would claim `↵` goes
+somewhere before you had looked; the first `↓` lands on the first result. The
+modal is the other way round — it opens on a selected row, because its preview
+pane needs something to show. A fresh query clears the highlight rather than
+keeping the old index.
+
+The selection is **clamped, never wrapped**: arrowing past the last result keeps
+the last result. In a list whose length changes on every keystroke, a wrap loses
+your place.
+
+`↵` with nothing highlighted is **left alone** — a bar can sit inside a form, and
+swallowing a submit you did not ask us to swallow is worse than doing nothing.
+The arrow keys are only taken while the list is open; with it shut they are the
+text caret's again.
+
+For a screen reader, the input carries `aria-activedescendant` naming the
+highlighted row (ids assigned at runtime, as the listbox's is) and each row
+carries `aria-selected`, so the current option is announced rather than merely
+drawn. The highlight itself is `data-rookery-search-selected="true"` on the row,
+styled with `--rookery-search-hover` — the same rule the modal uses, so the two
+surfaces cannot drift apart. Hovering does **not** move the keyboard highlight
+here, unlike in the modal, where hovering drives the preview pane.
+
+Clicking anywhere outside the bar closes it too, but **leaves what you typed in
+the field** — dismissing a dropdown is not the same as abandoning a search. It
+stays shut while that query sits there, including if you click back into the
+input; typing again is what brings it back, being the one gesture that
+unambiguously asks for it.
 
 Result titles are set with `textContent`, never `innerHTML`, so nothing in a
 note title can inject markup.
@@ -788,6 +824,11 @@ no wrapping. Hovering a row selects it too, so pointer and keyboard always
 agree on what the preview is showing. Enter opens the selected row; Escape or
 a click on the backdrop closes the dialog, leaving the query in place so a
 reopen (`Ctrl+K` again, or the trigger) resumes exactly where you left off.
+
+The bar's dropdown takes the **same keys**, off the same implementation — see
+"Working it from the keyboard" above for the two places the surfaces differ on
+purpose (the modal opens on a selected row and lets hover move it; the dropdown
+does neither).
 
 ### The preview pane fetches the note's page
 
