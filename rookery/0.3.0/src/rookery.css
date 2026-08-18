@@ -116,8 +116,11 @@
    background line behind the text: a line that has to break BEHIND the id would
    need to know the page's background colour, which a package cannot know, and
    guessing it puts a grey box around every id on a dark site.
-   `align-items: center` is what puts the rule at the id's vertical middle
-   instead of at its baseline.
+   `align-items: center` puts the rule through the id's middle, which is right HERE
+   — on a minted page the tab is a leader beside the id with no border to meet, and
+   a dash at the id's baseline would just hang low. Inside a card or a window,
+   where the rule IS the box's top edge, it is overridden to `flex-end` beside the
+   lift that depends on it (see the two rules below).
 
    ONE stub, to the LEFT. The rule runs out of the corner and STOPS at the id —
    it does not resume on the far side. The id is where the frame ends, not a word
@@ -145,7 +148,7 @@
    ends on that rule's OUTER edge and the corner has no notch in it. At 1px the
    shortfall was invisible; at 2px it is a gap you can see. */
 .idea-tab::before {
-  width: calc(0.75em + var(--idea-rule-width, 2px));
+  width: calc(var(--idea-pad-left, 0.75em) + var(--idea-rule-width, 2px));
 }
 
 /* `.idea-label`'s 0.5em separates it from a title it follows. In a tab it
@@ -195,14 +198,41 @@
 .idea-box > .idea-head > .idea-tab,
 .idea-window-summary > .idea-tab {
   line-height: 1;
-  margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem));
-  margin-left: calc(-0.75em - var(--idea-rule-width, 2px));
+  /* THE RULE TO THE BOTTOM OF THE LINE, not through the id's middle, and only in
+     these two contexts — the ones with a top border for it to be. A zero-height
+     flex item centred lands on the label's own centre line, which is what used to
+     leave half the id hanging BELOW the border: MEASURED, 4.55px above the box top
+     and 4.58px below it. At `flex-end` the rule sits under the label, so the lift
+     below puts the id ON the border rather than through it. */
+  align-items: flex-end;
+  /* CLOSER TO THE END OF THE HAT. Half the generic tab's `gap` — MEASURED 4.8px
+     (0.3em) between the stub's end and the id's box, 6.8px to the id's text once
+     the label's own 2px padding is counted; halved it is 2.4px and 4.4px. The id
+     reads as sitting ON the end of the rule rather than floating away from it.
+     Scoped to these two contexts with the rest of the treatment: a MINTED page's
+     tab keeps the wider gap, and keeps its id centred on the stub, because there
+     the dash is a leader beside the id rather than a frame's top edge. */
+  gap: 0.15em;
+  /* A WHOLE label, not half: with the rule at the line's bottom (above), lifting by
+     the label's full height lands that rule on the box's top edge and leaves the id
+     entirely above it. Half a label is what used to centre the id ON the border.
+     From the custom property, never a pixel count, so a project retheming
+     `--idea-label-size` keeps the alignment. */
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem));
+  margin-left: calc(-1 * var(--idea-pad-left, 0.75em) - var(--idea-rule-width, 2px));
 }
 
 /* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
    to clear that too or the corner lands 2px low. */
 .idea-window-summary > .idea-tab {
-  margin-top: calc(-0.5 * var(--idea-label-size, 0.57rem) - 2px);
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem) - 2px);
+}
+
+/* FOLDED, the window has given up its 2px `padding-top` (see the folded rule
+   below), so the lift must give up the 2px it added to clear it or the tab lands
+   2px high and the hat parts company with the wash under it. */
+.idea-window-details:not([open]) > .idea-window-summary > .idea-tab {
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem));
 }
 
 /* The tab carries the space above a note, so the heading under it contributes
@@ -453,7 +483,17 @@ figure:has(> .idea-box),
 figure:has(> .idea-window) {
   margin-left: 0;
   margin-right: 0;
-  padding-top: 0;
+  /* ROOM FOR THE LIFTED ID. The tab is pulled up by a negative margin, which does
+     not make this figure any taller, so the id overflows UPWARD out of the box and
+     into whatever precedes it. It used to overflow by half a label and land in the
+     preceding paragraph's own margin; now that it clears the border entirely it
+     overflows by a whole one, so the figure owes it the difference — MEASURED, the
+     11.45px gap from preceding text to the id would otherwise fall to about 6.9px.
+
+     PADDING, NOT MARGIN, and this is the trap: a `margin-top` here COLLAPSES with
+     the preceding paragraph's `margin-bottom` (16px by default) and would do
+     nothing at all. */
+  padding-top: calc(0.5 * var(--idea-label-size, 0.57rem));
 }
 
 /* WINDOW AFTER WINDOW GETS A GAP, and it has to be said three times because a
@@ -488,9 +528,23 @@ figure:has(> .idea-window) + figure:has(> .idea-window),
    the note's own content edge and adds its rule there — one more rule per
    level, rather than one ever-growing indent. */
 .idea-box,
+.idea-window,
+.idea-head {
+  /* ONE VARIABLE FOR THE INDENT, because four rules have to agree about it and a
+     fifth just proved they can silently stop agreeing: this padding, the tab's
+     `margin-left` that cancels it, `::before`'s width that spans it, and a folded
+     window's wash that reaches back across it. The mobile block below halves THIS
+     and they all follow — MEASURED, the wash still carried a hardcoded `0.75em`
+     and spilled 6px past the frame at 390px wide while the padding beside it was
+     6px. Declared on `.idea-head` too, so a MINTED page's tab (not inside a card)
+     inherits it rather than falling back to the desktop literal. */
+  --idea-pad-left: 0.75em;
+}
+
+.idea-box,
 .idea-window {
   border-left: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
-  padding-left: .75em;
+  padding-left: var(--idea-pad-left, 0.75em);
 }
 
 /* An idea's heading is an <h2>–<h6> (`#idea`'s `level:` + 1) and would
@@ -660,6 +714,11 @@ h6.idea {
    folded window simply keeps today's appearance. */
 .idea-window:has(> .idea-window-details:not([open])) {
   border-bottom: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  /* NO PADDING EITHER END. `padding-bottom` so the wash meets the floor;
+     `padding-top` so it meets the HAT — MEASURED, that 2px was a visible gap
+     between the top of the tint and the rule above it. The paired tab override
+     below drops the lift's own +2px, which existed only to clear this padding. */
+  padding-top: 0;
   padding-bottom: 0;
   /* SHARP, overriding `.idea-window`'s own `0 5px 5px 0`. That radius exists to
      soften a hover tint on an open block; a folded window is a closed box, and a
@@ -689,30 +748,28 @@ h6.idea {
    Whole-pixel widths — including the 2px default — line up exactly. */
 .idea-window-details:not([open]) > .idea-window-summary {
   background-color: var(--idea-fold-color, rgba(0, 100, 255, 0.05));
-  margin-left: calc(-0.75em - var(--idea-rule-width, 2px));
-  padding-left: calc(0.75em + var(--idea-rule-width, 2px));
+  /* Back to the border's INNER edge, NOT its outer one — the rule's own width is
+     deliberately left out of this reach. MEASURED: pulling the wash under the
+     2px border made a translucent border composite over the tint, so the folded
+     window's left rule came out rgb(227, 217, 255) against the rgb(240, 224, 255)
+     of the hat directly above it and of every other rule on the page. Two frame
+     pieces that are one colour everywhere else must not part company here. Ending
+     at the inner edge leaves the border painting on the page, as it does in a card,
+     and the tint starts where the content does. */
+  margin-left: calc(-1 * var(--idea-pad-left, 0.75em));
+  padding-left: var(--idea-pad-left, 0.75em);
   margin-right: -10px;
   padding-right: 10px;
-  /* BALANCE: the title sits CENTRED between the window's top edge and the floor.
-     MEASURED before this line, the title was 8.58px below that top edge and 0px
-     above the floor — flush against it.
-
-     The 8.58px is not a magic number and is not frozen as one. It DERIVES, and the
-     derivation is why this is a `calc` rather than a pixel count: the tab is lifted
-     `0.5 * label-size + 2px` and the window pads 2px, so the tab's baseline row
-     ends exactly `0.5 * label-size` below the top edge (the +2px lift and the 2px
-     padding cancel — that is what the lift is for), and `.idea-tab`'s own
-     `margin-bottom` adds 0.25em before the title. Mirroring the sum puts equal
-     space above and below.
-
-     Written from the same two custom properties the lift uses, so a project that
-     retheme's `--idea-label-size` or changes the font keeps the balance instead of
-     drifting off a hardcoded 8.58px.
-
-     It goes on the SUMMARY, not back onto `.idea-window`'s `padding-bottom`: the
-     wash is the summary's background, so padding here is tinted and still meets
-     the floor, where window padding would reopen the untinted seam. */
-  padding-bottom: calc(0.5 * var(--idea-label-size, 0.57rem) + 0.25em);
+  /* BALANCE, and it is a different sum now the id sits ABOVE the border. The tab
+     is lifted clear of the box, so what remains inside it above the title is the
+     tab's own `margin-bottom` (0.25em) and nothing else — the window's 2px
+     `padding-top` is gone too (above). Matching that below gives the title equal
+     air on both sides. MEASURED before this: 4px above, 8.55px below, which read
+     as bottom-heavy exactly as reported.
+     It goes on the SUMMARY, not on `.idea-window`'s `padding-bottom`: the wash is
+     the summary's background, so padding here is tinted and still meets the floor,
+     where window padding would reopen the untinted seam. */
+  padding-bottom: 0.25em;
 }
 
 .idea-window-summary::marker,
@@ -1024,18 +1081,12 @@ h6.idea {
    would drag the id 0.375em to the left of the corner it is supposed to sit on —
    and `::before`'s width, which spans the same distance, with it. */
 @media (max-width: 600px) {
+  /* HALVE THE INDENT, once. Everything that has to agree with it reads the
+     variable, so this is the only declaration the narrow layout needs. */
   .idea-box,
-  .idea-window {
-    padding-left: .375em;
-  }
-
-  .idea-box > .idea-head > .idea-tab,
-  .idea-window-summary > .idea-tab {
-    margin-left: calc(-0.375em - var(--idea-rule-width, 2px));
-  }
-
-  .idea-tab::before {
-    width: calc(0.375em + var(--idea-rule-width, 2px));
+  .idea-window,
+  .idea-head {
+    --idea-pad-left: 0.375em;
   }
 
   .idea-outline {
