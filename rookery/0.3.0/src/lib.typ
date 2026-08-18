@@ -397,6 +397,15 @@
 // store the result. The wrapper is what makes the function a value.
 #let _idea-page-template = state("rheo-idea-page-template", none)
 
+// Whether `.marrow.typ` should emit an `<rssfeed:item>` beacon alongside each
+// minted note page — see the "syndicate" comment in `.marrow.typ` for the
+// contract. A plain value, not a function, so this carries the same wrapper
+// discipline as `_idea-page-template` in reverse: `.update(syndicate)`, NOT
+// `.update(_ => syndicate)` — the `_ =>` wrapper exists only to stop
+// `state.update` from calling a FUNCTION value as an updater, and a bool is
+// not one.
+#let _syndicate = state("rheo-idea-syndicate", false)
+
 // ---- Note page URLs -------------------------------------------------------
 //
 // `.marrow.typ` mints one standalone page per note (see that file). Links
@@ -2802,6 +2811,7 @@
   label-size: none,
   refs: true,
   ref-target: "page",
+  syndicate: false,
   doc,
 ) = {
   assert(
@@ -2854,6 +2864,10 @@
     ref-target == "page" or ref-target == "anchor",
     message: "@rheo/rookery: `ref-target` must be \"page\" or \"anchor\" — got "
       + repr(ref-target),
+  )
+  assert(
+    type(syndicate) == bool,
+    message: "@rheo/rookery: `syndicate` must be a boolean — got " + repr(syndicate),
   )
 
   // One converter for both sources, so `theme: (link-color: c)` and
@@ -2945,6 +2959,7 @@
   })
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
+  _syndicate.update(syndicate)
   _theme.update(resolved)
   // DOCUMENT-SCOPE theme publication, ADDITIVE to the per-container INLINE
   // styling `_themed` still applies everywhere it already did (see that
