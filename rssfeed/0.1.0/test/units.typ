@@ -26,7 +26,7 @@
 //   - `item(...)` panics on a missing/empty `title` (same rule, checked at
 //     the emitting end instead of the reading end).
 
-#import "/src/lib.typ": _clean-page, feed, item, items, resolve-entries, spine
+#import "/src/lib.typ": _clean-page, atom, feed, item, items, resolve-entries, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -250,3 +250,217 @@
   assert.eq(filtered.len(), 1)
   assert.eq(filtered.first().title, "Note A")
 }
+
+// ---- atom — Atom 1.0 XML serialization (bead rheo-packages-serialize-yyv) -
+//
+// None of the stub sources below call `query()` (that's `spine()`/`items()`,
+// already covered above) — so every `atom(cfg)` call here uses the default
+// `entries: none` path with NO `#context` wrapper needed.
+
+// ---- structural shape: XML decl, feed namespace, entry count --------------
+#let _stub-atom-struct(cfg) = (
+  (
+    title: "Struct One",
+    url: "https://example.com/struct-one",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+  (
+    title: "Struct Two",
+    url: "https://example.com/struct-two",
+    updated: datetime(year: 2026, month: 1, day: 2),
+  ),
+)
+#let cfg-atom-struct = feed(
+  path: "struct.xml",
+  title: "Struct Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+)
+#let xml-struct = atom(cfg-atom-struct)
+#assert(
+  xml-struct.starts-with("<?xml version=\"1.0\" encoding=\"utf-8\"?>"),
+  message: "atom(...) must start with the XML declaration",
+)
+#assert(
+  xml-struct.contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">"),
+  message: "atom(...) must declare the Atom namespace",
+)
+#assert.eq(xml-struct.matches("<entry>").len(), 2)
+
+// ---- escaping: `&` first, then `<`/`>`, no double-escaping -----------------
+#let _stub-atom-escape(cfg) = (
+  (
+    title: "Tom & Jerry <3",
+    url: "https://example.com/tom-and-jerry",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-escape = feed(
+  path: "escape.xml",
+  title: "Escape Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-escape,),
+)
+#let xml-escape = atom(cfg-atom-escape)
+#assert(
+  xml-escape.contains("Tom &amp; Jerry &lt;3"),
+  message: "title must be escaped & first, then <",
+)
+#assert(
+  not xml-escape.contains("&amp;amp;"),
+  message: "escaping & before </> must not double-escape the &",
+)
+
+// ---- published vs updated: distinct, and omitted when only `updated` ------
+//
+// This is the fix for the retired Rust generator's real defect (bead body):
+// it never emitted `atom:published` at all. One entry carries both dates
+// (distinct) so `<published>` must appear once with its OWN value, separate
+// from `<updated>`; a second entry carries only `updated` so it must
+// contribute NO `<published>` at all.
+#let _stub-atom-pub(cfg) = (
+  (
+    title: "Has Both",
+    url: "https://example.com/has-both",
+    published: datetime(year: 2026, month: 1, day: 1),
+    updated: datetime(year: 2026, month: 1, day: 15),
+  ),
+  (
+    title: "Updated Only",
+    url: "https://example.com/updated-only",
+    updated: datetime(year: 2026, month: 1, day: 20),
+  ),
+)
+#let cfg-atom-pub = feed(
+  path: "pub.xml",
+  title: "Pub Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-pub,),
+)
+#let xml-pub = atom(cfg-atom-pub)
+// Exactly one `<published>` in the whole document — only "Has Both" gets one.
+#assert.eq(xml-pub.matches("<published>").len(), 1)
+#assert(
+  xml-pub.contains("<published>2026-01-01T00:00:00Z</published>"),
+  message: "published must carry its own distinct RFC 3339 value",
+)
+#assert(
+  xml-pub.contains("<updated>2026-01-15T00:00:00Z</updated>"),
+  message: "updated must keep its own distinct value alongside published",
+)
+
+// ---- content: `<rheo-content>` placeholder, `select` present/absent -------
+#let _stub-atom-select(cfg) = (
+  (
+    title: "With Select",
+    page: "a.html",
+    select: "main",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-select = feed(
+  path: "select.xml",
+  title: "Select Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-select,),
+)
+#let xml-select = atom(cfg-atom-select)
+#assert(
+  xml-select.contains(
+    "<content type=\"html\"><rheo-content page=\"a.html\" select=\"main\" as=\"escaped\"/></content>",
+  ),
+  message: "select must appear on <rheo-content> when the entry has one",
+)
+
+#let _stub-atom-noselect(cfg) = (
+  (
+    title: "No Select",
+    page: "a.html",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-noselect = feed(
+  path: "noselect.xml",
+  title: "No Select Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-noselect,),
+)
+#let xml-noselect = atom(cfg-atom-noselect)
+#assert(
+  xml-noselect.contains(
+    "<content type=\"html\"><rheo-content page=\"a.html\" as=\"escaped\"/></content>",
+  ),
+  message: "select must be OMITTED entirely (not select=\"\") when the entry has none",
+)
+#assert(
+  not xml-noselect.contains("select="),
+  message: "absent select must not appear as an empty attribute either",
+)
+
+// ---- summary fallback: no `page` -> no `<content>`, `<summary>` instead ---
+#let _stub-atom-summary(cfg) = (
+  (
+    title: "Summary Only",
+    url: "https://example.com/summary-only",
+    summary: "A short blurb.",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-summary = feed(
+  path: "summary.xml",
+  title: "Summary Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-summary,),
+)
+#let xml-summary = atom(cfg-atom-summary)
+#assert(
+  not xml-summary.contains("<content"),
+  message: "an entry with no page must not get a <content> element",
+)
+#assert(
+  xml-summary.contains("<summary type=\"text\">A short blurb.</summary>"),
+  message: "an entry with no page but a summary must get <summary type=\"text\">",
+)
+
+// ---- no entries -> no feed at all ------------------------------------------
+//
+// Mirrors the retired Rust generator's early return ("Skip feed generation
+// if no entries") — the later marrow bead is expected to check for `none`
+// and skip minting the asset rather than mint an empty/invalid feed.
+#let cfg-atom-empty = feed(
+  path: "empty.xml",
+  title: "Empty Feed",
+  base-url: "https://example.com",
+  sources: (_empty-source,),
+)
+#assert.eq(atom(cfg-atom-empty), none)
+
+// ---- feed <id> and rel="self" link both use base-url + "/" + path ---------
+//
+// GENERALISED from the retired generator's hardcoded `base-url + "/feed.xml"`
+// — proven here with a NON-default `path` so a config that renames the feed
+// file is not silently pinned back to "feed.xml".
+#let _stub-atom-path(cfg) = (
+  (
+    title: "Path Entry",
+    url: "https://example.com/path-entry",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-path = feed(
+  path: "custom/atom.xml",
+  title: "Path Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-path,),
+)
+#let xml-path = atom(cfg-atom-path)
+#assert(
+  xml-path.contains("<id>https://example.com/custom/atom.xml</id>"),
+  message: "feed <id> must be base-url + \"/\" + path, not a hardcoded feed.xml",
+)
+#assert(
+  xml-path.contains(
+    "<link rel=\"self\" href=\"https://example.com/custom/atom.xml\"/>",
+  ),
+  message: "rel=\"self\" href must match the same base-url + \"/\" + path",
+)
