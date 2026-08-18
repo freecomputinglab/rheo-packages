@@ -326,7 +326,19 @@
 // `#context { .. }` block. The normal case is `.marrow.typ`, which already
 // wraps its own read of `configure`'s state the same way.
 //
-// - `title` is the spine entry's own string `title`; `page` is its `path`.
+// - `title` is the spine entry's own string `title`; `page` is built from
+//   its `handle`, NOT its `path` — `path` is the vertebra's SOURCE `.typ`
+//   path (`crates/core/src/reticulate/spine.rs`'s `rel_path`, e.g.
+//   "content/posts/one.typ"), never the compiled output `.marrow.typ`/
+//   `emit`'s `<rheo-content>` transclusion resolves against. MEASURED (this
+//   package's own end-to-end verify): minting `page: v.path` produced
+//   "`<rheo-content>` references unknown page 'content/index.typ'" — the
+//   compiled bundle has no such output. The handle is the correct source: a
+//   handle's `:` segments become `/` and the build's own `ext` (from
+//   `sys.inputs.rheo-context.ext`, same field `typ/rheo.typ`'s cross-vertebra
+//   link rule reads) is appended — exactly the mapping that rule itself
+//   applies to a handle to build a page's href, and the same convention
+//   rookery's `_note-page` relies on for its own minted-path/handle pairing.
 //   No `url` — `_normalize-entry` builds one from `base-url` + `page`.
 // - `select`, when given, is passed through to every entry unchanged.
 // - `date`, read from the vertebra's metadata beacon (i.e. its own `#set
@@ -344,7 +356,11 @@
 //   e.handle.starts-with("posts:")`), run BEFORE the metadata lookup;
 //   `none` (the default) includes every vertebra, matching the old default.
 #let spine(filter: none, select: none) = cfg => {
-  let entries = _rheo-ctx().at("spine-flat", default: ())
+  let ctx = _rheo-ctx()
+  // Falls back to "html" only in the no-rheo case, where `entries` below is
+  // always `()` anyway and `ext` is therefore never actually used.
+  let ext = ctx.at("ext", default: "html")
+  let entries = ctx.at("spine-flat", default: ())
   if filter != none {
     entries = entries.filter(filter)
   }
@@ -353,7 +369,7 @@
     let date = _meta-date(meta)
     (
       title: v.title,
-      page: v.path,
+      page: v.handle.replace(":", "/") + "." + ext,
       select: select,
       published: date,
       updated: date,
@@ -631,15 +647,25 @@
   (head + subtitle + rest + entry-strs + ("</feed>",)).join("")
 }
 
+// ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
+//
+// `.marrow.typ` (this package's own, at the package root) imports `_feeds`
+// and `_mint-plan` from here, both underscore-private. They are as
+// load-bearing as `atom`/`resolve-entries` above and nothing else in this
+// file says so. RENAMING OR RE-SIGNING EITHER MEANS CHANGING `.marrow.typ`
+// IN THE SAME COMMIT — the same failure mode rookery's own matching banner
+// records: a package's `.marrow.typ` that fails to read installs and
+// compiles anyway, just silently minting nothing.
+//
 // ---- configure — the state-backed entry point (path (a) above) ------------
 //
-// `.marrow.typ` (a later bead, at this package's own root) reads every feed
-// registered here via `.final()`, from the bundle root — the mirror of
-// rookery's own `_registry` (`state("rheo-ideas", (:))`) feeding ITS
-// `.marrow.typ` (`rg -n '_registry.final\(\)' rookery/0.3.0/.marrow.typ`).
-// State is the only channel available: a vertebra cannot import a project's
-// `.marrow.typ`, and `.marrow.typ`'s text is spliced into rheo's synthesized
-// bundle root, so it cannot import back into any one vertebra either.
+// `.marrow.typ` reads every feed registered here via `.final()`, from the
+// bundle root — the mirror of rookery's own `_registry` (`state("rheo-ideas",
+// (:))`) feeding ITS `.marrow.typ` (`rg -n '_registry.final\(\)'
+// rookery/0.3.0/.marrow.typ`). State is the only channel available: a
+// vertebra cannot import a project's `.marrow.typ`, and `.marrow.typ`'s text
+// is spliced into rheo's synthesized bundle root, so it cannot import back
+// into any one vertebra either.
 //
 // Holds an ARRAY of resolved `feed(...)` configs, appended to rather than
 // replaced, because `configure` may in principle be called more than once
@@ -668,4 +694,89 @@
       + "configs, e.g. `configure(feeds: (feed(...), feed(...)))`.",
   )
   _feeds.update(old => old + feeds)
+}
+
+// ---- _mint-plan — shared minting plan for BOTH marrow entry points --------
+//
+// Builds the list of `(path: str, data: str)` files to write for a set of
+// resolved `feed(...)` configs: each feed's Atom XML (skipping a feed whose
+// `atom(...)` came back `none` — zero entries), plus one trailing
+// `.rheo/head.html` control asset carrying an autodiscovery `<link>` per
+// MINTED feed (a zero-entry feed contributes no link either).
+//
+// Returns the plan rather than minting with `#asset(...)` itself: `asset` is
+// only a bound name at bundle root (`.marrow.typ`'s own spliced text, or a
+// project's own bundle-root marrow calling `emit(...)` below) — this file is
+// ordinary package code, imported and compiled like any other module, so it
+// cannot assume `asset` is reachable from here. Returning data instead keeps
+// this helper a plain function of its input, testable from `test/units.typ`
+// with no bundle at all, and gives BOTH `.marrow.typ` and `emit` exactly one
+// `for m in plan { asset(m.path, m.data) }` loop to share rather than two
+// copies of the same minting logic.
+//
+// Collisions are checked over the FULL `feeds` list, not just the feeds that
+// end up minted: two feeds configured at the same `path` are a broken config
+// regardless of which of them currently has entries, so this fails loud
+// before ever calling `atom(...)`.
+//
+// REQUIRES CONTEXT whenever any feed's `sources` needs it (`spine()`,
+// `items()`) — call from inside `#context { .. }`, exactly as `atom(...)`'s
+// own no-`entries` form does.
+#let _mint-plan(feeds) = {
+  for i in range(feeds.len()) {
+    for j in range(i + 1, feeds.len()) {
+      assert(
+        feeds.at(i).path != feeds.at(j).path,
+        message: "@rheo/rssfeed: two feeds both write to '" + feeds.at(i).path
+          + "' (\"" + feeds.at(i).title + "\" and \"" + feeds.at(j).title
+          + "\") — give each feed its own `path`.",
+      )
+    }
+  }
+
+  let minted = () // (path: str, data: str)
+  let links = () // (base-url: str, path: str, title: str) — minted feeds only
+  for cfg in feeds {
+    let xml = atom(cfg)
+    if xml == none { continue }
+    minted += ((path: cfg.path, data: xml),)
+    links += ((base-url: cfg.base-url, path: cfg.path, title: cfg.title),)
+  }
+
+  if links.len() > 0 {
+    let tags = links
+      .map(l => "<link rel=\"alternate\" type=\"application/atom+xml\" href=\""
+        + _esc-attr(l.base-url + "/" + l.path) + "\" title=\"" + _esc-attr(l.title) + "\">")
+      .join("")
+    minted += ((path: ".rheo/head.html", data: tags),)
+  }
+
+  minted
+}
+
+// ---- emit — direct-call entry point (path (b) above) -----------------------
+//
+// For a project that would rather write its OWN `.marrow.typ` than call
+// `configure` from a vertebra: mints every feed in `feeds` (an array of
+// `feed(...)` configs) plus the shared `.rheo/head.html` autodiscovery
+// fragment, via `#asset(...)`. Shares `_mint-plan` with this package's own
+// `.marrow.typ` — see that function's doc comment for why it returns a plan
+// rather than minting directly. Path (a) (`configure`) and this path are
+// independent; a project uses exactly one, never both.
+//
+// REQUIRES CONTEXT whenever any feed's `sources` needs it (`spine()`,
+// `items()`) — call from inside `#context { .. }` in your own `.marrow.typ`,
+// exactly as this package's own `.marrow.typ` does for `configure`'s feeds:
+//
+//   #import "@rheo/rssfeed:0.1.0": feed, emit
+//   #context { emit(feeds: (feed(...), feed(...))) }
+#let emit(feeds: ()) = {
+  assert(
+    type(feeds) == array,
+    message: "@rheo/rssfeed: emit's `feeds` must be an array of feed "
+      + "configs, e.g. `emit(feeds: (feed(...), feed(...)))`.",
+  )
+  for m in _mint-plan(feeds) {
+    asset(m.path, m.data)
+  }
 }
