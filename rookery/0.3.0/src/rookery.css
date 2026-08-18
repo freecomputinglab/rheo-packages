@@ -224,21 +224,38 @@
      entirely above it. Half a label is what used to centre the id ON the border.
      From the custom property, never a pixel count, so a project retheming
      `--idea-label-size` keeps the alignment. */
-  margin-top: calc(-1 * var(--idea-label-size, 0.57rem));
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem) - 1px);
   margin-left: calc(-1 * var(--idea-pad, 0.5em) - var(--idea-rule-width, 2px));
 }
 
 /* `.idea-window` puts 2px of padding above the `<summary>`, so the lift there has
    to clear that too or the corner lands 2px low. */
 .idea-window-summary > .idea-tab {
-  margin-top: calc(-1 * var(--idea-label-size, 0.57rem) - 2px);
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem) - 3px);
+}
+
+/* ONE PIXEL OF AIR UNDER THE ID, and on the LABEL rather than on the tab. Lifting
+   the tab would take the rule with it — `::before` is a flex sibling aligned to the
+   same line bottom — and the rule has to stay ON the box's top edge, because it IS
+   that edge and the corner closes on the left rule there. With `align-items:
+   flex-end` each item's MARGIN box bottom meets the line's bottom, so a
+   `margin-bottom` on the label alone raises the label within that line.
+   BUT IT MUST BE PAIRED WITH 1px MORE LIFT, and measuring is the only way to see
+   why: the label is the tallest item, so its MARGIN box sets the line's height —
+   the tab grew 1px, its bottom moved 1px DOWN into the box, and the id did not
+   move at all. MEASURED, `idBelowBoxTop` stayed 0.02px. So every lift below also
+   carries `- 1px`: the tab's bottom returns to the box's top edge, the rule with
+   it, and the id ends up the 1px higher that was wanted. */
+.idea-box > .idea-head > .idea-tab > .idea-label,
+.idea-window-summary > .idea-tab > .idea-label {
+  margin-bottom: 1px;
 }
 
 /* FOLDED, the window has given up its 2px `padding-top` (see the folded rule
    below), so the lift must give up the 2px it added to clear it or the tab lands
    2px high and the hat parts company with the wash under it. */
 .idea-window-details:not([open]) > .idea-window-summary > .idea-tab {
-  margin-top: calc(-1 * var(--idea-label-size, 0.57rem));
+  margin-top: calc(-1 * var(--idea-label-size, 0.57rem) - 1px);
 }
 
 /* The tab carries the space above a note, so the heading under it contributes
@@ -499,7 +516,10 @@ figure:has(> .idea-window) {
      PADDING, NOT MARGIN, and this is the trap: a `margin-top` here COLLAPSES with
      the preceding paragraph's `margin-bottom` (16px by default) and would do
      nothing at all. */
-  padding-top: calc(0.5 * var(--idea-label-size, 0.57rem));
+  /* The `+ 1px` matches the extra 1px of lift the tab now carries (see the label's
+     `margin-bottom`), so raising the id did not quietly spend the clearance above
+     it — MEASURED, the 11.44px gap to preceding text fell to 10.44px without it. */
+  padding-top: calc(0.5 * var(--idea-label-size, 0.57rem) + 1px);
 }
 
 /* WINDOW AFTER WINDOW GETS A GAP, and it has to be said three times because a
