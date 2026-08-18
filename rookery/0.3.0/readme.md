@@ -30,7 +30,7 @@ does all of it in a line, and is the only place anything is configurable:
 #import "@rheo/rookery:0.3.0": rookery, idea, window
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
-  window-depth: 1,                // a window inside a window unfurls one level
+  window-depth: 2,                // a window inside a window unfurls one level
   theme: (
     link-color: "rgba(230, 140, 0, 0.16)",  // hover background on any link
     fold-color: "rgba(255, 190, 40, 0.07)", // ...and on a foldable block
@@ -63,17 +63,29 @@ for you).
 
 ### Nested windows, and `window-depth`
 
-A note you transclude may itself contain a `#window`. By default that nested
-window does **not** unfurl: it collapses to its `[idea:etal]` permalink, so
-the block you opened shows one note rather than a tree of them. A nested
-`#idea` — one note written literally inside another's body — is a different
-thing and always renders in full, whatever the depth.
+`window-depth` counts **levels of transclusion**, and every number on the
+scale means one thing:
 
-`window-depth: n` (default `0`) unfurls `n` levels of nested windows as real
-windows, collapsing at the `n+1`th; `#window(..., depth: n)` overrides it for
-one call site. Per call site because both readings are reasonable on the same
-page: an index of forty backlinks wants the collapse, a homepage showing one
-note in full may want a level or two.
+| `window-depth` | what a `#window` renders |
+| --- | --- |
+| `0` | **a link only.** The note's title, linked to the note's own page — no summary row, no disclosure, no body. Nothing is transcluded anywhere in the document. |
+| `1` | **the default.** The note renders once, and a `#window` written *inside* it collapses to its `[idea:etal]` permalink — the block you opened shows one note rather than a tree of them. |
+| `n` | the note renders, and `n-1` further levels of nested windows unfurl as real windows, collapsing at the `n`th. |
+
+`#window(..., depth: n)` overrides the document setting for one call site, and
+that is per call site because all three readings are reasonable on the same
+page: an index of forty backlinks wants the collapse, a dense index may want no
+transclusion at all, and a homepage showing one note in full may want a level
+or two.
+
+A nested `#idea` — one note written literally inside another's body — is a
+different thing and always renders in full, whatever the depth.
+
+**Migrating from the old scale.** Before this, `0` was the default and `n`
+unfurled `n` nested levels. Every number moved up by one, so **add one**: a
+project that set `window-depth: 2` wants `3`. There is no automatic upgrade,
+and a project that sets nothing is unaffected — the default renders exactly
+what it always did.
 
 The budget is what makes this safe. A note that windows itself, or two notes
 that window each other, would otherwise expand forever; with a depth they
@@ -86,12 +98,14 @@ numbers.
 
 A note's own **minted page** counts from one level further in, because a minted
 page is not a transclusion: it shows the note as the page's own top level, so a
-`#window` written in that note's body is a top-level window there and always
-renders in full, exactly as it does on the page the note was hatched in. What
-`window-depth` governs on a minted page is the windows nested inside *those* —
-at the default of `0` they collapse to their permalinks. (Before this, a minted
-page rendered its note as though the note were being windowed, which at the
-default left a page whose every window had collapsed to a bare id.)
+`#window` written in that note's body is a top-level window there and renders
+with a top-level window's budget, exactly as it does on the page the note was
+hatched in. What `window-depth` governs on a minted page is the windows nested
+inside *those* — at the default of `1` they collapse to their permalinks. (At
+`window-depth: 0` a minted page's own windows collapse to their permalinks too,
+which is the link that setting asks for.) A minted page's **Context** and
+**Backlinks** rows are pinned at `depth: 1` whatever the document sets: an index
+of what points here is a list to scan, not prose to unfurl.
 
 ### The theme
 
@@ -241,9 +255,11 @@ Three ways, pick by how much ceremony you want:
   `show-date: true` shows the note's minted date beside the permalink — off
   by default. See "Dates" below.
 
-  `depth: n` unfurls `n` levels of `#window`s written inside the transcluded
-  note; `auto` (the default) takes the document-wide `window-depth`, itself
-  `0`. See "Nested windows, and `window-depth`" above.
+  `depth: 0` renders this window as a LINK to the note's page and transcludes
+  nothing; `depth: 1` renders the note and collapses any `#window` written
+  inside it; `depth: n` unfurls `n-1` levels of those. `auto` (the default)
+  takes the document-wide `window-depth`, itself `1`. See "Nested windows, and
+  `window-depth`" above.
 
   `tags: ("phd",)` selects notes instead of naming them — and ADDS to the
   names rather than replacing them. `#window(<intro>, tags: "phd")` shows
@@ -517,12 +533,15 @@ citations) rather than describe it in a string, one note at a time:
 `limit:` truncates by block, the same unit and the same "…" `#window`'s own
 `limit:` uses — so a paragraph is one block here too, a limit cannot land inside
 a sentence, and the same `none`-or-positive-integer rule applies.
-`depth:` is the same nested-window budget `#window` takes, but
-defaults to `0` here rather than `auto` — a caller asking for one note's body
-is usually about to show a LOT of them (`@rheo/rookery-search`'s preview
-pane calls this once per note in the whole rookery), and letting each one
-unfurl its own nested windows by the document's `window-depth` setting could
-blow that up unpredictably. Pass `depth:` explicitly if you want more.
+`depth:` is the same transclusion budget `#window` takes, but is pinned to `1`
+here rather than left at `auto` — a caller asking for one note's body is
+usually about to show a LOT of them (`@rheo/rookery-search`'s preview pane
+calls this once per note in the whole rookery), and letting each one unfurl its
+own nested windows by the document's `window-depth` setting could blow that up
+unpredictably. So the body renders with any nested `#window` collapsed to its
+permalink. Pass `depth:` explicitly if you want more. (`depth: 0` renders the
+body all the same: `#idea-body` has no chrome, so it has no link to fall back
+to the way a `#window` at `0` does.)
 
 **Why not just call `#window`?** `#window` ANNOUNCES the note it shows, the
 same marker `#ideas()`'s backlink data reads at registration time — a note
@@ -673,7 +692,9 @@ from it — because they are the same kind of thing: places this note is
 reachable from. A page cannot be a `#window`, having no note to fold open, so it
 is a plain link wearing the row shape a `#window` gives a note (`.idea-page-row`
 carries the same left rule and indent as `.idea-window`), which is what lets
-Context, note backlinks and page backlinks read as one list of entries.
+Context, note backlinks and page backlinks read as one list of entries. A
+`#window` at `depth: 0` wears the same row, for the same reason: at that depth
+it is a pointer to somewhere the note can be read, not a transclusion of it.
 
 **Not yet:** a hover-preview link (`#preview`) was tried and reverted — it
 would have composed `@rheo/tooltip`, but rheo's package asset auto-detection
@@ -1012,10 +1033,12 @@ at all.
 
 ## Limitations
 
-- **`#window` expands one level by default.** A note transcluded via `#window`
-  renders its content once, and a `#window` inside that content collapses to
-  its own `[idea:x]` permalink; `window-depth: n` (or `depth: n` on one call
-  site) unfurls `n` further levels before collapsing. What is permanent is that
+- **`#window` transcludes one level by default.** A note transcluded via
+  `#window` renders its content once, and a `#window` inside that content
+  collapses to its own `[idea:x]` permalink; that is `window-depth: 1`, the
+  default. `window-depth: n` (or `depth: n` on one call site) unfurls `n-1`
+  further levels before collapsing, and `0` transcludes nothing at all —
+  every `#window` becomes a link to the note's page. What is permanent is that
   the budget is finite — that is what makes self-windows and window cycles safe
   to compile. See "Nested windows, and `window-depth`" above.
 - An author's own `<label>` written inside a note's body is duplicated if

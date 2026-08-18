@@ -257,17 +257,31 @@
 
 // ---- Window depth — how far a nested `#window` unfurls ---------------------
 //
-// A `#window` nested inside a transcluded body collapses to a bare permalink
-// by default (see `_flatten`'s WK rule): expanding it is what makes a cycle —
-// a self-window, or A-windows-B/B-windows-A — re-expand forever. This is the
-// budget that makes bounded expansion safe: `0` (the default) is the collapse,
-// `n` unfurls n levels of nested windows and collapses at the n+1th.
+// THE SCALE COUNTS LEVELS OF TRANSCLUSION, AND `0` IS NOT THE DEFAULT:
+//
+//   0   transcludes NOTHING. A `#window` renders as the note's title linked to
+//       the note's own page — no summary, no disclosure, no body (see
+//       `#window`'s depth-0 branch).
+//   1   the default, and today's behaviour: the note renders once, and a
+//       `#window` found INSIDE it collapses to a bare permalink (`_flatten`'s
+//       WK rule).
+//   n   unfurls n-1 further levels of nested windows, collapsing at the nth.
+//
+// Expanding a nested window with no budget is what makes a cycle — a
+// self-window, or A-windows-B/B-windows-A — re-expand forever, and the budget
+// is what makes bounded expansion safe. So every comparison against a depth in
+// this file asks `> 1`, never `> 0`: the question is always "may I unfurl a
+// window found INSIDE this one", and one level of that budget is already spent
+// on rendering the window itself.
+//
+// MIGRATION off the old scale, where `0` was the default and `n` unfurled `n`
+// nested levels: add one. A project that set `window-depth: 2` wants `3`.
 //
 // Document-wide state for the same reason `_prefix` is (`#show: rookery` is
 // applied per FILE, and a note written in one vertebra can be windowed from
 // another), read with `.final()` so every reader agrees. `#window`'s own
 // `depth:` argument overrides it per call site.
-#let _window-depth = state("rheo-idea-window-depth", 0)
+#let _window-depth = state("rheo-idea-window-depth", 1)
 
 // ---- The bibliography — one for the whole rookery -------------------------
 //
@@ -1099,9 +1113,14 @@
 // with a two-level `show figure.where(kind: K)` reproduction: output was
 // `OUTER(INNER)`, not a "maximum show rule depth exceeded". Since every
 // expansion below wraps its body in a fresh `_flatten` scope — including at
-// `depth: 0`, where the rule collapses — every generated WK figure is always
+// `depth: 1`, where the rule collapses — every generated WK figure is always
 // claimed by a strictly smaller budget.
-#let _flatten(body, depth: 0) = {
+//
+// `depth` here is the budget of the note whose body this IS, so a window found
+// in it may only unfurl when there is a level left over for it: hence `depth >
+// 1` throughout, and `depth: 1` (the default, and what registration flattens a
+// body at) is the collapse. See the scale at `_window-depth`.
+#let _flatten(body, depth: 1) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
   // as a bare figure number ("2") on the note's minted page, while rendering
   // correctly in situ. `show ref: hyperlink` is installed by `#show:
@@ -1156,7 +1175,7 @@
       _sweep-block()
       _bracket(
         html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body))
-          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)),
+          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)),
         IK,
       )
     } else {
@@ -1164,13 +1183,14 @@
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
         _footnoted(v.body)
-      } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)), IK)
+      } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)), IK)
     }
   }
-  // A `#window` nested inside a transcluded body. With no budget left
-  // (`depth: 0`, the default) it collapses to the SAME permalink affordance
-  // the window's own summary would have carried — so the one-link rule holds
-  // at every depth: the id navigates, nothing else does. (It used to collapse
+  // A `#window` nested inside a transcluded body. With no budget left over for
+  // it (`depth: 1`, the default — and `depth: 0`, where nothing is transcluded
+  // anywhere) it collapses to the SAME permalink affordance the window's own
+  // summary would have carried — so the one-link rule holds at every depth:
+  // the id navigates, nothing else does. (It used to collapse
   // to a `[window of idea:x]` link on the label anchor, which was a second,
   // differently-styled navigational form for the same destination.)
   //
@@ -1194,7 +1214,7 @@
     let m = it.body.children.find(c => c.func() == metadata)
     let v = m.value
     let id = v.rookery-window-id
-    if depth <= 0 {
+    if depth <= 1 {
       if _target() == "html" or _target() == "epub" {
         _permalink(id)
       } else {
@@ -1211,14 +1231,14 @@
       // is pure — no counter steps, no registration — so discarding it costs
       // nothing but the work.
       //
-      // `depth == 1` reuses the record's already-flattened body rather than
+      // `depth == 2` reuses the record's already-flattened body rather than
       // re-flattening at the same budget: `rec.body` IS `_flatten(raw)` at
-      // depth 0, computed once at registration.
-      let inner = if depth == 1 { rec.body } else {
+      // depth 1, computed once at registration.
+      let inner = if depth == 2 { rec.body } else {
         _flatten(rec.raw, depth: depth - 1)
       }
       let shown = _truncate(inner, v.limit)
-      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 0), WK)
+      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 1), WK)
     }
   }
   body
@@ -1231,12 +1251,17 @@
 // `.marrow.typ` passes an EXPLICIT depth instead, `window-depth + 1`: a minted
 // page shows the note at the page's own top level rather than transcluding it,
 // so a window written in that body is a top-level window and must render in
-// full even at the default of 0. See the note beside `minted-depth` there.
+// full even at the default of 1. See the note beside `minted-depth` there.
+//
+// `d <= 1` short-circuits to the cached body rather than re-flattening at the
+// same budget: `rec.body` IS `_flatten(rec.raw)` at depth 1 (registration's
+// default), and depth 0 transcludes nothing at all, so neither has any nested
+// window to unfurl. See the scale at `_window-depth`.
 //
 // Must be called from inside `context`: `.final()` on both states.
 #let _body-at(rec, depth: auto) = {
   let d = if depth == auto { _window-depth.final() } else { depth }
-  if d <= 0 { rec.body } else { _flatten(rec.raw, depth: d) }
+  if d <= 1 { rec.body } else { _flatten(rec.raw, depth: d) }
 }
 
 // ---- Outbound links, for backlinks ----------------------------------------
@@ -1609,14 +1634,17 @@
 // delivered by `_flatten` (defined above, next to `IK`/`WK`), not by any
 // suppression logic here.
 //
-// `depth:` is the nested-window budget (see `_window-depth`): `0` collapses a
-// `#window` written inside the transcluded note to its bare permalink, `n`
-// unfurls n levels of them as real windows. `auto`, the default, takes the
-// document-wide setting from `#show: rookery.with(window-depth: n)` — which
-// itself defaults to 0, so nothing changes for a document that never asks.
-// Per call site, because "unfurl the whole tree here" and "just point at it"
-// are both reasonable on the same page: an index that shows one note in full
-// wants depth, a backlinks list of forty does not.
+// `depth:` is the transclusion budget (see `_window-depth` for the whole
+// scale): `0` transcludes nothing and renders this window as a LINK to the
+// note's page, `1` renders the note and collapses a `#window` written inside it
+// to its bare permalink, `n` unfurls n-1 levels of those as real windows.
+// `auto`, the default, takes the document-wide setting from
+// `#show: rookery.with(window-depth: n)` — which itself defaults to 1, the
+// one-level rendering every document already has. Per call site, because
+// "unfurl the whole tree here", "show it" and "just point at it" are all
+// reasonable on the same page: an index that shows one note in full wants
+// depth, a backlinks list of forty does not, and a dense index may want no
+// transclusion at all.
 //
 // Nesting counts WINDOWS only. A `#idea` written inside a transcluded note is
 // always rebuilt in full whatever the budget (that is `_flatten`'s IK rule,
@@ -1637,7 +1665,9 @@
   assert(
     depth == auto or (type(depth) == int and depth >= 0),
     message: "@rheo/rookery: #window's `depth` must be auto or a non-negative "
-      + "integer — got " + repr(depth),
+      + "integer — `0` renders the note as a link to its own page, `1` (the "
+      + "document default) renders it once and collapses any window inside it "
+      + "to a permalink, `n` unfurls n-1 nested levels — got " + repr(depth),
   )
   // `>= 1`, not `>= 0`: a window showing nothing but an ellipsis truncates
   // nothing, so `limit: 0` reads as a mistake rather than a request.
@@ -1736,8 +1766,11 @@
   for id in full-ids {
     let rec = reg.at(id)
 
-    let body = _body-at(rec, depth: depth)
-    let shown = _truncate(body, limit)
+    // THIS CALL SITE'S OWN BUDGET, resolved once: `auto` takes the
+    // document-wide setting. Both the depth-0 branch below and `windows-claim`
+    // need the number rather than `auto`, and reading it twice invited them to
+    // disagree.
+    let d = if depth == auto { _window-depth.final() } else { depth }
 
     // The marker an ENCLOSING `_flatten` reads when this window turns out to
     // be nested inside a transcluded body. It carries the presentation
@@ -1755,11 +1788,57 @@
       show-date: show-date,
       limit: limit,
     ))
+
+    // DEPTH 0 — A LINK, NOT A TRANSCLUSION. The note's title, linked to the
+    // note's own page, and nothing else: no summary row, no `<details>`, no
+    // body, so there is no `_window-content` on this path at all.
+    //
+    // It wears the row shape a minted page already gives a PAGE it names —
+    // `.idea-page-list`/`.idea-page-row`, built by `.marrow.typ`'s `page-list`
+    // for Context and for the page half of Backlinks — rather than a third row
+    // style of its own: "a pointer to somewhere you can read this" is the same
+    // kind of thing here as it is there, and the stylesheet already draws it
+    // (the same left rule and indent a window gets, no box).
+    //
+    // `_resolve-dest` for the href, the same resolution `_permalink` and
+    // `#hyperlink` use, so this link cannot disagree with them about where a
+    // note lives: the minted page where there is one, and the note's in-context
+    // label where there is not (plain `typst compile`, the combined PDF).
+    // A TITLELESS note has no title to link, so the permalink IS the row — the
+    // same `[idea:x]` a depth-exhausted nested window collapses to.
+    //
+    // `limit:` and `folded:` are simply inert here, not an error: a link has no
+    // body to truncate and nothing to fold. Both still ride on `marker`, so an
+    // enclosing `_flatten` that DOES have budget rebuilds the full window with
+    // them intact — the budget belongs to the scope doing the expanding, and
+    // that is as true of `depth: 0` as of any other value.
+    if d <= 0 {
+      let row = if rec.title == none { _permalink(id) } else {
+        link(_resolve-dest(id, "page"), rec.title)
+      }
+      let shape = if _target() == "html" or _target() == "epub" {
+        html.elem(
+          "ul",
+          attrs: _themed((class: "idea-page-list")),
+          html.elem("li", attrs: (class: "idea-page-row"), row),
+        )
+      } else {
+        // `align(start)` for the reason `_window-content`'s paged branch uses
+        // it: a Typst figure centres its body.
+        align(start, block(row))
+      }
+      _bracket(figure(kind: WK, supplement: none, [#marker#shape]), WK)
+      continue
+    }
+
+    let body = _body-at(rec, depth: depth)
+    let shown = _truncate(body, limit)
+
     // Bracketed: the body being shown belongs to the note it came from, so
     // its links must not read as links from whatever page is showing it.
     _bracket(
       figure(kind: WK, supplement: none, [
-        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: (if depth == auto { _window-depth.final() } else { depth }) > 0)
+        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: d > 1)
       ]),
       WK,
     )
@@ -1821,10 +1900,16 @@
 // without leaving half a sentence. `none` (the default) shows the whole
 // body.
 //
-// `depth` is the same nested-window budget `#window` takes; `0` (the
-// default) collapses a nested `#window` to its permalink rather than
-// unfurling it, which keeps a preview's own size bounded regardless of how
-// deep the note it is showing nests.
+// `depth` is the same transclusion budget `#window` takes (see
+// `_window-depth`); `1` (the default) renders the body with any nested
+// `#window` collapsed to its permalink rather than unfurled, which keeps a
+// preview's own size bounded regardless of how deep the note it is showing
+// nests. PINNED rather than `auto` for that reason, and `1` rather than `0`
+// because this function's job is to render a body: `@rheo/rookery-search`'s
+// preview pane calls it without passing `depth` at all, and a default of 0
+// would turn every search preview into a link. (`depth: 0` here renders the
+// body all the same — there is no chrome and no link shape to fall back to,
+// which is `#window`'s job; it simply asks for no unfurling, as `1` does.)
 //
 // HTML/EPUB only, like `#window`'s own chrome — its only realistic consumer
 // is a web preview, and `html.elem` is what builds the `.idea-window`
@@ -1832,7 +1917,7 @@
 // wrapping, so a stray direct call does not hard-error.
 //
 // Must be called INSIDE a `#context` block — it reads `_registry.final()`.
-#let idea-body(name, depth: 0, limit: none) = context {
+#let idea-body(name, depth: 1, limit: none) = context {
   // Both asserts are copied verbatim from `#window`, which takes the same two
   // parameters with the same meaning — the messages have to agree, or one call
   // site teaches a rule the other contradicts. `>= 1` on `limit` for the reason
@@ -1855,7 +1940,7 @@
   let rec = reg.at(id)
   let body = _body-at(rec, depth: depth)
   let shown = _truncate(body, limit)
-  let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 0))
+  let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 1))
   if _target() == "html" or _target() == "epub" {
     // `idea-window-plain`: this render has no chrome by design (no summary,
     // no disclosure), so it should not carry `.idea-window`'s BOX either —
@@ -2585,11 +2670,13 @@
 // Does exactly five things, and deliberately nothing else:
 //
 //   1. publishes `prefix` (so `#idea("etal")` mints `<note:etal>`);
-//   2. publishes `window-depth`, the document-wide default for how far a
-//      `#window` nested inside a transcluded note unfurls (see
-//      `_window-depth`; `0`, the default, collapses it to its permalink,
-//      which is the behaviour every existing document already has). A
-//      `#window(..., depth: n)` overrides it per call site;
+//   2. publishes `window-depth`, the document-wide transclusion budget (see
+//      `_window-depth` for the whole scale; `1`, the default, renders a
+//      windowed note once and collapses a `#window` nested inside it to its
+//      permalink, which is the behaviour every existing document already has,
+//      while `0` transcludes nothing and renders every `#window` as a link to
+//      the note's page). A `#window(..., depth: n)` overrides it per call
+//      site;
 //   3. publishes `idea-page-template`, the project's own chrome for the
 //      standalone pages `.marrow.typ` mints (see `_idea-page-template`;
 //      `none`, the default, mints them bare as before);
@@ -2652,7 +2739,7 @@
 // visible AT DEFINITION time — `hyperlink` must already exist.
 #let rookery(
   prefix: "idea",
-  window-depth: 0,
+  window-depth: 1,
   idea-page-template: none,
   bibliography: none,
   theme: (:),
@@ -2675,7 +2762,9 @@
   )
   assert(
     type(window-depth) == int and window-depth >= 0,
-    message: "@rheo/rookery: `window-depth` must be a non-negative integer — got "
+    message: "@rheo/rookery: `window-depth` must be a non-negative integer — `0` "
+      + "renders every #window as a link to the note's page, `1` (the default) "
+      + "renders a windowed note once, `n` unfurls n-1 nested levels — got "
       + repr(window-depth),
   )
   assert(

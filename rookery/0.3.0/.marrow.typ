@@ -111,11 +111,21 @@
   // A minted page shows the note as the page's own top level — it is not a
   // transclusion of it. So a `#window` written directly in the note's body is
   // a TOP-LEVEL window there, exactly as it is on the page the note was
-  // hatched in, and it renders in full whatever `window-depth` says. What
+  // hatched in, and it gets a top-level window's own budget. What
   // `window-depth` governs is windows nested inside a transcluded body, and on
   // a minted page the first body that is genuinely transcluded is the one
   // inside that top-level window — one level in, which is why the budget is
   // shifted by one rather than merely floored at 1.
+  //
+  // Unchanged by the depth-0 rebasing of the scale (see `_window-depth`), and
+  // the arithmetic is why: `+ 1` says "windows in this body get the budget a
+  // TOP-LEVEL window has", which is `window-depth` itself whatever number that
+  // is. At the default of 1 the body is flattened at 2 — its windows render,
+  // theirs collapse — exactly as it was flattened at 1 when the default was 0.
+  // At `window-depth: 0` it is flattened at 1, so a window on a minted page
+  // collapses to its `[idea:x]` permalink: still a link, as that setting asks
+  // for, though the permalink rather than the `.idea-page-row` shape `#window`
+  // itself uses at 0.
   //
   // MEASURED DEFECT this fixes: `ideas/idea.html` on rookery.ohrg.org ended in
   // two bare `[idea:hatching-ideas]` / `[idea:referencing-ideas]` permalinks,
@@ -123,7 +133,7 @@
   // clicking on their title panel" — there was nothing to unfold. Passing
   // `depth: auto` here treated the note's own body as if it were being
   // windowed, so its windows spent a budget that had never been meant for
-  // them and collapsed at the default of 0.
+  // them and collapsed.
   //
   // Read ONCE, outside the loop: it is one document-wide state for every page
   // this file mints.
@@ -228,17 +238,20 @@
       // Before the footer, deliberately: the note's own apparatus stays
       // attached to the note, and Context/Backlinks stay last as the
       // navigational layer.
-      // `windows-claim` follows the depth budget, and `minted-depth` is 1 at
-      // the lowest — so a window on this page always renders, always carries a
-      // References block of its own, and therefore always claims the citations
-      // written after it. It was `_window-depth.final() > 0` while the body was
-      // built at `depth: auto` and had to change with it: leave it false and
-      // the page lists an entry for a citation that the window below it is
-      // already listing. The inverse error is the one the note above records —
-      // claiming for a window that collapsed, so the page emits no bibliography
-      // while still citing, and the citation lands on another minted page's
-      // block. MEASURED.
-      #_refs-block(_own-cited-keys(flat, windows-claim: minted-depth > 0), id: "refs-" + slug)
+      // `windows-claim` follows the depth budget, and asks it the same question
+      // every comparison in `lib.typ` does — `> 1`, "is there a level left over
+      // for a window found in this body" (see `_window-depth`). At the default
+      // `minted-depth` is 2, so a window on this page renders, carries a
+      // References block of its own, and therefore claims the citations written
+      // after it. It was `_window-depth.final() > 0` while the body was built
+      // at `depth: auto` and had to change with it: leave it false and the page
+      // lists an entry for a citation that the window below it is already
+      // listing. The inverse error is the one the note above records — claiming
+      // for a window that collapsed, so the page emits no bibliography while
+      // still citing, and the citation lands on another minted page's block.
+      // MEASURED. At `window-depth: 0`, `minted-depth` is 1, the windows on
+      // this page collapse and claim nothing, and this correctly goes false.
+      #_refs-block(_own-cited-keys(flat, windows-claim: minted-depth > 1), id: "refs-" + slug)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
@@ -282,10 +295,16 @@
         // A CONTAINING NOTE, where there is one, is the more precise answer to
         // "where does this sit" than the page is, and there IS a note behind it
         // to fold open — so it renders as a `#window`, exactly as a note
-        // backlink does. `folded: true, depth: 0` are pinned for the reasons the
+        // backlink does. `folded: true, depth: 1` are pinned for the reasons the
         // Backlinks comment below records (a MEASURED `window-depth: 2` project
         // unfurled an index entry down to a window of the very page it sat on),
         // and `window` re-adds the prefix itself, hence the same trim.
+        //
+        // `depth: 1`, NOT `0`, since the rebasing of the scale (see
+        // `_window-depth`): 1 is "render this note, unfurl nothing inside it",
+        // which is what `0` meant before, and 0 now means "emit a bare link" —
+        // which would silently degrade Context to the page-row shape it already
+        // has a separate branch for.
         //
         // `container in registry` as well as non-`none`: a container is always a
         // registered note in practice, and this keeps a container id the walk
@@ -294,14 +313,14 @@
         let container = containers.at(id, default: none)
         let context-part = if container != none and container in registry {
           section("idea-context", [Context],
-            window(container.trim(_pfx(), at: start), folded: true, depth: 0))
+            window(container.trim(_pfx(), at: start), folded: true, depth: 1))
         } else if origin == none { [] } else {
           section("idea-context", [Context],
             page-list((link(label(id), _handle-title(origin)),)))
         }
 
         let backlinks-part = if back.len() == 0 and back-pages.len() == 0 { [] } else {
-          // FOLDED and `depth: 0`, always: a backlink list is an index of what
+          // FOLDED and `depth: 1`, always: a backlink list is an index of what
           // points here, and a reader following one wants to see which notes
           // those are before reading any of them in full. `depth` is pinned
           // for the same reason `folded` is, and NOT left at `auto` — a
@@ -312,8 +331,14 @@
           // its one entry (Mid) unfurled down to a window of Leaf — the very
           // page it was on. `window` takes bare names and re-adds the prefix
           // itself, hence the trim.
+          //
+          // `depth: 1`, NOT `0`, since the rebasing of the scale (see
+          // `_window-depth`): `1` renders each entry once and unfurls nothing
+          // inside it, which is exactly what the pinned `0` meant before. `0`
+          // now means "no transclusion at all", which would turn this whole
+          // list into bare links — the regression to watch for here.
           let note-rows = if back.len() == 0 { [] } else {
-            window(back.map(b => b.trim(_pfx(), at: start)), folded: true, depth: 0)
+            window(back.map(b => b.trim(_pfx(), at: start)), folded: true, depth: 1)
           }
           // Pages come after the notes: a note is the more specific answer to
           // "what points here", and a page entry means only that the link was
