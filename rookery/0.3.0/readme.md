@@ -273,8 +273,8 @@ Three ways, pick by how much ceremony you want:
   either and the two are orthogonal. Under a paged target, where there is
   nothing to click, `folded` is ignored and the body always shows.
 
-  `show-date: true` shows the note's minted date beside the permalink — off
-  by default. See "Dates" below.
+  `show-date: true` shows the note's `updated` date at the right-hand end of the
+  hat, opposite the permalink — off by default. See "Dates" below.
 
   `depth: 0` renders this window as a LINK to the note's page and transcludes
   nothing; `depth: 1` renders the note and collapses any `#window` written
@@ -671,7 +671,7 @@ for an outline to be in line with.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
-`.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
+`.idea-window`, `.idea-window-summary`, `.idea-window-title`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
 `.idea-outline-row`, `.idea-outline-title`, on an idea that carries footnotes `.idea-fn-ref`,
 `.idea-footnotes`, `.idea-footnotes-title`, `.idea-footnote-list`,
@@ -806,13 +806,34 @@ rendering it is opt-in — `show-date: false` by default, on both `#idea` and
 `#window`, so an unconfigured note's header is just the title and its id:
 
 ```typst
-#idea("a", show-date: true)[Shows its date beside the permalink.]
+#idea("a", show-date: true)[Shows its date at the right-hand end of the hat.]
 #window("a", show-date: true) // shows it again here, independently
 ```
 
-The two are independent per call site: passing `show-date: true` to a `#window`
-surfaces the date even when the note's own `#idea` left it hidden, and vice
-versa — nothing links the two settings together beyond both defaulting off.
+**Where it renders is the hat** — the `.idea-tab` rule across the top of a card
+or a window, with the id on the stub at the left end and the date pushed to the
+far right. It is the frame's metadata, not a subtitle: it used to sit inside the
+`<h2>` on a card and as a third item in a window's summary row, which made one
+piece of information wear two classes in two places. Now it is `.idea-date`
+inside `.idea-tab`, wherever it appears. The top rule does not resume on the
+date's far side — the hat draws one stub, to the left, and stops at the id.
+
+**Which date is `updated`**, not `minted`: the date a reader wants off the top of
+a card is when the note was last touched. `updated` falls back to `minted`, which
+falls back to the document's own date, so a note that never says `updated:` looks
+exactly as it did.
+
+A note's own minted page is the exception: there the date shows **always**, with
+no `show-date:` to gate it. Nobody writes an `#idea` call for that page —
+`.marrow.typ` mints it from the registry — and a note's own page is the one place
+its date is metadata rather than a decoration on someone else's prose.
+
+The two call-site settings are independent: passing `show-date: true` to a
+`#window` surfaces the date even when the note's own `#idea` left it hidden, and
+vice versa — nothing links them beyond both defaulting off.
+
+On a paged target there is no hat to hang it on, so `#idea` and `#window` keep
+printing the date where they always did; only *which* date it is has changed.
 
 ## Footnotes
 

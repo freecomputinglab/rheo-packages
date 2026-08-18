@@ -94,8 +94,8 @@
   /* Metadata, not content — explicitly smaller than the title beside it
      (`.idea-window-title` and a heading's own text both stay at their
      ambient size), rather than differing only by weight/colour as before.
-     `.idea-window-date`/`.idea-date` read this same property, so a window's
-     date reads as the same kind of thing as the id it follows.
+     `.idea-date` reads this same property, so the date at the hat's other end
+     reads as the same kind of thing as the id at this one.
 
      `rem`, NOT `em` — and this is the whole point of the rule. An id is ONE
      thing wherever it appears, and `em` made it three different sizes: 0.57 of
@@ -738,10 +738,11 @@ h6.idea {
    is the click target as a WHOLE, so a triangle at one end would misdescribe
    where the reader may click.
 
-   `flex` (+ `align-items: baseline`) is what lets `.idea-window-date` push
-   itself to the row's far right via `margin-left: auto` below, while
-   keeping the bold title, normal-weight id, and thin date sitting on one
-   text baseline despite their three different weights/sizes. */
+   `flex` (+ `align-items: baseline`) keeps the row's items on one text baseline
+   despite their different weights and sizes. The DATE is no longer one of them —
+   it moved into the hat, which is its own flex container and does the
+   `margin-left: auto` push itself (see `.idea-tab > .idea-date`) — so this row is
+   now the tab on its own line above a bold title, and nothing else. */
 .idea-window-summary {
   display: flex;
   /* The tab is now the first item in this row, and without wrapping it would sit
@@ -903,14 +904,35 @@ h6.idea {
   font-weight: bold;
 }
 
-/* The note's minted date, after the permalink — in a `#window`'s summary
-   (`.idea-window-date`) and in `#idea`'s own heading (`.idea-date`), both
-   opt-in via `show-date: true`. Same grey/light treatment as `.idea-label`,
-   and the same size through the same property: a date sits directly beside
-   the id it follows, so the two have to be one size or the pair reads as two
-   kinds of thing. Setting `--idea-label-size` moves both together, which is
-   the only sane way for them to move. */
-.idea-window-date,
+/* The note's date, at the FAR RIGHT OF THE HAT — the same object in the same place
+   on a card, in a `#window`'s summary, and on a minted note page, so it wears one
+   class in one rule. It used to be two: `.idea-window-date` in a window's summary
+   row and `.idea-date` inside `#idea`'s own heading, which is why the id it
+   belongs beside sat in a third place again.
+
+   Same grey/light treatment as `.idea-label`, and the same size through the same
+   property: a date and an id are the two ends of one rule, so they have to be one
+   size or the pair reads as two kinds of thing. Setting `--idea-label-size` moves
+   both together, which is the only sane way for them to move.
+
+   `margin-left: auto` soaks up the hat's remaining space, pushing the date to the
+   frame's right edge while the id stays packed against the stub on the left. It is
+   scoped `.idea-tab > .idea-date` rather than left on the class, because the hat is
+   the flex container that makes `auto` mean anything — a `.idea-date` anywhere else
+   would simply be a nowrap grey span, which is the right thing to degrade to.
+
+   `--idea-window-date-margin` IS GONE, not renamed. It existed to undo the
+   push-right for a window's summary specifically (its default WAS `auto`), back
+   when the date shared a flex row with the title; the hat has no equivalent need,
+   and a project that wants the date to flow after the id instead can say
+   `margin-left: 0.5em` in its own CSS without a property to discover.
+
+   MEASURED (chromium headless, 900px viewport): the date's right edge lands on the
+   card's own right edge — `dateRight` 770.00 against `boxRight` 770.00 — including
+   on a card carrying eight tags. The top rule deliberately does NOT resume on the
+   date's far side: the hat draws ONE stub, to the left, and stops at the id (see
+   `.idea-tab`), so a date floating free at the right end of the frame is the
+   intended look. */
 .idea-date {
   color: var(--idea-date-color, gray);
   font-weight: 200;
@@ -918,19 +940,8 @@ h6.idea {
   white-space: nowrap;
 }
 
-.idea-date {
-  margin-left: 0.5em;
-}
-
-/* Right-aligned: `auto` soaks up the flex row's remaining space, pushing
-   the date to the far edge while the title/id stay packed left. This is a
-   plain CSS custom property, NOT one of `#show: rookery`'s Typst-side
-   `theme:` colour knobs (those all set `--idea-*-color`) — there is no
-   Typst-side equivalent, only this stylesheet default. Override
-   `--idea-window-date-margin` in your own CSS (e.g. to `0.5em`, matching
-   `.idea-date`'s) to go back to flowing right after the id instead. */
-.idea-window-date {
-  margin-left: var(--idea-window-date-margin, auto);
+.idea-tab > .idea-date {
+  margin-left: auto;
 }
 
 /* An open window needs more room beneath it than a closed one, or a column of

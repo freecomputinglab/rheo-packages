@@ -1561,22 +1561,26 @@
         // special case — the tab is the same either way. The title keeps its
         // span, which nothing styles by default: it stays a hook a project can
         // reach for, and `#window`'s summary wraps its title the same way.
-        let date-span = if date == none { [] } else {
-          html.elem("span", attrs: (class: "idea-date"), date)
-        }
-        // The heading element survives even with NO children — a titleless,
-        // dateless note. Its `id` attribute is the note's in-page anchor, the
-        // destination of every `@idea:etal` fragment link, so dropping the
-        // element would break them; `h*.idea:empty` in the stylesheet is what
-        // keeps it from taking any space.
+        //
+        // THE DATE IS IN THE TAB TOO, at its far right, and no longer a second
+        // child of the heading. It belongs to the frame rather than to the
+        // sentence: read inside the `<h2>` it was a subtitle, and it made a
+        // titleless note's heading non-empty for nothing (see the note below on
+        // `h*.idea:empty`).
+        //
+        // The heading element survives even with NO children — a titleless note.
+        // Its `id` attribute is the note's in-page anchor, the destination of every
+        // `@idea:etal` fragment link, so dropping the element would break them;
+        // `h*.idea:empty` in the stylesheet is what keeps it from taking any space,
+        // and it now applies to a dated titleless note as well.
         let header = _head(
-          _permalink-tab(id),
+          _permalink-tab(id, date: date),
           html.elem(
             "h" + str(level + 1),
             attrs: (id: id, class: cls.join(" ")),
-            (if ttl == none { [] } else {
+            if ttl == none { [] } else {
               html.elem("span", attrs: (class: "idea-title"), ttl)
-            }) + date-span,
+            },
           ),
         )
         // Header and body wrap together in one card, HTML/EPUB only — no box

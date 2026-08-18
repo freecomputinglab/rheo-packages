@@ -175,8 +175,22 @@
       // only element enclosing BOTH the tab and the heading. On the <h1> alone, a
       // project that themed `border-color` got the package default on every note
       // page's tab, since a sibling inherits nothing.
+      // THE DATE IS ALWAYS SHOWN HERE, unlike on a card or in a window, where it
+      // is opt-in behind `show-date:`. A minted page has no call site to carry
+      // that argument — nobody writes `#idea` for this page, `.marrow.typ` mints
+      // it from the registry — and a note's OWN page is the one place the date is
+      // not clutter: it is the page's metadata, not a decoration on someone
+      // else's prose. `updated` for the same reason the hat elsewhere shows it,
+      // and it falls back to `minted` and then to the document date, so a note
+      // that names neither still shows something rather than nothing.
       #_head(
-        _permalink-tab(id, href: "#" + id),
+        _permalink-tab(
+          id,
+          href: "#" + id,
+          date: if rec.updated == none { none } else {
+            rec.updated.display("[year]-[month]-[day]")
+          },
+        ),
         html.elem(
           "h1",
           // The <h1> keeps the `id` — it is this page's anchor, the destination
