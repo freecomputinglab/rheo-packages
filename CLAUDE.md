@@ -25,12 +25,20 @@ import BOTH in its own `.typ` files — see that package's readme for why.
 ## Local development against a live rheo project
 
 `@rheo/<pkg>` resolves from the Typst package cache
-(`~/.cache/typst/packages/rheo/<pkg>`). For local iteration, symlink the
-in-repo package into the cache (mirrors how `justify` is wired):
+(`~/.cache/typst/packages/rheo/<pkg>`). The whole NAMESPACE is symlinked at once
+on this machine, so every package and every version directory already resolves
+live out of the repo with no per-package step:
 
 ```sh
-ln -sfn "$PWD/<pkg>" ~/.cache/typst/packages/rheo/<pkg>
+ln -sfn "$PWD" ~/.cache/typst/packages/rheo   # one time, per machine
 ```
+
+Do NOT symlink a single package into the cache
+(`ln -sfn "$PWD/<pkg>" ~/.cache/typst/packages/rheo/<pkg>`). Under the namespace
+symlink the link argument resolves back into the repo, where `<pkg>/` already
+exists — and `ln -sfn TARGET DIR` on an existing directory writes the link
+*inside* it, leaving a self-referential `<pkg>/<pkg>` symlink that jj reports as
+a new file.
 
 Then `just build` the package (skip this for a dist-less pure-Typst package —
 see "Pure-Typst packages" below) and `rheo compile` a test project that
@@ -151,5 +159,31 @@ manifest's entrypoint already points at.
 
 ## Issue tracking
 
-`.beads/` is gitignored and local-only — never commit it, never `br sync`. Use
-`br` per the global workflow.
+`.beads/` is gitignored and local-only here, as it is everywhere else — the db,
+its lock files, and `issues.jsonl` all stay machine-local, and a `br` mutation
+therefore produces nothing to commit. Use `br` per the global workflow.
+
+Tracking `issues.jsonl` was tried in this repo and reverted. It did carry bead
+state between machines, but br REIMPORTS from that file, so a copy arriving from
+another machine can silently revert a close, and two machines mutating beads at
+once conflict over the whole file. Bringing beads in from elsewhere is now an
+explicit act, not a side effect of a pull: put the entries in
+`.beads/issues.jsonl` and run `br sync --import-only --force` (plain
+`--import-only` short-circuits on an unchanged content hash and does nothing).
+
+Two things about `br` in this repo that cost time to find out:
+
+- **It does not reliably re-export after a mutation.** MEASURED: a
+  `br delete --force --hard` of eleven issues left all eleven in
+  `issues.jsonl` still marked `open`, so the next import resurrected them.
+  Run `br sync --flush-only --force` after any delete or close, and re-check
+  with `br list` — the export guard refuses a flush that would drop issues the
+  JSONL still holds, which is exactly the case after a delete.
+- **`br list -a` silently caps at 50 rows.** Pass `--limit` before trusting any
+  count or diff taken from it.
+
+The prefix is `rp`. Beads for this repo previously lived in the machine-global
+`~/.beads/` db — there was no `.beads/` here, so `br` fell back to it — which
+is why the CLOSED history of the rookery/rookery-search work carries
+`br-vio-core-*` ids and is absent from this repo's db. Source comments citing
+bead ids like `rookery-bib-minted-m6h` refer to that history.

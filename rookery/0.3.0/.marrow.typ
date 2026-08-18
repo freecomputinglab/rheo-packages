@@ -12,8 +12,10 @@
 //
 // The `<prefix>:` stripped off each id to get a slug comes from `_pfx` (the
 // document-wide prefix state), never a literal — a project running
-// `#show: rookery.with(prefix: "note")` must mint at the same paths lib.typ's
-// `_note-file` links to, and both read the one state.
+// `#show: rookery.with(prefix: "note")` must mint at the same paths lib.typ
+// links to. This file no longer strips it itself for the minting path:
+// `_note-page` returns the slug, the file and the handle together, and reads
+// that one state on this file's behalf.
 //
 // Deliberately does NOT re-declare the note's `<prefix>:<id>` Typst label on the
 // minted page. Two elements sharing one label break every #link/#window/
@@ -36,11 +38,12 @@
 // `ideas/<slug>` is. That is a coincidence of this spine's shape, not a
 // guarantee. Passing the handle makes the depth this page's own property. It
 // mirrors the path — `ideas/<slug>.html` <-> `ideas:<slug>` — with both halves
-// coming from `_IDEA-DIR`/`_note-file`, so minting and linking cannot drift.
-// The permalink comes from lib.typ's `_permalink`, with the href forced to
-// this page's own fragment — a minted page must not link to itself. Building
-// the <a> by hand here instead is how it came to miss the configurable hover
-// property that every other permalink carries.
+// coming from lib.typ's `_note-page`, so minting and linking cannot drift.
+// The permalink comes from lib.typ's `_permalink-tab` — the same top rule a
+// note wears inside a card — with the href forced to this page's own fragment,
+// because a minted page must not link to itself. Building the <a> by hand here
+// instead is how it came to miss the configurable hover property that every
+// other permalink carries.
 // CONTEXT FOOTER. A minted page shows the note stripped of everything around
 // it, which is the point — but a reader who lands on one has no way back to
 // the argument it was written inside. The footer names that page and links to
@@ -69,7 +72,10 @@
 // `#show:` chrome — no site header, no nav. `#show: rookery.with(
 // idea-page-template: ...)` is how a project hands one over; this file applies
 // applied. `none` (the default) mints the bare page this always produced.
-#import "@rheo/rookery:0.2.0": _registry, _note-file, _pfx, _permalink, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _IDEA-DIR, window
+// Every name here is INTERNAL to `@rheo/rookery` and load-bearing for this
+// file. lib.typ carries the matching "CONSUMED BY .marrow.typ" banner; renaming
+// or re-signing any of them means changing both files in the same commit.
+#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
 
 #context {
   let registry = _registry.final()
@@ -105,11 +111,21 @@
   // A minted page shows the note as the page's own top level — it is not a
   // transclusion of it. So a `#window` written directly in the note's body is
   // a TOP-LEVEL window there, exactly as it is on the page the note was
-  // hatched in, and it renders in full whatever `window-depth` says. What
+  // hatched in, and it gets a top-level window's own budget. What
   // `window-depth` governs is windows nested inside a transcluded body, and on
   // a minted page the first body that is genuinely transcluded is the one
   // inside that top-level window — one level in, which is why the budget is
   // shifted by one rather than merely floored at 1.
+  //
+  // Unchanged by the depth-0 rebasing of the scale (see `_window-depth`), and
+  // the arithmetic is why: `+ 1` says "windows in this body get the budget a
+  // TOP-LEVEL window has", which is `window-depth` itself whatever number that
+  // is. At the default of 1 the body is flattened at 2 — its windows render,
+  // theirs collapse — exactly as it was flattened at 1 when the default was 0.
+  // At `window-depth: 0` it is flattened at 1, so a window on a minted page
+  // collapses to its `[idea:x]` permalink: still a link, as that setting asks
+  // for, though the permalink rather than the `.idea-page-row` shape `#window`
+  // itself uses at 0.
   //
   // MEASURED DEFECT this fixes: `ideas/idea.html` on rookery.ohrg.org ended in
   // two bare `[idea:hatching-ideas]` / `[idea:referencing-ideas]` permalinks,
@@ -117,14 +133,21 @@
   // clicking on their title panel" — there was nothing to unfold. Passing
   // `depth: auto` here treated the note's own body as if it were being
   // windowed, so its windows spent a budget that had never been meant for
-  // them and collapsed at the default of 0.
+  // them and collapsed.
   //
   // Read ONCE, outside the loop: it is one document-wide state for every page
   // this file mints.
   let minted-depth = _window-depth.final() + 1
 
+  // CONTAINMENT: `note id -> containing note id or none`, for the Context
+  // section below. Built ONCE for the whole run, like the backlink maps above —
+
   for (id, rec) in registry.pairs() {
-    let slug = id.trim(_pfx(), at: start)
+    // Slug, minted path and minted handle from ONE helper, so this file cannot
+    // disagree with what rookery links to (`_note-page`, and the comment above
+    // it in lib.typ).
+    let page-at = _note-page(id)
+    let slug = page-at.slug
     // The note's body as this page renders it, flattened once and reused by
     // all three of the things that need it — the rendering below, the footnote
     // wrapper around it, and the citation walk. `_flatten` is pure, so a
@@ -135,19 +158,52 @@
     // project's template can wrap the WHOLE page — heading, body and footer —
     // and see exactly what a vertebra's own `#show:` would.
     let page = [
-      #html.elem(
-        "h1",
-        // The <h1> is this page's theme container — there is no `.idea-box`
-        // here, so it is what the permalink inherits its colours from.
-        attrs: _themed((id: id, class: "idea")),
-        // Title in a span, exactly as `#idea` does it: `.idea-label:first-child`
-        // is what un-indents a TITLELESS note, and CSS `:first-child` counts
-        // elements only — so a bare title leaves the permalink first either way
-        // and the rule strips the separator from a titled heading too.
-        (if rec.title == none { [] } else {
-          html.elem("span", attrs: (class: "idea-title"), rec.title)
-        })
-          + _permalink(id, href: "#" + id),
+      // The id as this page's top rule, above the <h1> rather than inside it —
+      // the same treatment a note gets in a card or a window summary, so a
+      // minted page reads as the same object.
+      //
+      // `href: "#" + id` is the whole reason this call passes one: a note's own
+      // page must permalink to itself as a FRAGMENT, not to the page it is.
+      //
+      // `_head` for the same reason every other header uses it: two loose
+      // siblings in a content block are not reliably siblings in the HTML, and
+      // MEASURED here they were not — the tab came out inside a `<p>` of its
+      // own, breaking the stylesheet's `.idea-tab + h*.idea` rule. See `_head`.
+      //
+      // The theme goes on `.idea-head` rather than on the <h1>: a minted page has
+      // no `.idea-box`, so something has to be the container, and this is the
+      // only element enclosing BOTH the tab and the heading. On the <h1> alone, a
+      // project that themed `border-color` got the package default on every note
+      // page's tab, since a sibling inherits nothing.
+      // THE DATE IS ALWAYS SHOWN HERE, unlike on a card or in a window, where it
+      // is opt-in behind `show-date:`. A minted page has no call site to carry
+      // that argument — nobody writes `#idea` for this page, `.marrow.typ` mints
+      // it from the registry — and a note's OWN page is the one place the date is
+      // not clutter: it is the page's metadata, not a decoration on someone
+      // else's prose. `updated` for the same reason the hat elsewhere shows it,
+      // and it falls back to `minted` and then to the document date, so a note
+      // that names neither still shows something rather than nothing.
+      #_head(
+        _permalink-tab(
+          id,
+          href: "#" + id,
+          date: if rec.updated == none { none } else {
+            rec.updated.display("[year]-[month]-[day]")
+          },
+        ),
+        html.elem(
+          "h1",
+          // The <h1> keeps the `id` — it is this page's anchor, the destination
+          // of `#link(label(id))` from a Context footer — and the `idea` class
+          // every heading rule matches on.
+          attrs: (id: id, class: "idea"),
+          // Title in a span, exactly as `#idea` does it — a hook, not a
+          // requirement.
+          (if rec.title == none { [] } else {
+            html.elem("span", attrs: (class: "idea-title"), rec.title)
+          }),
+        ),
+        attrs: _themed((:)),
       )
       // `flat`, not `rec.body`: the note is rendered at `minted-depth` (see
       // above), so a `#window` written in its body shows in full here and a
@@ -193,17 +249,20 @@
       // Before the footer, deliberately: the note's own apparatus stays
       // attached to the note, and Context/Backlinks stay last as the
       // navigational layer.
-      // `windows-claim` follows the depth budget, and `minted-depth` is 1 at
-      // the lowest — so a window on this page always renders, always carries a
-      // References block of its own, and therefore always claims the citations
-      // written after it. It was `_window-depth.final() > 0` while the body was
-      // built at `depth: auto` and had to change with it: leave it false and
-      // the page lists an entry for a citation that the window below it is
-      // already listing. The inverse error is the one the note above records —
-      // claiming for a window that collapsed, so the page emits no bibliography
-      // while still citing, and the citation lands on another minted page's
-      // block. MEASURED.
-      #_refs-block(_own-cited-keys(flat, windows-claim: minted-depth > 0), id: "refs-" + slug)
+      // `windows-claim` follows the depth budget, and asks it the same question
+      // every comparison in `lib.typ` does — `> 1`, "is there a level left over
+      // for a window found in this body" (see `_window-depth`). At the default
+      // `minted-depth` is 2, so a window on this page renders, carries a
+      // References block of its own, and therefore claims the citations written
+      // after it. It was `_window-depth.final() > 0` while the body was built
+      // at `depth: auto` and had to change with it: leave it false and the page
+      // lists an entry for a citation that the window below it is already
+      // listing. The inverse error is the one the note above records — claiming
+      // for a window that collapsed, so the page emits no bibliography while
+      // still citing, and the citation lands on another minted page's block.
+      // MEASURED. At `window-depth: 0`, `minted-depth` is 1, the windows on
+      // this page collapse and claim nothing, and this correctly goes false.
+      #_refs-block(_own-cited-keys(flat, windows-claim: minted-depth > 1), id: "refs-" + slug)
       #{
         let origin = rec.at("origin", default: none)
         let back = backlinks.at(id, default: ())
@@ -243,13 +302,20 @@
         // Context reads as one entry under its heading, exactly as a backlink
         // does — not as a banner across the top. It links to the note's own
         // anchor on that page rather than to the top of it.
+        //
+        //
+        // ALWAYS THE PAGE, never a window of the containing note. A note nested
+        // inside another was tried here and reverted: Context answers "where was
+        // this hatched", and the answer is the vertebra it was written on, whether
+        // or not another note happens to enclose it. A window would answer a
+        // different question and bury this one.
         let context-part = if origin == none { [] } else {
           section("idea-context", [Context],
             page-list((link(label(id), _handle-title(origin)),)))
         }
 
         let backlinks-part = if back.len() == 0 and back-pages.len() == 0 { [] } else {
-          // FOLDED and `depth: 0`, always: a backlink list is an index of what
+          // FOLDED and `depth: 1`, always: a backlink list is an index of what
           // points here, and a reader following one wants to see which notes
           // those are before reading any of them in full. `depth` is pinned
           // for the same reason `folded` is, and NOT left at `auto` — a
@@ -260,8 +326,14 @@
           // its one entry (Mid) unfurled down to a window of Leaf — the very
           // page it was on. `window` takes bare names and re-adds the prefix
           // itself, hence the trim.
+          //
+          // `depth: 1`, NOT `0`, since the rebasing of the scale (see
+          // `_window-depth`): `1` renders each entry once and unfurls nothing
+          // inside it, which is exactly what the pinned `0` meant before. `0`
+          // now means "no transclusion at all", which would turn this whole
+          // list into bare links — the regression to watch for here.
           let note-rows = if back.len() == 0 { [] } else {
-            window(back.map(b => b.trim(_pfx(), at: start)), folded: true, depth: 0)
+            window(back.map(b => b.trim(_pfx(), at: start)), folded: true, depth: 1)
           }
           // Pages come after the notes: a note is the more specific answer to
           // "what points here", and a page entry means only that the link was
@@ -302,8 +374,8 @@
     // can reach the title, dates, origin and outbound links without querying
     // anything.
     rheo-document(
-      _note-file(id),
-      handle: _IDEA-DIR + ":" + slug,
+      page-at.file,
+      handle: page-at.handle,
       format: "html",
       title: if rec.title == none { slug } else { rec.title },
       if tpl == none { page } else { tpl(id: id, note: rec, page) },

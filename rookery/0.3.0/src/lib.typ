@@ -40,6 +40,75 @@
   if c != none and "target" in c { c.target } else { std.target() }
 }
 
+// ---- pure.typ — the ordering-free half ------------------------------------
+//
+// `pure.typ` holds the helpers that are pure functions of their arguments: no
+// `state`, no `context`, no `query`, no target detection, nothing that reads
+// document state. They therefore carry none of the definition-time scope
+// capture the rest of THIS file's ordering is load-bearing for.
+//
+// The wildcard form is deliberate, because it RE-EXPORTS — VERIFIED: a name
+// imported into `lib.typ` with `#import "pure.typ": *` is visible to anything
+// importing `lib.typ`. `test/units.typ` relies on it directly (twelve of its
+// fifteen imported internals now live in `pure.typ`), and `.marrow.typ`
+// imports eighteen of this file's own internals by name on the same footing —
+// an underscore is a convention here, not a barrier.
+//
+// A RELATIVE import is safe here: it resolves against the package's own
+// directory. UNLIKE `.marrow.typ`, whose text is spliced into rheo's bundle
+// root (its own header explains it), so that file must keep importing from
+// `"@rheo/rookery:0.3.0"` by name.
+#import "pure.typ": *
+
+// ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
+//
+// `.marrow.typ` (this package's own, at the package root) imports SEVENTEEN
+// names from `"@rheo/rookery:0.3.0"`, seventeen of them underscore-private. They
+// are as load-bearing as anything public here, and nothing else in this file
+// says so. RENAMING OR RE-SIGNING ANY OF THEM MEANS CHANGING `.marrow.typ` IN
+// THE SAME COMMIT.
+//
+// The failure mode is why this banner exists rather than a convention. rheo's
+// `package_marrow_source` returns None for a marrow it cannot read instead of
+// erroring, so a broken marrow does not fail a build: the package installs,
+// compiles, and simply mints none of the pages it exists to mint. Nothing goes
+// red. The site just quietly loses every note page.
+//
+//   _registry            the note store; marrow walks `.final()` to mint one
+//                        page per note, and inverts its `links` for backlinks
+//   _note-page           slug + minted path + minted handle for one note, the
+//                        one place that mirror lives (see "Note page URLs")
+//   _pfx                 the `<prefix>:` to strip off a BACKLINK id, for the
+//                        `#window` call that renders the backlinks list
+//   _head                per-page <head> contributions
+//   _permalink           a note's `[idea:x]` permalink
+//   _permalink-tab       the top-rule permalink tab a note wears in a card,
+//                        reused on the minted page with a self-fragment href
+//   _themed              carries the document's theme as inline custom props
+//   _handle-title        the human title of the vertebra a handle names, for
+//                        the Context section's links back into the spine
+//   _page-links          which notes a given PAGE links to directly
+//   _page-href           depth-relative href from this page to another page
+//   _body-at             a note's body at a given nested-window budget
+//   _footnoted           wraps a body with its own Footnotes block
+//   _refs-block          the References block for a set of citation keys
+//   _own-cited-keys      which keys a body cites, minus the windowed ones
+//   _window-depth        the document-wide nested-window budget state
+//   _idea-page-template  the project's own minted-page template, if any
+//   window               public, but listed for completeness: marrow renders
+//                        the backlinks list as folded windows
+//
+// Their DEFINITIONS are deliberately not gathered here. Several (`_footnoted`,
+// `_body-at`) sit where they do because a `#let` closure captures the scope
+// visible at definition time, and moving them to satisfy a banner would break
+// the thing the banner is protecting.
+//
+// NOT COVERED BY CI, and this is the gap: `demo/rheo` is the only thing that
+// proves marrow still mints, and it needs the `rheo` binary, which no published
+// release can supply yet — package-`.marrow.typ` support landed after v0.5.1.
+// Until a release carries it (the same release bead rheo-packages-2ps waits on),
+// this banner and a local `demo/rheo` run are the whole guard.
+
 // The human title of the vertebra a handle names — "Rookery under Rheo" for
 // `index`. Read from `rheo-context`'s `spine-flat`, which every vertebra and
 // every marrow contribution sees identically (it is spine-wide, not per-file),
@@ -137,12 +206,43 @@
 // its own — `rookery.css` falls it back to `link-color` first, so a note's
 // rule and its links read as one colour until a theme sets `border-color`
 // apart from `link-color` deliberately.
+//
+// `pad` is the other length. It is the indent between a note's rule and its
+// content — and, on a window, that window's right padding too, so the content sits
+// the same distance from both edges. The tab's offset and the top rule's stub span
+// exactly this distance in order to close the corner on the rule, so they read the
+// same value and a retheme cannot leave a notch. Halved under 600px by the
+// stylesheet's own media query, which overrides the one property rather than the
+// four rules that depend on it.
+//
+// `rule-width` is the other odd one out: a LENGTH, not a colour, and it sets ONE
+// thickness for every line that frames a note — the left rule on a card and a
+// window, the tab that rules off the top of both, and `#ideas-outline`'s own rule
+// and row markers. They are one system and they were four literals; a project
+// that wants a heavier or lighter frame moves this and they all follow, including
+// the corner arithmetic that has to know the rule's width to close on it. The
+// separators above a footnotes, references or page-references block are NOT
+// governed by it: those are apparatus rules, not the note's frame.
+// CONSUMED BY @rheo/rookery-search, and not through an import. That package
+// emits rookery's properties onto its own `#search-bar` span and `#search-modal`
+// dialog, because neither has an `.idea-*` ancestor to inherit them from — a
+// search UI lives in a site's header, not inside a note card. It reaches them by
+// reading `state("rheo-idea-theme")` BY NAME (a Typst state is global per key)
+// and by keeping its own copy of the table below, exactly as it keeps a copy of
+// `_rheo-ctx`. So THREE things here are a cross-package contract, not private
+// detail: the state's key string, the shape of the dictionary it holds (theme key
+// -> already-stringified CSS value), and every property spelling in the table.
+// Change any of them and change `rookery-search/0.3.0/src/lib.typ` in the same
+// commit.
 #let _THEME-KEYS = (
   "link-color": "--idea-link-color",
   "fold-color": "--idea-fold-color",
   "id-color": "--idea-id-color",
   "date-color": "--idea-date-color",
   "border-color": "--idea-border-color",
+  "rule-width": "--idea-rule-width",
+  "pad": "--idea-pad",
+  "label-font": "--idea-label-font",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -166,17 +266,31 @@
 
 // ---- Window depth — how far a nested `#window` unfurls ---------------------
 //
-// A `#window` nested inside a transcluded body collapses to a bare permalink
-// by default (see `_flatten`'s WK rule): expanding it is what makes a cycle —
-// a self-window, or A-windows-B/B-windows-A — re-expand forever. This is the
-// budget that makes bounded expansion safe: `0` (the default) is the collapse,
-// `n` unfurls n levels of nested windows and collapses at the n+1th.
+// THE SCALE COUNTS LEVELS OF TRANSCLUSION, AND `0` IS NOT THE DEFAULT:
+//
+//   0   transcludes NOTHING. A `#window` renders as the note's title linked to
+//       the note's own page — no summary, no disclosure, no body (see
+//       `#window`'s depth-0 branch).
+//   1   the default, and today's behaviour: the note renders once, and a
+//       `#window` found INSIDE it collapses to a bare permalink (`_flatten`'s
+//       WK rule).
+//   n   unfurls n-1 further levels of nested windows, collapsing at the nth.
+//
+// Expanding a nested window with no budget is what makes a cycle — a
+// self-window, or A-windows-B/B-windows-A — re-expand forever, and the budget
+// is what makes bounded expansion safe. So every comparison against a depth in
+// this file asks `> 1`, never `> 0`: the question is always "may I unfurl a
+// window found INSIDE this one", and one level of that budget is already spent
+// on rendering the window itself.
+//
+// MIGRATION off the old scale, where `0` was the default and `n` unfurled `n`
+// nested levels: add one. A project that set `window-depth: 2` wants `3`.
 //
 // Document-wide state for the same reason `_prefix` is (`#show: rookery` is
 // applied per FILE, and a note written in one vertebra can be windowed from
 // another), read with `.final()` so every reader agrees. `#window`'s own
 // `depth:` argument overrides it per call site.
-#let _window-depth = state("rheo-idea-window-depth", 0)
+#let _window-depth = state("rheo-idea-window-depth", 1)
 
 // ---- The bibliography — one for the whole rookery -------------------------
 //
@@ -234,27 +348,6 @@
     }
   }
   keys
-}
-
-// Every bibliography key cited in this content, in document order.
-//
-// Walks for BOTH `ref` and `cite`: `@key` markup is a `ref` element until
-// realization and becomes a `cite` only then, so a walk looking for `cite`
-// alone finds nothing — MEASURED, it returned `()` for a body full of `@key`
-// citations. `#cite(<key>)` written explicitly is already a `cite`.
-//
-// Intersecting with `_bib-keys()` is what makes this correct rather than merely
-// plausible: `@idea:etal` and a reference to a heading are `ref` elements too,
-// and only the ones naming a bibliography key are citations.
-#let _cite-walk(node) = {
-  let out = ()
-  if type(node) != content { return out }
-  if node.func() == ref { return (str(node.target),) }
-  if node.func() == cite { return (str(node.key),) }
-  if node.has("children") { for k in node.children { out += _cite-walk(k) } }
-  else if node.has("body") { out += _cite-walk(node.body) }
-  else if node.has("child") { out += _cite-walk(node.child) }
-  out
 }
 
 #let _cited-keys(body) = {
@@ -322,6 +415,19 @@
 #let _IDEA-DIR = "ideas"
 #let _note-file(id) = _IDEA-DIR + "/" + id.trim(_pfx(), at: start) + ".html"
 
+// The three halves of one note page, in one place: the slug, the file
+// `.marrow.typ` mints it to, and the handle it mints it under. `.marrow.typ`
+// used to derive all three itself — `id.trim(_pfx(), at: start)` for the slug,
+// `_note-file(id)` for the path, `_IDEA-DIR + ":" + slug` for the handle — which
+// is the mirroring the comment above worries about, spelled out across two
+// files. Now the mirror lives here and marrow reads it.
+//
+// Must be called from inside `context`: `_pfx` reads the prefix state.
+#let _note-page(id) = {
+  let slug = id.trim(_pfx(), at: start)
+  (slug: slug, file: _note-file(id), handle: _IDEA-DIR + ":" + slug)
+}
+
 // Depth-relative href from the CURRENT page to a note's standalone page, or
 // `none` when no such page exists to link to:
 //   - plain `typst compile` with no rheo — nothing mints per-note pages;
@@ -341,9 +447,7 @@
   if c == none or c.at("ext", default: none) == none { return none }
   let handle = state("rheo-handle").get()
   if type(handle) != str { return none }
-  let depth = handle.split(":").len() - 1
-  let prefix = if depth == 0 { "" } else { range(depth).map(x => "../").join() }
-  prefix + _note-file(id)
+  _rel-prefix(handle) + _note-file(id)
 }
 
 // Shared href resolution for a "page" vs "anchor" link-to mode: `"page"`
@@ -401,45 +505,103 @@
   )
 }
 
+// The permalink as a card's TOP RULE rather than as a word in its heading:
+// `.idea-tab` draws the rule (see rookery.css) and this is the id that
+// straddles it. Used by every site that renders a note's HEADER — `#idea`, a
+// transcluded `#idea`, a `#window` summary, a minted page's `<h1>` — and by
+// nothing else: a bare permalink standing in prose (a depth-exhausted nested
+// window, below) keeps `_permalink` itself, because a rule across the top of it
+// would be a rule across the top of nothing.
+//
+// `span`, NOT `div`: this goes inside `<summary>` on the window path, whose
+// content model is phrasing content, and EPUB output is XHTML, where that
+// distinction is enforced rather than merely stated. `display: flex` in the
+// stylesheet is what makes it behave as a block.
+//
+// Carries no theme properties of its own, for the same reason `_permalink`
+// does not: it is always emitted inside a container that does — `.idea-box`,
+// `.idea-window-summary`, or (on a minted page) the `.idea-head` wrapper — and
+// custom properties inherit.
+// `date` IS THE HAT'S OTHER END. Emitted LAST and pushed to the far right of the
+// rule by `margin-left: auto` in the stylesheet, so the hat reads id-on-the-left,
+// date-on-the-right with the frame's top edge between them. It used to render
+// inside the heading (`#idea`) or as a third item in the summary row (`#window`) —
+// two classes in two places for one piece of metadata. Both now pass it here.
+//
+// A STRING, already formatted, not a `datetime`: the two call sites resolve which
+// date to show and how to display it (`#idea` from `updated`/`minted`/the
+// document's own, `_window-content` from the registry record), and the paged
+// branches need the same string without a hat to hang it on. Formatting here would
+// put that decision in a third place.
+#let _permalink-tab(id, href: auto, date: none) = html.elem(
+  "span",
+  attrs: (class: "idea-tab"),
+  _permalink(id, href: href)
+    + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
+)
+
+// The tab and the heading as ONE element, wherever a note wears a header.
+//
+// NOT two loose siblings, and this is measured rather than tidiness. Typst's
+// HTML export wraps a LEADING INLINE run in a `<p>` of its own depending on what
+// follows it, and it is not decidable per call site: in one build of this
+// package's own `demo/rheo`, one `.idea-box` came out
+// `<div class="idea-box"><p><span class="idea-tab">..</span></p><h2>` and the
+// next `<div class="idea-box"><span class="idea-tab">..</span><h2>` — same
+// construct, same run, different grouping, because their bodies differ. Every
+// stylesheet rule that positions the tab against its heading
+// (`.idea-tab + h*.idea`) silently stops matching in the first form.
+//
+// Inside one `html.elem` the two are always real siblings. `.idea-head` is also
+// the theme container on a minted note page, where there is no `.idea-box` to be
+// one — see `.marrow.typ`, which passes `_themed((:))` here.
+//
+// `#window`'s summary needs none of this: its tab is a direct child of
+// `<summary>`, whose content is inline throughout, and no `<p>` ever appears
+// there (checked in the same build).
+#let _head(tab, heading, attrs: (:)) = html.elem(
+  "div",
+  attrs: attrs + (class: "idea-head"),
+  tab + heading,
+)
+
 // Paged counterpart: no `html.elem`, and the fallback is the Typst label
 // rather than an HTML fragment.
 #let _permalink-paged(id) = {
   link(_resolve-dest(id, "page"), text(gray, raw("[" + id + "]")))
 }
 
-// Normalise a name (string or Typst label) to its bare string form, with no
-// prefix. Strips a leading "prefix:" when present, so the bare form
-// ("etal", <etal>) and the full id ("idea:etal", <idea:etal> — the same id
-// `@idea:etal` resolves) name the same note either way: whichever is closer
-// to hand — a fresh name to pin, or a full id copied from elsewhere — just
-// works. Shared by `#idea` (pinning an explicit id), `#window` (looking one
-// up), and `#hyperlink` (linking to one). Defined before the registry below
-// because `hyperlink` needs both and must come before `_flatten`, which
-// installs it as a `show ref:` rule.
-#let _norm(name) = {
-  let s = if type(name) == label { str(name) } else { name }
-  let i = s.position(":")
-  if i == none { s } else { s.slice(i + 1) }
-}
-
-// ---- _tag-pred — the shared tag filter -----------------------------------
+// THE ONE BOTTOM-OUT RENDERING. A `#window` that has no recursion budget left emits
+// this, wherever it ran out: `#window` itself at depth 0, and `_flatten`'s WK arm for
+// a window nested past the budget. It used to be TWO renderings — a bare `[idea:x]`
+// permalink from the WK arm, and this row from the depth-0 branch — so a bottomed-out
+// window looked like a different KIND of object depending on WHY it bottomed out.
+// Factored here so the two cannot drift again; that drift is what the shared
+// `_permalink`/`_note-file`/`_truncate` helpers all exist to prevent.
 //
-// `tags` is `none`, a single string, or an array of strings; `match` is "any"
-// (the default) or "all". Returns a predicate over a note's own tag array, or
-// `none` when there is nothing to filter by. An EMPTY `tags` array is no
-// filter at all rather than a filter matching nothing — asking for none of the
-// tags is not the same as asking for a tag no note has.
+// The note's TITLE, linked to its own page, in the row shape a page backlink uses
+// (`.idea-page-row` gives it the frame's bar and indent at body size). A TITLELESS
+// note falls back to its permalink — there is nothing else to name it by, and that
+// is the one case the old rendering survives in.
 //
-// Defined HERE, above every caller, rather than beside the first one to want
-// it: a `#let` closure captures the scope visible AT DEFINITION time, so a
-// helper defined further down is invisible to `#window`. `_blocks` carries the
-// same note for the same reason. `#ideas-outline`'s own tag filter, when it
-// lands, reuses this — do not define a second copy next to it.
-#let _tag-pred(tags, match) = {
-  if tags == none { return none }
-  let want = if type(tags) == str { (tags,) } else { tags }
-  if want.len() == 0 { return none }
-  if match == "all" { t => want.all(x => x in t) } else { t => want.any(x => x in t) }
+// Defined HERE, above `_flatten`, for the reason `_blocks` and `_truncate` are: a
+// `#let` closure captures the scope visible AT DEFINITION time, and `_flatten` is one
+// of the two callers.
+#let _window-link(id, rec) = {
+  let row = if rec.title == none { _permalink(id) } else {
+    link(_resolve-dest(id, "page"), rec.title)
+  }
+  if _target() == "html" or _target() == "epub" {
+    html.elem(
+      "ul",
+      attrs: _themed((class: "idea-page-list")),
+      html.elem("li", attrs: (class: "idea-page-row"), row),
+    )
+  } else {
+    // `align(start)` for the reason `_window-content`'s paged branch uses it: a
+    // Typst figure centres its body.
+    align(start, block(row))
+  }
 }
 
 // ---- #idea — marker, idea:<id> label, anchor, flattened registration -----
@@ -453,29 +615,6 @@
 // carrying that id and an `idea`/`idea-tag-<tag>` class list, and a registry
 // entry other beads (#window, #hyperlink) read from.
 #let _registry = state("rheo-ideas", (:))
-#let IK = "rheo-idea" // marker for an idea
-#let WK = "rheo-idea-window" // marker for a window; defined here (not next to
-// `#window` below) because `_flatten` needs both marker kinds and must be
-// defined before `#idea`, which calls it at registration time.
-
-// ---- Footnotes — scoped to an idea, not to an output page -----------------
-//
-// Typst's own `#footnote` CANNOT be intercepted. Its body is collected by the
-// HTML exporter through introspection, independently of show rules, so neither
-// `show footnote: it => ...` nor `show footnote: none` removes the entry from
-// the page's `<section role="doc-endnotes">` — MEASURED both ways on typst
-// 0.15.1. So rookery exports its own `#footnote` (below), which shadows
-// `std.footnote` at the author's import site and carries its body on an
-// invisible marker this package places itself.
-//
-// The marker is `metadata` + a label, NOT a `figure`. A figure is block-level
-// and forced `</p><p>` breaks around the reference, taking it out of its
-// sentence — MEASURED. `metadata` renders nothing and sits inline.
-//
-// Defined HERE — after IK/WK, before `_flatten` — for the reason `_blocks`
-// below is: a `#let` closure captures the scope visible AT DEFINITION time,
-// and both `_flatten`'s IK rule and `#idea` itself need these.
-#let FNK = <rkfn>
 
 // Stepped ONCE per rendered idea box. It exists only so two renderings of the
 // SAME body on one output page (its own `#idea`, plus a `#window` on it) get
@@ -487,65 +626,6 @@
 // ideas on one page may each legitimately carry a footnote "1" — that is the
 // point of the feature, not a collision.
 #let _fn-seq = counter("rheo-idea-fn")
-
-// Every footnote body in this content, in document order.
-//
-// STOPS at a nested IK or WK marker. A `#idea` written inside another's body
-// owns its footnotes and renders its own block for them; a nested `#window`
-// likewise. Without this the parent would list its children's footnotes as
-// well as its own, and every one would appear twice on the page.
-//
-// Does NOT descend into a metadata VALUE — only into content children — which
-// is what keeps the raw bodies that IK/WK markers carry as metadata payloads
-// out of the walk.
-#let _footnotes(node) = {
-  let out = ()
-  if type(node) != content { return out }
-  if node.func() == metadata {
-    if type(node.value) == dictionary and "rookery-fn" in node.value {
-      return (node.value.rookery-fn,)
-    }
-    return out
-  }
-  if node.func() == figure and node.at("kind", default: none) in (IK, WK) { return out }
-  if node.has("children") { for k in node.children { out += _footnotes(k) } }
-  else if node.has("body") { out += _footnotes(node.body) }
-  else if node.has("child") { out += _footnotes(node.child) }
-  out
-}
-
-// Typst's OWN footnotes in a body — the ones this package cannot claim.
-//
-// `#footnote` above shadows `std.footnote` only at the author's IMPORT SITE, and
-// Typst imports are per-file. A vertebra that writes `#footnote` without
-// importing it from this package gets the builtin, and the build SUCCEEDS while
-// putting the body somewhere else entirely: the page's endnote section,
-// numbered page-wide, with no Footnotes block on the idea. MEASURED:
-//
-//     no import   idea-footnotes block=False   page endnotes=True
-//     imported    idea-footnotes block=True    page endnotes=False
-//
-// `#idea` uses this to turn that silence into a build error. It cannot be fixed
-// any other way — REFUTED, do not attempt: a rule installed by `#show: rookery`
-// changes only how the marker renders, and the body is still collected into the
-// endnote section behind it, because the HTML exporter gathers footnotes by
-// introspection. MEASURED, the section was emitted and still contained the
-// body. There is no way to rebind a builtin document-wide either; `#let` is
-// file-scoped.
-//
-// Stops at a nested IK/WK marker for the same reason `_footnotes` does: a
-// nested idea runs this check when IT registers, and should report its own
-// violation rather than have its parent report it.
-#let _std-footnotes(node) = {
-  let out = ()
-  if type(node) != content { return out }
-  if node.func() == footnote { return (node,) }
-  if node.func() == figure and node.at("kind", default: none) in (IK, WK) { return out }
-  if node.has("children") { for k in node.children { out += _std-footnotes(k) } }
-  else if node.has("body") { out += _std-footnotes(node.body) }
-  else if node.has("child") { out += _std-footnotes(node.child) }
-  out
-}
 
 // The inline reference. `b` is this rendering's block number, `n` the
 // footnote's number within it; together they name both anchors.
@@ -782,7 +862,7 @@
 // `show ref:` rule implicitly; it must be an exported rule the author opts
 // into:
 //
-//   #import "@rheo/rookery:0.2.0": idea, window, hyperlink
+//   #import "@rheo/rookery:0.3.0": idea, window, hyperlink
 //   #show ref: hyperlink                          // the default: the note's own minted page
 //   #show ref: hyperlink.with(link-to: "anchor")   // in-context anchor, like #hyperlink(..., link-to: "anchor")
 //
@@ -944,48 +1024,6 @@
 #let _edge(edge, container) = metadata((rookery-edge: edge, rookery-container: container))
 #let _bracket(body, container) = _edge("open", container) + body + _edge("close", container)
 
-// Split a body into block-level chunks for `limit:` truncation. A naive
-// `body.children.slice(0, limit)` is WRONG: whitespace (`space`/`parbreak`)
-// children make it select nothing, and list items are bare `item` children
-// with no wrapping `list` element, so a naive slice also cuts lists in half.
-// This groups consecutive `item`s into one block and drops whitespace.
-// Compares `repr(c.func())` against "space"/"parbreak" because there is no
-// public element function to compare those against directly.
-//
-// MEASURED REGRESSION FIX: every registry body has been through `_flatten`
-// since v6y.7, which wraps it in a `show`-rule scope — Typst represents that
-// as a `styled` node with `.has("children") == false`, not the `sequence` it
-// wraps. Without unwrapping, `_blocks` always fell into the single-block
-// fallback below, silently disabling `limit:` truncation for every note.
-// `styled` (like `space`/`parbreak`) has no public function value to compare
-// against directly, hence `repr(...)`. A `styled` node exposes the wrapped
-// content as `.child` — verified this stays a single layer even with two
-// `show` rules in the scope (`_flatten` sets exactly two), but loop anyway
-// in case that ever changes.
-//
-// Defined HERE, above `_flatten`, rather than beside `#window` where it is
-// also used: `_flatten`'s WK rule applies `limit:` too when it expands a
-// nested window, and a `#let` closure captures the scope visible AT
-// DEFINITION time.
-#let _blocks(body) = {
-  let body = body
-  while repr(body.func()) == "styled" { body = body.child }
-  if not body.has("children") { return (body,) }
-  let out = ()
-  let prev-item = false
-  for c in body.children {
-    let f = repr(c.func())
-    if f == "space" or f == "parbreak" { prev-item = false; continue }
-    if f == "item" and prev-item {
-      out.at(-1) = out.at(-1) + c
-    } else {
-      out.push(c)
-      prev-item = f == "item"
-    }
-  }
-  out
-}
-
 // ONE rendering of ONE window — summary row, disclosure, body — shared by
 // `#window` itself and by `_flatten`'s WK rule when `depth` lets it expand a
 // nested window instead of collapsing it. Shared so the two cannot drift: an
@@ -1038,24 +1076,34 @@
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
 #let _window-content(id, rec, shown, folded, show-date, windows-claim: false) = {
-  let date = if show-date and rec.minted != none {
-    rec.minted.display("[year]-[month]-[day]")
+  // `updated`, not `minted`, matching `#idea`'s own hat. The registry record
+  // carries both, and `updated` already falls back to `minted` (which falls back
+  // to the document's date) when the note never named one — so a note that says
+  // nothing looks exactly as it did, and a note that does shows when it was last
+  // touched, which is what a reader of a rookery wants off the top of a window.
+  let date = if show-date and rec.updated != none {
+    rec.updated.display("[year]-[month]-[day]")
   } else { none }
 
   if _target() == "html" or _target() == "epub" {
-    // A titleless note contributes no title span at all, so the permalink
-    // comes first in the summary — "at the top of the window", the id doing
-    // double duty as the note's name. `#idea`'s own heading does the same.
+    // The id leads the summary as the window's own top rule, so a titleless
+    // note needs no special case: the tab is there either way, and the title
+    // span is simply absent beneath it. `#idea`'s own heading does the same.
     let title-span = if rec.title == none { [] } else {
       html.elem("span", attrs: (class: "idea-window-title"), rec.title)
     }
-    let date-span = if date == none { [] } else {
-      html.elem("span", attrs: (class: "idea-window-date"), date)
-    }
+    // The tab stays INSIDE the `<summary>`, as its first child. Moving it into
+    // the `<details>` body would hide the id whenever the window is folded, and
+    // it has to be visible and clickable in both states.
+    //
+    // THE DATE GOES IN THE TAB, not beside the title as a third item in this row.
+    // `.idea-window-date` is gone with it: a date is the same object on a card and
+    // on a window, so it wears the same class in the same place, and the summary
+    // row is back to a tab plus a title.
     let summary = html.elem(
       "summary",
       attrs: (class: "idea-window-summary"),
-      title-span + _permalink(id) + date-span,
+      _permalink-tab(id, date: date) + title-span,
     )
     // `open` is a BOOLEAN html attribute: present means open and there is no
     // value meaning closed, so the attrs dictionary itself has to differ
@@ -1071,9 +1119,6 @@
     // `#idea` uses gives the window its own block and its own numbering, and
     // being nested it wins over the enclosing rule.
     //
-    // `shown`, not the untruncated body — the caller already applied `limit:`,
-    // and a window must not list a footnote whose reference it truncated away.
-    // The block goes INSIDE `.idea-window-body` so it folds with the window.
     // References go in the window's own body too, for the same reason its
     // footnotes do: a transcluded body carries the origin note's citations, a
     // citation link is a same-page fragment, and a window on page B therefore
@@ -1087,8 +1132,10 @@
     // format the marker itself — which means parsing the bibliography and
     // reimplementing what Typst already does. Do not reintroduce them.
     //
-    // `shown`, not the untruncated body: the caller already applied `limit:`.
-    // Inside `.idea-window-body` so it folds away with the window.
+    // Both take `shown`, not the untruncated body — the caller already applied
+    // `limit:`, and a window must not list a footnote or a citation whose
+    // reference it truncated away. Both blocks sit INSIDE
+    // `.idea-window-body`, so they fold away with the window.
     html.elem("div", attrs: _themed((class: "idea-window")),
       html.elem("details", attrs: d-attrs,
         summary + html.elem("div", attrs: (class: "idea-window-body"),
@@ -1127,9 +1174,14 @@
 // with a two-level `show figure.where(kind: K)` reproduction: output was
 // `OUTER(INNER)`, not a "maximum show rule depth exceeded". Since every
 // expansion below wraps its body in a fresh `_flatten` scope — including at
-// `depth: 0`, where the rule collapses — every generated WK figure is always
+// `depth: 1`, where the rule collapses — every generated WK figure is always
 // claimed by a strictly smaller budget.
-#let _flatten(body, depth: 0) = {
+//
+// `depth` here is the budget of the note whose body this IS, so a window found
+// in it may only unfurl when there is a level left over for it: hence `depth >
+// 1` throughout, and `depth: 1` (the default, and what registration flattens a
+// body at) is the collapse. See the scale at `_window-depth`.
+#let _flatten(body, depth: 1) = {
   // MEASURED DEFECT this fixes: a `@idea:other` inside a note's body rendered
   // as a bare figure number ("2") on the note's minted page, while rendering
   // correctly in situ. `show ref: hyperlink` is installed by `#show:
@@ -1163,12 +1215,18 @@
     if _target() == "html" or _target() == "epub" {
       let attrs = (class: cls.join(" "))
       if id != none { attrs = attrs + (id: id) }
-      let header = html.elem(
-        "h" + str(v.level + 1),
-        attrs: attrs,
-        (if v.title == none { [] } else {
-          html.elem("span", attrs: (class: "idea-title"), v.title)
-        }) + (if id == none { [] } else { _permalink(id) }),
+      // Tab before the heading, and the `id == none` guard travels with it: an
+      // auto-numbered nested note has no id to show, so it gets no tab either
+      // and its card simply has no top rule.
+      let header = _head(
+        if id == none { [] } else { _permalink-tab(id) },
+        html.elem(
+          "h" + str(v.level + 1),
+          attrs: attrs,
+          (if v.title == none { [] } else {
+            html.elem("span", attrs: (class: "idea-title"), v.title)
+          }),
+        ),
       )
       let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
@@ -1178,7 +1236,7 @@
       _sweep-block()
       _bracket(
         html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body))
-          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)),
+          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)),
         IK,
       )
     } else {
@@ -1186,15 +1244,15 @@
       _bracket({
         if v.title != none { heading(depth: v.level, v.title) }
         _footnoted(v.body)
-      } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 0)), IK)
+      } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)), IK)
     }
   }
-  // A `#window` nested inside a transcluded body. With no budget left
-  // (`depth: 0`, the default) it collapses to the SAME permalink affordance
-  // the window's own summary would have carried — so the one-link rule holds
-  // at every depth: the id navigates, nothing else does. (It used to collapse
-  // to a `[window of idea:x]` link on the label anchor, which was a second,
-  // differently-styled navigational form for the same destination.)
+  // A `#window` nested inside a transcluded body. With no recursion budget left
+  // over for it (`depth: 1`, the default — and `depth: 0`, where nothing is
+  // transcluded anywhere) it bottoms out to `_window-link`, THE SAME row
+  // `#window` itself emits at depth 0. One rendering for one meaning: the
+  // one-link rule holds at every depth, and the row names the note by its title
+  // rather than by its id.
   //
   // With budget left, it renders as a real window instead, identical to the
   // same `#window` written at the top level — same summary, same disclosure,
@@ -1216,12 +1274,8 @@
     let m = it.body.children.find(c => c.func() == metadata)
     let v = m.value
     let id = v.rookery-window-id
-    if depth <= 0 {
-      if _target() == "html" or _target() == "epub" {
-        _permalink(id)
-      } else {
-        _permalink-paged(id)
-      }
+    if depth <= 1 {
+      _window-link(id, _registry.final().at(id))
     } else {
       let rec = _registry.final().at(id)
       // The nested `#window` has already run in full by the time this rule
@@ -1233,19 +1287,14 @@
       // is pure — no counter steps, no registration — so discarding it costs
       // nothing but the work.
       //
-      // `depth == 1` reuses the record's already-flattened body rather than
+      // `depth == 2` reuses the record's already-flattened body rather than
       // re-flattening at the same budget: `rec.body` IS `_flatten(raw)` at
-      // depth 0, computed once at registration.
-      let inner = if depth == 1 { rec.body } else {
+      // depth 1, computed once at registration.
+      let inner = if depth == 2 { rec.body } else {
         _flatten(rec.raw, depth: depth - 1)
       }
-      let bs = _blocks(inner)
-      let shown = if v.limit != none and bs.len() > v.limit {
-        bs.slice(0, v.limit).join() + [#text(gray)[ ... ]]
-      } else {
-        inner
-      }
-      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 0), WK)
+      let shown = _truncate(inner, v.limit)
+      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 1), WK)
     }
   }
   body
@@ -1258,12 +1307,17 @@
 // `.marrow.typ` passes an EXPLICIT depth instead, `window-depth + 1`: a minted
 // page shows the note at the page's own top level rather than transcluding it,
 // so a window written in that body is a top-level window and must render in
-// full even at the default of 0. See the note beside `minted-depth` there.
+// full even at the default of 1. See the note beside `minted-depth` there.
+//
+// `d <= 1` short-circuits to the cached body rather than re-flattening at the
+// same budget: `rec.body` IS `_flatten(rec.raw)` at depth 1 (registration's
+// default), and depth 0 transcludes nothing at all, so neither has any nested
+// window to unfurl. See the scale at `_window-depth`.
 //
 // Must be called from inside `context`: `.final()` on both states.
 #let _body-at(rec, depth: auto) = {
   let d = if depth == auto { _window-depth.final() } else { depth }
-  if d <= 0 { rec.body } else { _flatten(rec.raw, depth: d) }
+  if d <= 1 { rec.body } else { _flatten(rec.raw, depth: d) }
 }
 
 // ---- Outbound links, for backlinks ----------------------------------------
@@ -1332,6 +1386,18 @@
 }
 
 #let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
+  // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
+  // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
+  // below and further down at render time — str has no `.map`, so the error
+  // surfaced as an opaque method-not-found far from the actual mistake.
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #idea's `tags` must be none, a string, or an "
+      + "array of strings — got " + repr(tags),
+  )
+  let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
   let pos = args.pos()
   let (name, body) = if pos.len() == 1 {
     (none, pos.at(0))
@@ -1377,9 +1443,15 @@
 
       // `show-date` gates display only — the date is always RESOLVED and
       // stored on the registry record above, so a #window of this note can
-      // still show it even when the note's own heading (here) does not.
-      let date = if show-date and resolved-minted != none {
-        resolved-minted.display("[year]-[month]-[day]")
+      // still show it even when the note's own hat (here) does not.
+      //
+      // `resolved-updated`, NOT `resolved-minted`: the date a reader wants off the
+      // top of a card is when the note was last touched. Nothing changes for a note
+      // that never says `updated:`, because `resolved-updated` falls back to
+      // `resolved-minted` one line above, which falls back to the document's own
+      // date. `_window-content` reads the same field off the registry record.
+      let date = if show-date and resolved-updated != none {
+        resolved-updated.display("[year]-[month]-[day]")
       } else { none }
 
       // The note's CONTEXT: the handle of the page this `#idea` was written
@@ -1416,7 +1488,7 @@
           "@rheo/rookery: `#footnote` inside an idea is Typst's, not rookery's — "
             + "its body would land in the page's endnote section instead of this "
             + "idea's Footnotes block. Add `footnote` to your import: "
-            + "`#import \"@rheo/rookery:0.2.0\": idea, footnote`.",
+            + "`#import \"@rheo/rookery:0.3.0\": idea, footnote`.",
         )
       }
 
@@ -1451,8 +1523,14 @@
         tags: tags,
       )
       _registry.update(r => {
-        if id in r and r.at(id) != rec {
-          panic("rookery: duplicate note id " + id)
+        let existing = r.at(id, default: none)
+        if id in r and existing != rec {
+          panic(
+            "@rheo/rookery: duplicate note id " + id + " — already registered"
+              + (if existing.origin != none { " in " + existing.origin } else { "" })
+              + ", registered again" + (if origin != none { " in " + origin } else { "" })
+              + ". A pinned id must be unique across the whole rookery.",
+          )
         }
         r.insert(id, rec)
         r
@@ -1473,24 +1551,38 @@
       if _target() == "html" or _target() == "epub" {
         // The permalink is the ONLY way to discover an auto-generated id —
         // there is no `show heading` rule and no template to hook into, so
-        // `#idea` appends it directly, always (even with no title), showing
+        // `#idea` emits it directly, always (even with no title), showing
         // the FULL `idea:name` id so it is copy-pasteable straight into
         // `#window("...")`. `#window` renders the identical affordance in its own
-        // summary; both go through `_permalink`.
-        // The title goes in a span even though nothing styles it by default,
-        // so that `.idea-label:first-child` can mean "this note has no title".
-        // A bare title is a TEXT node, and CSS `:first-child` counts elements
-        // only — so without the span the permalink is the first element child
-        // either way, and the rule that un-indents a titleless note would
-        // strip the separating margin from a titled one too. `#window`'s summary
-        // has always wrapped its title for the same reason.
-        let date-span = if date == none { [] } else {
-          html.elem("span", attrs: (class: "idea-date"), date)
-        }
-        let header = html.elem("h" + str(level + 1), attrs: (id: id, class: cls.join(" ")),
-                  (if ttl == none { [] } else {
-                    html.elem("span", attrs: (class: "idea-title"), ttl)
-                  }) + _permalink(id) + date-span)
+        // summary; both go through `_permalink-tab`.
+        //
+        // ABOVE the heading, not inside it: the id is the card's top rule (see
+        // `_permalink-tab` and `.idea-tab`), so a titleless note needs no
+        // special case — the tab is the same either way. The title keeps its
+        // span, which nothing styles by default: it stays a hook a project can
+        // reach for, and `#window`'s summary wraps its title the same way.
+        //
+        // THE DATE IS IN THE TAB TOO, at its far right, and no longer a second
+        // child of the heading. It belongs to the frame rather than to the
+        // sentence: read inside the `<h2>` it was a subtitle, and it made a
+        // titleless note's heading non-empty for nothing (see the note below on
+        // `h*.idea:empty`).
+        //
+        // The heading element survives even with NO children — a titleless note.
+        // Its `id` attribute is the note's in-page anchor, the destination of every
+        // `@idea:etal` fragment link, so dropping the element would break them;
+        // `h*.idea:empty` in the stylesheet is what keeps it from taking any space,
+        // and it now applies to a dated titleless note as well.
+        let header = _head(
+          _permalink-tab(id, date: date),
+          html.elem(
+            "h" + str(level + 1),
+            attrs: (id: id, class: cls.join(" ")),
+            if ttl == none { [] } else {
+              html.elem("span", attrs: (class: "idea-title"), ttl)
+            },
+          ),
+        )
         // Header and body wrap together in one card, HTML/EPUB only — no box
         // for a paged target. The box classes mirror `cls` (tags included)
         // so a tag can style the whole card, not just the heading; the
@@ -1549,13 +1641,6 @@
 // An explicit `tags:` argument at the call site OVERRIDES a value bound by
 // `.with()`, so `#note("x", tags: ("draft",))` would silently drop "note" —
 // the tag the caller chose `#note` for in the first place.
-//
-// Prepends `tag`, unless the caller already passed it — `#todo("x", tags:
-// ("todo",))` must yield `("todo",)`, not `("todo", "todo")`, or the heading
-// gets a duplicated CSS class. Defined before `note`/`todo` below: a `#let`
-// closure captures the scope visible AT DEFINITION time, so a forward
-// reference to a not-yet-defined name fails at call time.
-#let _dedup-tag(tag, tags) = if tag in tags { tags } else { (tag,) + tags }
 #let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
 #let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
 
@@ -1583,7 +1668,7 @@
 //
 // Import it alongside `#idea` and write footnotes exactly as before:
 //
-//   #import "@rheo/rookery:0.2.0": idea, footnote
+//   #import "@rheo/rookery:0.3.0": idea, footnote
 //   #idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
 //
 // Emits nothing on its own — it is an invisible marker. Inside an idea,
@@ -1598,34 +1683,6 @@
 // here would put a real footnote element in the document that nothing can
 // then remove (see the note on FNK above).
 #let footnote(body) = [#metadata((rookery-fn: body))<rkfn>]
-
-// ---- _sort-ids — a total order over a window's selected ids ---------------
-//
-// "lexicographic" is by full id, the same order `ideas()` publishes. "date" is
-// newest `minted` first, undated notes last, ties broken by ASCENDING id.
-//
-// Built by grouping rather than by sorting twice: typst does not document
-// `array.sorted` as stable, so a sort-by-id-then-sort-by-date pipeline cannot
-// be relied on to keep the id order within a date. Dates are compared as
-// zero-padded `[year][month][day]` strings, which sidesteps the question of
-// how `datetime` orders as a sort key at all.
-#let _sort-ids(ids, reg, sort) = {
-  let by-id = ids.sorted()
-  if sort != "date" { return by-id }
-  let stamp-of(id) = {
-    let m = reg.at(id).at("minted", default: none)
-    if m == none { none } else { m.display("[year][month][day]") }
-  }
-  let dated = by-id.filter(id => stamp-of(id) != none)
-  let undated = by-id.filter(id => stamp-of(id) == none)
-  let ordered = ()
-  // `dated` is already in ascending-id order and `filter` preserves it, so
-  // each date's group comes out id-ascending inside a date-descending walk.
-  for s in dated.map(stamp-of).dedup().sorted().rev() {
-    ordered += dated.filter(id => stamp-of(id) == s)
-  }
-  ordered + undated
-}
 
 // ---- #window — transclusion, array form, working limit --------------------
 //
@@ -1655,55 +1712,24 @@
 // delivered by `_flatten` (defined above, next to `IK`/`WK`), not by any
 // suppression logic here.
 //
-// `depth:` is the nested-window budget (see `_window-depth`): `0` collapses a
-// `#window` written inside the transcluded note to its bare permalink, `n`
-// unfurls n levels of them as real windows. `auto`, the default, takes the
-// document-wide setting from `#show: rookery.with(window-depth: n)` — which
-// itself defaults to 0, so nothing changes for a document that never asks.
-// Per call site, because "unfurl the whole tree here" and "just point at it"
-// are both reasonable on the same page: an index that shows one note in full
-// wants depth, a backlinks list of forty does not.
+// `depth:` is the transclusion budget (see `_window-depth` for the whole
+// scale): `0` transcludes nothing and renders this window as a LINK to the
+// note's page, `1` renders the note and collapses a `#window` written inside it
+// to its bare permalink, `n` unfurls n-1 levels of those as real windows.
+// `auto`, the default, takes the document-wide setting from
+// `#show: rookery.with(window-depth: n)` — which itself defaults to 1, the
+// one-level rendering every document already has. Per call site, because
+// "unfurl the whole tree here", "show it" and "just point at it" are all
+// reasonable on the same page: an index that shows one note in full wants
+// depth, a backlinks list of forty does not, and a dense index may want no
+// transclusion at all.
 //
 // Nesting counts WINDOWS only. A `#idea` written inside a transcluded note is
 // always rebuilt in full whatever the budget (that is `_flatten`'s IK rule,
 // and it cannot cycle — an idea's body is finite and literally contains its
 // nested ones), so `depth` measures exactly the thing that can cycle.
-
-// ONE rendering, whatever `folded` says. `folded` sets only the INITIAL
-// disclosure state — `false` (the default) renders `<details open>`, `true`
-// renders it closed. It is not a second layout: a folded window and an unfolded
-// one are the same block, so a reader who opens one sees exactly what a
-// `#window` beside it already shows. `limit:` is therefore meaningful in both
-// (it truncates the body that folding hides) and the two are orthogonal.
 //
-// CLICK BUDGET (HTML/EPUB) — the whole point of this shape, modelled on
-// Forester (www.forester-notes.org, whose `tree.xsl` renders every transcluded
-// tree as a `<details>` whose `<summary>` holds the title and an
-// `<a class="slug">[tfmt-0006]</a>`):
-//
-//   - clicking ANYWHERE in the summary — title, date, the whitespace between
-//     them — folds or unfolds, and does nothing else;
-//   - clicking the `[idea:etal]` permalink, and only that, opens the note's
-//     own page.
-//
-// So the transcluded body is NOT a link and there is no trailing arrow. Both
-// were tried and removed. An outer <a> around the body is invalid the moment
-// that body contains its own link (MEASURED: browsers and typst's HTML export
-// both truncate the outer anchor where the inner one starts and never resume
-// it, so only "the first bit" stays clickable), and the arrow was a second
-// navigational affordance competing with the permalink for the same click.
-//
-// The disclosure is native `<details>`/`<summary>`: this package ships no JS,
-// and a `:target`/checkbox CSS hack would need a unique control id per window.
-// An `<a>` INSIDE `<summary>` does not break the toggle — only an `<a>` around
-// the whole summary does, which is what the earlier folded-row design got
-// wrong. The permalink navigates on its own click; the summary keeps the rest.
-//
-// `show-date` is OFF by default, same as `#idea`'s own — a date is always
-// RESOLVED and stored on the note's registry record regardless, so passing
-// `show-date: true` here can surface it even for a note whose own `#idea`
-// call left it hidden; the two are independent per call site, not one shared
-// setting.
+// Rendering — `folded`, `show-date`, `limit:`, click budget: `_window-content`.
 #let window(
   ..args,
   limit: none,
@@ -1717,7 +1743,16 @@
   assert(
     depth == auto or (type(depth) == int and depth >= 0),
     message: "@rheo/rookery: #window's `depth` must be auto or a non-negative "
-      + "integer — got " + repr(depth),
+      + "integer — `0` renders the note as a link to its own page, `1` (the "
+      + "document default) renders it once and collapses any window inside it "
+      + "to a permalink, `n` unfurls n-1 nested levels — got " + repr(depth),
+  )
+  // `>= 1`, not `>= 0`: a window showing nothing but an ellipsis truncates
+  // nothing, so `limit: 0` reads as a mistake rather than a request.
+  assert(
+    limit == none or (type(limit) == int and limit >= 1),
+    message: "@rheo/rookery: #window's `limit` must be none or a positive "
+      + "integer (the number of leading blocks to show) — got " + repr(limit),
   )
   assert(
     tags == none
@@ -1809,13 +1844,11 @@
   for id in full-ids {
     let rec = reg.at(id)
 
-    let body = _body-at(rec, depth: depth)
-    let bs = _blocks(body)
-    let shown = if limit != none and bs.len() > limit {
-      bs.slice(0, limit).join() + [#text(gray)[ ... ]]
-    } else {
-      body
-    }
+    // THIS CALL SITE'S OWN BUDGET, resolved once: `auto` takes the
+    // document-wide setting. Both the depth-0 branch below and `windows-claim`
+    // need the number rather than `auto`, and reading it twice invited them to
+    // disagree.
+    let d = if depth == auto { _window-depth.final() } else { depth }
 
     // The marker an ENCLOSING `_flatten` reads when this window turns out to
     // be nested inside a transcluded body. It carries the presentation
@@ -1833,11 +1866,44 @@
       show-date: show-date,
       limit: limit,
     ))
+
+    // DEPTH 0 — A LINK, NOT A TRANSCLUSION. The note's title, linked to the
+    // note's own page, and nothing else: no summary row, no `<details>`, no
+    // body, so there is no `_window-content` on this path at all.
+    //
+    // It wears the row shape a minted page already gives a PAGE it names —
+    // `.idea-page-list`/`.idea-page-row`, built by `.marrow.typ`'s `page-list`
+    // for Context and for the page half of Backlinks — rather than a third row
+    // style of its own: "a pointer to somewhere you can read this" is the same
+    // kind of thing here as it is there, and the stylesheet already draws it
+    // (the same left rule and indent a window gets, no box).
+    //
+    // `_resolve-dest` for the href, the same resolution `_permalink` and
+    // `#hyperlink` use, so this link cannot disagree with them about where a
+    // note lives: the minted page where there is one, and the note's in-context
+    // label where there is not (plain `typst compile`, the combined PDF).
+    // A TITLELESS note has no title to link, so the permalink IS the row — the
+    // same `[idea:x]` a depth-exhausted nested window collapses to.
+    //
+    // `limit:` and `folded:` are simply inert here, not an error: a link has no
+    // body to truncate and nothing to fold. Both still ride on `marker`, so an
+    // enclosing `_flatten` that DOES have budget rebuilds the full window with
+    // them intact — the budget belongs to the scope doing the expanding, and
+    // that is as true of `depth: 0` as of any other value.
+    if d <= 0 {
+      let shape = _window-link(id, rec)
+      _bracket(figure(kind: WK, supplement: none, [#marker#shape]), WK)
+      continue
+    }
+
+    let body = _body-at(rec, depth: depth)
+    let shown = _truncate(body, limit)
+
     // Bracketed: the body being shown belongs to the note it came from, so
     // its links must not read as links from whatever page is showing it.
     _bracket(
       figure(kind: WK, supplement: none, [
-        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: (if depth == auto { _window-depth.final() } else { depth }) > 0)
+        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: d > 1)
       ]),
       WK,
     )
@@ -1899,10 +1965,16 @@
 // without leaving half a sentence. `none` (the default) shows the whole
 // body.
 //
-// `depth` is the same nested-window budget `#window` takes; `0` (the
-// default) collapses a nested `#window` to its permalink rather than
-// unfurling it, which keeps a preview's own size bounded regardless of how
-// deep the note it is showing nests.
+// `depth` is the same transclusion budget `#window` takes (see
+// `_window-depth`); `1` (the default) renders the body with any nested
+// `#window` collapsed to its permalink rather than unfurled, which keeps a
+// preview's own size bounded regardless of how deep the note it is showing
+// nests. PINNED rather than `auto` for that reason, and `1` rather than `0`
+// because this function's job is to render a body: `@rheo/rookery-search`'s
+// preview pane calls it without passing `depth` at all, and a default of 0
+// would turn every search preview into a link. (`depth: 0` here renders the
+// body all the same — there is no chrome and no link shape to fall back to,
+// which is `#window`'s job; it simply asks for no unfurling, as `1` does.)
 //
 // HTML/EPUB only, like `#window`'s own chrome — its only realistic consumer
 // is a web preview, and `html.elem` is what builds the `.idea-window`
@@ -1910,7 +1982,21 @@
 // wrapping, so a stray direct call does not hard-error.
 //
 // Must be called INSIDE a `#context` block — it reads `_registry.final()`.
-#let idea-body(name, depth: 0, limit: none) = context {
+#let idea-body(name, depth: 1, limit: none) = context {
+  // Both asserts are copied verbatim from `#window`, which takes the same two
+  // parameters with the same meaning — the messages have to agree, or one call
+  // site teaches a rule the other contradicts. `>= 1` on `limit` for the reason
+  // stated there.
+  assert(
+    depth == auto or (type(depth) == int and depth >= 0),
+    message: "@rheo/rookery: #idea-body's `depth` must be auto or a "
+      + "non-negative integer — got " + repr(depth),
+  )
+  assert(
+    limit == none or (type(limit) == int and limit >= 1),
+    message: "@rheo/rookery: #idea-body's `limit` must be none or a positive "
+      + "integer (the number of leading blocks to show) — got " + repr(limit),
+  )
   let id = _pfx() + _norm(name)
   let reg = _registry.final()
   if id not in reg {
@@ -1918,13 +2004,8 @@
   }
   let rec = reg.at(id)
   let body = _body-at(rec, depth: depth)
-  let bs = _blocks(body)
-  let shown = if limit != none and bs.len() > limit {
-    bs.slice(0, limit).join() + [#text(gray)[ ... ]]
-  } else {
-    body
-  }
-  let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 0))
+  let shown = _truncate(body, limit)
+  let inner = _footnoted(shown) + _refs-block(_own-cited-keys(shown, windows-claim: depth > 1))
   if _target() == "html" or _target() == "epub" {
     // `idea-window-plain`: this render has no chrome by design (no summary,
     // no disclosure), so it should not carry `.idea-window`'s BOX either —
@@ -2167,7 +2248,16 @@
     if m == none { continue }
     let v = m.value
     if v.title == none { continue }
-    out.push((depth: idea-depth, title: v.title, loc: el.location(), handle: handle))
+    // `tags` with a default, not `v.tags`: this metadata is read on the paged
+    // and no-rheo paths too, and a default costs nothing where a missing key
+    // would panic.
+    out.push((
+      depth: idea-depth,
+      title: v.title,
+      loc: el.location(),
+      handle: handle,
+      tags: v.at("tags", default: ()),
+    ))
   }
 
   // SPINE ORDER, explicitly. `query()` returns document order, and MEASURED
@@ -2228,39 +2318,6 @@
   out
 }
 
-// Rebuilds a nested list from the flat `(depth, title, loc)` sequence above
-// — a standard depth-tagged-list-to-tree pass. `wrap` builds ONE level's
-// list container (`html.elem("ul", ..., ..)` or Typst's own `list`); `item`
-// wraps one entry's own content plus its (possibly none) nested sublist.
-// Shared by both targets so the tree-walk itself cannot drift between them.
-//
-// `wrap` is called as `wrap(items, root)`, `root` being true for the OUTERMOST
-// list only. The theme's custom properties have to go on that one and inherit
-// down: an outline is page-level chrome, a sibling of the notes rather than a
-// descendant of any of them, so unlike everything else this package emits it
-// has no `.idea-box`/`.idea-window` ancestor to inherit from. Putting them on
-// every level instead would re-declare the same values once per nesting depth.
-#let _nest-outline(entries, wrap, item) = {
-  let build(entries, root: false) = {
-    let items = ()
-    let i = 0
-    while i < entries.len() {
-      let base = entries.at(i).depth
-      let children = ()
-      let j = i + 1
-      while j < entries.len() and entries.at(j).depth > base {
-        children.push(entries.at(j))
-        j += 1
-      }
-      let sub = if children.len() == 0 { none } else { build(children) }
-      items.push(item(entries.at(i), sub))
-      i = j
-    }
-    wrap(items, root)
-  }
-  build(entries, root: true)
-}
-
 // `title`/`depth` mirror Typst's own `outline()`
 // (https://typst.app/docs/reference/model/outline/) so the two feel like
 // one family: `title: auto` (the default) prints "Contents" — the same
@@ -2290,7 +2347,46 @@
 // holds it (see "Flat ids, and why" in the readme); an index that led with
 // filenames would put that back. Entries link straight to the idea wherever
 // it was written.
-#let ideas-outline(title: auto, depth: none, rookery-wide: false) = context {
+//
+// `tags`/`match` are the same pair `#window` and `ideas()` take, through the
+// same shared `_tag-pred`, and `filter` is a predicate of the caller's own over
+// the same tag array, ANDed with them — see `_tag-pred` in `pure.typ` for why
+// exclusion and an OR of ANDs are a function value here rather than four more
+// keyword parameters. What differs is that an outline is a TREE, so a
+// filter cannot be a `.filter()`: `_nest-outline` reads a FLAT depth-tagged run
+// and assumes it is well formed, so a depth-1 entry left behind by a dropped
+// depth-0 parent is silently read as a sibling of whatever came before. Hence
+// `_prune-outline` below, which prunes AND PROMOTES.
+#let _prune-outline(entries, pred) = {
+  if pred == none { return entries }
+  // `kept` holds the ORIGINAL depths of the entries that survived. Popping every
+  // one whose depth is >= the current entry's leaves exactly the surviving
+  // ANCESTORS on the stack, so `kept.len()` is the re-based depth: a matching
+  // idea whose parent was filtered out lands at its nearest kept ancestor's
+  // level rather than dangling at a depth with no parent above it.
+  //
+  // REJECTED: keeping unmatched ancestors as unlinked scaffolding, for context.
+  // It puts notes in the index the filter said to exclude, and this package has
+  // no styling for a row that is not a link.
+  let kept = ()
+  let out = ()
+  for e in entries {
+    while kept.len() > 0 and kept.last() >= e.depth { kept = kept.slice(0, kept.len() - 1) }
+    if pred(e.tags) {
+      out.push((..e, depth: kept.len()))
+      kept.push(e.depth)
+    }
+  }
+  out
+}
+#let ideas-outline(
+  title: auto,
+  depth: none,
+  rookery-wide: false,
+  tags: none,
+  match: "any",
+  filter: none,
+) = context {
   assert(
     depth == none or (type(depth) == int and depth >= 1),
     message: "@rheo/rookery: #ideas-outline's `depth` must be none or a "
@@ -2301,16 +2397,58 @@
     message: "@rheo/rookery: #ideas-outline's `rookery-wide` must be a boolean "
       + "— got " + repr(rookery-wide),
   )
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #ideas-outline's `tags` must be none, a string, or "
+      + "an array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery: #ideas-outline's `match` must be \"any\" or \"all\" "
+      + "— got " + repr(match),
+  )
+  assert(
+    filter == none or type(filter) == function,
+    message: "@rheo/rookery: #ideas-outline's `filter` must be none or a "
+      + "function taking the note's tag array — got " + repr(filter),
+  )
   let title-content = if title == auto { [Contents] } else { title }
   let entries = _ideas-outline-data(rookery-wide: rookery-wide)
+  // Pruned BEFORE the `depth:` cap, and that order is the whole point: `depth`
+  // then counts levels in the FILTERED tree, so `depth: 1` means "the top level
+  // of what I asked for" rather than "whatever survived from the top level of
+  // everything".
+  let pred = _tag-pred(tags, match, filter: filter)
+  entries = _prune-outline(entries, pred)
   if depth != none { entries = entries.filter(e => e.depth + 1 <= depth) }
 
   // On HTML an explicit `h4` carrying a class, the same shape (and the same
   // reason) as the Footnotes block's heading: a bare `heading()` compiled to
   // an unclassed `<h2>`, which took the host site's heading scale and made
   // "Contents" as loud as a section title — for a label on a list of links.
-  // The class is what lets it be sized down to match Footnotes, and there is
-  // nothing else on the element to target.
+  // The class is what lets it be sized down, and there is nothing else on the
+  // element to target.
+  //
+  // `idea-tab` ALONGSIDE IT, so this title is A HAT — the same object a note's
+  // id sits on, a stub of rule out of the corner with the label on its end. The
+  // tab treatment goes on the `<h4>` ITSELF rather than wrapping it, because
+  // `.idea-tab` is emitted elsewhere as a `<span>` (`_permalink-tab`) and a
+  // `<span>` may not contain an `<h4>`; the tab is only `display: flex` plus a
+  // `::before`, so an element can wear it directly. It stays an `<h4>` — see
+  // above for why the element matters and the stylesheet for how it is kept from
+  // reading like one.
+  //
+  // `_themed`, AND IT IS NOT OPTIONAL HERE. The theme travels as inline custom
+  // properties, which inherit DOWN the DOM, and this title is a SIBLING of the
+  // `<ul>` rather than a descendant — the same reason `_nest-outline` themes the
+  // outermost `<ul>` itself. MEASURED without it, on a project setting
+  // `border-color: #ff0000, rule-width: 3px, label-font: Berkeley Mono`: the
+  // list drew a 3px red rule while the hat above it drew a 2px last-resort
+  // purple stub in the reader's plain monospace — a corner in two colours and
+  // two widths. With it, both read `--idea-rule-width`/`--idea-border-color` and
+  // the title reads `--idea-label-font`.
   //
   // The paged target keeps the real `heading()`: there it IS a document
   // structure, it belongs in the PDF outline, and nothing is styling it by
@@ -2318,11 +2456,21 @@
   let title-heading = if title-content == none { none } else if (
     _target() == "html" or _target() == "epub"
   ) {
-    html.elem("h4", attrs: (class: "idea-outline-title"), title-content)
+    html.elem("h4", attrs: _themed((class: "idea-outline-title idea-tab")), title-content)
   } else {
     heading(depth: 1, outlined: false, numbering: none, title-content)
   }
-  if entries.len() == 0 { return title-heading }
+  // An empty UNFILTERED outline is an answer: the page said "here is the index
+  // of this page's notes", there are none, and the heading is the sentence. An
+  // empty FILTERED one is a promise the filter already ruled out — a page
+  // carrying `#ideas-outline(title: [Todos], tags: "todo")` on every section
+  // would render a "Todos" heading over emptiness on every section without one.
+  // So the two cases differ on purpose, and `pred != none` is exactly "a filter
+  // is active" — no separate flag, and no `hide-when-empty:` knob.
+  //
+  // `depth:` deliberately does NOT count as a filter here. It drops levels below
+  // the first, so it cannot empty an outline that had anything in it at all.
+  if entries.len() == 0 { return if pred == none { title-heading } else { none } }
 
   let list-content = if _target() == "html" or _target() == "epub" {
     _nest-outline(
@@ -2335,8 +2483,20 @@
       // The title in a span of its own, so the hairline marker and the row's
       // left rule can be positioned against the ROW while the link keeps the
       // hover treatment every other rookery link has.
-      (e, sub) => html.elem("li", attrs: (class: "idea-outline-row"),
-        link(e.loc, e.title) + if sub == none { [] } else { sub }),
+      //
+      // The note's tags go on the row as `idea-tag-<tag>` classes, built the
+      // same way `#idea` builds them for the heading and for the card — one
+      // convention, three emission sites, so a site styling a todo note in the
+      // body can style the same note's row in the index. It is also the zero-API
+      // half of tag filtering: with the classes here a site can grey, badge or
+      // hide rows in its own CSS, with no Typst-side filter at all. The package
+      // ships NO default rule for any of them — `#note`/`#todo` are sugar, not a
+      // recognised set, and styling one here would invent an opinion.
+      (e, sub) => html.elem(
+        "li",
+        attrs: (class: (("idea-outline-row",) + e.tags.map(l => "idea-tag-" + l)).join(" ")),
+        link(e.loc, e.title) + if sub == none { [] } else { sub },
+      ),
     )
   } else {
     // No theme container and no marker styling on the paged target: `#idea`
@@ -2352,6 +2512,7 @@
   if title-heading == none { list-content } else { title-heading + list-content }
 }
 
+
 // Depth-relative href from the CURRENT page to another vertebra's page — the
 // same arithmetic as `_note-href`, against a spine handle rather than a note
 // id. rheo's own `show link:` rule would do this for a `#link(<handle>)`, but
@@ -2364,75 +2525,8 @@
   if ext == none { return none }
   let here = state("rheo-handle").get()
   if type(here) != str { return none }
-  let depth = here.split(":").len() - 1
-  let prefix = if depth == 0 { "" } else { range(depth).map(x => "../").join() }
-  prefix + handle.replace(":", "/") + "." + ext
+  _rel-prefix(here) + handle.replace(":", "/") + "." + ext
 }
-
-// Plain text of a title, for `ideas()`. Typst has no built-in
-// content-to-string, so this walks the usual constructors: anything carrying
-// `.text` (a `text` element, and also `raw`), a space element standing for
-// " ", a sequence's `.children`, and anything else with a `.body` (strong,
-// emph, link, ...) recursed into. Unknown leaves contribute nothing rather
-// than erroring — a title is matched on, not rendered from, here.
-//
-// The `.has("text")` branch is deliberately broader than `c.func() == text`:
-// MEASURED, a title like [The `#window` marker] flattened to "The  marker"
-// under the narrow test, because `raw` carries `.text` and has neither
-// children nor a body — silently making that note unfindable by the word in
-// its own title. A math equation still contributes nothing.
-#let _plain(c) = {
-  if c == none { "" } else if type(c) == str { c } else if type(c) != content {
-    ""
-  } else if c.has("text") { c.text } else if c.func() == [ ].func() {
-    " "
-  } else if c.has("children") { c.children.map(_plain).join() } else if c.has("body") {
-    _plain(c.body)
-  } else { "" }
-}
-
-// Plain text of a note's BODY, for `ideas()`. Every registry body has been
-// through `_flatten` since v6y.7, wrapping it in a `show`-rule scope that
-// Typst represents as a `styled` node hanging off `.child` — unwrap that
-// first, the same way `_blocks` above does. Otherwise follows `_plain`'s
-// branches (`.has("text")`, a space element, `.children`, `.body`), except a
-// `parbreak` or `item` emits a boundary space so blocks and list entries
-// don't glue together the way `_plain`'s title walker would let them
-// (MEASURED: without this, "raw code.A second paragraph" loses its
-// paragraph break). `metadata` and anything unrecognised contribute "".
-//
-// BUG FIX, MEASURED: `array.join()` on an EMPTY array returns `none`, not
-// `""` — an idea with an empty body (`#idea("x")[]`) has a `sequence` node
-// with zero children, and the naive `c.children.map(_body-text).join()`
-// therefore returned `none` and crashed the caller's `.replace(...)`. Both
-// join call sites below go through `_join`, which special-cases the empty
-// array.
-#let _join(arr) = if arr.len() == 0 { "" } else { arr.join() }
-
-#let _body-text(c) = {
-  if c == none { "" } else if type(c) == str { c } else if type(c) != content {
-    ""
-  } else {
-    let c = c
-    while repr(c.func()) == "styled" { c = c.child }
-    let f = repr(c.func())
-    if c == none { "" } else if c.func() == metadata { "" } else if f == "parbreak" {
-      " "
-    } else if f == "item" {
-      let inner = if c.has("children") { _join(c.children.map(_body-text)) } else if c.has(
-        "body",
-      ) { _body-text(c.body) } else { "" }
-      " " + inner + " "
-    } else if c.has("text") { c.text } else if c.func() == [ ].func() { " " } else if c.has(
-      "children",
-    ) { _join(c.children.map(_body-text)) } else if c.has("body") { _body-text(c.body) } else { "" }
-  }
-}
-
-// Collapses `_body-text`'s raw walk into one search-ready string: runs of
-// whitespace (including the boundary spaces `_body-text` inserts) become a
-// single space, and the ends are trimmed.
-#let _body-plain(c) = _body-text(c).replace(regex("\s+"), " ").trim()
 
 // ---- #note-href — where a note's minted page lives, from here -------------
 //
@@ -2452,7 +2546,9 @@
 
 // ---- #ideas — every registered note, as data ------------------------------
 //
-//   #context ideas()   // -> ((id: "idea:etal", name: "etal", ..), ..)
+//   #context ideas()                 // -> ((id: "idea:etal", name: "etal", ..), ..)
+//   #context ideas(tags: "phd")      // only the notes tagged phd
+//   #context ideas(tags: ("phd", "draft"), match: "all")  // both tags
 //
 // The whole rookery as a plain ARRAY of dictionaries, ordered by id so a build
 // is reproducible. This is the primitive other packages and custom site code
@@ -2464,10 +2560,22 @@
 //    name:    "etal",          // the id with the prefix stripped
 //    title:   [Et al.],        // the title as CONTENT, or none
 //    text:    "Et al.",        // the same title as plain text, "" if none
+//    tags:    ("note", "draft"), // as the author gave them, () if untagged
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
 //    minted:  datetime or none,
 //    updated: datetime or none)
+//
+// `tags` is in the AUTHOR'S OWN ORDER, which is not alphabetical and not the
+// order they were written either: `#note`/`#todo` PREPEND their own tag through
+// `_dedup-tag`, so `#todo("b", tags: ("draft",))` reads `("todo", "draft")`.
+// A consumer sorting them is welcome to; this hands them over as given.
+//
+// `#tags-of(name)` exposes ONE note's tags too, and still does. This field is
+// the bulk form and the cheap one: `tags-of` resolves `_registry.final()` once
+// PER NOTE, where `ideas()` resolves it once for the whole pass — and
+// `@rheo/rookery-search`'s `#search-index` runs on every page of a site, so the
+// difference is one state resolution per note per page against one per page.
 //
 // NOT exposed IN BULK: `raw`, `body`-as-CONTENT and `links`. `body` above is
 // a plain STRING derived from `raw` — matchable and excerptable, but not
@@ -2488,14 +2596,41 @@
 // by name is what `#window` has always let an author do explicitly, and
 // `#idea-body` is that same permission, minus the chrome.
 //
+// `tags:`/`match:` narrow the corpus to the notes carrying a tag, and are the
+// SAME pair `#window` takes, with the same meanings, through the same shared
+// `_tag-pred`: `tags` is `none`, one string or an array; `match` is "any" (the
+// default) or "all". They exist because the workaround does not scale and does
+// not reach far enough — `ideas().filter(e => "phd" in tags-of(e.name))` works
+// and is VERIFIED, but it costs one `_registry.final()` read per row, and
+// `#search-bar` builds its index internally with no hook for a caller's filter
+// at all.
+//
+// Filtered BEFORE the `.map`, so a note that is dropped never pays for its
+// `_body-plain`/`_note-href`/`_plain` conversions. That is the whole reason the
+// parameter is here rather than left to a caller's own `.filter`.
+//
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
 // content and the whole point here is to return data.
-#let ideas() = {
+#let ideas(tags: none, match: "any") = {
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #ideas' `tags` must be none, a string, or an "
+      + "array of strings — got " + repr(tags),
+  )
+  assert(
+    match == "any" or match == "all",
+    message: "@rheo/rookery: #ideas' `match` must be \"any\" or \"all\" — got "
+      + repr(match),
+  )
   let reg = _registry.final()
+  let keep = _tag-pred(tags, match)
   reg
     .pairs()
     .sorted(key: p => p.at(0))
+    .filter(p => keep == none or keep(p.at(1).at("tags", default: ())))
     .map(p => {
       let (id, rec) = p
       (
@@ -2503,6 +2638,7 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
+        tags: rec.at("tags", default: ()),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         minted: rec.at("minted", default: none),
@@ -2513,7 +2649,7 @@
 
 // ---- #show: rookery — the setup, and the knobs ----------------------------
 //
-//   #import "@rheo/rookery:0.2.0": rookery, idea, window
+//   #import "@rheo/rookery:0.3.0": rookery, idea, window
 //   #show: rookery.with(
 //     prefix: "note",
 //     theme: (link-color: rgb("#ffe08a"), fold-color: rgb("#fffbe8")),
@@ -2522,11 +2658,13 @@
 // Does exactly five things, and deliberately nothing else:
 //
 //   1. publishes `prefix` (so `#idea("etal")` mints `<note:etal>`);
-//   2. publishes `window-depth`, the document-wide default for how far a
-//      `#window` nested inside a transcluded note unfurls (see
-//      `_window-depth`; `0`, the default, collapses it to its permalink,
-//      which is the behaviour every existing document already has). A
-//      `#window(..., depth: n)` overrides it per call site;
+//   2. publishes `window-depth`, the document-wide transclusion budget (see
+//      `_window-depth` for the whole scale; `1`, the default, renders a
+//      windowed note once and collapses a `#window` nested inside it to its
+//      permalink, which is the behaviour every existing document already has,
+//      while `0` transcludes nothing and renders every `#window` as a link to
+//      the note's page). A `#window(..., depth: n)` overrides it per call
+//      site;
 //   3. publishes `idea-page-template`, the project's own chrome for the
 //      standalone pages `.marrow.typ` mints (see `_idea-page-template`;
 //      `none`, the default, mints them bare as before);
@@ -2589,7 +2727,7 @@
 // visible AT DEFINITION time — `hyperlink` must already exist.
 #let rookery(
   prefix: "idea",
-  window-depth: 0,
+  window-depth: 1,
   idea-page-template: none,
   bibliography: none,
   theme: (:),
@@ -2598,6 +2736,9 @@
   id-color: none,
   date-color: none,
   border-color: none,
+  rule-width: none,
+  pad: none,
+  label-font: none,
   refs: true,
   ref-target: "page",
   doc,
@@ -2610,7 +2751,9 @@
   )
   assert(
     type(window-depth) == int and window-depth >= 0,
-    message: "@rheo/rookery: `window-depth` must be a non-negative integer — got "
+    message: "@rheo/rookery: `window-depth` must be a non-negative integer — `0` "
+      + "renders every #window as a link to the note's page, `1` (the default) "
+      + "renders a windowed note once, `n` unfurls n-1 nested levels — got "
       + repr(window-depth),
   )
   assert(
@@ -2654,7 +2797,34 @@
 
   // One converter for both sources, so `theme: (link-color: c)` and
   // `link-color: c` cannot disagree about what a value may be.
-  let css(key, value) = {
+  //
+  // THREE KINDS OF VALUE, not two. Colours are the default and the majority;
+  // `rule-width`/`pad` are LENGTHS; `label-font` is a FONT STACK, which is
+  // neither — it is CSS text this package cannot validate and must not mangle, so
+  // it is passed straight through. An array is accepted and joined with `", "`,
+  // because a stack is what a font is and writing it as `("Berkeley Mono",
+  // "monospace")` reads better than embedding the commas in a string.
+  //
+  // The LENGTH branch: `repr` on a Typst length gives exactly the CSS it needs —
+  // `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work and neither
+  // needs a unit table here. A string passes through for the units Typst has no
+  // literal for, `px` above all, which is what a hairline wants.
+  let css(key, value) = if key == "label-font" {
+    assert(
+      type(value) == str or (type(value) == array and value.all(f => type(f) == str)),
+      message: "@rheo/rookery: theme `label-font` must be a CSS font stack as a "
+        + "string (\"Berkeley Mono, monospace\") or an array of family names "
+        + "((\"Berkeley Mono\", \"monospace\")) — got " + repr(value),
+    )
+    if type(value) == array { value.join(", ") } else { value }
+  } else if key in ("rule-width", "pad") {
+    assert(
+      type(value) == length or type(value) == str,
+      message: "@rheo/rookery: theme `" + key + "` must be a length (2pt, 0.15em) "
+        + "or a CSS length string (\"3px\") — got " + repr(value),
+    )
+    if type(value) == length { repr(value) } else { value }
+  } else {
     assert(
       type(value) == color or type(value) == str,
       message: "@rheo/rookery: theme `" + key + "` must be a colour or a CSS "
@@ -2679,6 +2849,9 @@
     id-color: id-color,
     date-color: date-color,
     border-color: border-color,
+    rule-width: rule-width,
+    pad: pad,
+    label-font: label-font,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }

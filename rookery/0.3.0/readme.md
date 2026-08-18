@@ -10,7 +10,7 @@ generates a sequential id and shows it to you as a `[idea:1]`-style permalink
 next to the note, since with no name there's no other way to know it.
 
 ```typst
-#import "@rheo/rookery:0.2.0": idea
+#import "@rheo/rookery:0.3.0": idea
 
 #idea[A frictionless note — reads its generated id off the [idea:1] permalink.]
 #idea("etal")[A pinned note — its id is always `idea:etal`.]
@@ -27,10 +27,10 @@ Nothing above needed any setup, and that stays true. One optional template
 does all of it in a line, and is the only place anything is configurable:
 
 ```typst
-#import "@rheo/rookery:0.2.0": rookery, idea, window
+#import "@rheo/rookery:0.3.0": rookery, idea, window
 #show: rookery.with(
   prefix: "note",                 // ids are now `note:etal`
-  window-depth: 1,                // a window inside a window unfurls one level
+  window-depth: 2,                // a window inside a window unfurls one level
   theme: (
     link-color: "rgba(230, 140, 0, 0.16)",  // hover background on any link
     fold-color: "rgba(255, 190, 40, 0.07)", // ...and on a foldable block
@@ -63,17 +63,29 @@ for you).
 
 ### Nested windows, and `window-depth`
 
-A note you transclude may itself contain a `#window`. By default that nested
-window does **not** unfurl: it collapses to its `[idea:etal]` permalink, so
-the block you opened shows one note rather than a tree of them. A nested
-`#idea` — one note written literally inside another's body — is a different
-thing and always renders in full, whatever the depth.
+`window-depth` counts **levels of transclusion**, and every number on the
+scale means one thing:
 
-`window-depth: n` (default `0`) unfurls `n` levels of nested windows as real
-windows, collapsing at the `n+1`th; `#window(..., depth: n)` overrides it for
-one call site. Per call site because both readings are reasonable on the same
-page: an index of forty backlinks wants the collapse, a homepage showing one
-note in full may want a level or two.
+| `window-depth` | what a `#window` renders |
+| --- | --- |
+| `0` | **a link only.** The note's title, linked to the note's own page — no summary row, no disclosure, no body. Nothing is transcluded anywhere in the document. |
+| `1` | **the default.** The note renders once, and a `#window` written *inside* it collapses to its `[idea:etal]` permalink — the block you opened shows one note rather than a tree of them. |
+| `n` | the note renders, and `n-1` further levels of nested windows unfurl as real windows, collapsing at the `n`th. |
+
+`#window(..., depth: n)` overrides the document setting for one call site, and
+that is per call site because all three readings are reasonable on the same
+page: an index of forty backlinks wants the collapse, a dense index may want no
+transclusion at all, and a homepage showing one note in full may want a level
+or two.
+
+A nested `#idea` — one note written literally inside another's body — is a
+different thing and always renders in full, whatever the depth.
+
+**Migrating from the old scale.** Before this, `0` was the default and `n`
+unfurled `n` nested levels. Every number moved up by one, so **add one**: a
+project that set `window-depth: 2` wants `3`. There is no automatic upgrade,
+and a project that sets nothing is unaffected — the default renders exactly
+what it always did.
 
 The budget is what makes this safe. A note that windows itself, or two notes
 that window each other, would otherwise expand forever; with a depth they
@@ -86,16 +98,19 @@ numbers.
 
 A note's own **minted page** counts from one level further in, because a minted
 page is not a transclusion: it shows the note as the page's own top level, so a
-`#window` written in that note's body is a top-level window there and always
-renders in full, exactly as it does on the page the note was hatched in. What
-`window-depth` governs on a minted page is the windows nested inside *those* —
-at the default of `0` they collapse to their permalinks. (Before this, a minted
-page rendered its note as though the note were being windowed, which at the
-default left a page whose every window had collapsed to a bare id.)
+`#window` written in that note's body is a top-level window there and renders
+with a top-level window's budget, exactly as it does on the page the note was
+hatched in. What `window-depth` governs on a minted page is the windows nested
+inside *those* — at the default of `1` they collapse to their permalinks. (At
+`window-depth: 0` a minted page's own windows collapse to their permalinks too,
+which is the link that setting asks for.) A minted page's **Context** and
+**Backlinks** rows are pinned at `depth: 1` whatever the document sets: an index
+of what points here is a list to scan, not prose to unfurl.
 
 ### The theme
 
-Four colours, the whole of what the package will style for you:
+Five colours, two lengths and one font — the whole of what the package will style
+for you:
 
 | key | what it colours | default |
 | --- | --- | --- |
@@ -103,6 +118,10 @@ Four colours, the whole of what the package will style for you:
 | `fold-color` | hover background on a foldable window block | `rgba(0, 100, 255, .05)` |
 | `id-color` | the `[idea:etal]` permalink's text | `gray` |
 | `date-color` | an idea's/window's date, where shown | `gray` |
+| `border-color` | the rule down a note, a window and an outline, and the tab that rules off the top of a card | falls back to `link-color` |
+| `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
+| `pad` | the indent between a note's rule and its content, and a window's right padding | `0.5em` (halved under 600px) |
+| `label-font` | the face every **hat** is set in — a note's id, and `#ideas-outline`'s title | `monospace` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -132,6 +151,41 @@ Values are Typst colours, or raw CSS strings when you want something Typst's
 colour type can't express (`"rgba(0, 100, 255, .1)"`, `"var(--accent)"`,
 `"transparent"`). A misspelled key is a build error naming the valid ones, not
 a silently ignored colour.
+
+`rule-width` and `pad` are the exceptions, being lengths rather than colours: pass
+a Typst length (`2pt`, `0.15em`) or a CSS length string (`"3px"`) — a string is the
+only way to say `px`, which Typst has no literal for.
+
+`rule-width` is deliberately ONE value for every line that frames a note, so a
+card, a window, the tab across the top of both and `#ideas-outline`'s rule and row
+markers can never disagree about their own weight. The separators above a footnotes
+or references block are not governed by it: those are apparatus, not the frame.
+
+`pad` is the matching ONE value for the indent — how far a note's content sits from
+the rule beside it, and on a window how far it sits from the right edge, so the two
+sides agree. Three other things measure the same distance in order to close the
+frame's corner on that rule: the tab's own offset, the top rule's stub, and a folded
+window's tint. They all read this, so a value of your own keeps the corner shut
+rather than opening a notch in it.
+
+`label-font` is the third exception, being neither a colour nor a length. A **hat**
+is the stub of rule out of a frame's top-left corner with a label sitting on its
+end — a note's `[idea:etal]` id wears one, and so does `#ideas-outline`'s
+"Contents", because both label the frame they sit on. This is the face they are set
+in, and it is deliberately the only `font-family` the package sets: your prose is
+yours. Pass a CSS font stack as a string, or the family names as an array and the
+commas are added for you:
+
+```typst
+#show: rookery.with(theme: (label-font: ("Berkeley Mono", "monospace")))
+#show: rookery.with(label-font: "Berkeley Mono, monospace")   // identical
+```
+
+The default is `monospace`, the **generic** family — so out of the box a hat is
+whatever monospace face the reader has configured, not one this package chose for
+them. An id is machine text and a monospace face says so without a word of
+explanation. A `#footnote` or references block's own heading is NOT a hat and does
+not follow this: those label a list inside a note, not the note's frame.
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one
@@ -202,30 +256,31 @@ Three ways, pick by how much ceremony you want:
   label, or an array of names (`#window(("etal", "second"))` renders both in
   order, each its own block). `limit: n` truncates the body to the first `n`
   content-level blocks (paragraphs, grouped list items, ...) plus "…", in
-  every target, not just HTML.
+  every target, not just HTML. `n` must be `none` or a positive integer:
+  `limit: 0` would show an ellipsis and nothing else, which reads as a mistake
+  rather than a request, so it is rejected along with negatives and non-integers.
 
-  **KNOWN BUG, MEASURED:** a `limit:` that lands mid-paragraph — between two
-  inline runs, a plain text run and a `raw` span, say — can silently drop the
-  space between them: `_blocks`, the truncation's internal splitter, treats
-  every `space` CHILD as separator noise to discard, correct for space
-  between BLOCK-level siblings (a browser draws that from margins) and wrong
-  for a space node inside one paragraph's own inline sequence. Caught via
-  `@rheo/rookery-search`'s preview pane, which defaults its own `limit:`
-  equivalent to `none` for exactly this reason — see that package's readme.
-  Prefer `limit: none` (the default) until this is fixed properly, or check
-  the output by eye if you do pass one.
+  A limit can no longer land mid-paragraph. One paragraph is one block however
+  many inline runs it is made of, so a plain text run and the `raw` span beside
+  it are never separated, and the space between them survives — the MEASURED
+  defect that once rendered "three layers, because" as "three layers,because".
+  A block-level element (a heading, a table, a block quote) is still a block of
+  its own, and the whitespace around it is still dropped, because that gap is
+  drawn by margins rather than content.
 
   `folded: true` starts the block CLOSED. That is all it does: a folded window
   and an open one are the same block, so `limit:` stays meaningful under
   either and the two are orthogonal. Under a paged target, where there is
   nothing to click, `folded` is ignored and the body always shows.
 
-  `show-date: true` shows the note's minted date beside the permalink — off
-  by default. See "Dates" below.
+  `show-date: true` shows the note's `updated` date at the right-hand end of the
+  hat, opposite the permalink — off by default. See "Dates" below.
 
-  `depth: n` unfurls `n` levels of `#window`s written inside the transcluded
-  note; `auto` (the default) takes the document-wide `window-depth`, itself
-  `0`. See "Nested windows, and `window-depth`" above.
+  `depth: 0` renders this window as a LINK to the note's page and transcludes
+  nothing; `depth: 1` renders the note and collapses any `#window` written
+  inside it; `depth: n` unfurls `n-1` levels of those. `auto` (the default)
+  takes the document-wide `window-depth`, itself `1`. See "Nested windows, and
+  `window-depth`" above.
 
   `tags: ("phd",)` selects notes instead of naming them — and ADDS to the
   names rather than replacing them. `#window(<intro>, tags: "phd")` shows
@@ -259,7 +314,7 @@ Three ways, pick by how much ceremony you want:
   Without it, apply the exported `link-to-page` by hand:
 
   ```typst
-  #import "@rheo/rookery:0.2.0": idea, window, link-to-page
+  #import "@rheo/rookery:0.3.0": idea, window, link-to-page
   #show ref: link-to-page
   ```
 
@@ -285,7 +340,7 @@ Three ways, pick by how much ceremony you want:
   unconditionally, like `#link(label("idea:etal"))` does:
 
   ```typst
-  #import "@rheo/rookery:0.2.0": idea, window, link-to-anchor
+  #import "@rheo/rookery:0.3.0": idea, window, link-to-anchor
   #show ref: link-to-anchor
   ```
 
@@ -298,7 +353,7 @@ Three ways, pick by how much ceremony you want:
 `#ideas-outline()` lists the current page's own notes as a nested tree.
 
 ```typst
-#import "@rheo/rookery:0.2.0": ideas-outline
+#import "@rheo/rookery:0.3.0": ideas-outline
 #ideas-outline()
 #ideas-outline(title: none, depth: 2)
 #ideas-outline(title: [Everything], rookery-wide: true)
@@ -356,6 +411,52 @@ Where the output is a single document — the combined PDF, or plain `typst
 compile` with no rheo — the two forms agree and both list everything. That is
 the same set: there is only one page.
 
+**`tags:` and `match:`** are the same pair `#window` and `#ideas()` take,
+through the same shared predicate: `tags:` is `none`, a string or an array of
+strings, `match:` is `"any"` (the default) or `"all"`. An empty array
+(`tags: ()`) is no filter at all rather than a filter matching nothing — asking
+for none of the tags is not the same as asking for a tag no note has.
+
+```typst
+#ideas-outline(tags: "todo")
+#ideas-outline(tags: ("todo", "phd"))               // ANY of them
+#ideas-outline(tags: ("todo", "phd"), match: "all") // ALL of them
+#ideas-outline(title: [Open], filter: t => "todo" in t and "done" not in t)
+```
+
+**`filter:`** is a predicate of your own over the note's TAG ARRAY, returning a
+boolean, ANDed with `tags:`/`match:` when both are given — both must hold, never
+either. It exists because `tags:`/`match:` can say "any of these" and "all of
+these" and nothing else: they cannot say `phd` but NOT `draft`, nor
+`(phd AND draft) OR todo`. Keyword parameters for those would be a filter
+language grown one special case at a time (`exclude:`, then `any-of:`, then
+nested groups), and a Typst function value already is that language. It sees the
+tag array and nothing else — no title, no id, no depth.
+
+**A filter prunes AND PROMOTES.** A matching note whose parent does NOT match is
+re-based to its nearest KEPT ancestor's level, so the tree never shows a hole
+where an excluded parent was. MEASURED on `Top` (tagged `phd`) > `Mid`
+(untagged) > `Deep` (tagged `phd`): `#ideas-outline(tags: "phd")` renders `Top`
+with `Deep` nested directly under it, one level shallower than the unfiltered
+outline puts it. Keeping unmatched ancestors as unlinked scaffolding was
+rejected — it would put notes in the index the filter said to exclude.
+
+**`depth:` counts levels in the FILTERED tree**, because pruning happens BEFORE
+the depth cap. MEASURED on the same three notes,
+`#ideas-outline(tags: "phd", depth: 1)` renders `Top` alone: `depth: 1` means
+"the top level of what I asked for", not "whatever survived from the top level
+of everything".
+
+**A filtered outline that matches nothing renders NOTHING AT ALL, heading
+included.** An unfiltered empty outline still prints its heading — that case is
+unchanged, and the two differ on purpose. An empty unfiltered outline is an
+answer ("here are this page's notes", there are none, the heading is the
+sentence); an empty filtered one is a promise the filter already ruled out, and
+a `#ideas-outline(title: [Todos], tags: "todo")` carried on every section would
+otherwise render a "Todos" heading over emptiness on every section without one.
+`depth:` deliberately does not count as a filter here: it drops levels below the
+first, so it cannot empty an outline that had anything in it at all.
+
 ## The corpus, as data
 
 `#ideas()` hands you the whole rookery as a plain array of dictionaries. It is
@@ -364,7 +465,7 @@ the way rookery thinks they should be rendered, and this is where you take the
 same material and do something else with it.
 
 ```typst
-#import "@rheo/rookery:0.2.0": ideas, note-href
+#import "@rheo/rookery:0.3.0": ideas, note-href
 #context {
   for e in ideas() {
     [#e.name — #e.text \ ]
@@ -389,6 +490,12 @@ Each entry is:
 - `text` — that title flattened to a plain string, `""` when there is none.
   Useful for matching, sorting and anything else that wants a string rather
   than something to render.
+- `tags` — the note's tags as an array of strings, `()` when it has none. In
+  the author's own order, which is neither alphabetical nor quite the order
+  they were written: `#note` and `#todo` prepend their own tag, so
+  `#todo("b", tags: ("draft",))` arrives as `("todo", "draft")`. `#tags-of()`
+  below asks the same question about one note; this is the bulk form, and the
+  cheaper one when you are walking the whole rookery.
 - `body` — the note's body flattened to a plain string, `""` when there is
   none. Block boundaries (a paragraph break, a list item) collapse to a
   single space rather than gluing adjacent words together; a nested `#idea`'s
@@ -402,6 +509,23 @@ Each entry is:
 - `href` — a depth-relative link to the note's minted page, from wherever you
   are calling. See `#note-href()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
+
+`#ideas()` also takes `tags:` and `match:` — the same pair `#window` takes, with
+the same meanings and the same shared predicate behind them. `tags:` is a single
+string or an array; `match: "all"` demands every one of them where the default
+`"any"` takes a note carrying at least one:
+
+```typst
+#context ideas(tags: "phd")                            // tagged phd
+#context ideas(tags: ("phd", "draft"), match: "all")   // tagged both
+```
+
+An empty array (`tags: ()`) is no filter rather than a filter matching nothing —
+asking for none of the tags is not asking for a tag no note has. You could write
+the `"any"` case yourself as `ideas().filter(e => "phd" in e.tags)`; the
+parameter exists because it filters BEFORE each surviving row is built, and
+because `#search-bar` builds its index internally where your `.filter` cannot
+reach.
 
 The array is ordered by id, not by the order notes were written or the order
 their pages appear. Sorting is your business: an id order is the one order
@@ -422,20 +546,23 @@ that wants to SHOW a note's actual prose (links, styling, footnotes,
 citations) rather than describe it in a string, one note at a time:
 
 ```typst
-#import "@rheo/rookery:0.2.0": idea-body
+#import "@rheo/rookery:0.3.0": idea-body
 #context idea-body("etal")                // the whole body
 #context idea-body("etal", limit: 3)       // the first three blocks
 ```
 
 `limit:` truncates by block, the same unit and the same "…" `#window`'s own
-`limit:` uses — including the same MEASURED bug ("Referencing a note" above):
-a limit landing mid-paragraph can drop the space between two inline runs.
-`depth:` is the same nested-window budget `#window` takes, but
-defaults to `0` here rather than `auto` — a caller asking for one note's body
-is usually about to show a LOT of them (`@rheo/rookery-search`'s preview
-pane calls this once per note in the whole rookery), and letting each one
-unfurl its own nested windows by the document's `window-depth` setting could
-blow that up unpredictably. Pass `depth:` explicitly if you want more.
+`limit:` uses — so a paragraph is one block here too, a limit cannot land inside
+a sentence, and the same `none`-or-positive-integer rule applies.
+`depth:` is the same transclusion budget `#window` takes, but is pinned to `1`
+here rather than left at `auto` — a caller asking for one note's body is
+usually about to show a LOT of them (`@rheo/rookery-search`'s preview pane
+calls this once per note in the whole rookery), and letting each one unfurl its
+own nested windows by the document's `window-depth` setting could blow that up
+unpredictably. So the body renders with any nested `#window` collapsed to its
+permalink. Pass `depth:` explicitly if you want more. (`depth: 0` renders the
+body all the same: `#idea-body` has no chrome, so it has no link to fall back
+to the way a `#window` at `0` does.)
 
 **Why not just call `#window`?** `#window` ANNOUNCES the note it shows, the
 same marker `#ideas()`'s backlink data reads at registration time — a note
@@ -543,23 +670,62 @@ get Typst's plain nested `list()` instead: there is no `.idea-box` rule there
 for an outline to be in line with.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
-`.idea-title`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
-`.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
+`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
+`.idea-window`, `.idea-window-summary`, `.idea-window-title`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
-`.idea-outline-row`, on an idea that carries footnotes `.idea-fn-ref`,
+`.idea-outline-row`, `.idea-outline-title`, on an idea that carries footnotes `.idea-fn-ref`,
 `.idea-footnotes`, `.idea-footnotes-title`, `.idea-footnote-list`,
 `.idea-footnote`, `.idea-fn-backlink`, on one that cites
 `.idea-references` and on any page with citations of its own
 `.idea-page-refs`, and on a minted note page
 `.idea-footer`, `.idea-footer-title`, `.idea-context`, `.idea-backlinks`,
-`.idea-page-list`, `.idea-page-row`.
+`.idea-page-list`, `.idea-page-row`, and around every note's header `.idea-head`.
+
+An outline ROW carries the note's tags too, built the same way `#idea` builds
+them for a note's heading and its card — one convention, three emission sites,
+so a site that styles a todo note in the body can style the same note's row in
+the index. MEASURED: a `#todo` row is
+`<li class="idea-outline-row idea-tag-todo">`, a two-tag note's row is
+`<li class="idea-outline-row idea-tag-phd idea-tag-draft">` in the author's own
+order, and an untagged note's row is exactly `<li class="idea-outline-row">`.
+This is also the zero-API half of tag filtering: with the classes there, a site
+can grey, badge or hide rows in its own CSS with no Typst-side filter at all.
+The package ships NO default rule for any `.idea-tag-*`, here or on a note —
+`#note`/`#todo` are sugar, not a recognised set, and styling one would invent an
+opinion.
+
+`.idea-tab` is a **hat**: a short stub of rule out of a frame's top-left corner
+with a label sitting on its end, in the same `--idea-border-color` as the rule
+beside it so the two meet at that corner, and in `--idea-label-font`. It appears
+in three places — above a note's heading and above a window's title, where it
+wraps the permalink in a `<span>`; and on `#ideas-outline`'s
+`.idea-outline-title`, which carries `idea-tab` on the `<h4>` itself, because a
+`<span>` may not contain a heading. A bare permalink standing in prose — a nested
+window with no depth budget left — has no tab, because there is no frame for it to
+rule off.
+
+`.idea-outline-title` is that `<h4>`, and it is styled to uppercase at label size
+rather than left to a site's heading scale: `font-variant: normal` and
+`text-transform: uppercase` are asserted on the class, so a site setting
+`h1..h6 { font-variant: small-caps }` cannot turn "Contents" into small caps
+against the ids beside it.
+
+`.idea-head` is the element around the tab and the heading beneath it, in a card
+and on a minted note page alike. It exists because the two have to be real
+siblings for the stylesheet to close the gap between them, and loose content is
+not reliably that: Typst's HTML export wraps a leading inline run in a `<p>` of
+its own in some cards and not others. On a minted page, where there is no
+`.idea-box`, it is also that page's theme container — the element a `theme:`
+override lands on.
 
 The two footer sections have the same shape — a heading with rows flowing down
 from it — because they are the same kind of thing: places this note is
 reachable from. A page cannot be a `#window`, having no note to fold open, so it
 is a plain link wearing the row shape a `#window` gives a note (`.idea-page-row`
 carries the same left rule and indent as `.idea-window`), which is what lets
-Context, note backlinks and page backlinks read as one list of entries.
+Context, note backlinks and page backlinks read as one list of entries. A
+`#window` at `depth: 0` wears the same row, for the same reason: at that depth
+it is a pointer to somewhere the note can be read, not a transclusion of it.
 
 **Not yet:** a hover-preview link (`#preview`) was tried and reverted — it
 would have composed `@rheo/tooltip`, but rheo's package asset auto-detection
@@ -609,6 +775,15 @@ tagged subset of your notes without reaching into rookery's internals.
 
 Rookery uses this itself: `#window(tags: ...)` transcludes every note carrying
 a tag, alongside any it was given by name. See "Referencing a note" above.
+`#ideas-outline(tags: ..., match: ..., filter: ...)` narrows an INDEX the same
+way — see "Outlining notes" above.
+
+Filtering an index by a tag does not make tags a taxonomy or a task tracker
+either, though it is the feature that most invites the opposite reading.
+`tags: "todo"` looks like a status field and is not one: nothing validates the
+string, no tag is recognised or reserved, a note carrying `todo` means only that
+you wrote `todo` on it, and a filter is a question asked at one call site rather
+than a schema the rookery holds you to. Free-form array of strings, still.
 
 ## Dates
 
@@ -631,13 +806,34 @@ rendering it is opt-in — `show-date: false` by default, on both `#idea` and
 `#window`, so an unconfigured note's header is just the title and its id:
 
 ```typst
-#idea("a", show-date: true)[Shows its date beside the permalink.]
+#idea("a", show-date: true)[Shows its date at the right-hand end of the hat.]
 #window("a", show-date: true) // shows it again here, independently
 ```
 
-The two are independent per call site: passing `show-date: true` to a `#window`
-surfaces the date even when the note's own `#idea` left it hidden, and vice
-versa — nothing links the two settings together beyond both defaulting off.
+**Where it renders is the hat** — the `.idea-tab` rule across the top of a card
+or a window, with the id on the stub at the left end and the date pushed to the
+far right. It is the frame's metadata, not a subtitle: it used to sit inside the
+`<h2>` on a card and as a third item in a window's summary row, which made one
+piece of information wear two classes in two places. Now it is `.idea-date`
+inside `.idea-tab`, wherever it appears. The top rule does not resume on the
+date's far side — the hat draws one stub, to the left, and stops at the id.
+
+**Which date is `updated`**, not `minted`: the date a reader wants off the top of
+a card is when the note was last touched. `updated` falls back to `minted`, which
+falls back to the document's own date, so a note that never says `updated:` looks
+exactly as it did.
+
+A note's own minted page is the exception: there the date shows **always**, with
+no `show-date:` to gate it. Nobody writes an `#idea` call for that page —
+`.marrow.typ` mints it from the registry — and a note's own page is the one place
+its date is metadata rather than a decoration on someone else's prose.
+
+The two call-site settings are independent: passing `show-date: true` to a
+`#window` surfaces the date even when the note's own `#idea` left it hidden, and
+vice versa — nothing links them beyond both defaulting off.
+
+On a paged target there is no hat to hang it on, so `#idea` and `#window` keep
+printing the date where they always did; only *which* date it is has changed.
 
 ## Footnotes
 
@@ -646,7 +842,7 @@ to be showing it. Import `footnote` alongside `idea` and write it exactly as
 you always have:
 
 ```typst
-#import "@rheo/rookery:0.2.0": idea, footnote
+#import "@rheo/rookery:0.3.0": idea, footnote
 
 #idea("etal")[A claim#footnote[The evidence.] worth qualifying.]
 ```
@@ -889,11 +1085,22 @@ at all.
 
 ## Limitations
 
-- **`#window` expands exactly ONE level.** A note transcluded via `#window`
-  renders its content once; if that content itself contains a `#window`, the
-  inner one collapses to its own `[idea:x]` permalink instead of expanding
-  further. This is deliberate and permanent (it's what makes self-windows and
-  window cycles safe to compile), not a tunable depth.
+- **`window-depth` is a RECURSION depth, and it is finite.** It counts how many
+  levels of transclusion are allowed before links take over:
+
+  | value | what happens |
+  | --- | --- |
+  | `0` | no windowing anywhere — every `#window` is a link row |
+  | `1` | a window renders its note once; a window inside that body is a link row |
+  | `n` | `n` levels render, level `n+1` is a link row |
+
+  `1` is the default, and `depth: n` on one call site overrides it there. A
+  bottomed-out window is ONE rendering wherever it ran out: the note's title,
+  linked to its page, in the same row shape a page backlink uses — a titleless
+  note falls back to its `[idea:x]` permalink, having nothing else to be named
+  by. What is permanent is that the budget is finite: that is what makes
+  self-windows and window cycles safe to compile. See "Nested windows, and
+  `window-depth`" above.
 - An author's own `<label>` written inside a note's body is duplicated if
   that note is transcluded elsewhere — a note owns exactly one id, attached
   by `#idea` itself.

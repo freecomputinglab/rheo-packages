@@ -1,3 +1,9 @@
 .direnv/**
-.beads/**
 
+# Beads is machine-local in this repo, as it is everywhere else. Nothing under
+# `.beads/` is tracked — not the db, not its locks, and not `issues.jsonl`.
+# Tracking the export was tried here (see the CLAUDE.md note) and reverted: br
+# reimports from that file, so a copy pulled from another machine can silently
+# revert a close, and every mutation on two machines is a whole-file conflict in
+# a file no one reads by hand.
+.beads/**

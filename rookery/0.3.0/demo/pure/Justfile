@@ -1,0 +1,23 @@
+default:
+    @echo "demo/pure: run 'just watch' to live-rebuild root.typ as HTML, or 'just build' to compile every root"
+
+# --features html is required always (epic decision 8) — see root.typ. `mkdir`
+# first: unlike `rheo watch`, `typst watch` does not create its output
+# directory and fails with "No such file or directory" on a fresh checkout
+# (build/ is gitignored, never committed).
+watch:
+    mkdir -p build
+    typst watch --features html --format html --root ../.. root.typ build/root.html
+
+# Compiles every root in this demo, HTML and PDF, both with --features html
+# (mandatory regardless of format — see root.typ). Mirrors (and should stay
+# in sync with) the "rookery pure demo compiles" step in the repo-root
+# .github/workflows/check.yml — that step invokes `typst compile` directly
+# rather than `just build`, so a new root added here needs BOTH updated.
+build:
+    mkdir -p build
+    typst compile --features html --format html --root ../.. root.typ build/root.html
+    typst compile --features html --root ../.. root.typ build/root.pdf
+    typst compile --features html --root ../.. paged.typ build/paged.pdf
+    typst compile --features html --format html --root ../.. root-prefix.typ build/root-prefix.html
+    typst compile --features html --root ../.. root-prefix.typ build/root-prefix.pdf
