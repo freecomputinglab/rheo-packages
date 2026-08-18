@@ -187,6 +187,12 @@
         _permalink-tab(
           id,
           href: "#" + id,
+          // ALWAYS SHOWN, for the same reason the date is always shown here
+          // (see above): a minted page has no call site to carry a
+          // `show-tags:` argument, and a note's OWN page is the one place
+          // its tags are not clutter. An untagged note's `rec.tags` is `()`,
+          // which `_permalink-tab` already renders as nothing.
+          tags: rec.at("tags", default: ()),
           date: if rec.updated == none { none } else {
             rec.updated.display("[year]-[month]-[day]")
           },

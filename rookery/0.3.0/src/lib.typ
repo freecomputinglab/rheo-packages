@@ -534,10 +534,26 @@
 // document's own, `_window-content` from the registry record), and the paged
 // branches need the same string without a hat to hang it on. Formatting here would
 // put that decision in a third place.
-#let _permalink-tab(id, href: auto, date: none) = html.elem(
+// `tags:` renders each tag as a VISIBLE PILL, between the id and the date —
+// opt-in per call site (`#idea`/`#window`'s `show-tags:`, off by default,
+// same mechanism as `date:` above), and empty when the note carries none
+// either way (an empty `tags` array maps to no output).
+//
+// TWO classes per pill, on purpose: `idea-tag` is the pill's own shape hook
+// (see `.idea-tab > .idea-tag` in rookery.css); `idea-tag-<tag>` is the SAME
+// class this package already puts on the card and the heading (`_flatten`'s
+// IK rule, `#idea` below), and the same class `@rheo/rookery-search` puts on
+// its own chips — so one project rule (`.idea-tag-draft { ... }`) now styles
+// a tag everywhere it appears, including this pill. A project stylesheet
+// that only meant to style the card is affected too — that is the intent of
+// sharing the class, not an accident.
+#let _permalink-tab(id, href: auto, tags: (), date: none) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
   _permalink(id, href: href)
+    + (if tags.len() == 0 { [] } else {
+      tags.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
+    })
     + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
 )
 
@@ -1076,7 +1092,7 @@
 //
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
-#let _window-content(id, rec, shown, folded, show-date, windows-claim: false) = {
+#let _window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: false) = {
   // `updated`, not `minted`, matching `#idea`'s own hat. The registry record
   // carries both, and `updated` already falls back to `minted` (which falls back
   // to the document's date) when the note never named one — so a note that says
@@ -1104,7 +1120,11 @@
     let summary = html.elem(
       "summary",
       attrs: (class: "idea-window-summary"),
-      _permalink-tab(id, date: date) + title-span,
+      _permalink-tab(
+        id,
+        tags: if show-tags { rec.at("tags", default: ()) } else { () },
+        date: date,
+      ) + title-span,
     )
     // `open` is a BOOLEAN html attribute: present means open and there is no
     // value meaning closed, so the attrs dictionary itself has to differ
@@ -1295,7 +1315,23 @@
         _flatten(rec.raw, depth: depth - 1)
       }
       let shown = _truncate(inner, v.limit)
-      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 1), WK)
+      // `.at(..., default: false)`, not a bare field access: a WK marker
+      // minted before this bead (or by an older rookery version) carries no
+      // `show-tags` key at all. NOTE: `v.show-date` just above is a bare
+      // field access with no such guard — a pre-existing risk this bead does
+      // not touch.
+      _bracket(
+        _window-content(
+          id,
+          rec,
+          shown,
+          v.folded,
+          v.show-date,
+          v.at("show-tags", default: false),
+          windows-claim: depth - 1 > 1,
+        ),
+        WK,
+      )
     }
   }
   body
@@ -1386,7 +1422,7 @@
   out
 }
 
-#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
+#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, show-tags: false, ..args) = {
   // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
@@ -1575,7 +1611,7 @@
         // `h*.idea:empty` in the stylesheet is what keeps it from taking any space,
         // and it now applies to a dated titleless note as well.
         let header = _head(
-          _permalink-tab(id, date: date),
+          _permalink-tab(id, tags: if show-tags { tags } else { () }, date: date),
           html.elem(
             "h" + str(level + 1),
             attrs: (id: id, class: cls.join(" ")),
@@ -1736,6 +1772,7 @@
   limit: none,
   folded: false,
   show-date: false,
+  show-tags: false,
   depth: auto,
   tags: none,
   match: "any",
@@ -1865,6 +1902,7 @@
       rookery-window-id: id,
       folded: folded,
       show-date: show-date,
+      show-tags: show-tags,
       limit: limit,
     ))
 
@@ -1904,7 +1942,7 @@
     // its links must not read as links from whatever page is showing it.
     _bracket(
       figure(kind: WK, supplement: none, [
-        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: d > 1)
+        #marker#_window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: d > 1)
       ]),
       WK,
     )

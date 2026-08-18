@@ -957,6 +957,60 @@ h6.idea {
   margin-left: auto;
 }
 
+/* THE HAT PILL — a tag rendered as a visible chip in the hat, opt-in per call
+   site (`show-tags: true` on `#idea`/`#window`, off by default, the same
+   mechanism as `show-date`), directly after the id and before the date (see
+   `_permalink-tab` in lib.typ). An untagged note's tag list is empty either
+   way, so it renders no pill regardless of `show-tags`.
+
+   TWO classes ride on each pill: `.idea-tag` is this rule's own hook,
+   `.idea-tag-<tag>` is the SAME class rookery already puts on the card and
+   the heading — and the same class `@rheo/rookery-search` puts on its own
+   chips (`.rookery-search-tag`, that package's own stylesheet) — so ONE
+   project rule, `.idea-tag-draft { ... }`, now styles that tag everywhere it
+   appears, including this pill. That is the intent, not an accident.
+
+   SHAPE COPIED FROM `.rookery-search-tag` — radius, letter-spacing, colours,
+   horizontal padding — so the two packages draw one recognizable object.
+   HEIGHT DELIBERATELY DIFFERS, and this is load-bearing, not cosmetic:
+   rookery-search's own metrics (font-size 0.85em, line-height 1.4, 0.15em of
+   vertical padding) measured 15.48px tall against this hat's 9.13px label,
+   which pushed the hat's bottom — and the card's corner — 5.38px down into
+   the card. The hat (`.idea-tab`) is a flex row aligned `flex-end` and
+   lifted by a `margin-top` keyed to `--idea-label-size` (see the lift rules
+   above); a flex row is as tall as its tallest item, so anything taller than
+   the label drags the whole rule down with it. Sizing the chip from
+   `--idea-label-size` and sharing `line-height: 1` — the SAME two properties
+   the label itself uses, not merely matching values — is what keeps the two
+   heights equal even after a project retunes `--idea-label-size`; giving the
+   chip its own separate line-height would drift the moment that happened.
+   MEASURED (chromium headless, 900px viewport) with this sizing: the hat's
+   bottom sits ~0.02px above the card's top edge, tagged or not — matching
+   the untagged baseline exactly. `font-family` also follows
+   `--idea-label-font`: a tag in the hat is the same machinery as the id
+   beside it, and mixing faces on one row would say otherwise.
+
+   REJECTED, do not retry: pinning `.idea-tab`'s own height to
+   `--idea-label-size` directly. MEASURED — moved the untagged baseline it
+   was meant to preserve (to -1.00px) and let the chip overflow ~16.5px above
+   the card, in every card including untagged ones.
+
+   Scoped to `.idea-tab > .idea-tag` specifically, not `.idea-tab *`:
+   `#ideas-outline`'s title also wears `.idea-tab` (a prior bead), and it has
+   no `.idea-tag` children of its own — this rule must not leak into it. */
+.idea-tab > .idea-tag {
+  font-size: var(--idea-tag-size, var(--idea-label-size, 0.57rem));
+  line-height: 1;
+  font-family: var(--idea-label-font, monospace);
+  letter-spacing: 0.03em;
+  border-radius: var(--idea-tag-radius, 999px);
+  padding: 0 0.5em;
+  white-space: nowrap;
+  color: var(--idea-tag-color, var(--idea-id-color, gray));
+  background-color: var(--idea-tag-bg, rgba(128, 128, 128, 0.18));
+  background-color: var(--idea-tag-bg, color-mix(in oklab, currentColor 14%, transparent));
+}
+
 /* An open window needs more room beneath it than a closed one, or a column of
    folded windows reads as one undifferentiated block. */
 .idea-window-details {
