@@ -22,15 +22,33 @@ build:
 #
 # Hidden files are searched on purpose: `.marrow.typ` carries the import that
 # mints every page, and it is the one place a stale spec silently produces no
-# output at all.
+# output at all. `grep -r` reads dotfiles by default, so this needs no flag for
+# them — unlike the `rg` this recipe used to be written with.
+#
+# GREP AND SED, NOT RIPGREP, and that is the whole reason this recipe reads the way
+# it does. MEASURED: every run of the `check` workflow failed with
+# `line 32: rg: command not found` (runs 32126839338 and 32127008271) — `rg` is not
+# on GitHub's `ubuntu-latest` image, while it is in this repo's devShell, so the
+# recipe passed for everyone locally and had never once run in CI. A lint that only
+# works on the author's machine is not a lint. Installing ripgrep on the runner
+# would have fixed the symptom and left the recipe needing a tool the check does
+# not otherwise want; `grep -rEon` plus one `sed` needs nothing that is not on
+# every POSIX box.
+#
+# THE THREE rg FEATURES THAT HAD TO BE REPLACED, so nobody reintroduces them:
+#   - `-r '$1'` capture replacement -> `sed -n 's/.../\1/p'`;
+#   - `--hidden` -> unnecessary, `grep -r` already reads dotfiles;
+#   - `--no-ignore-vcs` + `-g '!dist'` -> `--exclude-dir`. rg skips gitignored
+#     paths by default and had to be told not to; grep never skipped them and has
+#     to be told to. Same list, opposite default.
 check-versions:
     #!/usr/bin/env bash
     set -euo pipefail
     fail=0
     for manifest in */*/typst.toml; do
         dir="${manifest%/typst.toml}"
-        name=$(rg -o -r '$1' '^name = "([^"]+)"' "$manifest")
-        version=$(rg -o -r '$1' '^version = "([^"]+)"' "$manifest")
+        name=$(sed -n 's/^name = "\([^"]*\)".*/\1/p' "$manifest")
+        version=$(sed -n 's/^version = "\([^"]*\)".*/\1/p' "$manifest")
         if [ "$dir" != "$name/$version" ]; then
             echo "$manifest: declares $name $version but lives at $dir/"
             fail=1
@@ -46,9 +64,19 @@ check-versions:
                 echo "$file:$line: @rheo/$pkg:$ver, but $pkg/$ver/ is not in this repo"
                 fail=1
             fi
-        done < <(rg -o -n --no-heading --hidden --no-ignore-vcs \
-            -g '!dist' -g '!node_modules' -g '!.direnv' -g '!build' \
-            -r '$1 $2' '@rheo/([a-z-]+):([0-9]+\.[0-9]+\.[0-9]+)' "$dir" || true)
+        # `grep -o` prints ONE match per output line, so each line is exactly
+        # `path:line:@rheo/pkg:x.y.z` and the `sed` turns the `:@rheo/pkg:` in the
+        # middle into `:pkg ` — giving `path:line:pkg x.y.z`, which is what the
+        # `IFS=:` read above splits. Not `/g`: there is only ever one.
+        #
+        # `{ grep || true; }` INSIDE the braces, not after the pipeline: grep exits
+        # 1 when a package contains no spec at all (which is legal — a pure-CSS
+        # package could), and `set -o pipefail` above would take that as failure.
+        done < <({ grep -rEon --binary-files=without-match \
+            --exclude-dir=dist --exclude-dir=node_modules \
+            --exclude-dir=.direnv --exclude-dir=build \
+            '@rheo/[a-z-]+:[0-9]+\.[0-9]+\.[0-9]+' "$dir" || true; } \
+            | sed 's|:@rheo/\([a-z-]*\):|:\1 |')
     done
     if [ "$fail" -ne 0 ]; then
         echo "check-versions: FAILED"
