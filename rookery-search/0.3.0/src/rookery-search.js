@@ -16,9 +16,9 @@
 // `src/lib.typ`, and `bodyScore` is the same port of `body-score`. The two
 // pairs must agree, and `just parity` is what enforces it — it feeds two
 // fixtures through both languages and diffs the scores. Change one side,
-// change the other, re-run the fixture. `snippet` below has NO Typst
-// counterpart and none is wanted (a static Typst listing shows titles, not
-// excerpts) — do not go looking for it in `lib.typ`.
+// change the other, re-run the fixture. Every exported ranking function now has
+// a Typst twin: the one exception used to be `snippet`, and it is gone along
+// with the preview excerpt it built.
 //
 // EMBEDDING. Every bar on the page is found by its `data-rookery-search`
 // attribute, whose VALUE is the id of the island it reads. So several bars can
@@ -49,7 +49,7 @@ const RIGHT = { "!": true };
 // query on the way to it.
 //
 // `[...src]` is the cluster spread this file already uses for Typst's
-// `.clusters()` (see `score` and `snippet`) — never index the string, or a
+// `.clusters()` (see `score`) — never index the string, or a
 // non-ASCII tag breaks parity. `c.trim() === ""` mirrors Typst's
 // `c.trim() == ""` rather than a `/\s/` test, so each side's whitespace
 // definition stays tied to its own runtime's trim instead of to a regex
@@ -258,77 +258,15 @@ export const search = (rows, query, limit) => {
   return limit == null ? out : out.slice(0, limit);
 };
 
-// Cluster-accurate substring search over `h`'s cluster array — `score` and
-// `bodyScore` above only ever ask "does this appear", `snippet` also needs
-// "where", so it works in cluster space throughout rather than mixing UTF-16
-// offsets back in.
-const findClusterMatches = (hc, needle) => {
-  const positions = [];
-  if (needle.length === 0) return positions;
-  outer: for (let i = 0; i + needle.length <= hc.length; i++) {
-    for (let j = 0; j < needle.length; j++) {
-      if (hc[i + j] !== needle[j]) continue outer;
-    }
-    positions.push({ start: i, end: i + needle.length });
-  }
-  return positions;
-};
-
-// The preview excerpt for the modal's right-hand pane. Finds the earliest
-// occurrence of the whole (folded) query as a contiguous phrase, or failing
-// that the earliest occurrence of any term, and takes `radius` clusters
-// either side of it — `body` (unfolded) is sliced, not `h`, so casing and
-// original punctuation survive in the excerpt. Prefixes/suffixes a "…" when
-// the excerpt is truncated. `ranges` are cluster offsets INTO `text` (i.e.
-// already account for a leading "…") of every term occurrence within the
-// excerpt, for the caller to wrap in `<mark>`.
-//
-// NO PARITY REQUIREMENT: there is no Typst counterpart, and none is wanted —
-// a static Typst listing shows titles, not excerpts.
-export const snippet = (body, query, radius) => {
-  const h = fold(body);
-  const q = fold(query);
-  const bc = [...body];
-  const hc = [...h];
-  const terms = q.split(" ").filter((t) => t !== "");
-  const termClusters = terms.map((t) => [...t]);
-
-  let anchor = null;
-  if (q !== "") {
-    const phraseMatches = findClusterMatches(hc, [...q]);
-    if (phraseMatches.length > 0) anchor = phraseMatches[0];
-  }
-  if (anchor === null) {
-    for (const tc of termClusters) {
-      const m = findClusterMatches(hc, tc)[0];
-      if (m !== undefined && (anchor === null || m.start < anchor.start)) anchor = m;
-    }
-  }
-  if (anchor === null) anchor = { start: 0, end: 0 };
-
-  const center = anchor.start + Math.floor((anchor.end - anchor.start) / 2);
-  const start = Math.max(0, center - radius);
-  const end = Math.min(bc.length, center + radius);
-  const prefix = start > 0 ? "…" : "";
-  const suffix = end < bc.length ? "…" : "";
-  const text = prefix + bc.slice(start, end).join("") + suffix;
-
-  const ranges = [];
-  for (const tc of termClusters) {
-    for (const m of findClusterMatches(hc, tc)) {
-      if (m.end <= start || m.start >= end) continue;
-      const clippedStart = Math.max(m.start, start);
-      const clippedEnd = Math.min(m.end, end);
-      ranges.push({
-        start: prefix.length + (clippedStart - start),
-        end: prefix.length + (clippedEnd - start),
-      });
-    }
-  }
-  ranges.sort((a, b) => a.start - b.start);
-
-  return { text, ranges };
-};
+// `snippet` AND ITS CLUSTER-SPACE HELPER `findClusterMatches` WERE HERE, and
+// both are gone. They built the preview excerpt — a window of `radius` clusters
+// either side of the earliest query match in a note's `body`, "…"-truncated,
+// with cluster-accurate mark ranges. Nothing excerpts that field any more: the
+// island carries a note's most distinctive TERMS rather than a prefix of its
+// prose, so there is no sentence to centre a window on, and the pane's fallback
+// is the keyword row `renderKeywords` builds in `wireModal`. Cluster precision
+// went with them — it existed because a window's OFFSETS had to agree with
+// Typst's `.clusters()`, and nothing left in this file needs a CLUSTER offset.
 
 export const readIndex = (elemId) => {
   const el = document.getElementById(elemId);
@@ -428,44 +366,29 @@ const wire = (root, rows, n) => {
   };
 };
 
-// Renders `text` into `container` as text nodes plus `<mark>`s for every
-// range in `ranges` (cluster offsets into `text`, as `snippet` returns them).
-// Built with `document.createElement`/`textContent` throughout, never
-// `innerHTML` — `text` comes from the author's own notes, and `<mark>` is the
-// only markup this should ever produce.
-const renderMarked = (container, text, ranges) => {
-  const chars = [...text];
-  let cursor = 0;
-  for (const r of ranges) {
-    if (r.start > cursor) {
-      container.append(document.createTextNode(chars.slice(cursor, r.start).join("")));
-    }
-    const mark = document.createElement("mark");
-    mark.className = "rookery-search-mark";
-    mark.textContent = chars.slice(r.start, r.end).join("");
-    container.append(mark);
-    cursor = r.end;
-  }
-  if (cursor < chars.length) {
-    container.append(document.createTextNode(chars.slice(cursor).join("")));
-  }
-};
+// `renderMarked` WAS HERE, and it is gone with the excerpt: it was the only
+// mark-inserter taking CLUSTER offsets, because `snippet` was the only thing
+// producing them, and it had exactly one caller (the excerpt's `<p>`).
+// `appendMarked` below is the surviving one — same `<mark class="rookery-search-
+// mark">`, UTF-16 offsets — and it has three callers: a row's title, a row's id,
+// and every text node of a fetched note. Do not reintroduce a second one.
 
-// The preview excerpt's radius, in clusters, either side of a body match.
-// Only used by the plain-text excerpt the pane shows INSTEAD of the note's
-// fetched page, when that fetch cannot succeed — not exposed as a knob, since it
-// is an implementation detail of the modal rather than a public contract the way
-// `#search-index`'s `body-terms` is.
-const PREVIEW_RADIUS = 160;
+// How many chips the keyword row shows. 12, per the row's own comment in
+// `wireModal`: the compressed field can run to dozens of terms and a 48-term row
+// is a wall of boxes rather than a preview. Not exposed as a knob, exactly as
+// the excerpt radius it replaces was not — it is an implementation detail of the
+// modal rather than a public contract the way `#search-index`'s `body-terms` is.
+const KEYWORD_LIMIT = 12;
 
 // Every occurrence of every `terms` entry in `text`, folded and
-// case-insensitive, merged where they overlap. UTF-16 string offsets
-// throughout, not `snippet`'s cluster-accurate ones: neither a title/id row
-// nor a fetched note's individual text nodes are ever diffed against a
-// Typst counterpart, so there is no cross-language parity reason to pay for
-// cluster precision here. `fold` is length-preserving (each folded character
-// replaces exactly one), so an offset found in the FOLDED copy slices
-// correctly out of `text` itself.
+// case-insensitive, merged where they overlap. UTF-16 string offsets, and
+// nothing in this file asks for any other kind now that the excerpt's
+// cluster-space window is gone: neither a title/id row, nor a keyword chip, nor
+// a fetched note's individual text nodes are ever diffed against a Typst
+// counterpart, so there is no cross-language parity reason to pay for cluster
+// precision here. `fold` is length-preserving (each folded character replaces
+// exactly one), so an offset found in the FOLDED copy slices correctly out of
+// `text` itself.
 const matchRanges = (text, terms) => {
   const folded = fold(text);
   const ranges = [];
@@ -625,8 +548,8 @@ const extractNote = (doc, pageUrl) => {
 // One fetch-and-extract per href, memoised. Resolves to `extractNote`'s `<div>`
 // or to `null`, and NEVER rejects: no server (a build opened over `file://`), a
 // 404, a page that is not a minted note — all of them are a `null`, because the
-// caller's answer to "no rich content" is the plain-text excerpt it has already
-// rendered, not an error to report.
+// caller's answer to "no rich content" is the keyword row it renders instead,
+// not an error to report.
 const fetchNote = (href) => {
   if (previewCache.has(href)) return previewCache.get(href);
   const pending = fetch(href)
@@ -663,31 +586,73 @@ const wireModal = (dialog, rows) => {
   // resolve in any order — without this, the slowest one wins the pane.
   let previewGen = 0;
 
-  // The plain-text excerpt from the JSON island's `body` field: centred on the
-  // match for a body-tier hit, from the start for a name-tier one — a radius of
-  // Infinity makes `snippet` return the whole field, its window being clamped to
-  // that field's own length. Either way every matched term is wrapped in
-  // `<mark>`, both paths going through one `snippet` call. A note with no body
-  // text at all gets a muted line rather than a blank pane.
+  // THE KEYWORD ROW — the failed-fetch fallback, and the ONE place the
+  // compressed index is reader-facing. The island's `body` field is not prose:
+  // it is that note's most distinctive terms, space-joined in weight order.
+  // MEASURED on a weeknotes copy: `"entry actual notes general introductory site
+  // first weeknotes wrote post posted blog writing"`. There is nothing there to
+  // excerpt, which is why the excerpt is gone rather than merely demoted.
   //
-  // NOTE the field is no longer prose: since the island began carrying a note's
-  // most distinctive TERMS rather than a prefix of its body, this reads as
-  // keyword soup. It is the failed-fetch fallback only, and bead
-  // rheo-packages-sal replaces it with a deliberate keyword row.
-  const renderExcerpt = (hit) => {
-    const body = hit.body ?? "";
-    if (body === "") {
+  // CHIPS, NOT A PARAGRAPH. Set as running text that string reads as debug
+  // output that leaked into the UI; one box per term says "these are the note's
+  // terms" without needing a caption to say it. It also makes the ORDER visible
+  // as an order: the compression pass already sorts by weight, so display order
+  // is meaningful — most distinctive first.
+  //
+  // Except that a term the reader's query matched is hoisted ahead of the
+  // unmatched ones among the shown terms. Weight order is the default, but a
+  // matched term is WHY this note is on screen, and it must not be the one term
+  // the cap cut off. Sliced to `KEYWORD_LIMIT` after the hoist for that reason.
+  //
+  // The line above the row says why a bag of words is the preview at all —
+  // without it a reader is left to infer that the pane failed rather than that
+  // this is the intended rendering. It reuses `.rookery-search-preview-empty`
+  // rather than earning a class of its own: it is the same KIND of line as "No
+  // preview" and "No match found" — muted, italic, a note ABOUT the pane rather
+  // than content in it.
+  //
+  // AN EMPTY BODY KEEPS THE PLAIN "No preview" LINE, and it is a real case, not
+  // a defensive one — MEASURED: a genuinely empty note ships an empty `body`,
+  // and `body-search: false` omits the field from every row. An empty chip row
+  // would be a frame with nothing in it above a sentence explaining nothing.
+  //
+  // `createElement`/`textContent` throughout, never `innerHTML`, for the reason
+  // the module header gives: a term comes out of the author's own notes and must
+  // never be able to inject markup. `<mark>` is the only markup here and
+  // `appendMarked` is what appends it — the same element and class a result row
+  // and a fetched note's text nodes are marked with, so a match looks identical
+  // wherever the reader meets it.
+  const renderKeywords = (hit) => {
+    const terms = (hit.body ?? "").split(" ").filter((t) => t !== "");
+    if (terms.length === 0) {
       const empty = document.createElement("p");
       empty.className = "rookery-search-preview-empty";
       empty.textContent = "No preview";
       preview.append(empty);
       return;
     }
-    const radius = hit.kind === "body" ? PREVIEW_RADIUS : Number.POSITIVE_INFINITY;
-    const { text, ranges } = snippet(body, input.value.trim(), radius);
-    const p = document.createElement("p");
-    renderMarked(p, text, ranges);
-    preview.append(p);
+    const queryTerms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
+    // The ranges are carried alongside each term rather than recomputed for the
+    // chips: whether a term matched IS whether it has any ranges, so one
+    // `matchRanges` per term answers both the hoist and the marking.
+    const matched = [];
+    const rest = [];
+    for (const term of terms) {
+      const ranges = matchRanges(term, queryTerms);
+      (ranges.length > 0 ? matched : rest).push({ term, ranges });
+    }
+    const why = document.createElement("p");
+    why.className = "rookery-search-preview-empty";
+    why.textContent = "This note’s page could not be loaded — showing its keywords instead.";
+    const row = document.createElement("div");
+    row.className = "rookery-search-keywords";
+    for (const { term, ranges } of [...matched, ...rest].slice(0, KEYWORD_LIMIT)) {
+      const chip = document.createElement("span");
+      chip.className = "rookery-search-keyword";
+      appendMarked(chip, term, ranges);
+      row.append(chip);
+    }
+    preview.append(why, row);
   };
 
   const renderPreview = () => {
@@ -712,12 +677,12 @@ const wireModal = (dialog, rows) => {
     // prose, which is what stopped that field being compressed into a note's most
     // distinctive terms.
     //
-    // `renderExcerpt` stays, as the FAILED-FETCH fallback only: a build opened
-    // over `file://`, a note whose page 404s, a hit with no href at all. Those
-    // are the cases where there is no rendering coming and the excerpt is the
-    // final answer.
+    // `renderKeywords` is the FAILED-FETCH fallback and nothing else: a build
+    // opened over `file://`, a note whose page 404s, a hit with no href at all.
+    // Those are the cases where there is no rendering coming and the island's own
+    // terms are the final answer.
     if (typeof hit.href !== "string" || hit.href === "") {
-      renderExcerpt(hit);
+      renderKeywords(hit);
       return;
     }
     // THE LOADING AFFORDANCE, and it is an attribute rather than an element: one
@@ -741,11 +706,11 @@ const wireModal = (dialog, rows) => {
       // so a stale request cannot clear a later selection's indicator.
       if (gen === previewGen) delete preview.dataset.rookerySearchLoading;
       if (gen !== previewGen) return;
-      // The fallback, and the ONLY place the excerpt is rendered for a hit that
-      // had an href: the fetch is settled and it failed, so there is no richer
-      // rendering coming and the island's own text is the final answer.
+      // The fallback, and the ONLY place the keyword row is rendered for a hit
+      // that had an href: the fetch is settled and it failed, so there is no
+      // richer rendering coming and the island's own terms are the final answer.
       if (box === null) {
-        renderExcerpt(hit);
+        renderKeywords(hit);
         return;
       }
       const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");

@@ -295,10 +295,10 @@ luck: the browser reads a missing `body` as `""`, and the body matcher returns
 no score for an empty haystack, so no row can reach the body tier.
 
 Two consequences, both intended. A note findable only by a word in its body
-becomes unfindable — that is the point. And the modal's plain-text preview
-excerpt comes from this same field, so with it gone the pane shows "No preview"
-wherever it cannot fetch the note's own page: `file://`. Over http the fetched
-preview is unaffected, so a served site loses nothing but the bytes.
+becomes unfindable — that is the point. And the modal's keyword-row fallback is
+built from this same field, so with it gone the pane shows "No preview" wherever
+it cannot fetch the note's own page: `file://`. Over http the fetched preview is
+unaffected, so a served site loses nothing but the bytes.
 
 The hrefs are **relative to the page the call sits on**, so an index emitted
 from a site's shared template comes out right on a nested page too — `../ideas/…`
@@ -486,7 +486,7 @@ without them ever disagreeing about what "best match" means.
 - `index` / `elem-id` / `body-chars` / `body-search` / `tags` / `match` — the
   same parameters `#search-bar` takes, forwarded to `#search-index` unchanged.
   With `body-search: false` the modal searches ids and titles only, and its pane
-  shows "No preview" rather than an excerpt wherever the note's page cannot be
+  shows "No preview" rather than a keyword row wherever the note's page cannot be
   fetched. With `tags:` set, a site-wide modal in a shared header is scoped to
   that tag's notes on every page it renders on.
 
@@ -573,12 +573,28 @@ nothing, which is why there is no `preview-limit` any more and why figures can
 now reach the pane at all.
 
 **The trade: rich previews need http.** `fetch` does not work from `file://`, so
-a build opened straight off disk falls back to the plain-text excerpt from the
-island's own `body` field — centred on the match for a body-tier hit, from the
-start for a name-tier one. That fallback is what the pane shows when the request
-cannot succeed: a `file://` build, a note whose page 404s, a hit with no minted
-page at all. A note with no body text shows a muted "No preview" line rather than
-a blank pane. Nothing breaks in any of these cases; the pane is simply plainer.
+a build opened straight off disk falls back to a **keyword row** built from the
+island's own `body` field — that note's most distinctive terms, in the weight
+order the index put them in, most distinctive first, each one its own chip. Terms
+the query matched are marked with the same `<mark>` a result row uses, and hoisted
+to the front so the cap cannot cut the matched one off; the row shows twelve at
+most, because the field can run to dozens and a wall of boxes is not a preview.
+A short muted line above it says the note's page could not be loaded, so a bag of
+words is never left looking like the intended rendering.
+
+That fallback is what the pane shows whenever the request cannot succeed: a
+`file://` build, a note whose page 404s, a hit with no minted page at all. A note
+with no terms at all shows a muted "No preview" line instead of an empty row.
+Nothing breaks in any of these cases; the pane is simply plainer. The row is
+`.rookery-search-keywords` with a `.rookery-search-keyword` per chip, both styled
+in the package's layer like everything else here.
+
+It is chips rather than a sentence because the field is no longer prose. It used
+to be a prefix of the note's body and the pane excerpted it, centred on the
+match; since the index began carrying compressed terms there is nothing to
+excerpt, and setting those terms as running text reads as debug output that
+leaked into the UI. `snippet` — the excerpt window — is gone from
+`src/rookery-search.js` with it.
 
 **Nothing is shown before the fetch lands.** While a request is in flight the pane
 holds a small muted spinner in its corner and no text — the fetched rendering is
@@ -651,9 +667,11 @@ search, a JavaScript copy for the live bar and modal. Two implementations of
 one rule drift silently — a static list and a search box would simply start
 ranking differently, and nothing would fail.
 
-`snippet` in `src/rookery-search.js` is the one deliberate exception: the
-modal's preview excerpt has no Typst counterpart and needs none — a static
-listing shows titles, not excerpts — so it carries no parity requirement.
+There is no longer an exception. `snippet`, the excerpt window, was one — no
+Typst counterpart and none wanted, a static listing showing titles rather than
+excerpts — and it went when the preview's plain-text fallback became a keyword
+row, which needs no ranking of its own: the terms arrive already in weight order
+from the index.
 
 ```sh
 just parity

@@ -51,8 +51,9 @@
                                     `.rookery-search-modal` for why the modal
                                     is the one place this file does set a size
      --rookery-search-backdrop      the modal's `::backdrop` dimming
-     --rookery-search-mark          the highlighted-term background inside a
-                                    preview excerpt
+     --rookery-search-mark          the highlighted-term background, in a result
+                                    row, in a fetched preview, and in a keyword
+                                    chip alike
 
    THE MODAL'S BREAKPOINT IS NOT A PROPERTY. Every other size above is a
    custom property because a site only ever needs to change a VALUE. The
@@ -297,9 +298,9 @@
     overflow-y: auto;
     padding: 1em;
     /* A long id or URL cannot overflow the pane — real content wraps like the
-       block-level elements it is made of, unlike the plain-text FALLBACK
-       excerpt below, which still needs `white-space: pre-wrap` of its own to
-       preserve `snippet`'s "…" truncation markers as literal text. */
+       block-level elements it is made of, and a keyword chip inherits this, so
+       a term too long for the column breaks inside the chip instead of pushing
+       it out of the pane. */
     overflow-wrap: anywhere;
     /* The containing block for the loading indicator below, which is pinned to
        this pane's own corner rather than to the dialog's. */
@@ -349,7 +350,7 @@
   }
 
   /* Reduced motion keeps the affordance and drops the spinning: the same circle,
-     static, which still reads as "something is pending" beside an excerpt. */
+     static, which still reads as "something is pending" in an empty pane. */
   @media (prefers-reduced-motion: reduce) {
     .rookery-search-preview[data-rookery-search-loading]::after {
       animation: none;
@@ -378,6 +379,12 @@
      MEASURED. See rookery.css's own comment beside
      `.idea-window.idea-window-plain`. */
 
+  /* Three lines wear this, and they are all the same kind of thing — a note
+     ABOUT the pane rather than content in it: "No preview" for a note with no
+     terms, "No match found" for a query that matches nothing, and the line
+     above the keyword row saying the note's page could not be loaded. One muted
+     italic register for all three, rather than a third class that would have to
+     be kept looking identical by hand. */
   .rookery-search-preview-empty {
     opacity: 0.6;
     font-style: italic;
@@ -410,15 +417,56 @@
     display: none;
   }
 
-  /* Only the plain-text excerpt (`renderMarked`'s output, shown while the
-     note's page is in flight and left in place when it cannot be fetched) is a
-     single unstructured `<p>` that needs to preserve `snippet`'s own whitespace
-     and "…" markers verbatim. A fetched note's own paragraphs wrap normally —
-     they sit inside `.idea-window-body`, not directly in the pane — and scoping
-     this to a direct child also keeps it out of a code block's `<pre>`, which
-     sets its own `white-space` and must not have this override it. */
-  .rookery-search-preview > p {
-    white-space: pre-wrap;
+  /* ---- The keyword row: what the pane shows when the fetch fails -------- */
+
+  /* A `white-space: pre-wrap` ON `.rookery-search-preview > p` WAS HERE, and it
+     is gone with the thing it existed for: the plain-text excerpt was one
+     unstructured `<p>` whose own whitespace and "…" truncation markers had to
+     survive verbatim. Nothing in this pane is preformatted now — the fallback is
+     the chip row below plus an ordinary sentence above it, and both wrap like
+     prose. Left in place it would only make that sentence preserve stray
+     whitespace for no reason. */
+
+  /* CHIPS, NOT A PARAGRAPH OF LOOSE WORDS. `renderKeywords` fills this with a
+     note's most distinctive terms, in the weight order the compression pass put
+     them in (MEASURED on a weeknotes copy: `entry actual notes general
+     introductory site first weeknotes wrote post posted blog writing`). Set as
+     running text that reads as debug output; a box per term makes the row read
+     as deliberate, and makes the ordering visible as an ordering rather than as
+     a sentence that has lost its grammar.
+     A flex row that wraps, not `inline` chips in a text flow: the gap between
+     two chips then has one definition (`gap`) instead of being a margin plus
+     whatever word-spacing the page's own type sets. */
+  .rookery-search-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    /* Separates the row from the line above it that explains why it is showing.
+       The row is never the pane's first child — that line always is — so this
+       margin cannot fight `.rookery-search-preview > :first-child`. */
+    margin-top: 0.6em;
+  }
+
+  /* Border, radius and colour from the same custom-property chain as every
+     other edge in this file, so a chip follows a project's theme instead of
+     introducing a colour of its own. NO background fill, deliberately: a filled
+     chip competes with `.rookery-search-mark`'s tint on the matched term inside
+     it, and the mark has to stay the first thing the eye lands on. */
+  .rookery-search-keyword {
+    padding: 0.1em 0.45em;
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+    border-radius: var(--rookery-search-radius, 4px);
+    /* NO `white-space: nowrap` HERE, though a term carrying an internal `-` or
+       `.` (`rheo-context`, `0.3.0` — the compression preserves both precisely so
+       a reader can type them) is one term and should read as one. `nowrap` would
+       also suppress the pane's `overflow-wrap: anywhere`, which only ever
+       applies where a soft wrap is possible at all — so a term wider than the
+       column would spill out of the pane instead of breaking. Flex already gives
+       the better behaviour without the risk: a wrapping flex line moves a chip
+       that does not fit onto the next line whole, and only shrinks one to
+       min-content (breaking it at its hyphen) when it cannot fit the column at
+       any width. That is the case where breaking beats overflowing. */
   }
 
   /* The selected row and the hovered row must look identical, because the
