@@ -312,6 +312,23 @@ export const readIndex = (elemId) => {
 // here), but a literal substring is what a reader actually typed most of the
 // time, and highlighting it is far more useful than highlighting nothing at
 // all rather than trying to be exactly right for every fuzzy match.
+//
+// A TAGGED HIT ALSO GETS A SECOND LINE of tag pills, and it is emitted HERE —
+// in the one shared row builder — rather than in `wireModal` alone. The
+// dropdown gets the same DOM and HIDES it in CSS
+// (`.rookery-search-tags { display: none }`, shown again by
+// `.rookery-search-list .rookery-search-tags`). That is the whole modal-only
+// mechanism: no `showTags` parameter, no branch on which surface called, no
+// second row builder — the sharing above exists precisely to stop the two
+// surfaces drifting into building rows two ways, and a visibility rule is
+// something CSS can express without breaking it. It also leaves this
+// function's signature at `(hit, terms)` for the third argument bead
+// rheo-packages-tagq-mark-a5z wants.
+//
+// The tags are why a `tags:` query is legible at all: an atom matches a tag by
+// PREFIX (`evalTagQuery`'s `tg.startsWith(tok.v)` above, so `tags:note` also
+// matches `notebook`), and a row that shows its own tags explains its own
+// presence in the list instead of looking like a mystery hit.
 const renderRow = (hit, terms) => {
   const a = document.createElement("a");
   a.className = "rookery-search-row";
@@ -326,6 +343,45 @@ const renderRow = (hit, terms) => {
   const idText = `[${hit.id}]`;
   appendMarked(id, idText, matchRanges(idText, terms));
   a.append(title, id);
+  // `hit.tags ?? []` for the same reason `search` reads it that way: a note
+  // with no tags, or a row from an older island, simply has no key —
+  // `#search-index` omits the field rather than shipping `[]` per row.
+  //
+  // OMITTED ENTIRELY for an untagged note, never emitted empty. The modal's
+  // list has a fixed max-height, so a blank second line on every untagged row
+  // would cut the number of visible results for nothing; an untagged row stays
+  // one line tall.
+  //
+  // `<span>`, never `<div>`/`<ul>`/`<li>`. This package's markup is phrasing
+  // content only throughout (see `#search-bar`'s comment in `src/lib.typ`)
+  // because a bar has to be placeable mid-sentence; a `display: flex` span is
+  // how the second line is made.
+  //
+  // Each chip carries rookery's own `idea-tag-<tag>` class alongside this
+  // package's, mirroring the classes rookery emits on a note's heading and box,
+  // so a project that already styles one of its tags gets the modal for free
+  // with no new selectors. KNOWN HAZARD, pre-existing rather than introduced
+  // here: `#idea` validates tags nowhere, so a tag containing a space already
+  // emits a broken two-class `idea-tag-my tag` in rookery itself. Not
+  // sanitised here — that would silently disagree with rookery's own output.
+  //
+  // TEXT, NOT `<mark>`. Highlighting the tag that MATCHED is bead
+  // rheo-packages-tagq-mark-a5z and deliberately separate: with `!` in the
+  // grammar "which tag matched" is not well defined for every expression.
+  // `createElement`/`textContent` regardless, never `innerHTML` — a tag comes
+  // out of the author's own notes and must never be able to inject markup.
+  const tags = hit.tags ?? [];
+  if (tags.length > 0) {
+    const tagBox = document.createElement("span");
+    tagBox.className = "rookery-search-tags";
+    for (const t of tags) {
+      const chip = document.createElement("span");
+      chip.className = `rookery-search-tag idea-tag-${t}`;
+      chip.textContent = t;
+      tagBox.append(chip);
+    }
+    a.append(tagBox);
+  }
   return a;
 };
 

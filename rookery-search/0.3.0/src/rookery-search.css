@@ -54,6 +54,16 @@
      --rookery-search-mark          the highlighted-term background, in a result
                                     row, in a fetched preview, and in a keyword
                                     chip alike
+     --rookery-search-tag-color     the text of a tag pill on a modal result row
+     --rookery-search-tag-bg        that pill's fill
+     --rookery-search-tag-size      that pill's text size, as a factor of the
+                                    row's own (which in the modal is already
+                                    --rookery-search-modal-font-size)
+     --rookery-search-tag-radius    that pill's corner radius — `999px` is a
+                                    pill, `0` is a rectangle; the one default
+                                    here that is a design statement rather than
+                                    a measurement
+     --rookery-search-tag-gap       the space between two pills on a row
 
    THE MODAL'S BREAKPOINT IS NOT A PROPERTY. Every other size above is a
    custom property because a site only ever needs to change a VALUE. The
@@ -187,6 +197,81 @@
     color: var(--rookery-search-id-color, var(--idea-id-color, gray));
     margin-left: 0.4em;
     white-space: nowrap;
+  }
+
+  /* THE SECOND LINE, and it is a span with `display: flex` rather than a
+     `<div>`/`<ul>` for the reason the whole package uses phrasing content only:
+     a bar must be legal inside a paragraph. Emitted only for a note that has
+     tags, so an untagged row stays one line and the modal's fixed-height list
+     keeps its result count.
+
+     HIDDEN BY DEFAULT, shown only inside the modal's list (next rule). The
+     chips are in the dropdown's DOM too — `renderRow` is shared on purpose and
+     building rows two ways is what that sharing exists to prevent — but a
+     dropdown is a few titles under an input, and doubling every row's height
+     there buys a reader nothing they were looking for. A site that wants them
+     writes one rule:
+       .rookery-search-results .rookery-search-tags { display: flex }
+     The CONTAINER is what is hidden, not the chips, so a project's own
+     `.idea-tag-*` rules cannot resurrect them in the dropdown by accident. */
+  .rookery-search-tags {
+    display: none;
+  }
+
+  /* `.rookery-search-list` is the MODAL's listbox; the dropdown's is
+     `.rookery-search-results` (both emitted in `src/lib.typ`, by
+     `#search-modal` and `#search-bar` respectively). That one class is the
+     whole modal-only mechanism. */
+  .rookery-search-list .rookery-search-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--rookery-search-tag-gap, 0.3em);
+    margin-top: 0.3em;
+  }
+
+  /* PILLS: fully rounded and filled, one shape at one size for every tag, so a
+     tag reads as a discrete thing in a list where every other line is prose.
+     Shape taken from ficarelli.github.io/hacker-archives, which invented it in
+     its own stylesheet because this package shipped nothing — its colours stay
+     its own. Every chip also carries rookery's `idea-tag-<tag>` class, so a
+     project restyles one tag without touching the rest.
+
+     THE MODAL NOW HAS TWO CHIP-LIKE THINGS and they are deliberately not the
+     same shape: `.rookery-search-keyword` in the preview pane is a
+     `--rookery-search-radius` rectangle with a border and NO fill, this is a
+     filled 999px pill with no border. They are different KINDS of thing — a
+     keyword is a term lifted out of the note's compressed body, a tag is
+     something the author wrote — and they never appear in the same pane, so one
+     shape for both would only make the reader work out which they were looking
+     at. The fill/no-fill split is also load-bearing there and not here: a
+     keyword chip is left unfilled so `.rookery-search-mark`'s tint on the
+     matched term inside it stays the first thing the eye lands on, and a tag
+     carries no mark at all (see `renderRow`).
+
+     The fill deliberately does NOT chain to `--idea-link-color` the way
+     `.rookery-search-mark` does: that is also the row's hover/selected
+     background (`.rookery-search-row:hover` and
+     `[data-rookery-search-selected="true"]`), and the modal always has a
+     selected row — a chip keyed off it would dissolve into exactly the row a
+     reader is looking at. A currentColor tint instead, which follows the row's
+     own ink into a dark theme; the gray literal above it is the fallback for an
+     engine without `color-mix`.
+
+     `0.85em` IS A CHOSEN DEFAULT, NOT A MEASUREMENT — nothing here has been
+     counted against a real site's row density. If a project's modal visibly
+     loses results to the second line, turn `--rookery-search-tag-size` down
+     rather than `--rookery-search-modal-font-size`, which has its own reason on
+     `.rookery-search-modal`. */
+  .rookery-search-tag {
+    font-size: var(--rookery-search-tag-size, 0.85em);
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+    border-radius: var(--rookery-search-tag-radius, 999px);
+    padding: 0.15em 0.6em;
+    white-space: nowrap;
+    color: var(--rookery-search-tag-color, var(--rookery-search-id-color, var(--idea-id-color, gray)));
+    background-color: var(--rookery-search-tag-bg, rgba(128, 128, 128, 0.18));
+    background-color: var(--rookery-search-tag-bg, color-mix(in oklab, currentColor 14%, transparent));
   }
 
   /* ---- #search-modal — the overlay's telescope-style two-pane layout ---- */
