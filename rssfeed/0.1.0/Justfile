@@ -15,3 +15,19 @@ default:
 test:
     typst compile --features html --root . --format pdf test/units.typ /dev/null
     @echo "units OK"
+
+# rheo, unlike typst, is NOT in this repo's devShell — it is the sibling
+# `rheo/` crate, installed separately (`cargo install --path ../../rheo` from
+# here, or run a built binary directly). So this demo is a LOCAL check, not
+# wired into CI: it proves the headline capability (ONE project, TWO Atom
+# feeds, the second sourced from `@rheo/rookery`'s `ideas(tags:)`) but needs
+# an UNRELEASED rheo — see this package's readme.md, "## Demo" — before it
+# can compile at all.
+demo:
+    rheo compile demo
+
+# Asserts on the OUTPUT, not merely that the build succeeded — every
+# assertion in `demo/check.sh` exists only under the unreleased rheo this
+# demo needs and none of it is covered by `just test`.
+check: demo
+    ./demo/check.sh

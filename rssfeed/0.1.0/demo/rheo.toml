@@ -1,0 +1,13 @@
+# Exercises @rheo/rssfeed's headline capability: ONE project, TWO Atom feeds
+# built from different subsets of the site — a spine-filtered feed of posts
+# (feed.xml) and a project-level feed sourced from @rheo/rookery's
+# `ideas(tags:)` (notes.xml), with no import coupling between the two
+# packages. See content/index.typ for the one `configure(...)` call.
+#
+# Needs an UNRELEASED rheo (>= 0.6.0, currently the feat/transclusion line):
+# `<rheo-content>` transclusion and `.rheo/` control assets (the
+# autodiscovery `<link>` this package mints) do not exist in 0.5.2. See this
+# package's readme, "## Demo".
+version = "0.6.0"
+content_dir = "content"
+formats = ["html"]
