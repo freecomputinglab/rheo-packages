@@ -121,6 +121,18 @@
   // haystack, so its score lands BELOW a strong body-tier score. It must still
   // sort above every body row — that is the tiering rule, not a score contest.
   (id: "idea:scatter", name: "wqqiqqnqqqqqqqqqqqqqqqqqqqqqqqq", text: ""),
+  // TAG-CARRYING ROWS, placed HERE and not appended: `idea:tg*` sorts between
+  // `idea:scatter` and `idea:window-depth`, and this array MUST stay in id order
+  // (see the comment above it) or the empty-query case diverges — MEASURED, an
+  // appended pair failed exactly that case and nothing else.
+  //
+  // For the `tags:` predicate. Deliberately free of the letter
+  // `w`, so they cannot subsequence-match "window"/"win"/"wnd" and perturb the
+  // nine cases that predate them. Every OTHER row here has no `tags` key at
+  // all, which is the shape `#search-index` emits for an untagged note and the
+  // one both sides must read as "no tags" rather than erroring.
+  (id: "idea:tg1", name: "tg1", text: "Alpha", body: "alpha prose", tags: ("phd", "draft")),
+  (id: "idea:tg2", name: "tg2", text: "Beta", body: "beta prose", tags: ("phd",)),
   // Two strong name matches that the length term separates (35 vs 40 for
   // "window") — the pair the scorer's own comment cites.
   (id: "idea:window-depth", name: "window-depth", text: "Controlling window depth"),
@@ -141,6 +153,14 @@
   ("", none), // empty query: every row scores 0 in the name tier, id order
   ("zzz", none), // no match anywhere
   ("window depth", none), // multi-term: AND over the body, subsequence over names
+  // THE `tags:` PREDICATE, which nothing above reaches. It is one line in each
+  // language and it runs ahead of every scorer, so an untested copy would drift
+  // silently: MEASURED, deleting it from the JavaScript side leaves all nine
+  // cases above passing.
+  ("tags:phd", none), // filter only, no residual: survivors at score 0, id order
+  ("tags:phd&!draft", none), // negation, so tg1 drops and tg2 stays
+  ("tags:phd alpha", none), // filter THEN rank the residual over the survivors
+  ("tags:nope", none), // matches no note: empty, not unfiltered
 )
 #metadata(tier-cases.map(c => {
   let hits = _rank(tier-rows, c.at(0), limit: c.at(1))

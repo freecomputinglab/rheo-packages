@@ -401,14 +401,60 @@
 // parity guarantee — which is why the fixture keeps its rows id-ordered, and why
 // this comment is here rather than a defensive sort nobody needs.
 //
+// THE `tags:` SPLIT LIVES HERE, not in `#search-ideas`, because `search` in
+// `src/rookery-search.js` is this function's counterpart and splits in exactly
+// the same place. Keeping the split inside the rule means the fixture can diff a
+// TAG QUERY across the two languages as data, the same way it diffs a text one,
+// and `_rank`'s signature stays `(rows, query, ...)` — passing a pre-parsed RPN
+// down from `#search-ideas` would have widened it and left the parse untested.
+//
 // Private: the public surface is `#search-ideas`. `test/parity.typ` imports it
 // by relative path, the same way it imports `fuzzy-score`.
 #let _rank(rows, query, limit: none, body-search: true) = {
+  // SPLIT ONCE, before the loop. A parse is cheap (about 60 microseconds,
+  // MEASURED at `parse-tag-query`) but its answer cannot change between rows, so
+  // parsing per row would buy nothing and cost a parse per note.
+  //
+  // `q` IS THE RESIDUAL TEXT, and every scorer below sees it rather than `query`
+  // — otherwise a `tags:draft window` query would hand the literal "tags:draft"
+  // to `fuzzy-score` and match nothing.
+  //
+  // THE EMPTY RESIDUAL NEEDS NO SPECIAL CASE, verified rather than assumed:
+  // `fuzzy-score` returns 0 for an empty query (its own first guard), so with
+  // `q == ""` every surviving note scores 0 in the NAME tier and the stable sort
+  // leaves them in the id order `ideas()` gave — which is exactly the wanted
+  // answer for a bare `tags:draft`. The body tier stays empty for it, `body-score`
+  // returning `none` for an empty query.
+  let tq = split-query(query)
+  let q = tq.text
   let name-hits = ()
   let body-hits = ()
   for e in rows {
-    let s-name = fuzzy-score(e.name, query)
-    let s-text = if e.text == "" { none } else { fuzzy-score(e.text, query) }
+    // FILTER BEFORE SCORING, never after, and as the FIRST statement in the loop.
+    // Correctness first: `limit:` must apply to the FILTERED set, or a limited
+    // `tags:` query spends its slots on notes the filter rejects. MEASURED in the
+    // JavaScript port over a synthetic corpus with 1200-cluster bodies, it is a
+    // large speedup too, because the pool the body tier walks shrinks before it is
+    // walked — at 5000 notes, 15.1 ms for a bare "window depth" against 0.850 ms
+    // for "tags:note&draft". A negation (`tags:!draft`) keeps most of the corpus
+    // and so costs the baseline: expected, not a regression.
+    //
+    // A TAG MATCH IS A PREDICATE, NOT A SCORER, so `continue` is the only thing it
+    // may do here. It adds no third tier and no bonus to `score`, and the tiering
+    // below is therefore untouched by it: tags decide WHICH notes are candidates,
+    // never how they rank.
+    //
+    // `e.at("tags", default: ())` rather than `e.tags`, mirroring `row.tags ?? []`
+    // in the port for the same reason: this function ranks rows a CALLER supplies
+    // (`test/parity.typ`'s literal corpus, not only `ideas()`), so a row with no
+    // `tags` field must read as untagged rather than error. Under `ideas()` the
+    // field is always there — bead tagq-ideas-tags landed it and the manifest pins
+    // `@rheo/rookery:0.3.0`.
+    if tq.rpn.len() > 0 and not eval-tag-query(tq.rpn, e.at("tags", default: ()).map(_fold)) {
+      continue
+    }
+    let s-name = fuzzy-score(e.name, q)
+    let s-text = if e.text == "" { none } else { fuzzy-score(e.text, q) }
     let name-score = if s-name == none {
       s-text
     } else if s-text == none { s-name } else { calc.max(s-name, s-text) }
@@ -417,7 +463,7 @@
       continue
     }
     if not body-search { continue }
-    let body-score-val = body-score(e.at("body", default: ""), query)
+    let body-score-val = body-score(e.at("body", default: ""), q)
     if body-score-val != none {
       body-hits.push((..e, score: body-score-val, kind: "body"))
     }
@@ -433,6 +479,7 @@
 //   #context search-ideas("flt")   // -> ((id: "idea:flat-ids", .., score: 47, kind: "name"), ..)
 //   #context search-ideas("flt", body-search: false)   // ids and titles only
 //   #context search-ideas("flt", tags: "phd")          // only notes tagged phd
+//   #context search-ideas("tags:(a|b)&c flt")          // a reader's tag filter
 //
 // Returns a plain ARRAY of dictionaries — every field `@rheo/rookery`'s
 // `ideas()` provides (id, name, title, text, tags, body, href, minted, updated)
@@ -450,13 +497,35 @@
 // retuning. `kind` is what the modal's preview pane uses to decide whether to
 // show a snippet.
 //
-// TAGS ARE NOT PART OF THE QUERY. Ranking matches a note's id and title (and
-// its body, when `body-search` is on) and nothing else, so the query "phd"
-// finds the note CALLED that, not the notes tagged with it. `tags:` below is a
-// different axis: it decides which notes are in the CORPUS at all, before a
-// single score is computed. Narrowing the corpus and matching the query are two
-// separate things, and this package keeps them separate rather than letting a
-// tag quietly become a search term.
+// A LEADING `tags:` IN THE QUERY IS A FILTER, EXTRACTED BEFORE ANY SCORING, and
+// the rest of the query is a normal text search over the survivors:
+//
+//   tags:draft window depth   notes tagged draft*, ranked by "window depth"
+//   tags:draft                notes tagged draft*, no ranking, id order
+//   window depth              unchanged — no `tags:` prefix, no filter
+//   tags:                     the whole corpus; an empty expression is no filter
+//
+// The grammar, in full at `parse-tag-query` above: `&` binds tighter than `|`,
+// `()` groups, `!` negates and binds tightest, an unescaped SPACE ends the
+// expression and opens the residual text, `\` escapes the next cluster into the
+// current atom, and an atom matches a tag by PREFIX on the folded form (so
+// `tags:note` also matches `notebook`). THE ESCAPE SET `( ) | & ! \` IS FROZEN —
+// see `parse-tag-query`, where that and the shunting-yard choice are argued.
+// Parsing never fails; a half-typed `tags:(a|` repairs to `tags:a`.
+//
+// A TAG STILL NEVER BECOMES A SEARCH TERM, and that is the whole shape of this.
+// Ranking matches a note's id and title (and its body, when `body-search` is on)
+// and nothing else, so the bare query "phd" finds the note CALLED that, not the
+// notes tagged with it — only the `tags:` prefix reaches tags, and it decides
+// which notes are CANDIDATES rather than how they rank. Narrowing the corpus and
+// matching the query are two separate things, and this package keeps them
+// separate.
+//
+// SO THERE ARE TWO `tags:` AXES, and they compose. The `tags:` PARAMETER below is
+// the AUTHOR's, fixed at build time and handed to `ideas()`; the `tags:` PREFIX in
+// the query string is the READER's, typed into the bar. Both narrow before a score
+// is computed, and a query's prefix filters within whatever the parameter already
+// selected.
 //
 // TWO SORTED PASSES CONCATENATED, not one sort on a compound key: Typst's
 // `.sorted(key:)` wants a comparable key and an array key is not reliably one
@@ -767,8 +836,9 @@
 //   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
-// one row per note: `(id, name, text, body, href)`, where `text` is the
-// plain-text title ("" when untitled), `body` is that note's compressed term
+// one row per note: `(id, name, text, tags, body, href)`, where `text` is the
+// plain-text title ("" when untitled), `tags` is the note's own tag array (THE KEY
+// IS ABSENT when it has none), `body` is that note's compressed term
 // string ("" when it compresses to nothing), and `href` is the depth-relative
 // path to the note's minted page — computed against the page this call sits on,
 // so an island in a site's shared chrome comes out right on a nested vertebra
@@ -852,12 +922,25 @@
 // selection excludes is not in the JSON, so the browser cannot find it. That is
 // how a bar over just the notes tagged `phd` is built — see `#search-bar`.
 //
-// THE EMITTED ROW SHAPE IS UNCHANGED: no `tags` field goes into the island, even
-// though `search-ideas` now returns one. The selection is settled in Typst
-// before the island is written, so the JavaScript has nothing left to decide,
-// and a field it never reads only makes an island that ships inline on EVERY
-// page bigger. Scope a second corpus with a second index (`elem-id:`), not with
-// a tag the browser would have to filter on.
+// EACH ROW CARRIES ITS NOTE'S `tags`, because the browser now has something left
+// to decide with them: a reader types `tags:(a|b)&c` into the bar and the script
+// evaluates that expression per row (see `#search-ideas`' comment on the two
+// axes). The author's `tags:` parameter below still settles the CORPUS in Typst —
+// what ships is the field the reader's own filter reads.
+//
+// MEASURED, 40 notes with tags present, bodies under 0.2.0's 1200-cluster prefix
+// cap: 51.1 KB -> 51.8 KB, so +723 B, +1.4%, about 18 B per note. The per-note
+// cost is unchanged now that the cap is a term budget; the PERCENTAGE is larger,
+// the rest of the row having shrunk.
+//
+// THERE IS DELIBERATELY NO `tag-search: false` SWITCH. 18 B a note does not earn a
+// knob — `body-search: false` earns one because it removes the largest field in
+// the row, and a per-project judgement about whether full-text hits are noise has
+// no counterpart here.
+//
+// THE KEY IS OMITTED for an untagged note rather than written as `()`, exactly as
+// `body-search: false` omits `body`: an absent key means "none", where `()` would
+// cost a key per row to say the same thing. The port reads `row.tags ?? []`.
 #let search-index(
   elem-id: "rookery-search-index",
   body-terms: 48,
@@ -909,14 +992,28 @@
     ()
   }
   // Built by insertion rather than as one literal, so `body` can be left out
-  // entirely under `body-search: false`. Leaving the KEY OUT is not the same
-  // state as an empty string, and now that a note really can compress to no
-  // terms the difference carries weight: an absent key means "not indexed", `""`
-  // means "indexed, and nothing distinctive survived". `href` is inserted after
-  // it either way, keeping a row's field order the documented one.
+  // entirely under `body-search: false` and `tags` left out for an untagged note.
+  // Leaving the KEY OUT is not the same state as an empty string, and now that a
+  // note really can compress to no terms the difference carries weight: an absent
+  // key means "not indexed", `""` means "indexed, and nothing distinctive
+  // survived". `href` is inserted after them either way, keeping a row's field
+  // order the documented one.
+  //
+  // THE INSERTION ORDER IS THE FIELD ORDER, and `tags` goes after `text` and
+  // before `body` so that an island row reads in the same order as an `ideas()`
+  // row. Nothing depends on it — JSON objects are read by key — but two shapes for
+  // one record differing only in their order is how a reader diffing them wastes
+  // an afternoon.
+  //
+  // THIS LOOP IS AFTER `_compress-corpus`, deliberately: `tags` is added to the
+  // ROW, never to that call's arguments, which stay `selected.map(e => e.body)`.
+  // Its memoisation is keyed on its arguments (see its comment — 287 ms for 30
+  // identical calls against 6242 ms for 30 differing in one), so widening them
+  // would silently multiply build time by the page count.
   let rows = selected.enumerate().map(pair => {
     let (i, e) = pair
     let row = (id: e.id, name: e.name, text: e.text)
+    if e.tags.len() > 0 { row.insert("tags", e.tags) }
     if body-search { row.insert("body", bodies.at(i)) }
     row.insert("href", e.href)
     row

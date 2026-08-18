@@ -236,18 +236,39 @@ export const bodyScore = (body, query) => {
 // the `?? ""` and keep `bodyScore` returning `null` on an absent term match —
 // between them they are what makes the switch need no JavaScript counterpart.
 // It also covers an older island that never carried bodies at all.
+// A LEADING `tags:` EXPRESSION IS EXTRACTED, NOT SCORED. The query is split once
+// before the loop — the tag expression becomes a PREDICATE on each row, and the
+// residual text is what the two tiers rank. `_rank`'s Typst twin does exactly
+// this, in the same place and the same order, which is what `tier parity` pins.
+//
+// The predicate runs FIRST, ahead of every scorer, so a note the tags exclude is
+// never scored at all. And it stays a predicate: no third tier, no score bonus
+// for a tag hit, no perturbation of the tier/sort/limit block below. A tag says
+// WHICH notes are in the corpus; the residual text says how they rank.
+//
+// `row.tags ?? []` for the same reason `row.body ?? ""` is there: an older
+// island, or a row for a note with no tags, simply has no key — `#search-index`
+// omits it rather than shipping `[]` per row.
+//
+// With a tag expression and NO residual text (`tags:draft` on its own), `q` is
+// `""`, `score(hay, "")` is 0 for every survivor, and they all land in the name
+// tier at score 0 in id order. That is the wanted behaviour and needs no special
+// case — same as the Typst side, where `fuzzy-score` returns 0 on an empty query.
 export const search = (rows, query, limit) => {
+  const { rpn, text } = splitQuery(query);
+  const q = text;
   const out = [];
   for (const row of rows) {
-    const sName = score(row.name, query);
-    const sText = row.text === "" ? null : score(row.text, query);
+    if (rpn.length > 0 && !evalTagQuery(rpn, (row.tags ?? []).map(fold))) continue;
+    const sName = score(row.name, q);
+    const sText = row.text === "" ? null : score(row.text, q);
     const nameScore =
       sName === null ? sText : sText === null ? sName : Math.max(sName, sText);
     if (nameScore !== null) {
       out.push({ ...row, score: nameScore, kind: "name" });
       continue;
     }
-    const bScore = bodyScore(row.body ?? "", query);
+    const bScore = bodyScore(row.body ?? "", q);
     if (bScore !== null) out.push({ ...row, score: bScore, kind: "body" });
   }
   const tier = (hit) => (hit.kind === "name" ? 0 : 1);
@@ -334,7 +355,14 @@ const wire = (root, rows, n) => {
     root.dataset.rookerySearchOpen = open ? "true" : "false";
     input.setAttribute("aria-expanded", open ? "true" : "false");
     if (!open) return;
-    const terms = fold(q).split(" ").filter((t) => t !== "");
+    // HIGHLIGHT TERMS COME FROM THE RESIDUAL, not the raw input: a query of
+    // `tags:draft window` must mark "window" and never the literal "tags:draft",
+    // which is an instruction rather than something any note contains.
+    //
+    // Note the `open` test above still reads the RAW input, on purpose — a bare
+    // `tags:draft` with no residual text should open the dropdown, and it is
+    // non-empty even though its residual is "".
+    const terms = fold(splitQuery(q).text).split(" ").filter((t) => t !== "");
     for (const hit of search(rows, q, limit)) {
       list.append(renderRow(hit, terms));
     }
@@ -713,7 +741,12 @@ const wireModal = (dialog, rows) => {
         renderKeywords(hit);
         return;
       }
-      const terms = fold(input.value.trim()).split(" ").filter((t) => t !== "");
+      // The residual, not the raw input: marking the fetched page for the literal
+      // "tags:" would highlight an instruction rather than a match. Same rule as
+      // both `render`s.
+      const terms = fold(splitQuery(input.value.trim()).text)
+        .split(" ")
+        .filter((t) => t !== "");
       // Cloned, not moved: the cache holds this `<div>` for the rest of the
       // session and `markTermsInNode` edits what it walks.
       const clone = box.cloneNode(true);
@@ -748,8 +781,13 @@ const wireModal = (dialog, rows) => {
     // already returns everything at score 0 in id order — telescope's
     // empty-prompt behaviour, deliberately unlike `#search-bar`'s dropdown,
     // which stays shut on an empty query.
+    //
+    // With a `tags:` expression and no residual text, that becomes the whole
+    // FILTERED corpus at score 0 in id order — the same sentence one level in.
     hits = search(rows, q, limit);
-    const terms = fold(q).split(" ").filter((t) => t !== "");
+    // The residual, not the raw input: see `wire`'s `render` above. Marking the
+    // literal "tags:" in every note is the failure this avoids.
+    const terms = fold(splitQuery(q).text).split(" ").filter((t) => t !== "");
     for (const hit of hits) {
       const row = renderRow(hit, terms);
       row.addEventListener("pointerenter", () => {
