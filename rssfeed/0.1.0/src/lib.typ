@@ -272,6 +272,193 @@
   deduped
 }
 
+// ---- spine — built-in source: one entry per spine vertebra ----------------
+//
+// Reproduces what rheo's retired Rust feed generator did by default: every
+// vertebra in the spine is a candidate entry. This is the parity baseline
+// other sources (`items`, below) sit alongside, not a replacement for them.
+//
+// PATTERN B (feature-detect, no assert, no panic without rheo — this
+// package's own CLAUDE.md; existing example `blogfeed/0.1.1/src/lib.typ`):
+// with no rheo present, `sys.inputs` carries no `rheo-context` at all, so
+// this falls back to an empty spine and `spine()(cfg)` returns `()` rather
+// than erroring — see `test/units.typ`. Do NOT add a package-level `#let
+// rheo-context = ...` fallback binding: this package's CLAUDE.md records,
+// with measurements, that any such binding clobbers rheo's real injection.
+#let _rheo-ctx() = sys.inputs.at("rheo-context", default: (spine-flat: ()))
+
+// The value of the `#metadata((handle: .., title: .., date: .., ...))
+// <rheo-meta:<handle>>` beacon rheo emits per vertebra (rheo's
+// `feat/transclusion`, `crates/core/src/util/typst_source.rs`), or `(:)` when
+// the vertebra emitted none (no rheo, or a vertebra rheo did not
+// instrument). Queries the label directly rather than going through rheo's
+// `rheo-metadata-all()` bundle-root helper: a Typst function captures its
+// DEFINITION scope, and that helper's binding exists only in rheo's
+// synthesized bundle root, so package code cannot see it — the label,
+// unlike the helper, is reachable from any scope with context, since rheo
+// compiles the whole bundle in one introspection pass.
+//
+// REQUIRES CONTEXT: `query` only works inside a `context` block. See
+// `spine`'s own doc comment below for where that block lives in practice.
+#let _meta(handle) = {
+  let found = query(label("rheo-meta:" + handle))
+  if found.len() == 0 { (:) } else { found.first().value }
+}
+
+// A beacon's `date` field as a `datetime`, or `none` for anything else.
+// `#set document(date:)` defaults to `auto` when left unset, and a vertebra
+// may also set it to `none` explicitly; either way there is no date to
+// carry, so both collapse to the same `none` here.
+#let _meta-date(meta) = {
+  let d = meta.at("date", default: none)
+  if type(d) == datetime { d } else { none }
+}
+
+// Built-in source: one entry per spine vertebra. `sys.inputs`'s
+// `spine-flat` is a flat pre-order array of `(handle, path, title)` dicts
+// (`title` a plain STRING). REQUIRES CONTEXT — this source's `cfg => (..)`
+// function calls `query` (via `_meta`, above) whenever the spine is
+// non-empty, so call it (typically via `resolve-entries`) from inside a
+// `#context { .. }` block. The normal case is `.marrow.typ`, which already
+// wraps its own read of `configure`'s state the same way.
+//
+// - `title` is the spine entry's own string `title`; `page` is its `path`.
+//   No `url` — `_normalize-entry` builds one from `base-url` + `page`.
+// - `select`, when given, is passed through to every entry unchanged.
+// - `date`, read from the vertebra's metadata beacon (i.e. its own `#set
+//   document(date: ...)`), fills BOTH `published` and `updated` — matching
+//   what the retired Rust generator effectively did (it carried only one
+//   date per page). `keywords` (an array, possibly empty) becomes
+//   `categories`. The beacon's own `title` is CONTENT, not a string, so it
+//   is deliberately ignored in favour of the spine entry's string `title`.
+// - An UNDATED vertebra therefore yields an entry with neither `published`
+//   nor `updated`, which `resolve-entries`'s skip rule then DROPS. This is
+//   INTENTIONAL, not a gap: it is how a cover page or index falls out of
+//   the feed, replacing the retired `rheo-feed-exclude` variable users knew
+//   by name — there is no separate exclude mechanism here.
+// - `filter`, when given, is a predicate over the SPINE ENTRY (e.g. `e =>
+//   e.handle.starts-with("posts:")`), run BEFORE the metadata lookup;
+//   `none` (the default) includes every vertebra, matching the old default.
+#let spine(filter: none, select: none) = cfg => {
+  let entries = _rheo-ctx().at("spine-flat", default: ())
+  if filter != none {
+    entries = entries.filter(filter)
+  }
+  entries.map(v => {
+    let meta = _meta(v.handle)
+    let date = _meta-date(meta)
+    (
+      title: v.title,
+      page: v.path,
+      select: select,
+      published: date,
+      updated: date,
+      categories: meta.at("keywords", default: ()),
+    )
+  })
+}
+
+// ---- items — built-in source: entries from `<rssfeed:item>` beacons -------
+//
+// Lets ANY code, anywhere in the bundle, contribute a feed entry for
+// something that is not a spine vertebra (an idea's page, a generated
+// listing, whatever) with NO import coupling in either direction: this
+// package never imports the contributor's package, and the contributor
+// need not import `@rheo/rssfeed` either — though `item(...)` below makes
+// that easy when it wants to.
+//
+// THE PROTOCOL: emit `#metadata((..)) <rssfeed:item>` (or a matching custom
+// `label-name`) anywhere in the bundle, with the metadata value shaped as an
+// entry per this file's entry model (see the top of this file), e.g.:
+//
+//   #metadata((
+//     id: "idea:etal", title: "Et al.", page: "notes/etal.html",
+//     published: datetime(..), updated: datetime(..), categories: ("note",),
+//   )) <rssfeed:item>
+//
+// rheo compiles the whole bundle in ONE `typst::compile` pass with one
+// introspection loop, so `query()` sees beacons from every vertebra, not
+// just whichever one is calling it — the same fact `spine`'s `_meta`,
+// above, relies on, and the same fact rookery's own cross-vertebra beacons
+// rely on. `:` is legal in a Typst label (rookery relies on this too).
+//
+// REQUIRES CONTEXT (calls `query`) — call (typically via `resolve-entries`)
+// from inside a `#context { .. }` block; the normal case is bundle root (a
+// project's own `.marrow.typ`), the same place it already wraps its read of
+// `configure`'s state.
+//
+// Each beacon's value is VALIDATED here, not left for `_normalize-entry` to
+// discover later: a value that is not a dictionary, or a dictionary with no
+// non-empty `title`, is a hard failure naming `@rheo/rssfeed`, the label,
+// and what was found — a silently dropped malformed item is worse than a
+// build failure.
+#let items(filter: none, label-name: "rssfeed:item") = cfg => {
+  let found = query(label(label-name))
+  let out = ()
+  for f in found {
+    let v = f.value
+    assert(
+      type(v) == dictionary,
+      message: "@rheo/rssfeed: a <" + label-name + "> beacon's value must "
+        + "be a dictionary shaped as an rssfeed entry — got "
+        + repr(type(v)),
+    )
+    assert(
+      type(v.at("title", default: none)) == str and v.at("title").len() > 0,
+      message: "@rheo/rssfeed: a <" + label-name + "> beacon is missing a "
+        + "non-empty `title` — got " + repr(v),
+    )
+    out += (v,)
+  }
+  // `filter`, when given, is a predicate over the ITEM VALUE (the parsed
+  // dict), e.g. `items(filter: it => "note" in it.at("categories", default:
+  // ()))`. `none` (the default) includes every beacon found.
+  if filter != none {
+    out = out.filter(filter)
+  }
+  out
+}
+
+// Author-facing half of the `<rssfeed:item>` protocol: emits a well-formed
+// beacon so an author (or another package) can syndicate an arbitrary page
+// without knowing the label name `items()` reads by default. Arguments
+// mirror the entry model (see the top of this file) — everything but
+// `title` is optional and, when omitted, simply absent from the emitted
+// beacon's value so `_normalize-entry`'s own fallbacks (`author` from the
+// feed, `id` from the built `url`, ...) still apply downstream, exactly as
+// they would for a sparse dict handed straight to a plain source function.
+//
+// Pass a matching non-default `label-name` to both `item(...)` and the
+// `items(label-name: ...)` reading it when using a custom label.
+#let item(
+  title: none,
+  url: none,
+  page: none,
+  select: none,
+  published: none,
+  updated: none,
+  summary: none,
+  categories: (),
+  author: none,
+  id: none,
+  label-name: "rssfeed:item",
+) = {
+  assert(
+    type(title) == str and title.len() > 0,
+    message: "@rheo/rssfeed: item(...) needs a non-empty `title`.",
+  )
+  let value = (title: title, categories: categories)
+  if url != none { value.insert("url", url) }
+  if page != none { value.insert("page", page) }
+  if select != none { value.insert("select", select) }
+  if published != none { value.insert("published", published) }
+  if updated != none { value.insert("updated", updated) }
+  if summary != none { value.insert("summary", summary) }
+  if author != none { value.insert("author", author) }
+  if id != none { value.insert("id", id) }
+  [#metadata(value)#label(label-name)]
+}
+
 // ---- configure — the state-backed entry point (path (a) above) ------------
 //
 // `.marrow.typ` (a later bead, at this package's own root) reads every feed

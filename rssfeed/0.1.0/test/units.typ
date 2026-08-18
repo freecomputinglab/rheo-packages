@@ -20,8 +20,13 @@
 //     entry from a source; an entry missing/empty `title`; an entry with
 //     neither `url` nor `page`.
 //   - `resolve-entries` panics when a source's return value is not an array.
+//   - `items()` panics (via its own beacon validation, at query time) on: a
+//     `<rssfeed:item>` (or custom `label-name`) beacon whose value is not a
+//     dictionary; a beacon dictionary with a missing/empty `title`.
+//   - `item(...)` panics on a missing/empty `title` (same rule, checked at
+//     the emitting end instead of the reading end).
 
-#import "/src/lib.typ": _clean-page, feed, resolve-entries
+#import "/src/lib.typ": _clean-page, feed, item, items, resolve-entries, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -154,3 +159,94 @@
 #let dup = resolve-entries(cfg-dup)
 #assert.eq(dup.len(), 1)
 #assert.eq(dup.first().title, "Dup New")
+
+// ---- spine — no rheo present, so spine-flat is empty and there's no error -
+//
+// This fixture runs under plain `typst compile` with no rheo, so
+// `sys.inputs` carries no `rheo-context` and `spine()`'s internal
+// `_rheo-ctx()` falls back to an empty spine — `entries` is `()`, `.map`
+// never runs its body, and the `query()` inside `_meta` is therefore never
+// actually reached. Still wrapped in `#context`, both because that's the
+// real calling convention (`spine()`'s doc comment: call via
+// `resolve-entries` from inside `#context { .. }`) and because `assert`
+// failures inside a `context` block still fail the compile — the mechanism
+// this whole fixture relies on.
+#let cfg-spine = feed(
+  path: "spine.xml",
+  title: "Spine Feed",
+  base-url: "https://example.com",
+  sources: (spine(),),
+)
+#context {
+  assert.eq(resolve-entries(cfg-spine), ())
+}
+
+// Same, but exercising the argument-accepting shape (`filter`/`select`
+// both given) — still `()` with no rheo, since `spine-flat` is empty before
+// `filter` ever runs. Proves `spine(...)` itself doesn't choke on its own
+// arguments; the `filter`/`select`/date-from-beacon LOGIC can only be
+// exercised under a real rheo build (no way to fake `sys.inputs` here).
+#let cfg-spine-args = feed(
+  path: "spine2.xml",
+  title: "Spine Feed 2",
+  base-url: "https://example.com",
+  sources: (spine(filter: e => true, select: "main"),),
+)
+#context {
+  assert.eq(resolve-entries(cfg-spine-args), ())
+}
+
+// ---- items — beacons emitted by THIS document, read back in one pass -----
+//
+// `query()` sees any beacon in the SAME compile, even under plain `typst
+// compile` with no rheo: one document is one introspection pass. This is
+// the single-vertebra special case of the same fact rheo's own multi-
+// vertebra bundle compile relies on for `spine`'s cross-vertebra
+// `<rheo-meta:*>` beacons above. `item(...)` emits the beacons; `items()`
+// reads them back — this also covers bead point "assert item(...)'s
+// emitted beacon is picked up by items()".
+#item(
+  title: "Note A",
+  page: "notes/a.html",
+  updated: datetime(year: 2026, month: 5, day: 1),
+  categories: ("note",),
+)
+#item(
+  title: "Note B",
+  page: "notes/b.html",
+  updated: datetime(year: 2026, month: 5, day: 2),
+  categories: ("log",),
+)
+
+#let cfg-items = feed(
+  path: "items.xml",
+  title: "Items Feed",
+  base-url: "https://example.com",
+  sources: (items(),),
+)
+#context {
+  let all = resolve-entries(cfg-items)
+  assert.eq(all.len(), 2)
+  assert.eq(all.map(e => e.title).sorted(), ("Note A", "Note B"))
+  // `page`/`url`, `author`, `id` were all omitted from the `item(...)`
+  // calls above — proves `item(...)`'s sparse-dict emission lets
+  // `_normalize-entry`'s own fallbacks (author from the feed, id from the
+  // built url) still apply, rather than baking in explicit `none`s that
+  // would shadow them.
+  assert.eq(all.at(0).author, "Rheo")
+  assert.eq(all.at(0).url, "https://example.com/notes/b.html")
+  assert.eq(all.at(0).id, "https://example.com/notes/b.html")
+}
+
+// `filter` over the parsed item VALUE keeps only the "note"-tagged beacon.
+#let cfg-items-filtered = feed(
+  path: "items-filtered.xml",
+  title: "Items Feed Filtered",
+  base-url: "https://example.com",
+  sources: (items(filter: it => "note" in it.at("categories", default: ())),),
+)
+#context {
+  let filtered = resolve-entries(cfg-items-filtered)
+  assert.eq(filtered.len(), 1)
+  assert.eq(filtered.first().title, "Note A")
+}
