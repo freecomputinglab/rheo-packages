@@ -28,6 +28,124 @@
 
 export const fold = (s) => s.toLowerCase().replaceAll("-", " ").replaceAll("_", " ");
 
+// ---- tags: query — the port of `parse-tag-query` and its evaluator ---------
+//
+// The reader's `tags:` axis, for the live bar. `src/lib.typ`'s section comment
+// above `_prec` carries the full rules — the syntax, the FROZEN escape set
+// `( ) | & ! \`, why shunting-yard rather than recursive descent, and why
+// parsing never fails. The `<tag-parity>` fixture in `test/parity.typ` pins
+// these three functions to their Typst twins over 21 cases, diffing the RPN
+// itself as data, so change neither copy alone.
+
+// `_prec`'s twin, plus the associativity table it does not need: Typst spells
+// `!`'s right-associativity as a literal `c != "!"` in the pop test, which
+// reads as an accident rather than a rule, so it is named here.
+const OPS = { "!": 3, "&": 2, "|": 1 };
+const RIGHT = { "!": true };
+
+// Port of `parse-tag-query` in src/lib.typ. Shunting-yard to RPN, iterative
+// (no recursion), tokens as 2-slot objects. NEVER throws: every malformed
+// form repairs, because a live search box types every prefix of a valid
+// query on the way to it.
+//
+// `[...src]` is the cluster spread this file already uses for Typst's
+// `.clusters()` (see `score` and `snippet`) — never index the string, or a
+// non-ASCII tag breaks parity. `c.trim() === ""` mirrors Typst's
+// `c.trim() == ""` rather than a `/\s/` test, so each side's whitespace
+// definition stays tied to its own runtime's trim instead of to a regex
+// dialect. Typst guards the residual slice because `array.join()` on an EMPTY
+// array is `none` there; `[].join("")` is `""` here, so the guard is
+// unnecessary and the two still agree on a query ending in a bare space.
+//
+// The `i++` in the escape branch consumes the escaped cluster, which is why
+// this stays a `for` and not a `for...of`.
+export const parseTagQuery = (src) => {
+  const cs = [...src];
+  const out = [];
+  const stack = [];
+  const repaired = [];
+  let atom = "";
+  let residual = "";
+  const flushAtom = () => {
+    if (atom === "") return;
+    out.push({ t: "atom", v: fold(atom) });
+    atom = "";
+  };
+  const pushOp = (op) => {
+    while (stack.length) {
+      const top = stack[stack.length - 1];
+      if (top === "(") break;
+      const higher = OPS[top] > OPS[op] || (OPS[top] === OPS[op] && !RIGHT[op]);
+      if (!higher) break;
+      out.push({ t: "op", v: stack.pop() });
+    }
+    stack.push(op);
+  };
+  for (let i = 0; i < cs.length; i++) {
+    const c = cs[i];
+    if (c === "\\") {
+      if (i + 1 < cs.length) { atom += cs[i + 1]; i++; }
+      else repaired.push("trailing-backslash");
+      continue;
+    }
+    if (c.trim() === "") { residual = cs.slice(i + 1).join(""); break; }
+    if (c === "(") { flushAtom(); stack.push("("); continue; }
+    if (c === ")") {
+      flushAtom();
+      let found = false;
+      while (stack.length) {
+        const top = stack.pop();
+        if (top === "(") { found = true; break; }
+        out.push({ t: "op", v: top });
+      }
+      if (!found) repaired.push("unmatched-close");
+      continue;
+    }
+    if (c in OPS) { flushAtom(); pushOp(c); continue; }
+    atom += c;
+  }
+  flushAtom();
+  while (stack.length) {
+    const top = stack.pop();
+    if (top === "(") repaired.push("unclosed-open");
+    else out.push({ t: "op", v: top });
+  }
+  return { rpn: out, residual: residual.trim(), repaired };
+};
+
+// Port of `eval-tag-query`. `tags` must already be folded. An empty RPN is
+// NO FILTER (true), and a binary op with too few operands is skipped — that
+// is what makes a half-typed `tags:a&` behave as `tags:a`.
+export const evalTagQuery = (rpn, tags) => {
+  if (rpn.length === 0) return true;
+  const st = [];
+  for (const tok of rpn) {
+    if (tok.t === "atom") {
+      st.push(tags.some((tg) => tg === tok.v || tg.startsWith(tok.v)));
+      continue;
+    }
+    if (tok.v === "!") {
+      if (st.length === 0) continue;
+      st.push(!st.pop());
+      continue;
+    }
+    if (st.length < 2) continue;
+    const b = st.pop();
+    const a = st.pop();
+    st.push(tok.v === "&" ? a && b : a || b);
+  }
+  return st.length === 0 ? true : st[st.length - 1];
+};
+
+// Port of `split-query`. Only a LEADING `tags:` is recognised, so a note
+// body containing "tags:" can never be mistaken for a filter.
+export const splitQuery = (q) => {
+  const s = q.replace(/^\s+/, "");
+  if (!s.toLowerCase().startsWith("tags:")) return { rpn: [], text: q, repaired: [] };
+  const { rpn, residual, repaired } = parseTagQuery(s.slice(5));
+  return { rpn, text: residual, repaired };
+};
+
 // Port of `fuzzy-score`. `null` (Typst `none`) when the query's characters do
 // not all appear in `hay` in order; otherwise an integer, higher better.
 export const score = (hay, query) => {

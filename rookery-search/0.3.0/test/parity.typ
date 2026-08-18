@@ -139,11 +139,11 @@
 // `parse-tag-query`), rather than a recursive descent whose only comparable
 // output would be its final verdict.
 //
-// THESE 19 CASES ARE THE EXACT SET THE SPIKE VERIFIED — do not thin them out.
-// They are the only place precedence, `!`'s right-associativity, the frozen
-// escape set, folding, the space that ends an expression, and every repair path
-// (`unclosed-open`, `unmatched-close`, a dangling operator, a trailing `\`) are
-// pinned. A case that looks redundant is holding one of those down.
+// THE FIRST 19 CASES ARE THE EXACT SET THE SPIKE VERIFIED — do not thin them
+// out. They are the only place precedence, the frozen escape set, folding, the
+// space that ends an expression, and every repair path (`unclosed-open`,
+// `unmatched-close`, a dangling operator, a trailing `\`) are pinned. A case that
+// looks redundant is holding one of those down.
 //
 // Note that `\\` in a Typst string literal is ONE backslash in the query, which
 // is what a reader would actually type: `"tags:a\\&b"` is the query `tags:a\&b`.
@@ -153,6 +153,14 @@
   "tags:a\\|b|c", "tags:\\(paren\\)", "tags:a\\ b", "tags:(a|", "tags:a&",
   "tags:)a", "tags:", "tags:a\\", "TAGS:note", "window depth",
   "tags:note&&draft", "tags:((note))",
+  // STACKED `!`, added after the spike, and the ONLY thing in this table that
+  // exercises `!` being RIGHT-associative. MEASURED: against the 19 cases above,
+  // deleting the right-associativity entry from the JavaScript port's operator
+  // table changed no case at all and `just parity` still passed — a rule the
+  // comment above claimed to pin and did not. `!!draft` is the shortest input
+  // that needs it: read left-associatively, the second `!` pops the first off the
+  // stack before it has an operand.
+  "tags:!!draft", "tags:!!!draft&note",
 )
 // One fixed ladder of tag sets, evaluated for EVERY case, so the runner compares
 // a whole boolean row rather than a single verdict — the last set is the untagged

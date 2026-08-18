@@ -9,7 +9,7 @@
 // build. The module's auto-init is guarded on `typeof document`, so importing it
 // under node wires nothing.
 import { execFileSync } from "node:child_process";
-import { score, bodyScore, search } from "../src/rookery-search.js";
+import { score, bodyScore, search, splitQuery, evalTagQuery, fold } from "../src/rookery-search.js";
 
 const evalMetadata = (label) =>
   JSON.parse(
@@ -81,3 +81,39 @@ if (tierBad > 0) {
   process.exit(1);
 }
 console.log(`tier parity OK across ${tierCases.length} cases`);
+
+// The `tags:` parser — the one rule here whose output is not a number, so it is
+// diffed AS DATA: the RPN flattened to a string exactly as `_rpn-str` flattens
+// it in `test/parity.typ`, the residual text, and one boolean per fixed tag set.
+// All three, not just the verdict: a parser that agreed only on the final
+// booleans could still have drifted on precedence or on where the expression
+// ends.
+let tagBad = 0;
+const tagRows = evalMetadata("tag-parity");
+// CHARACTER FOR CHARACTER `tag-sets` in `test/parity.typ`, AND IN THE SAME
+// ORDER — `evals` is compared positionally, so a reordering here reads as a
+// parser drift. Change one list, change the other.
+const TAG_SETS = [["note"], ["note", "draft"], ["draft"], ["a", "c"], ["b", "c"], []];
+// `_rpn-str`'s twin: an atom in quotes, an operator bare, joined by spaces.
+const rpnStr = (rpn) =>
+  rpn.map((t) => (t.t === "atom" ? `"${t.v}"` : t.v)).join(" ");
+for (const row of tagRows) {
+  const js = splitQuery(row.query);
+  const jsRpn = rpnStr(js.rpn);
+  // `fold` each tag, as the fixture does and as every real caller must:
+  // `evalTagQuery`'s atoms were folded at push time and it compares folded
+  // against folded.
+  const jsEvals = TAG_SETS.map((s) => evalTagQuery(js.rpn, s.map(fold)));
+  if (jsRpn !== row.rpn || js.text !== row.text ||
+      JSON.stringify(jsEvals) !== JSON.stringify(row.evals)) {
+    tagBad++;
+    console.error(`MISMATCH query=${JSON.stringify(row.query)}
+  typst rpn=${JSON.stringify(row.rpn)} text=${JSON.stringify(row.text)} evals=${JSON.stringify(row.evals)}
+  js    rpn=${JSON.stringify(jsRpn)} text=${JSON.stringify(js.text)} evals=${JSON.stringify(jsEvals)}`);
+  }
+}
+if (tagBad > 0) {
+  console.error(`${tagBad}/${tagRows.length} cases disagree — parse-tag-query and parseTagQuery have drifted`);
+  process.exit(1);
+}
+console.log(`tag parity OK across ${tagRows.length} cases`);
