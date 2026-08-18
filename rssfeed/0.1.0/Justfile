@@ -1,2 +1,17 @@
 default:
     @echo "rssfeed: pure Typst package, entrypoint is src/lib.typ directly — nothing to build"
+
+# Unit fixture for the entry model, feed config, and `resolve-entries`. No
+# runner: `assert`/`assert.eq` inside `test/units.typ` fail the compile with a
+# line number, and a passing compile is the green light.
+#
+# `--root .` so the fixture's `#import "/src/lib.typ"` resolves against THIS
+# package. `--features html` is kept for parity with this repo's other
+# Justfiles (rookery's `test:` needs it because its `src/lib.typ` reads
+# `std.target` at import time) even though this package's `src/lib.typ` reads
+# no target and no rheo context at all — see its own header comment.
+# `--format pdf` with a `/dev/null` output because typst cannot infer a
+# format from that path, and nothing here is rendered — only asserted.
+test:
+    typst compile --features html --root . --format pdf test/units.typ /dev/null
+    @echo "units OK"
