@@ -19,19 +19,23 @@
 //   (b) Called directly from a project's own `.marrow.typ`, for projects
 //       that want to assemble the feed's inputs themselves rather than go
 //       through a minted `configure(...)`. That path reads `resolve-entries`
-//       (and, in a later bead, the XML emitter) directly — it needs the
-//       `state` in (a) not at all.
+//       and `atom(...)` directly — it needs the `state` in (a) not at all.
 //
-// This bead lands the DATA MODEL only: `feed(...)` builds and validates a
-// feed config, `resolve-entries` runs a config's sources and normalises their
-// output into the finished, ordered entry list, and `configure`/the `state`
-// wire path (a) above together. No concrete source (`spine`, `items`, ...)
-// and no XML serialization live here — those are separate beads that build on
-// this one.
+// This file now carries: the DATA MODEL (`feed(...)` builds and validates a
+// feed config; `resolve-entries` runs a config's sources and normalises
+// their output into the finished, ordered entry list); the built-in sources
+// (`spine`, `items`, and the `item(...)` beacon helper); `configure`/the
+// `state` wiring path (a) above; and `atom(...)`, the Atom 1.0 XML
+// serializer. NOT yet landed: `.marrow.typ` itself (a separate bead) — see
+// that function's own doc comment for how it is meant to be called either
+// way.
 //
-// PURE DATA MODELLING: nothing here reads `sys.inputs` or any other
-// rheo-injected context. Every function in this file works identically under
-// plain `typst compile` with no rheo present at all — see `test/units.typ`.
+// MOSTLY rheo-free: `feed(...)`, `resolve-entries`, and `atom(...)` read no
+// `sys.inputs` and work identically under plain `typst compile` with no
+// rheo present — see `test/units.typ`. The built-in sources `spine`/`items`
+// are the exception (Pattern B feature-detection — see their own doc
+// comments): they read `sys.inputs`/`query()` when rheo is present and fall
+// back to empty output when it is not.
 
 // ---- entry — one syndicated page -------------------------------------------
 //
@@ -457,6 +461,174 @@
   if author != none { value.insert("author", author) }
   if id != none { value.insert("id", id) }
   [#metadata(value)#label(label-name)]
+}
+
+// ---- XML string escaping ---------------------------------------------------
+//
+// `&` MUST be escaped FIRST: escaping `<`/`>` before `&` would re-escape the
+// `&amp;`/`&lt;`/`&gt;` those produce, double-escaping the source. Attribute
+// values (always double-quoted in this file) additionally need `"` escaped;
+// text content does not.
+#let _esc-text(s) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+#let _esc-attr(s) = _esc-text(s).replace("\"", "&quot;")
+
+// ---- timestamps — RFC 3339 with an explicit "Z" offset --------------------
+//
+// Atom requires an offset on every timestamp (RFC 4287 §3.3); nothing in
+// this package's data model carries a timezone, so every `datetime` here is
+// treated as UTC and rendered with a literal "Z".
+//
+// MEASURED (typst 0.15.1): a `datetime` built with only `year`/`month`/`day`
+// — exactly what `spine()`'s beacon dates and a bare authored date are — has
+// `.hour()` == `none`, and calling `.display(...)` with an `[hour]` (or
+// `[minute]`/`[second]`) field on it hard-errors "failed to format datetime
+// (insufficient information)" rather than defaulting to midnight. So a
+// date-only `datetime` is detected via `.hour()` and "T00:00:00Z" is
+// spliced on by hand instead of asking `.display` to produce it.
+#let _rfc3339(d) = {
+  let date-part = d.display("[year]-[month]-[day]")
+  if d.hour() == none {
+    date-part + "T00:00:00Z"
+  } else {
+    date-part + "T" + d.display("[hour]:[minute]:[second]") + "Z"
+  }
+}
+
+// ---- atom — serialize a resolved config + entries to an Atom 1.0 string ---
+//
+// The element set is a PARITY TARGET against the retired Rust generator
+// (`atom_syndication`-backed, `rheo/crates/html/src/feed.rs`:
+// `AtomFeed::serialize`/`AtomEntry::to_atom`) — not byte-identical output;
+// whitespace is not chased.
+
+// Largest `updated` across `entries` — becomes the feed-level `<updated>`
+// (RFC 4287 §4.2.15: "most recent instant in which the feed was modified").
+// Never called with an empty array — `atom(...)` below returns `none`
+// before reaching this when `entries` is empty.
+#let _max-updated(entries) = {
+  let m = entries.first().updated
+  for e in entries.slice(1) {
+    if e.updated > m { m = e.updated }
+  }
+  m
+}
+
+// This entry's `<content>`/`<summary>`, or `""` when neither applies (feed
+// `content: none`, or an entry with no `page`, and no `summary` either).
+//
+// `page`'s value is the caller's `page` AS-IS (plugin-output-relative, e.g.
+// "notes/etal.html") — `atom(...)` never resolves or rewrites it. `select`
+// is OMITTED from the `<rheo-content>` placeholder entirely when the entry
+// has none: ABSENT means rheo's own default cascade, not "select nothing",
+// so it must never be emitted as `select=""`.
+#let _content-elem(cfg, e) = {
+  if cfg.content == none or e.page == none {
+    if e.summary != none {
+      "<summary type=\"text\">" + _esc-text(e.summary) + "</summary>"
+    } else {
+      ""
+    }
+  } else {
+    let select-attr = if e.select != none {
+      " select=\"" + _esc-attr(e.select) + "\""
+    } else { "" }
+    let page-attr = "page=\"" + _esc-attr(e.page) + "\""
+    if cfg.content == "html" {
+      "<content type=\"html\"><rheo-content " + page-attr + select-attr + " as=\"escaped\"/></content>"
+    } else {
+      // "xhtml": the placeholder's own `as="raw"` is unescaped because the
+      // wrapping `<div xmlns="...">` is itself the XHTML content model Atom
+      // requires for `type="xhtml"` (RFC 4287 §4.1.3.3) — escaping again
+      // here would double-escape what rheo splices in.
+      "<content type=\"xhtml\"><div xmlns=\"http://www.w3.org/1999/xhtml\">" + "<rheo-content " + page-attr + select-attr + " as=\"raw\"/></div></content>"
+    }
+  }
+}
+
+// One `<entry>`. Order: id, title, published (when present), updated,
+// author (only when it differs from the feed's own — otherwise the feed's
+// `<author>` already covers it per RFC 4287 §4.1.2's inheritance), category
+// per `e.categories`, the alternate link, then content/summary.
+#let _entry-elem(cfg, e) = {
+  let parts = (
+    "<id>" + _esc-text(e.id) + "</id>",
+    "<title>" + _esc-text(e.title) + "</title>",
+  )
+  if e.published != none {
+    // atom:published (RFC 4287 §4.2.9 — creation instant), DISTINCT from
+    // atom:updated (§4.2.15 — last significant modification). A real defect
+    // in the retired Rust generator: it never emitted `atom:published` at
+    // all, mapping the authored date onto `updated` only. Readers
+    // (NetNewsWire, Reeder, Feedbin, Miniflux) prefer `published` for
+    // display/sort when present, so this is a genuine fix, not parity.
+    //
+    // `spine()` fills BOTH `published` and `updated` from the same beacon
+    // date (see its own doc comment) — so a spine entry legitimately
+    // carries the SAME instant in both elements below. That is correct and
+    // expected, not a redundancy to suppress.
+    parts += ("<published>" + _rfc3339(e.published) + "</published>",)
+  }
+  parts += ("<updated>" + _rfc3339(e.updated) + "</updated>",)
+  if e.author != cfg.author {
+    parts += ("<author><name>" + _esc-text(e.author) + "</name></author>",)
+  }
+  for cat in e.categories {
+    parts += ("<category term=\"" + _esc-attr(cat) + "\"/>",)
+  }
+  parts += ("<link rel=\"alternate\" href=\"" + _esc-attr(e.url) + "\"/>",)
+  let content = _content-elem(cfg, e)
+  if content != "" {
+    parts += (content,)
+  }
+  "<entry>" + parts.join("") + "</entry>"
+}
+
+// Serialize a resolved feed config + its entries into an Atom 1.0 (RFC 4287)
+// XML string, ready to be minted with `#asset(...)` by a later bead — or
+// `none` when there are no entries, mirroring the retired Rust generator's
+// early return (`generate_feed`'s "Skip feed generation if no entries"):
+// the caller (that later marrow bead) is expected to check for `none` and
+// skip minting the asset entirely rather than mint an empty/invalid feed.
+//
+// `entries` defaults to `none`, meaning "resolve them here" via
+// `resolve-entries(cfg)` — the convenience path for a caller with no need
+// to inspect or adjust the list first. REQUIRES CONTEXT in that case ONLY
+// when `cfg.sources` includes something that itself requires context
+// (`spine()`, `items()` — see their own doc comments); call the no-`entries`
+// form from inside `#context { .. }` in that case, same as `resolve-entries`
+// itself would need.
+//
+// Passing `entries` explicitly (typically a caller's own prior
+// `resolve-entries(cfg)` call, possibly inspected/filtered/adjusted first)
+// never requires context here regardless of how that list was produced.
+//
+// Feed `<id>` and the `rel="self"` link both use `cfg.base-url + "/" +
+// cfg.path` — the generalised form of the retired generator's hardcoded
+// `base-url + "/feed.xml"`, now following whatever `path` the config set.
+#let atom(cfg, entries: none) = {
+  let entries = if entries == none { resolve-entries(cfg) } else { entries }
+  if entries.len() == 0 {
+    return none
+  }
+
+  let feed-url = cfg.base-url + "/" + cfg.path
+  let head = (
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+    "<feed xmlns=\"http://www.w3.org/2005/Atom\">",
+    "<id>" + _esc-text(feed-url) + "</id>",
+    "<title>" + _esc-text(cfg.title) + "</title>",
+  )
+  let subtitle = if cfg.subtitle != none {
+    ("<subtitle>" + _esc-text(cfg.subtitle) + "</subtitle>",)
+  } else { () }
+  let rest = (
+    "<updated>" + _rfc3339(_max-updated(entries)) + "</updated>",
+    "<author><name>" + _esc-text(cfg.author) + "</name></author>",
+    "<link rel=\"self\" href=\"" + _esc-attr(feed-url) + "\"/>",
+  )
+  let entry-strs = entries.map(e => _entry-elem(cfg, e))
+
+  (head + subtitle + rest + entry-strs + ("</feed>",)).join("")
 }
 
 // ---- configure — the state-backed entry point (path (a) above) ------------
