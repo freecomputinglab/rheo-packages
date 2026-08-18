@@ -25,8 +25,16 @@
 //     dictionary; a beacon dictionary with a missing/empty `title`.
 //   - `item(...)` panics on a missing/empty `title` (same rule, checked at
 //     the emitting end instead of the reading end).
+//   - `_mint-plan` panics when two feeds in its input share the same `path`.
+//
+// `_mint-plan` itself IS testable here, unlike `emit`/`.marrow.typ`: it
+// returns plain `(path, data)` pairs rather than minting with `#asset(...)`
+// — see its own doc comment in `/src/lib.typ` — so it needs no bundle target
+// and nothing calling it here ever gets shown/laid out. `emit(...)` calls
+// `#asset(...)` directly and so is only exercisable under a real rheo build
+// (this fixture compiles to `--format pdf`, where `asset` bails if shown).
 
-#import "/src/lib.typ": _clean-page, atom, feed, item, items, resolve-entries, spine
+#import "/src/lib.typ": _clean-page, _mint-plan, atom, feed, item, items, resolve-entries, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -463,4 +471,78 @@
     "<link rel=\"self\" href=\"https://example.com/custom/atom.xml\"/>",
   ),
   message: "rel=\"self\" href must match the same base-url + \"/\" + path",
+)
+
+// ---- _mint-plan — the shared marrow/emit minting plan ----------------------
+
+// No feeds at all -> no plan, matching a project that imports the package
+// but never calls `configure`/`emit`.
+#assert.eq(_mint-plan(()), ())
+
+// One feed with entries -> its XML plus a trailing `.rheo/head.html` link.
+#let cfg-mint-one = feed(
+  path: "one.xml",
+  title: "One & Only",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+)
+#let plan-one = _mint-plan((cfg-mint-one,))
+#assert.eq(plan-one.len(), 2)
+#assert.eq(plan-one.at(0).path, "one.xml")
+#assert(
+  plan-one.at(0).data.contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">"),
+  message: "the feed's own minted file must be its atom(...) output",
+)
+#assert.eq(plan-one.at(1).path, ".rheo/head.html")
+#assert.eq(
+  plan-one.at(1).data,
+  "<link rel=\"alternate\" type=\"application/atom+xml\" href=\""
+    + "https://example.com/one.xml\" title=\"One &amp; Only\">",
+  // Title escaped (`&` -> `&amp;`) — proves the head fragment goes through
+  // lib.typ's own `_esc-attr` rather than being spliced in raw.
+)
+
+// Two feeds, both with entries -> two minted files, ONE head.html carrying
+// BOTH links in configured order.
+#let cfg-mint-a = feed(
+  path: "a.xml",
+  title: "Feed A",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+)
+#let cfg-mint-b = feed(
+  path: "b.xml",
+  title: "Feed B",
+  base-url: "https://example.org",
+  sources: (_stub-atom-pub,),
+)
+#let plan-two = _mint-plan((cfg-mint-a, cfg-mint-b))
+#assert.eq(plan-two.len(), 3)
+#assert.eq(plan-two.map(m => m.path), ("a.xml", "b.xml", ".rheo/head.html"))
+#assert(
+  plan-two.at(2).data.contains(
+    "<link rel=\"alternate\" type=\"application/atom+xml\" href=\"https://example.com/a.xml\" title=\"Feed A\">",
+  ),
+  message: "head.html must carry feed A's link",
+)
+#assert(
+  plan-two.at(2).data.contains(
+    "<link rel=\"alternate\" type=\"application/atom+xml\" href=\"https://example.org/b.xml\" title=\"Feed B\">",
+  ),
+  message: "head.html must carry feed B's link too — multiple feeds is the headline capability",
+)
+
+// A zero-entry feed among a real one is SKIPPED entirely — no minted XML
+// file for it, and no autodiscovery link for it either.
+#let cfg-mint-empty = feed(
+  path: "empty-mint.xml",
+  title: "Empty Mint Feed",
+  base-url: "https://example.com",
+  sources: (_empty-source,),
+)
+#let plan-mixed = _mint-plan((cfg-mint-one, cfg-mint-empty))
+#assert.eq(plan-mixed.map(m => m.path), ("one.xml", ".rheo/head.html"))
+#assert(
+  not plan-mixed.at(1).data.contains("empty-mint"),
+  message: "a zero-entry feed must not contribute a link either",
 )
