@@ -518,13 +518,49 @@ figure:has(> .idea-window) {
        and wrong between the backlink windows in it.
 
    One value for all three, so a run of windows looks like a run of windows
-   however it was authored. 0.5em rather than the browser's 1em: these are
-   stacked cards of one kind, not unrelated blocks, and they should read as a
-   list. */
+   however it was authored.
+
+   `rem`, NOT `em`, and that is the whole reason minted pages used to look
+   different. MEASURED across three real pages, when this was `0.5em`:
+
+     rookery.ohrg.org, a minted page's Backlinks   6.8px margin, 11.34px gap
+     rookery.ohrg.org, an ordinary page            8px    margin, 20.55px gap
+     maths.ohrg.org, the homepage feed             10.67px margin, 28.13px gap
+
+   Three different gaps for the same rule, because `em` reads whatever font-size
+   it lands in: `.idea-footer` sets `0.85em`, so a minted page's backlink list
+   was spaced by 0.85 of a gap, and a site with a 16pt body got a third more than
+   one with a 16px body. The gap between two stacked cards is page rhythm, not
+   text spacing — it should not shrink because the text around it did.
+
+   1rem puts an ordinary page and a minted page at ~20.6px ALIKE, where they were
+   20.55px and 11.34px: an ordinary page keeps the rhythm it already had, and a
+   minted page's backlinks stop being three-quarters of it. Tried 1.5rem first,
+   matching maths.ohrg.org's own 28.13px, and it read as too much once every page
+   had it.
+
+   IT ONLY BITES WHERE IT EXCEEDS THE FIGURE MARGIN IT COLLAPSES WITH, which is
+   worth knowing before tuning it again. Adjacent figures collapse their vertical
+   margins and the larger wins, so this competes with the UA's own
+   `figure { margin: 1em }` on the card above. MEASURED at `1rem`:
+
+     rookery.ohrg.org, ordinary page   UA 1em = 16px, ours 16px -> 20.55px gap
+     rookery.ohrg.org, minted page     footer zeroes the UA margin -> 20.55px gap
+     maths.ohrg.org (16pt body)        UA 1em = 21.33px WINS -> 28.13px gap
+
+   So on a site whose body is larger than 16px this value is swallowed and the gap
+   is the UA's; the minted page is the one case where it acts alone, because
+   `.idea-footer figure` zeroes the margins around it. That is exactly the case
+   that was wrong, and fixing it is what this value is for.
+
+   It also has to pay for the id now. Since a note's id sits ABOVE its box rather
+   than through the border, the next card's id overhangs into this gap by a whole
+   label — at the default that is 9.12px of the 20.6px, which is why the old
+   `0.5em` left a run of ids crowding the floor of the card above. */
 .idea-window + .idea-window,
 figure:has(> .idea-window) + figure:has(> .idea-window),
 .idea-footer figure + figure {
-  margin-top: 0.5em;
+  margin-top: 1rem;
 }
 
 /* A note and a transclusion of one indent identically, from a rule in the same
