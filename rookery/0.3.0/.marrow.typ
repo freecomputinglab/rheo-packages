@@ -75,7 +75,7 @@
 // Every name here is INTERNAL to `@rheo/rookery` and load-bearing for this
 // file. lib.typ carries the matching "CONSUMED BY .marrow.typ" banner; renaming
 // or re-signing any of them means changing both files in the same commit.
-#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
+#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _containers, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
 
 #context {
   let registry = _registry.final()
@@ -128,6 +128,12 @@
   // Read ONCE, outside the loop: it is one document-wide state for every page
   // this file mints.
   let minted-depth = _window-depth.final() + 1
+
+  // CONTAINMENT: `note id -> containing note id or none`, for the Context
+  // section below. Built ONCE for the whole run, like the backlink maps above —
+  // `_containers` walks the entire document, so calling it per page would walk
+  // it once per note.
+  let containers = _containers()
 
   for (id, rec) in registry.pairs() {
     // Slug, minted path and minted handle from ONE helper, so this file cannot
@@ -272,7 +278,24 @@
         // Context reads as one entry under its heading, exactly as a backlink
         // does — not as a banner across the top. It links to the note's own
         // anchor on that page rather than to the top of it.
-        let context-part = if origin == none { [] } else {
+        //
+        // A CONTAINING NOTE, where there is one, is the more precise answer to
+        // "where does this sit" than the page is, and there IS a note behind it
+        // to fold open — so it renders as a `#window`, exactly as a note
+        // backlink does. `folded: true, depth: 0` are pinned for the reasons the
+        // Backlinks comment below records (a MEASURED `window-depth: 2` project
+        // unfurled an index entry down to a window of the very page it sat on),
+        // and `window` re-adds the prefix itself, hence the same trim.
+        //
+        // `container in registry` as well as non-`none`: a container is always a
+        // registered note in practice, and this keeps a container id the walk
+        // could not reconstruct from panicking a whole build — it falls back to
+        // the page link, which is the answer this section gave before.
+        let container = containers.at(id, default: none)
+        let context-part = if container != none and container in registry {
+          section("idea-context", [Context],
+            window(container.trim(_pfx(), at: start), folded: true, depth: 0))
+        } else if origin == none { [] } else {
           section("idea-context", [Context],
             page-list((link(label(id), _handle-title(origin)),)))
         }
