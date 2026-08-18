@@ -48,6 +48,18 @@
      --idea-external-color            the underline an OUTBOUND link takes on
                                       hover, where an internal one takes the
                                       fill above (defaults to the id colour)
+     --idea-label-font   label-font   the face EVERY HAT is set in — a note's
+                                      `[idea:etal]` id and `#ideas-outline`'s
+                                      "Contents" title, which are the same object
+                                      wearing the same rule. A CSS font stack, not
+                                      a colour and not a length: it is passed
+                                      through unvalidated, and an array of family
+                                      names is joined for you. Defaults to
+                                      `monospace`, the generic family, so it is
+                                      whatever face the reader configured rather
+                                      than one this package picked. BODY PROSE IS
+                                      UNAFFECTED — this package sets no
+                                      `font-family` on writing and must not start
 
    `--idea-border-color` defaults to `--idea-link-color` itself (not to a
    separate literal), so the rule and the link hover read as the same colour
@@ -95,6 +107,12 @@
      of the three, which is the one that reads as machinery rather than as
      part of the heading it sits in. */
   font-size: var(--idea-label-size, 0.57rem);
+  /* THE HAT'S FACE, shared with `#ideas-outline`'s title, which wears the same
+     rule and is therefore the same object. `monospace` is the GENERIC family, so
+     the default is the face the reader configured rather than one this package
+     chose for them — and an id is machine text, which is what a monospace face
+     says without a word of explanation. */
+  font-family: var(--idea-label-font, monospace);
   text-decoration: none;
   border-radius: 3px;
 }
@@ -958,7 +976,13 @@ h6.idea {
 /* An <h4> for document-outline correctness, styled so it does not read as one.
    Size and margins are set explicitly rather than left to inherit: a site's own
    heading scale would otherwise make "Footnotes" compete with the note's title
-   directly above it. */
+   directly above it.
+
+   NOT A HAT, and deliberately not. `#ideas-outline`'s title became one (see
+   `.idea-outline-title`, which this rule used to be pinned to) because it labels the
+   FRAME it sits on. This labels a LIST inside a note that already has its own frame,
+   and the separator above it is an apparatus rule rather than a note's edge. Do not
+   give it a tab to match. */
 .idea-footnotes-title {
   font-size: 1em;
   font-weight: 600;
@@ -1079,22 +1103,66 @@ h6.idea {
 
    `padding-left` is larger than `.idea-box`'s `.75em` because the row's
    marker lives in it: 0.75em of rule plus 0.5em of gap before the text. */
-/* "Contents", above an outline. Pinned to the same size and weight as
-   `.idea-footnotes-title` and for the same reason: both label a block of
-   apparatus rather than open a section, and left to a site's heading scale
-   they announce themselves louder than the writing they belong to. The two
-   are deliberately identical — a reader meeting "Contents" at the top of a
-   page and "Footnotes" at the foot of a note should recognise them as the
-   same kind of thing. */
+/* "Contents", above an outline, AND IT IS A HAT — the same object a note's id is,
+   drawn the same way: a stub of rule out of the top-left corner with the label
+   sitting on its end. The element carries `idea-tab` as well as this class (see
+   `#ideas-outline` in lib.typ), so the flex box and the `::before` stub come from
+   the tab rules above, and only the differences live here.
+
+   IT IS NO LONGER A SIBLING OF `.idea-footnotes-title`, which it used to be pinned
+   to, in size and weight, on the grounds that both label a block of apparatus. That
+   claim is now true of that one and false of this one: an outline's title is part of
+   the outline's FRAME; a footnotes title is a label above a list. That rule keeps its
+   own `1em`/`600` deliberately — see the note there.
+
+   THE REACH-BACK ARITHMETIC DOES NOT ARISE, which is worth stating because the
+   card's version of it is delicate. A card's tab sits INSIDE the padded box, so its
+   stub needs a negative `margin-left` and a width spanning `--idea-pad` plus the
+   rule to reach back out to the corner. This title is a SIBLING of the `<ul>`, above
+   it, so its left edge already IS the `<ul>`'s left edge: the stub starts on the
+   rule's outer edge with no cancellation at all, and `.idea-tab::before`'s width is
+   simply how long the stub looks.
+
+   THAT IS ALSO WHY `.idea-outline`'s `padding-left` STAYS `1.25em` rather than
+   adopting `--idea-pad`. The hat does not read it, and the three outline values are
+   one geometry — the row marker's `width` plus its `margin-right` IS that padding,
+   and its `margin-left` is the negation of it (see the mobile block). Moving it
+   would move every row's marker to buy a consistency nothing now depends on.
+
+   THE CORNER CLOSES VERTICALLY BY GIVING UP THE GAP. `align-items: flex-end` puts
+   the stub on the line's bottom, which is this element's box bottom, so the rule
+   lands exactly on the `<ul>`'s top edge only while nothing separates them — hence
+   `margin: 0` here and `margin-top: 0` on the list below. The air that used to be
+   this element's `margin-bottom` moves to the list's `padding-top`, INSIDE the
+   border, where it cannot push the rule away from the corner.
+
+   UPPERCASE ASSERTED, NOT INHERITED. `rookery.ohrg.org` sets
+   `h1..h6 { font-variant: small-caps }`, and any site with a heading rule may do the
+   same, so both halves are stated here on the package's own class — which beats an
+   element selector on specificity — rather than left to chance. */
 .idea-outline-title {
-  /* `0.85em`, not the `1em` that `.idea-footnotes-title` carries, and the two
-     land on the same size: that rule's `1em` is relative to `.idea-footnotes`,
-     which is itself `0.85em`. This heading has no such wrapper to inherit
-     from, so it applies the same reduction directly. Change one and change the
-     other — the whole point is that they agree. */
-  font-size: 0.85em;
+  /* THE LABEL SIZE, the same property an id reads, because they are one object.
+     This replaces a `0.85em` that existed to match `.idea-footnotes-title`. */
+  font-size: var(--idea-label-size, 0.57rem);
+  font-family: var(--idea-label-font, monospace);
+  font-variant: normal;
+  text-transform: uppercase;
   font-weight: 600;
-  margin: 0 0 0.3em;
+  /* `1`, so the box collapses to the label's own height and the stub sits on the
+     label's own line bottom rather than on the host page's leading — the same
+     reason, and the same value, as the card's tab. */
+  line-height: 1;
+  align-items: flex-end;
+  /* Half the generic tab's gap, as a card's and a window's hats take: the label
+     reads as sitting ON the end of the rule rather than floating past it. */
+  gap: 0.15em;
+  margin: 0;
+}
+
+.idea-outline-title + .idea-outline {
+  margin-top: 0;
+  /* The air under the hat, moved off the title — see the corner note above. */
+  padding-top: 0.4em;
 }
 
 .idea-outline {

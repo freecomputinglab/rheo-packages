@@ -109,7 +109,8 @@ of what points here is a list to scan, not prose to unfurl.
 
 ### The theme
 
-Four colours and two lengths, the whole of what the package will style for you:
+Five colours, two lengths and one font — the whole of what the package will style
+for you:
 
 | key | what it colours | default |
 | --- | --- | --- |
@@ -120,6 +121,7 @@ Four colours and two lengths, the whole of what the package will style for you:
 | `border-color` | the rule down a note, a window and an outline, and the tab that rules off the top of a card | falls back to `link-color` |
 | `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
 | `pad` | the indent between a note's rule and its content, and a window's right padding | `0.5em` (halved under 600px) |
+| `label-font` | the face every **hat** is set in — a note's id, and `#ideas-outline`'s title | `monospace` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -165,6 +167,25 @@ sides agree. Three other things measure the same distance in order to close the
 frame's corner on that rule: the tab's own offset, the top rule's stub, and a folded
 window's tint. They all read this, so a value of your own keeps the corner shut
 rather than opening a notch in it.
+
+`label-font` is the third exception, being neither a colour nor a length. A **hat**
+is the stub of rule out of a frame's top-left corner with a label sitting on its
+end — a note's `[idea:etal]` id wears one, and so does `#ideas-outline`'s
+"Contents", because both label the frame they sit on. This is the face they are set
+in, and it is deliberately the only `font-family` the package sets: your prose is
+yours. Pass a CSS font stack as a string, or the family names as an array and the
+commas are added for you:
+
+```typst
+#show: rookery.with(theme: (label-font: ("Berkeley Mono", "monospace")))
+#show: rookery.with(label-font: "Berkeley Mono, monospace")   // identical
+```
+
+The default is `monospace`, the **generic** family — so out of the box a hat is
+whatever monospace face the reader has configured, not one this package chose for
+them. An id is machine text and a monospace face says so without a word of
+explanation. A `#footnote` or references block's own heading is NOT a hat and does
+not follow this: those label a list inside a note, not the note's frame.
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one
@@ -652,7 +673,7 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 `.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
 `.idea-window`, `.idea-window-summary`, `.idea-window-title`, `.idea-window-date`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
-`.idea-outline-row`, on an idea that carries footnotes `.idea-fn-ref`,
+`.idea-outline-row`, `.idea-outline-title`, on an idea that carries footnotes `.idea-fn-ref`,
 `.idea-footnotes`, `.idea-footnotes-title`, `.idea-footnote-list`,
 `.idea-footnote`, `.idea-fn-backlink`, on one that cites
 `.idea-references` and on any page with citations of its own
@@ -673,11 +694,21 @@ The package ships NO default rule for any `.idea-tag-*`, here or on a note —
 `#note`/`#todo` are sugar, not a recognised set, and styling one would invent an
 opinion.
 
-`.idea-tab` is the span wrapping a note's permalink above its heading: it draws
-the short rule across the top of the card, the id straddling it, in the same
-`--idea-border-color` as the left rule so the two meet at the corner. A bare
-permalink standing in prose — a nested window with no depth budget left — has no
-tab, because there is no card for it to rule off.
+`.idea-tab` is a **hat**: a short stub of rule out of a frame's top-left corner
+with a label sitting on its end, in the same `--idea-border-color` as the rule
+beside it so the two meet at that corner, and in `--idea-label-font`. It appears
+in three places — above a note's heading and above a window's title, where it
+wraps the permalink in a `<span>`; and on `#ideas-outline`'s
+`.idea-outline-title`, which carries `idea-tab` on the `<h4>` itself, because a
+`<span>` may not contain a heading. A bare permalink standing in prose — a nested
+window with no depth budget left — has no tab, because there is no frame for it to
+rule off.
+
+`.idea-outline-title` is that `<h4>`, and it is styled to uppercase at label size
+rather than left to a site's heading scale: `font-variant: normal` and
+`text-transform: uppercase` are asserted on the class, so a site setting
+`h1..h6 { font-variant: small-caps }` cannot turn "Contents" into small caps
+against the ids beside it.
 
 `.idea-head` is the element around the tab and the heading beneath it, in a card
 and on a minted note page alike. It exists because the two have to be real

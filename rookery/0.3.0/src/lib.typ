@@ -242,6 +242,7 @@
   "border-color": "--idea-border-color",
   "rule-width": "--idea-rule-width",
   "pad": "--idea-pad",
+  "label-font": "--idea-label-font",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -2386,8 +2387,27 @@
   // reason) as the Footnotes block's heading: a bare `heading()` compiled to
   // an unclassed `<h2>`, which took the host site's heading scale and made
   // "Contents" as loud as a section title — for a label on a list of links.
-  // The class is what lets it be sized down to match Footnotes, and there is
-  // nothing else on the element to target.
+  // The class is what lets it be sized down, and there is nothing else on the
+  // element to target.
+  //
+  // `idea-tab` ALONGSIDE IT, so this title is A HAT — the same object a note's
+  // id sits on, a stub of rule out of the corner with the label on its end. The
+  // tab treatment goes on the `<h4>` ITSELF rather than wrapping it, because
+  // `.idea-tab` is emitted elsewhere as a `<span>` (`_permalink-tab`) and a
+  // `<span>` may not contain an `<h4>`; the tab is only `display: flex` plus a
+  // `::before`, so an element can wear it directly. It stays an `<h4>` — see
+  // above for why the element matters and the stylesheet for how it is kept from
+  // reading like one.
+  //
+  // `_themed`, AND IT IS NOT OPTIONAL HERE. The theme travels as inline custom
+  // properties, which inherit DOWN the DOM, and this title is a SIBLING of the
+  // `<ul>` rather than a descendant — the same reason `_nest-outline` themes the
+  // outermost `<ul>` itself. MEASURED without it, on a project setting
+  // `border-color: #ff0000, rule-width: 3px, label-font: Berkeley Mono`: the
+  // list drew a 3px red rule while the hat above it drew a 2px last-resort
+  // purple stub in the reader's plain monospace — a corner in two colours and
+  // two widths. With it, both read `--idea-rule-width`/`--idea-border-color` and
+  // the title reads `--idea-label-font`.
   //
   // The paged target keeps the real `heading()`: there it IS a document
   // structure, it belongs in the PDF outline, and nothing is styling it by
@@ -2395,7 +2415,7 @@
   let title-heading = if title-content == none { none } else if (
     _target() == "html" or _target() == "epub"
   ) {
-    html.elem("h4", attrs: (class: "idea-outline-title"), title-content)
+    html.elem("h4", attrs: _themed((class: "idea-outline-title idea-tab")), title-content)
   } else {
     heading(depth: 1, outlined: false, numbering: none, title-content)
   }
@@ -2677,6 +2697,7 @@
   border-color: none,
   rule-width: none,
   pad: none,
+  label-font: none,
   refs: true,
   ref-target: "page",
   doc,
@@ -2735,11 +2756,27 @@
 
   // One converter for both sources, so `theme: (link-color: c)` and
   // `link-color: c` cannot disagree about what a value may be.
-  // The one key that is not a colour. `repr` on a Typst length gives exactly the
-  // CSS it needs — `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work
-  // and neither needs a unit table here. A string passes through for the units
-  // Typst has no literal for, `px` above all, which is what a hairline wants.
-  let css(key, value) = if key in ("rule-width", "pad") {
+  //
+  // THREE KINDS OF VALUE, not two. Colours are the default and the majority;
+  // `rule-width`/`pad` are LENGTHS; `label-font` is a FONT STACK, which is
+  // neither — it is CSS text this package cannot validate and must not mangle, so
+  // it is passed straight through. An array is accepted and joined with `", "`,
+  // because a stack is what a font is and writing it as `("Berkeley Mono",
+  // "monospace")` reads better than embedding the commas in a string.
+  //
+  // The LENGTH branch: `repr` on a Typst length gives exactly the CSS it needs —
+  // `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work and neither
+  // needs a unit table here. A string passes through for the units Typst has no
+  // literal for, `px` above all, which is what a hairline wants.
+  let css(key, value) = if key == "label-font" {
+    assert(
+      type(value) == str or (type(value) == array and value.all(f => type(f) == str)),
+      message: "@rheo/rookery: theme `label-font` must be a CSS font stack as a "
+        + "string (\"Berkeley Mono, monospace\") or an array of family names "
+        + "((\"Berkeley Mono\", \"monospace\")) — got " + repr(value),
+    )
+    if type(value) == array { value.join(", ") } else { value }
+  } else if key in ("rule-width", "pad") {
     assert(
       type(value) == length or type(value) == str,
       message: "@rheo/rookery: theme `" + key + "` must be a length (2pt, 0.15em) "
@@ -2773,6 +2810,7 @@
     border-color: border-color,
     rule-width: rule-width,
     pad: pad,
+    label-font: label-font,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }
