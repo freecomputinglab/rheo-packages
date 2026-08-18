@@ -26,9 +26,9 @@
 // their output into the finished, ordered entry list); the built-in sources
 // (`spine`, `items`, and the `item(...)` beacon helper); `configure`/the
 // `state` wiring path (a) above; and `atom(...)`, the Atom 1.0 XML
-// serializer. NOT yet landed: `.marrow.typ` itself (a separate bead) — see
-// that function's own doc comment for how it is meant to be called either
-// way.
+// serializer. Path (a)'s other half is this package's own `.marrow.typ`,
+// which reads `_feeds` and mints what `_mint-plan` returns; `emit(...)`
+// below is path (b)'s entry point onto the same plan.
 //
 // MOSTLY rheo-free: `feed(...)`, `resolve-entries`, and `atom(...)` read no
 // `sys.inputs` and work identically under plain `typst compile` with no
@@ -64,10 +64,10 @@
 // A source is a FUNCTION taking the resolved feed config dict (the same
 // dict `feed(...)` returns) and returning an array of entries — nothing
 // more. There is no source registry and no descriptor dict: a built-in
-// source (`spine`, `items`, ... — separate beads) is constructed with
-// `.with(...)` so it is an ordinary function at the call site:
+// source (`spine`, `items`) takes its own arguments and RETURNS that
+// function, so it reads as an ordinary call at the call site:
 //
-//   #rssfeed.feed(sources: (rssfeed.spine.with(root: "posts"),), ...)
+//   #feed(sources: (spine(filter: e => e.handle.starts-with("posts:")),), ...)
 //
 // and a user-written source is any function of the same shape — nothing
 // package-specific about it:
