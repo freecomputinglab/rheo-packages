@@ -60,6 +60,19 @@
                                       than one this package picked. BODY PROSE IS
                                       UNAFFECTED — this package sets no
                                       `font-family` on writing and must not start
+     --idea-label-size   label-size   the size every HAT is set in, alongside
+                                      `label-font` above — the same id and
+                                      "Contents" title. A LENGTH: pass a Typst
+                                      length or a CSS length string, `rem`
+                                      preferred (see `.idea-label`'s font-size
+                                      below for why `rem` and not `em`).
+                                      LOAD-BEARING beyond the label itself: the
+                                      tab's lift, a window's summary lift, a
+                                      folded window's tint offset and the
+                                      footer's padding are all `calc()`s against
+                                      this same variable, so retheming it keeps
+                                      the card's corner shut. Defaults to
+                                      `0.57rem`
 
    `--idea-border-color` defaults to `--idea-link-color` itself (not to a
    separate literal), so the rule and the link hover read as the same colour

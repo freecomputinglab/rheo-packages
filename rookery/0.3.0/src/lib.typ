@@ -243,6 +243,7 @@
   "rule-width": "--idea-rule-width",
   "pad": "--idea-pad",
   "label-font": "--idea-label-font",
+  "label-size": "--idea-label-size",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -2739,6 +2740,7 @@
   rule-width: none,
   pad: none,
   label-font: none,
+  label-size: none,
   refs: true,
   ref-target: "page",
   doc,
@@ -2799,11 +2801,12 @@
   // `link-color: c` cannot disagree about what a value may be.
   //
   // THREE KINDS OF VALUE, not two. Colours are the default and the majority;
-  // `rule-width`/`pad` are LENGTHS; `label-font` is a FONT STACK, which is
-  // neither — it is CSS text this package cannot validate and must not mangle, so
-  // it is passed straight through. An array is accepted and joined with `", "`,
-  // because a stack is what a font is and writing it as `("Berkeley Mono",
-  // "monospace")` reads better than embedding the commas in a string.
+  // `rule-width`/`pad`/`label-size` are LENGTHS; `label-font` is a FONT STACK,
+  // which is neither — it is CSS text this package cannot validate and must
+  // not mangle, so it is passed straight through. An array is accepted and
+  // joined with `", "`, because a stack is what a font is and writing it as
+  // `("Berkeley Mono", "monospace")` reads better than embedding the commas
+  // in a string.
   //
   // The LENGTH branch: `repr` on a Typst length gives exactly the CSS it needs —
   // `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work and neither
@@ -2817,7 +2820,12 @@
         + "((\"Berkeley Mono\", \"monospace\")) — got " + repr(value),
     )
     if type(value) == array { value.join(", ") } else { value }
-  } else if key in ("rule-width", "pad") {
+  } else if key in ("rule-width", "pad", "label-size") {
+    // For `label-size` specifically, the STRING path is the primary one,
+    // unlike `rule-width`/`pad` where a Typst length is more commonly used —
+    // this key's whole point is staying in `rem` (see the readme), and Typst
+    // has no `rem` literal, so `"0.8rem"` rather than a length is expected to
+    // be the normal spelling here.
     assert(
       type(value) == length or type(value) == str,
       message: "@rheo/rookery: theme `" + key + "` must be a length (2pt, 0.15em) "
@@ -2852,6 +2860,7 @@
     rule-width: rule-width,
     pad: pad,
     label-font: label-font,
+    label-size: label-size,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }

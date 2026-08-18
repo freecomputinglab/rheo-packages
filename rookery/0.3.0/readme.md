@@ -120,7 +120,7 @@ of what points here is a list to scan, not prose to unfurl.
 
 ### The theme
 
-Five colours, two lengths and one font — the whole of what the package will style
+Five colours, three lengths and one font — the whole of what the package will style
 for you:
 
 | key | what it colours | default |
@@ -133,6 +133,7 @@ for you:
 | `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
 | `pad` | the indent between a note's rule and its content, and a window's right padding | `0.5em` (halved under 600px) |
 | `label-font` | the face every **hat** is set in — a note's id, and `#ideas-outline`'s title | `monospace` |
+| `label-size` | the size every **hat** is set in — a note's id, and `#ideas-outline`'s title | `0.57rem` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -197,6 +198,30 @@ whatever monospace face the reader has configured, not one this package chose fo
 them. An id is machine text and a monospace face says so without a word of
 explanation. A `#footnote` or references block's own heading is NOT a hat and does
 not follow this: those label a list inside a note, not the note's frame.
+
+The size a hat is set in travels with its face — a project theming `label-font`
+should usually theme `label-size` alongside it, since both describe the same
+object.
+
+`label-size` is the fourth exception, a length like `rule-width`/`pad` but with a
+twist: the primary way to set it is a **string in `rem`**, not a bare Typst
+length, and that matters more here than for the other two. `--idea-label-size`
+is not just cosmetic — the tab's lift, a window's summary lift, a folded
+window's tint offset and the footer's own padding are all expressed as
+`calc()`s against this same variable, so retheming it keeps the card's corner
+shut instead of opening a notch. It is `rem`, deliberately, not `em`: an id is
+one object wherever it appears, and `em` made it three visibly different
+sizes depending on context — 0.57 of an `#idea` heading, 0.57 of a minted
+page's `<h1>`, 0.57 of a window summary's body text (MEASURED, on
+rookery.ohrg.org). `rem` keeps a hat one size everywhere; `em` does not. This
+package doesn't police a theme's choice of unit — `em`, `px`, anything CSS
+accepts is still a legal value — but a theme reaching for something other
+than `rem` here is opting back into that per-context drift.
+
+```typst
+#show: rookery.with(theme: (label-size: "0.8rem"))
+#show: rookery.with(label-size: "0.8rem")   // identical
+```
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one
