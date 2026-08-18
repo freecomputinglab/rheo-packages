@@ -1,0 +1,9 @@
+[package]
+name = "rssfeed"
+version = "0.1.0"
+compiler = "0.15.0"
+entrypoint = "src/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "Atom feeds for Rheo projects, generated from configurable sources"
+repository = "https://github.com/freecomputinglab/rheo-packages"
