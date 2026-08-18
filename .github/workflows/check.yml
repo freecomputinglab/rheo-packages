@@ -84,10 +84,11 @@ jobs:
       # anywhere. `demo/rheo` is NOT run here: it needs the `rheo` binary from the
       # sibling `rheo/` crate, which is not installable from this repo — see that
       # demo's own Justfile.
+      # `just build`, not a hand-copied subset of its `typst compile` lines: that
+      # subset drifted before (it ran only root.typ->html and paged.typ->pdf while
+      # the Justfile's own `build` recipe had grown to six compiles across three
+      # roots. Running the recipe directly means a
+      # new root added to the Justfile is gated in CI automatically instead of
+      # needing this step updated in the same commit and possibly forgotten.
       - name: rookery pure demo compiles, HTML and PDF
-        run: |
-          set -euo pipefail
-          cd rookery/0.3.0/demo/pure
-          mkdir -p build
-          typst compile --features html --format html --root ../.. root.typ build/root.html
-          typst compile --features html --root ../.. paged.typ build/paged.pdf
+        run: cd rookery/0.3.0/demo/pure && just build
