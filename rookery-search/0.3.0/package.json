@@ -1,11 +1,14 @@
 {
   "name": "rheo-rookery-search",
   "version": "0.3.0",
+  "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "test": "node --test test/*.test.mjs"
   },
   "packageManager": "pnpm@10.21.0",
   "devDependencies": {
+    "linkedom": "^0.18.13",
     "vite": "^8.0.5",
     "vite-plugin-static-copy": "^4.0.1"
   }
