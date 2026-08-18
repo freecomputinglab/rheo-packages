@@ -122,7 +122,15 @@
 // gets a duplicated CSS class. Defined before `note`/`todo` below: a `#let`
 // closure captures the scope visible AT DEFINITION time, so a forward
 // reference to a not-yet-defined name fails at call time.
-#let _dedup-tag(tag, tags) = if tag in tags { tags } else { (tag,) + tags }
+//
+// `tags` is normalized here, not left to `#idea`'s own coercion: `#note`/
+// `#todo` call this BEFORE `tags` ever reaches `#idea`, so `tags: "draft"`
+// would hit `tag in tags` (a substring test, not a membership test) and then
+// `(tag,) + tags` (array + string) — the second one hard-errors.
+#let _dedup-tag(tag, tags) = {
+  let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
+  if tag in tags { tags } else { (tag,) + tags }
+}
 
 // ---- _sort-ids — a total order over a window's selected ids ---------------
 //

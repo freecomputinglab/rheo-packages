@@ -522,10 +522,22 @@
 // does not: it is always emitted inside a container that does — `.idea-box`,
 // `.idea-window-summary`, or (on a minted page) the `.idea-head` wrapper — and
 // custom properties inherit.
-#let _permalink-tab(id, href: auto) = html.elem(
+// `date` IS THE HAT'S OTHER END. Emitted LAST and pushed to the far right of the
+// rule by `margin-left: auto` in the stylesheet, so the hat reads id-on-the-left,
+// date-on-the-right with the frame's top edge between them. It used to render
+// inside the heading (`#idea`) or as a third item in the summary row (`#window`) —
+// two classes in two places for one piece of metadata. Both now pass it here.
+//
+// A STRING, already formatted, not a `datetime`: the two call sites resolve which
+// date to show and how to display it (`#idea` from `updated`/`minted`/the
+// document's own, `_window-content` from the registry record), and the paged
+// branches need the same string without a hat to hang it on. Formatting here would
+// put that decision in a third place.
+#let _permalink-tab(id, href: auto, date: none) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
-  _permalink(id, href: href),
+  _permalink(id, href: href)
+    + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
 )
 
 // The tab and the heading as ONE element, wherever a note wears a header.
@@ -1064,8 +1076,13 @@
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
 #let _window-content(id, rec, shown, folded, show-date, windows-claim: false) = {
-  let date = if show-date and rec.minted != none {
-    rec.minted.display("[year]-[month]-[day]")
+  // `updated`, not `minted`, matching `#idea`'s own hat. The registry record
+  // carries both, and `updated` already falls back to `minted` (which falls back
+  // to the document's date) when the note never named one — so a note that says
+  // nothing looks exactly as it did, and a note that does shows when it was last
+  // touched, which is what a reader of a rookery wants off the top of a window.
+  let date = if show-date and rec.updated != none {
+    rec.updated.display("[year]-[month]-[day]")
   } else { none }
 
   if _target() == "html" or _target() == "epub" {
@@ -1075,16 +1092,18 @@
     let title-span = if rec.title == none { [] } else {
       html.elem("span", attrs: (class: "idea-window-title"), rec.title)
     }
-    let date-span = if date == none { [] } else {
-      html.elem("span", attrs: (class: "idea-window-date"), date)
-    }
     // The tab stays INSIDE the `<summary>`, as its first child. Moving it into
     // the `<details>` body would hide the id whenever the window is folded, and
     // it has to be visible and clickable in both states.
+    //
+    // THE DATE GOES IN THE TAB, not beside the title as a third item in this row.
+    // `.idea-window-date` is gone with it: a date is the same object on a card and
+    // on a window, so it wears the same class in the same place, and the summary
+    // row is back to a tab plus a title.
     let summary = html.elem(
       "summary",
       attrs: (class: "idea-window-summary"),
-      _permalink-tab(id) + title-span + date-span,
+      _permalink-tab(id, date: date) + title-span,
     )
     // `open` is a BOOLEAN html attribute: present means open and there is no
     // value meaning closed, so the attrs dictionary itself has to differ
@@ -1367,6 +1386,18 @@
 }
 
 #let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
+  // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
+  // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
+  // below and further down at render time — str has no `.map`, so the error
+  // surfaced as an opaque method-not-found far from the actual mistake.
+  assert(
+    tags == none
+      or type(tags) == str
+      or (type(tags) == array and tags.all(t => type(t) == str)),
+    message: "@rheo/rookery: #idea's `tags` must be none, a string, or an "
+      + "array of strings — got " + repr(tags),
+  )
+  let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
   let pos = args.pos()
   let (name, body) = if pos.len() == 1 {
     (none, pos.at(0))
@@ -1412,9 +1443,15 @@
 
       // `show-date` gates display only — the date is always RESOLVED and
       // stored on the registry record above, so a #window of this note can
-      // still show it even when the note's own heading (here) does not.
-      let date = if show-date and resolved-minted != none {
-        resolved-minted.display("[year]-[month]-[day]")
+      // still show it even when the note's own hat (here) does not.
+      //
+      // `resolved-updated`, NOT `resolved-minted`: the date a reader wants off the
+      // top of a card is when the note was last touched. Nothing changes for a note
+      // that never says `updated:`, because `resolved-updated` falls back to
+      // `resolved-minted` one line above, which falls back to the document's own
+      // date. `_window-content` reads the same field off the registry record.
+      let date = if show-date and resolved-updated != none {
+        resolved-updated.display("[year]-[month]-[day]")
       } else { none }
 
       // The note's CONTEXT: the handle of the page this `#idea` was written
