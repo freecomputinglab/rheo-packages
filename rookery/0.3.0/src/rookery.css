@@ -522,7 +522,14 @@ h6.idea:empty {
    than intended, with the rule and everything else intact. A worse indent, not
    a broken layout. */
 figure:has(> .idea-box),
-figure:has(> .idea-window) {
+figure:has(> .idea-window),
+/* A `#window` that BOTTOMED OUT at its depth budget is wrapped in a figure like any
+   other window, but its content is a `ul.idea-page-list` rather than an
+   `.idea-window` — so it matched neither selector above and kept the UA's
+   `margin: 1em 40px`. MEASURED on rookery.ohrg.org: the row's bar sat at x=364.5
+   where an `.idea-box` on the same page sat at 304.5, 60px out, which read as a
+   deeply indented aside rather than as the frame's own row. */
+figure:has(> .idea-page-list) {
   margin-left: 0;
   margin-right: 0;
   /* ROOM FOR THE LIFTED ID. The tab is pulled up by a negative margin, which does
