@@ -1,8 +1,9 @@
 // tags.typ — #note/#todo (pure sugar over `tags`, lib.typ:1591-1592),
-// `#tags-of` (lib.typ:1609), and `#window(tags: .., match: "all")`
+// `#tags-of` (lib.typ:1609), `#window(tags: .., match: "all")`
 // (`match:` defaults to "any", already exercised by the second `#window`
-// call below).
-#import "../../src/lib.typ": note, todo, tags-of, window
+// call below), and `show-tags:` — tags rendered as pills in the hat
+// (`_permalink-tab`, lib.typ:550/1614), alongside `show-date:`.
+#import "../../src/lib.typ": idea, note, todo, tags-of, window
 
 #note("n-plain")[A plain sugar note — `#note` prepends the "note" tag.]
 #todo("t-plain")[A plain sugar todo — `#todo` prepends the "todo" tag.]
@@ -24,3 +25,33 @@
 
 // `match: "any"` (the default) — todo OR phd, so three of the four above.
 #window(tags: ("todo", "phd"))
+
+// show-tags: true, alongside show-date: true — both a row of tag pills AND
+// the date render in the same hat, in `_permalink-tab`'s fixed order (id,
+// tags, date). Three tags so the row visibly wraps more than one pill.
+#note(
+  "n-hat",
+  tags: ("draft", "phd", "review"),
+  show-tags: true,
+  show-date: true,
+  minted: datetime(year: 2025, month: 2, day: 1),
+)[A note with tag pills AND a date in the same hat.]
+
+// `updated:` distinct from `minted:` — the hat shows `resolved-updated`, not
+// `resolved-minted` (lib.typ:1478-1492), so this hat reads 2026-03-15 despite
+// having been minted in 2024. Combined with show-tags: true since both are
+// the same hat-rendering feature.
+#idea(
+  "n-updated",
+  title: [Updated vs minted],
+  tags: ("phd",),
+  minted: datetime(year: 2024, month: 1, day: 1),
+  updated: datetime(year: 2026, month: 3, day: 15),
+  show-date: true,
+  show-tags: true,
+)[Minted 2024, updated 2026 — the hat shows 2026-03-15, not 2024-01-01.]
+
+// #window(show-tags: true) — the pill row renders in a window's summary too,
+// not just #idea's own card: `show-tags` threads into `_window-content` the
+// same way `show-date` does (lib.typ:1904-1905).
+#window("n-hat", show-tags: true)

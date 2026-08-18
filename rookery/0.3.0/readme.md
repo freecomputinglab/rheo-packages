@@ -17,7 +17,7 @@ next to the note, since with no name there's no other way to know it.
 ```
 
 Full signature: `idea(level: 1, title: none, tags: (), minted: none,
-updated: none, show-date: false, ..args)`, where the sink accepts the body
+updated: none, show-date: false, show-tags: false, ..args)`, where the sink accepts the body
 alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
 Typst label, identically.
 
@@ -311,6 +311,10 @@ Three ways, pick by how much ceremony you want:
 
   `show-date: true` shows the note's `updated` date at the right-hand end of the
   hat, opposite the permalink — off by default. See "Dates" below.
+
+  `show-tags: true` shows the note's tags as a row of pills in the hat, between
+  the permalink and the date — off by default, same mechanism as `show-date`.
+  See "Tags" below.
 
   `depth: 0` renders this window as a LINK to the note's page and transcludes
   nothing; `depth: 1` renders the note and collapses any `#window` written
@@ -706,7 +710,7 @@ get Typst's plain nested `list()` instead: there is no `.idea-box` rule there
 for an outline to be in line with.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
-`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
+`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag`, `.idea-tag-<tag>`, `.idea-ref`,
 `.idea-window`, `.idea-window-summary`, `.idea-window-title`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
 `.idea-outline-row`, `.idea-outline-title`, on an idea that carries footnotes `.idea-fn-ref`,
@@ -782,6 +786,37 @@ tags, not a taxonomy, and NOT a task tracker.
 
 Each tag becomes its own `idea-tag-<tag>` CSS class on the note's
 heading, alongside the base `idea` class — style them in your own stylesheet.
+
+**`show-tags: true`** on `#idea`/`#window` ALSO renders a note's tags as a row
+of visible pills in the hat — the same `.idea-tab` the id and (with
+`show-date: true`) the date sit on, in that fixed order: id, then tags, then
+date. Off by default, the same mechanism as `show-date`:
+
+```typst
+#idea("meeting-notes", tags: ("draft", "review"), show-tags: true)[...]
+#window("meeting-notes", show-tags: true) // pills again here, independently
+```
+
+An untagged note's tag list is empty either way, so `show-tags: true` renders
+no pill for it.
+
+Each pill carries TWO classes: `.idea-tag`, the pill's own hook, and
+`.idea-tag-<tag>` — the SAME class the note's heading and card already wear.
+**`@rheo/rookery-search`'s own result-row chips wear it too** (alongside that
+package's own `.rookery-search-tag`), so one project rule — `.idea-tag-draft {
+color: ...; }` — styles that tag everywhere it shows up: the note's heading,
+its card, an outline row, a hat pill, and a search result chip alike.
+
+Four CSS custom properties style the pill, the same "your own stylesheet, no
+Typst-side key" mechanism as `--idea-external-color` — there is no `theme:`
+entry for these, unlike the nine keys in "The theme" above:
+
+| property | what it sets | default |
+| --- | --- | --- |
+| `--idea-tag-size` | the pill's font size | `--idea-label-size` (`0.57rem`) |
+| `--idea-tag-radius` | the pill's corner radius | `999px` |
+| `--idea-tag-color` | the pill's text colour | `--idea-id-color` (`gray`) |
+| `--idea-tag-bg` | the pill's background | `rgba(128, 128, 128, 0.18)`, or `color-mix(in oklab, currentColor 14%, transparent)` where supported |
 
 `#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
 whatever the caller passes:
@@ -860,9 +895,11 @@ falls back to the document's own date, so a note that never says `updated:` look
 exactly as it did.
 
 A note's own minted page is the exception: there the date shows **always**, with
-no `show-date:` to gate it. Nobody writes an `#idea` call for that page —
-`.marrow.typ` mints it from the registry — and a note's own page is the one place
-its date is metadata rather than a decoration on someone else's prose.
+no `show-date:` to gate it — and its tags render as pills too, same hat, same
+"always", no `show-tags:` to gate that either. Nobody writes an `#idea` call for
+that page — `.marrow.typ` mints it from the registry — and a note's own page is
+the one place its date and its tags are metadata rather than a decoration on
+someone else's prose.
 
 The two call-site settings are independent: passing `show-date: true` to a
 `#window` surfaces the date even when the note's own `#idea` left it hidden, and
