@@ -306,43 +306,80 @@
   points
 }
 
-// Full-text AND match over a note's body: `none` unless every whitespace-split
-// term in `query` appears somewhere in `body`, otherwise an integer score,
-// higher is better. Deliberately NOT `fuzzy-score` — that is a subsequence
-// matcher, good over a 40-character id but useless over a 2000-character body,
-// where its length term (line 97) clamps to 0 for nearly everything and the
-// surviving score is noise.
+// AND match over a note's body: `none` unless every whitespace-split term in
+// `query` appears as a substring of some SPACE-SEPARATED TERM of `body`,
+// otherwise an integer score, higher is better. Deliberately NOT `fuzzy-score`
+// — that is a subsequence matcher, good over a 40-character id and noise over a
+// body, where its length term clamps to 0 for nearly everything.
 //
-// AND across terms — every term must appear — is what keeps a multi-word
-// query from behaving like an OR and dragging in the whole corpus.
+// `body` IS A TERM LIST wherever the browser calls this. What `#search-index`
+// ships is `_compress-corpus`' output: a note's most distinctive terms,
+// space-joined IN WEIGHT ORDER. `#search-ideas` calls the same function on FULL
+// prose (see the asymmetry documented there), where a "term" is simply a word
+// and the rule degrades to word-position earliness.
 //
-// +6 for the whole query appearing as one contiguous phrase; +2 per term for
-// simply being present; up to +3 per term for appearing early, in coarse
-// 200-CLUSTER buckets. Clusters, not bytes: `str.position` returns a byte
-// offset and JavaScript's `indexOf` returns a UTF-16 offset, and those
-// disagree the moment a body contains a non-ASCII character — counting
-// clusters is the one measure both languages can produce identically, the
-// same reason `fuzzy-score` already works in `.clusters()`.
+// AND across terms — every term must appear — is what keeps a multi-word query
+// from behaving like an OR and dragging in the whole corpus. Matching is by
+// SUBSTRING per term, so a prefix query still lands: `justif` finds
+// `justification`, `0.5` finds `0.5.1`.
 //
-// Integer arithmetic throughout, same reason as `fuzzy-score` (line 69):
+// THE SCORE IS RANK, because in a compressed body position IS the weight (no
+// weights are shipped — see `_compress-corpus`). Per query term:
+// `max(1, 10 - int(rank / 4))`, where `rank` is the index of the first kept term
+// containing it, plus 3 when the query term IS a kept term exactly. Summed over
+// the terms. The exact-match bonus tests membership of the whole list, not
+// equality with the term at `rank`, so a prefix hit high up does not cost a note
+// the bonus its exact term earns further down.
+//
+// MEASURED in the spike: "rheo-context" scores 13 / 12 / 11 across
+// `idea:26w30-rheo`, `26w28-rheo` and `26w29-rheo` purely by where the term sits
+// in each note's weight order.
+//
+// NO PHRASE BONUS. The +6 for the whole query appearing contiguously is gone:
+// no phrase survives compression, so it could never fire.
+//
+// NO 200-CLUSTER BUCKETS EITHER, and with them goes the last place the two
+// languages could disagree about offsets — `str.position` is a byte offset,
+// JavaScript's `indexOf` a UTF-16 one, and the old rule had to re-count both
+// through `.clusters()` to agree. A rank is a term INDEX, which both languages
+// count identically for free.
+//
+// `lower`, NOT `_fold`, and the difference is load-bearing: `_fold` turns `-`
+// and `_` into spaces, which would split `rheo-context` — the exact token
+// `_tokenize` works to preserve — into two query terms and destroy the
+// exact-match +3. Little is lost, because matching is per-term substring: the
+// query "flat ids" still finds the term `flat-ids`, both halves being substrings
+// of it. What IS lost is the reverse, "flat-ids" typed at a body that spells it
+// as two words. That trade buys exact-term scoring and is deliberate.
+//
+// BOTH SIDES SPLIT ON A LITERAL SPACE, not on whitespace generally, and neither
+// side may be "fixed" alone. `_compress-corpus` joins with a space, so the
+// browser's input never holds anything else; a full prose body reaching here from
+// `#search-ideas` can hold a newline, which then sits inside a term and only
+// coarsens its rank. Typst's `split(" ")` and JavaScript's `split(" ")` treat
+// that identically — a whitespace regex on one side would not.
+//
+// Integer arithmetic throughout, same reason as `fuzzy-score`:
 // `src/rookery-search.js` ports this rule for the live bar and `just parity`
 // diffs the two number for number.
 #let body-score(body, query) = {
-  let h = _fold(body)
-  let q = _fold(query)
+  let h = lower(body)
+  let q = lower(query)
   if q.trim() == "" { return none }
   let terms = q.split(" ").filter(t => t != "")
   if terms.len() == 0 { return none }
-  for term in terms {
-    if not h.contains(term) { return none }
-  }
+  let kept = h.split(" ").filter(t => t != "")
   let points = 0
-  if h.contains(q) { points += 6 }
   for term in terms {
-    points += 2
-    let i = h.position(term)
-    let cl = h.slice(0, i).clusters().len()
-    points += calc.max(0, 3 - int(cl / 200))
+    let rank = none
+    let i = 0
+    while i < kept.len() {
+      if kept.at(i).contains(term) { rank = i; break }
+      i += 1
+    }
+    if rank == none { return none }
+    points += calc.max(1, 10 - int(rank / 4))
+    if kept.contains(term) { points += 3 }
   }
   points
 }
@@ -437,6 +474,21 @@
 // picks — and `#search-index` carries it through to the browser, where it also
 // stops shipping every note's body text on every page. See its comment.
 //
+// FULL BODIES HERE, COMPRESSED BODIES IN THE BROWSER, and the asymmetry is
+// deliberate rather than an oversight. This path scores each note's WHOLE
+// plain-text body — it never truncated and still does not — while
+// `#search-index` ships only that note's `body-terms` most distinctive terms and
+// the JavaScript matches against those. So the static Typst path stays
+// EXHAUSTIVE and the browser searches a COMPRESSED index: a note findable here
+// by a word the compression dropped is not findable in the bar. Making them
+// agree would mean either shipping every body inline on every page (the cost
+// `_compress-corpus` exists to avoid) or blinding this path for symmetry's sake,
+// and neither is worth having.
+//
+// Parity is unaffected by that asymmetry. `body-score` and `bodyScore` are ONE
+// rule, and `test/parity.typ` feeds both languages the same input — the fixture
+// pins the rule, not which caller supplies prose and which supplies a term list.
+//
 // `tags:`/`match:` are rookery's OWN pair, passed straight through to `ideas()`
 // — `tags` is `none` (the whole rookery, the default), one string, or an array
 // of strings; `match` is "any" (the default) or "all". Nothing is re-filtered
@@ -495,37 +547,270 @@
   )
 }
 
+// ---- The corpus pass — a note compressed to its most distinctive terms -----
+//
+// What `#search-index` puts in a row's `body`. NOT a prose prefix: that field is
+// MATCH-ONLY now (the modal's preview pane fetches the note's own minted page
+// rather than excerpting the island — see `#search-modal`), so its bytes are
+// spent on the terms that DISTINGUISH a note instead of on whatever the note
+// happened to open with.
+//
+// MEASURED on weeknotes.ohrg.org (56 notes): the old 1200-cluster prefix cap
+// shipped 48,587 of 76,420 body chars, so 36% of the corpus prose was not
+// findable in the browser AT ALL. At `body-terms: 48` and `df-ceiling: 40` the
+// terms cost 18,791B and the whole island ~24,190B, against 54,610B before — 44%
+// of the old cost, with whole-note coverage. 38 of the 56 notes hit the 48-term
+// cap, so the budget is real and not slack.
+//
+// NO WEIGHTS ARE SHIPPED. Position is the weight, and `body-score` reads rank.
+// MEASURED and this is why: in notes this short almost every term has tf=1, so
+// the weight collapses to idf, and idf is a property of the TERM (identical
+// across notes), so a digit-per-term weight string cost 11% overhead to
+// distinguish only the top two or three terms. Rank carries what is left.
+//
+// BUILD TIME ONLY, and it stays that way: none of this is ported to JavaScript
+// and none of it should be, because the browser matches against the RESULT.
+// `body-score`/`bodyScore` are the only pair that needs porting.
+
+// The stopword FLOOR — not the filter. MEASURED: the island is 15,112B with this
+// list and 15,047B without it, a 0.4% difference, because the df ceiling below
+// already catches nearly everything on it. It is here for a SMALL rookery, where
+// too few notes exist for df to carry any signal at all.
+//
+// Function words only, and nothing shorter than three clusters: `_tokenize`'s
+// length floor has already dropped `a`, `is`, `of`, `to`, `it` and the rest
+// before this dictionary is consulted, so listing them would be dead weight.
+// That is also why `im` and `id` are absent while `ive`/`wasnt`/`dont` are here —
+// the contractions appear in their apostrophe-stripped form, since an apostrophe
+// never survives tokenization.
+//
+// TYPOS ARE NOT FILTERED, deliberately: `somethign` is in the note, and a reader
+// who typed the same typo should find it.
+//
+// A DICTIONARY, not an array, for the same reason as `_prec`: the question asked
+// of every token is a key test, and `t in _stopwords` is that test, where array
+// membership is a scan of a hundred strings per token.
+#let _stopwords = {
+  // Parenthesised, and it has to be: in Typst CODE mode a line break ends the
+  // statement, so a continuation line opening with `+` is read as a unary plus
+  // on a fresh expression — MEASURED, `cannot apply unary '+' to string`.
+  let ws = (
+    "the and but not for with was are were been being have has had "
+    + "this that these those they them their there then than from into "
+    + "over under out off about above below between through before after "
+    + "again all any both each few more most other some such only "
+    + "same too very can will just should now our you your she her "
+    + "his him its who which what when where why how while because "
+    + "until against among around also would could might must may here "
+    + "does did nor yet whether either neither every another something "
+    + "anything nothing everything though although however therefore "
+    + "ive wasnt dont cant didnt isnt thats theres youre theyre ill"
+  )
+  let d = (:)
+  for w in ws.split(" ") {
+    if w != "" { d.insert(w, true) }
+  }
+  d
+}
+
+// One note's plain-text body to candidate terms, in FIRST-APPEARANCE order with
+// duplicates KEPT — `_compress-corpus` counts them for tf.
+//
+// Lowercased, split on every non-alphanumeric cluster EXCEPT `.` and `-`, which
+// are kept INSIDE a token. MEASURED against this corpus: `0.5.1`,
+// `rheo-context`, `eco-marxist` and `marrow.typ` are exactly what a reader
+// searches for, and splitting them yields `5`, `1`, `rheo`, `context` — none of
+// which is the thing wanted. A LEADING `.` is kept too, so `.marrow.typ` survives
+// verbatim; the dotted form then answers both queries, a dotless one still being
+// a substring of it, where the stripped form answers only the dotless query. A
+// TRAILING `.`/`-` is stripped, that one being sentence punctuation rather than
+// part of the term (`code.` -> `code`, `well-` -> `well`). The cost of one rule
+// doing both is that `word.Next` with no space after the stop reads as a single
+// term; a plain-text body puts a space there.
+//
+// `_` IS A SPLITTER, not a token character. `.` and `-` are the two exceptions
+// and the set is closed — every addition is another character a reader has to
+// type exactly to match what the build kept.
+//
+// Dropped: tokens under 3 clusters, bare digit runs, and the stopword floor. A
+// bare digit run is `^[0-9]+$` and nothing looser, so `0.5.1` and an id like
+// `26w30` are NOT bare numbers and survive — they are among the most distinctive
+// terms a note has.
+//
+// NO STEMMING, no accent folding, no language detection: documented non-goals.
+// Each would be a rule the READER now has to reproduce in the search box, since
+// the browser matches raw substrings against whatever the build kept.
+#let _tokenize(body) = {
+  let out = ()
+  // Doubled backslashes: Typst rejects `\.` / `\p` as unknown STRING escapes, so
+  // the regex the engine sees is `\.?[\p{L}\p{N}][\p{L}\p{N}.\-]*`.
+  for m in lower(body).matches(regex("\\.?[\\p{L}\\p{N}][\\p{L}\\p{N}.\\-]*")) {
+    let t = m.text
+    // `str.len()` and `str.slice` are BYTE offsets, which is safe here and only
+    // here: the two characters being stripped are ASCII, so `len() - 1` is always
+    // a character boundary. The length FLOOR below counts clusters instead,
+    // because that one is about how much of a word a reader sees.
+    while t.len() > 0 and (t.ends-with(".") or t.ends-with("-")) {
+      t = t.slice(0, t.len() - 1)
+    }
+    if t.clusters().len() < 3 { continue }
+    if t.contains(regex("^[0-9]+$")) { continue }
+    if t in _stopwords { continue }
+    out.push(t)
+  }
+  out
+}
+
+// The corpus-wide pass: `bodies` in, one space-joined term string per body out,
+// SAME ORDER, so the caller zips the result back onto its rows positionally.
+//
+// THE SIGNATURE TAKES BODIES, NEVER ROWS, and that is a build-cost decision, not
+// a matter of taste. `#search-index` runs on EVERY output page, so this pass is
+// called once per page. MEASURED (typst 0.15.1, 2026-08-17) with a pure function
+// doing ~285 ms of dictionary work, called from one document: an empty document
+// costs 42 ms, ONE call 327 ms, THIRTY calls with an IDENTICAL argument 287 ms —
+// the same as one, i.e. free — and THIRTY calls with ONE ARGUMENT DIFFERING
+// 6242 ms, about 21x. Typst memoises a pure call keyed on its ARGUMENTS, so this
+// pass costs once per build as long as every argument is page-invariant.
+//
+// An `ideas()` row is NOT page-invariant: `href` is depth-relative, so a nested
+// vertebra's rows differ from a top-level page's. Hand this the whole rows array
+// and every page is a cache miss — the 6242 ms column. `id` and `body` are the
+// stable fields; `bodies` is the projection of the only one this needs. DO NOT
+// "simplify" it back to taking rows: nothing fails, no test goes red, the build
+// time is silently multiplied by the page count. That is exactly how bead
+// rheo-packages-ngx was missed.
+#let _compress-corpus(bodies, body-terms: 48, df-ceiling: 40) = {
+  let n = bodies.len()
+  let toks = bodies.map(_tokenize)
+
+  // Document frequency: how many NOTES hold the term, counted once per note, not
+  // once per occurrence — a `seen` set per note is what makes it a document
+  // frequency rather than a corpus term count.
+  let df = (:)
+  for ts in toks {
+    let seen = (:)
+    for t in ts {
+      if t in seen { continue }
+      seen.insert(t, true)
+      df.insert(t, df.at(t, default: 0) + 1)
+    }
+  }
+
+  toks.map(ts => {
+    // tf per term, and `order` in first-appearance order — the tie-break below
+    // rides on that order, so it is built here rather than recovered later.
+    let tf = (:)
+    let order = ()
+    for t in ts {
+      if t in tf {
+        tf.insert(t, tf.at(t) + 1)
+      } else {
+        tf.insert(t, 1)
+        order.push(t)
+      }
+    }
+
+    // THE DF CEILING is the part that earns its keep. MEASURED on weeknotes at
+    // 40%: it cuts the/this/and/that/for/with/was/which/also/but/from/about/
+    // have/been AND corpus-specific noise no word list could ever know about —
+    // `week`, in 38 of 56 notes. It buys QUALITY, not bytes: size is almost
+    // identical from df<=20% to df<=100% (14,998B against 15,130B at 32 terms)
+    // because top-K already binds.
+    //
+    // The percentage is compared by CROSS-MULTIPLICATION, so no float and no
+    // rounding decides whether a term is in or out.
+    //
+    // A df OF 1 IS NEVER DROPPED. A term in exactly one note is by definition
+    // not shared with the corpus, and the ceiling exists to remove what IS
+    // shared. Without the guard a small rookery indexes NOTHING: at n=2 every
+    // term is in 50% or 100% of the notes and 50 > 40. It cannot move the
+    // measurement above either — 40% of 56 notes is 22.4, so no df=1 term on
+    // weeknotes was ever near the ceiling. It rescues only the corpus too small
+    // for df to mean anything, the same case the stopword floor is there for.
+    let kept = order.filter(t => {
+      let d = df.at(t)
+      d <= 1 or d * 100 <= n * df-ceiling
+    })
+
+    // Integer tf-idf: round(100 * tf * log2(n / df)). The 100 keeps the ordering
+    // a float would carry without a float ever reaching the sort key, and the
+    // number itself is never shipped — it only orders.
+    //
+    // SORTED BY WEIGHT ALONE, tie-broken by FIRST APPEARANCE: `order` is in
+    // first-appearance order and Typst's `.sorted` is stable, so equal weights
+    // keep the order the note wrote them in and the island is byte-stable between
+    // builds. Same stable-sort reliance `_rank` documents, and the reason the
+    // key is a plain integer rather than a `(weight, index)` array — an array
+    // key is not reliably comparable here.
+    let ranked = kept.sorted(key: t => (
+      -1 * int(calc.round(100 * tf.at(t) * calc.log(n / df.at(t), base: 2)))
+    ))
+
+    let top = ranked.slice(0, calc.min(body-terms, ranked.len()))
+    // `array.join()` on an EMPTY array returns `none`, not `""` (MEASURED, and
+    // also recorded at `parse-tag-query` above — this is now the second place
+    // that gotcha is load-bearing, `#search-index`'s truncation having gone), and
+    // an empty result is a real case: MEASURED, one note on weeknotes compressed
+    // to zero terms, its body being genuinely empty.
+    if top.len() == 0 { "" } else { top.join(" ") }
+  })
+}
+
 // ---- #search-index — the corpus as a JSON island --------------------------
 //
 //   #search-index()                       // usually not called directly
 //   #search-index(elem-id: "notes-index")  // a second, differently-keyed index
-//   #search-index(body-chars: 400)         // a tighter cap on body size
+//   #search-index(body-terms: 24)          // a tighter term budget per note
+//   #search-index(df-ceiling: 20)          // a harsher cut of shared terms
 //   #search-index(body-search: false)      // no body text in the island at all
 //   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
 // one row per note: `(id, name, text, body, href)`, where `text` is the
-// plain-text title ("" when untitled), `body` is the plain-text body ("" when
-// empty), and `href` is the depth-relative path to the note's minted page —
-// computed against the page this call sits on, so an island in a site's
-// shared chrome comes out right on a nested vertebra too.
+// plain-text title ("" when untitled), `body` is that note's compressed term
+// string ("" when it compresses to nothing), and `href` is the depth-relative
+// path to the note's minted page — computed against the page this call sits on,
+// so an island in a site's shared chrome comes out right on a nested vertebra
+// too.
 //
 // The field is `text`, not `title`, on purpose: same name, same meaning, same
 // type as `search-ideas` returns. `title` there is CONTENT, which JSON cannot
 // carry, and one name meaning two types across two surfaces is how a consumer
 // gets it wrong.
 //
-// `body-chars` CAPS each note's body at that many CLUSTERS (never bytes, so
-// the cap cannot split a character) before it goes into the JSON — `none`
-// means no cap, ship the whole body. No ellipsis is appended in the DATA; the
-// preview pane excerpts and adds its own. This matters because the island is
-// INLINE IN EVERY PAGE, not fetched once: MEASURED for rookery.ohrg.org, its
-// `content/*.typ` sources total ~31 KB across roughly 40 notes, so an
-// uncapped index costs on the order of 20-25 KB of JSON on every page (it
-// compresses well, being prose). The default of 1200 clusters per note keeps
-// that bounded for a rookery with hundreds of notes; a note longer than the
-// cap stays FINDABLE by its opening, and fully findable through the Typst-side
-// `#search-ideas`, which never truncates.
+// `body-terms` AND `df-ceiling` CONTROL THE COMPRESSION, and there is no
+// character cap any more: a row's `body` is `_compress-corpus`' output for that
+// note — its `body-terms` most distinctive terms, space-joined in weight order,
+// with every term appearing in more than `df-ceiling` percent of the SELECTED
+// notes dropped first. The measurements behind both defaults are recorded at
+// `_compress-corpus`.
+//
+// `body-chars` IS RETIRED, and that is 0.3.0's breaking change. The budget is a
+// term count now, because a prefix cap spent the bytes on whatever a note
+// happened to open with and hid the rest of it from the browser entirely —
+// MEASURED, 36% of weeknotes' prose was unfindable in the bar. It is legal only
+// because this field is no longer read as prose: the preview pane fetches the
+// note's own page instead of excerpting the island.
+//
+// A cap of SOME kind is not optional, because the island is INLINE IN EVERY
+// PAGE, not fetched once: MEASURED for rookery.ohrg.org, its `content/*.typ`
+// sources total ~31 KB across roughly 40 notes, so an uncapped index costs on
+// the order of 20-25 KB of JSON on every page.
+//
+// THE FIELD IS STILL CALLED `body` and still holds plain text — what changed is
+// its CONTENT, not its name or its type. `search()` in
+// `src/rookery-search.js` reads `hit.body` and `snippet` excerpts it for the
+// failed-fetch fallback; both keep working, and the string they get simply reads
+// as a keyword row rather than as a note's opening sentence.
+//
+// `df-ceiling` IS MEASURED OVER THE SELECTED NOTES, so `tags:` below moves it: a
+// term common across a whole rookery can be distinctive within one tag's notes,
+// and each island's ceiling is computed for the corpus it actually carries.
+//
+// A NOTE CAN COMPRESS TO NOTHING, and its `body` is then `""`. MEASURED, one note
+// on weeknotes did, its body being genuinely empty. Such a note is unfindable by
+// body — the same as an empty note already was — and its keyword row is empty.
 //
 // `body-search: false` OMITS THE `body` FIELD ALTOGETHER — a row is then
 // `(id, name, text, href)`, and the island shrinks to roughly the sum of the
@@ -539,9 +824,14 @@
 //
 // Two consequences worth stating plainly. A note findable ONLY by a word in its
 // body becomes unfindable — that is the point, not a regression. And the modal's
-// preview pane loses its plain-text excerpt, which is drawn from this field, so
-// on `file://` (where the rich preview cannot be fetched) it shows "No preview";
-// over http the fetched page is unaffected.
+// preview pane loses the keyword row drawn from this field, so on `file://`
+// (where the rich preview cannot be fetched) it shows "No preview"; over http the
+// fetched page is unaffected.
+//
+// EITHER WAY THE TYPST SIDE STAYS EXHAUSTIVE: `#search-ideas` scores full bodies
+// and never truncated, so a term this island drops — to `body-search: false`, to
+// the `df-ceiling`, or to the `body-terms` cut — is still findable there. See its
+// comment on that deliberate asymmetry.
 //
 // WHY NOT A SEPARATE FETCHED JSON FILE, which would keep pages small: rheo
 // emits pages from typst, and there is no supported way for a package to emit
@@ -570,16 +860,22 @@
 // a tag the browser would have to filter on.
 #let search-index(
   elem-id: "rookery-search-index",
-  body-chars: 1200,
+  body-terms: 48,
+  df-ceiling: 40,
   body-search: true,
   tags: none,
   match: "any",
 ) = context {
   if _target() != "html" { return }
   assert(
-    body-chars == none or (type(body-chars) == int and body-chars >= 0),
-    message: "@rheo/rookery-search: #search-index's `body-chars` must be none "
-      + "or a non-negative integer — got " + repr(body-chars),
+    type(body-terms) == int and body-terms > 0,
+    message: "@rheo/rookery-search: #search-index's `body-terms` must be a "
+      + "positive integer — got " + repr(body-terms),
+  )
+  assert(
+    type(df-ceiling) == int and df-ceiling >= 1 and df-ceiling <= 100,
+    message: "@rheo/rookery-search: #search-index's `df-ceiling` must be an "
+      + "integer between 1 and 100 — got " + repr(df-ceiling),
   )
   assert(
     type(body-search) == bool,
@@ -598,33 +894,33 @@
     message: "@rheo/rookery-search: #search-index's `match` must be \"any\" or "
       + "\"all\" — got " + repr(match),
   )
-  let rows = search-ideas("", tags: tags, match: match)
-    .filter(e => e.href != none)
-    // Built by insertion rather than as one literal, so `body` can be left out
-    // entirely under `body-search: false` — an empty string would still cost a
-    // key per row, and a reader of the island would have to know that `""` here
-    // means "not indexed" rather than "an empty note". `href` is inserted after
-    // it either way, keeping a row's field order the documented one.
-    .map(e => {
-      let row = (id: e.id, name: e.name, text: e.text)
-      if body-search {
-        row.insert(
-          "body",
-          // `array.join()` on an EMPTY array returns `none`, not `""`
-          // (MEASURED) — so a short body (or an empty one) that needs no
-          // truncation at all is passed through directly rather than
-          // round-tripped through `clusters().slice(..).join()`, which would
-          // crash on it.
-          if body-chars == none or e.body.clusters().len() <= body-chars {
-            e.body
-          } else {
-            e.body.clusters().slice(0, body-chars).join()
-          },
-        )
-      }
-      row.insert("href", e.href)
-      row
-    })
+  let selected = search-ideas("", tags: tags, match: match).filter(e => e.href != none)
+  // BODIES, NOT ROWS, and the whole reason is in `_compress-corpus`' comment:
+  // this call runs on every output page and is memoised only while every argument
+  // is page-invariant, which `href` is not. `e.body` is projected out here and
+  // the result is zipped back on positionally below.
+  let bodies = if body-search {
+    _compress-corpus(
+      selected.map(e => e.body),
+      body-terms: body-terms,
+      df-ceiling: df-ceiling,
+    )
+  } else {
+    ()
+  }
+  // Built by insertion rather than as one literal, so `body` can be left out
+  // entirely under `body-search: false`. Leaving the KEY OUT is not the same
+  // state as an empty string, and now that a note really can compress to no
+  // terms the difference carries weight: an absent key means "not indexed", `""`
+  // means "indexed, and nothing distinctive survived". `href` is inserted after
+  // it either way, keeping a row's field order the documented one.
+  let rows = selected.enumerate().map(pair => {
+    let (i, e) = pair
+    let row = (id: e.id, name: e.name, text: e.text)
+    if body-search { row.insert("body", bodies.at(i)) }
+    row.insert("href", e.href)
+    row
+  })
   if rows.len() == 0 { return }
   html.elem(
     "script",
@@ -638,12 +934,14 @@
 //   #search-bar()
 //   #search-bar(placeholder: "Find a note", limit: 12, class: "topbar-search")
 //   #search-bar(index: false)   // a SECOND bar on a page that already has one
-//   #search-bar(body-chars: 400) // a tighter cap on the island's body text
+//   #search-bar(body-terms: 24)  // a tighter term budget per note in the island
 //   #search-bar(body-search: false) // ids and titles only, no body text
 //   #search-bar(tags: "phd")        // a bar over only the notes tagged phd
 //
-// Emits the JSON island (via `search-index`, `body-chars:`, `body-search:`,
-// `tags:` and `match:` forwarded to it unchanged), an `<input>`, and an empty
+// Emits the JSON island (via `search-index`, `body-terms:`, `df-ceiling:`,
+// `body-search:`, `tags:` and `match:` forwarded to it UNCHANGED — this function
+// asserts none of them, `#search-index` owns their validation), an `<input>`, and
+// an empty
 // results container; `src/rookery-search.js`, injected by rheo from the
 // manifest's `js_scripts`, wires them together.
 //
@@ -676,7 +974,8 @@
   class: none,
   index: true,
   elem-id: "rookery-search-index",
-  body-chars: 1200,
+  body-terms: 48,
+  df-ceiling: 40,
   body-search: true,
   tags: none,
   match: "any",
@@ -707,7 +1006,8 @@
   if index {
     search-index(
       elem-id: elem-id,
-      body-chars: body-chars,
+      body-terms: body-terms,
+      df-ceiling: df-ceiling,
       body-search: body-search,
       tags: tags,
       match: match,
@@ -756,8 +1056,10 @@
 // exactly the wrong things.
 //
 // Emits, in order: the JSON island (via `search-index`, same `index:`/
-// `elem-id:`/`body-chars:`/`body-search:`/`tags:`/`match:` `#search-bar` already
-// takes), then the trigger button (unless `trigger: false`), then the dialog.
+// `elem-id:`/`body-terms:`/`df-ceiling:`/`body-search:`/`tags:`/`match:`
+// `#search-bar` already takes, all forwarded unchanged and all asserted by
+// `#search-index`), then the trigger button (unless `trigger: false`), then the
+// dialog.
 // That is ALL it emits — see below on where the preview pane's content comes
 // from.
 //
@@ -785,12 +1087,14 @@
 // cost of a rich preview is now exactly zero.
 //
 // The trade, stated plainly: `fetch` does not work from `file://`, so opening
-// a build straight off disk gets the plain-text excerpt the JSON island's
-// `body` field already carries instead of the rich rendering. Rich previews
+// a build straight off disk gets the JSON island's `body` field instead of the
+// rich rendering — which since 0.3.0 is that note's compressed KEYWORD ROW, not
+// a prose excerpt, because the field is compressed precisely on the grounds that
+// the pane no longer renders it as prose (see `#search-index`). Rich previews
 // need http (`rheo watch`, or any served copy). Serve the build, or accept the
-// excerpt — a preview is an excerpt by construction either way. Note that
-// `body-search: false` removes that field, so the two together mean no preview
-// at all on `file://`; over http the fetched page is unaffected.
+// keyword row. Note that `body-search: false` removes that field, so the two
+// together mean no preview at all on `file://`; over http the fetched page is
+// unaffected.
 //
 // SAME ISLAND, SHARED BY NAME, NO IDS IN THE MARKUP — the rule `#search-bar`
 // follows (see its comment above). The trigger's `data-rookery-search-modal`
@@ -811,7 +1115,8 @@
   trigger-label: "Search",
   index: true,
   elem-id: "rookery-search-index",
-  body-chars: 1200,
+  body-terms: 48,
+  df-ceiling: 40,
   body-search: true,
   tags: none,
   match: "any",
@@ -842,7 +1147,8 @@
   if index {
     search-index(
       elem-id: elem-id,
-      body-chars: body-chars,
+      body-terms: body-terms,
+      df-ceiling: df-ceiling,
       body-search: body-search,
       tags: tags,
       match: match,

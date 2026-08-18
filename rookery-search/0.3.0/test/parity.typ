@@ -20,50 +20,72 @@
   score: fuzzy-score(c.at(0), c.at(1)),
 ))) <parity>
 
-// A second fixture for `body-score` — the AND, full-text matcher over note
+// A second fixture for `body-score` — the AND, rank-scored matcher over note
 // bodies. Its own labelled array, `<parity>` above kept untouched, because
 // `body-score` is a different rule with a different signature (`none` on ANY
 // missing term, not a fuzzy subsequence).
+//
+// THE BODIES ARE TERM LISTS, NOT PROSE, and that is the fixture following the
+// rule rather than a convenience. What `#search-index` ships is
+// `_compress-corpus`' output — a note's most distinctive terms, space-joined in
+// weight order — and RANK over that list is the whole score now, so prose here
+// would pin a shape the browser never sees. (`#search-ideas` does still score
+// full prose through the same function, a word simply being a term there; no case
+// below needs to be prose to hold that down.)
+//
+// NO CASE COUNTS CLUSTERS, because the rule no longer does — a rank is a term
+// index, which Typst and JavaScript count identically. The non-ASCII case is
+// therefore about accent folding NOT happening, and nothing else.
 #let body-cases = (
-  // Long prose, a multi-term query where every term is present.
+  // A compressed island row, as `_compress-corpus` really emits them (this one
+  // is the spike's own sample output). Multi-term AND, a hyphenated and a dotted
+  // term surviving whole, the exact-match +3 twice, and one bucket step:
+  // `rheo-context` at rank 0 scores 10 + 3, `html` at rank 6 scores
+  // 10 - int(6 / 4) = 9, + 3. So 25.
   (
-    "The first paragraph, with bold and raw code. A second paragraph "
-      + "mentioning transclusion and windows. a list item another item",
-    "transclusion windows",
+    "rheo-context typst changes 0.5.1 removing types html released 0.6.0",
+    "rheo-context html",
   ),
   // Multi-term query where one term is present and one is not — must score
   // `none`, not a partial score.
   (
-    "The first paragraph, with bold and raw code. A second paragraph "
-      + "mentioning transclusion and windows. a list item another item",
-    "windows zzz",
+    "rheo-context typst changes 0.5.1 removing types html released 0.6.0",
+    "rheo-context zzz",
   ),
-  // A contiguous phrase match, to exercise the +6 whole-phrase bonus.
+  // TWO PREFIX MATCHES AND NO EXACT ONE: `chang` in `changes` at rank 2, `0.5`
+  // in `0.5.1` at rank 3, both in bucket 0, neither equal to a kept term. 10 + 10
+  // = 20, where the same pair matched exactly would be 26 — that difference is
+  // the bonus under test. Also pins that a query may address PART of a dotted
+  // term.
   (
-    "The first paragraph, with bold and raw code. A second paragraph "
-      + "mentioning transclusion and windows. a list item another item",
-    "raw code",
+    "rheo-context typst changes 0.5.1 removing types html released 0.6.0",
+    "chang 0.5",
   ),
-  // Non-ASCII body: a query missing only on accent (no accent folding, by
-  // design — see `_fold`), so this must also score `none`.
+  // THE RANK FLOOR, `max(1, 10 - int(rank / 4))`, and that the exact-match +3 is
+  // added AFTER it: 42 terms in SEVENS below (so ranks 0-6, 7-13, 14-20, 21-27,
+  // 28-34, 35-41 line up with the six string chunks), the query's second term
+  // last at rank 41, where 10 - int(41 / 4) is 0 and the floor lifts it to 1.
+  // `marx` at rank 0 scores 10 + 3, `endpaper` at rank 41 scores 1 + 3, so 17. A
+  // note is capped at `body-terms` (48), so a rank in the forties is a real
+  // position in a real island row and not a synthetic extreme.
   (
-    "Café con leche is a Spanish drink, mentioned well past the two "
-      + "hundred and fiftieth character mark, to make sure cluster counting "
-      + "picks the right earliness bucket for a body full of accented and "
-      + "other unicode text: café, café, café.",
-    "cafe unicode",
+    "marx kohei saito eco-marxist anthropocene deutscher torino "
+      + "fame prize degrowth capital metabolic rift grundrisse "
+      + "lecture seminar translation japanese ecology socialism abundance "
+      + "scarcity commons enclosure rentier austerity municipal utopia "
+      + "archive pamphlet footnote marginalia hardback paperback remainder "
+      + "warehouse catalogue imprint colophon errata frontispiece endpaper",
+    "marx endpaper",
   ),
-  // Same non-ASCII body, this time with the accent matched — exercises
-  // CLUSTER (not byte or UTF-16) counting past a multi-byte character.
-  (
-    "Café con leche is a Spanish drink, mentioned well past the two "
-      + "hundred and fiftieth character mark, to make sure cluster counting "
-      + "picks the right earliness bucket for a body full of accented and "
-      + "other unicode text: café, café, café.",
-    "café unicode",
-  ),
-  // An empty query is the name rule's business, not this one — `none`.
-  ("Any note at all.", ""),
+  // NON-ASCII, and a query missing only on the accent: `cafe` is not a substring
+  // of `café`, so the AND fails and the score is `none`. No accent folding, by
+  // design and documented as a limitation in the readme — the tokenizer keeps the
+  // accent, so the reader must type it.
+  ("café leche madrid cortado azúcar tostada", "cafe tostada"),
+  // An empty query is the name rule's business, not this one — `none`. Load-
+  // bearing for `#search-index`, which builds its rows from `search-ideas("")`
+  // and relies on every note scoring `none` here so the body tier stays empty.
+  ("kernel module driver", ""),
 )
 #metadata(body-cases.map(c => (
   body: c.at(0),

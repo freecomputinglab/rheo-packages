@@ -179,28 +179,47 @@ export const score = (hay, query) => {
   return points;
 };
 
-// Port of `body-score`: an AND, full-text match over a note's body. `null`
-// unless every whitespace-split term in `query` appears in `body`. The
-// earliness term counts CLUSTERS, not UTF-16 units — a bare `indexOf` is a
-// UTF-16 offset and would diverge from Typst's `.clusters()` count the moment
-// a body contains a non-ASCII character, so the match is re-measured through
-// a spread.
+// Port of `body-score`: an AND match over a note's body, which here is always
+// the COMPRESSED TERM STRING `#search-index` ships — that note's most
+// distinctive terms, space-joined in weight order. `null` unless every
+// whitespace-split query term is a substring of some term in that list, so a
+// prefix query still lands (`justif` finds `justification`).
+//
+// The score is RANK, since position is the weight: per query term,
+// `max(1, 10 - floor(rank / 4))` for the first term containing it, plus 3 when
+// the query term IS one of the terms exactly. See `body-score` in `src/lib.typ`
+// for the measurements and for every choice below; this is the port, not the
+// record.
+//
+// TWO THINGS THAT WERE HERE ARE GONE. The +6 contiguous-phrase bonus, because no
+// phrase survives compression. And all the cluster counting — the old earliness
+// term had to re-measure `indexOf`'s UTF-16 offset through a spread to agree with
+// Typst's `.clusters()`; a rank is a term INDEX, which both languages count
+// identically for nothing.
+//
+// `toLowerCase()`, NOT `fold()`: folding turns `-`/`_` into spaces, which would
+// split `rheo-context` into two query terms and lose the exact-match bonus.
+// Deliberate, and mirrored in `body-score` — the compression preserves `.` and
+// `-` inside a term precisely so a reader can type them.
 export const bodyScore = (body, query) => {
-  const h = fold(body);
-  const q = fold(query);
+  const h = body.toLowerCase();
+  const q = query.toLowerCase();
   if (q.trim() === "") return null;
   const terms = q.split(" ").filter((t) => t !== "");
   if (terms.length === 0) return null;
-  for (const term of terms) {
-    if (!h.includes(term)) return null;
-  }
+  const kept = h.split(" ").filter((t) => t !== "");
   let points = 0;
-  if (h.includes(q)) points += 6;
   for (const term of terms) {
-    points += 2;
-    const i = h.indexOf(term);
-    const cl = [...h.slice(0, i)].length;
-    points += Math.max(0, 3 - Math.floor(cl / 200));
+    let rank = null;
+    for (let i = 0; i < kept.length; i++) {
+      if (kept[i].includes(term)) {
+        rank = i;
+        break;
+      }
+    }
+    if (rank === null) return null;
+    points += Math.max(1, 10 - Math.floor(rank / 4));
+    if (kept.includes(term)) points += 3;
   }
   return points;
 };
@@ -433,10 +452,10 @@ const renderMarked = (container, text, ranges) => {
 };
 
 // The preview excerpt's radius, in clusters, either side of a body match.
-// Only used by the plain-text excerpt the pane shows before (or instead of)
-// the note's fetched page — not exposed as a knob, since it is an
-// implementation detail of the modal, not a public contract the way
-// `#search-index`'s `body-chars` is.
+// Only used by the plain-text excerpt the pane shows INSTEAD of the note's
+// fetched page, when that fetch cannot succeed — not exposed as a knob, since it
+// is an implementation detail of the modal rather than a public contract the way
+// `#search-index`'s `body-terms` is.
 const PREVIEW_RADIUS = 160;
 
 // Every occurrence of every `terms` entry in `text`, folded and
@@ -646,11 +665,15 @@ const wireModal = (dialog, rows) => {
 
   // The plain-text excerpt from the JSON island's `body` field: centred on the
   // match for a body-tier hit, from the start for a name-tier one — a radius of
-  // Infinity makes `snippet` return the whole (already `body-chars`-capped)
-  // body, its window being clamped to the body's own length. Either way every
-  // matched term is wrapped in `<mark>`, both paths going through one `snippet`
-  // call. A note with no body text at all gets a muted line rather than a blank
-  // pane.
+  // Infinity makes `snippet` return the whole field, its window being clamped to
+  // that field's own length. Either way every matched term is wrapped in
+  // `<mark>`, both paths going through one `snippet` call. A note with no body
+  // text at all gets a muted line rather than a blank pane.
+  //
+  // NOTE the field is no longer prose: since the island began carrying a note's
+  // most distinctive TERMS rather than a prefix of its body, this reads as
+  // keyword soup. It is the failed-fetch fallback only, and bead
+  // rheo-packages-sal replaces it with a deliberate keyword row.
   const renderExcerpt = (hit) => {
     const body = hit.body ?? "";
     if (body === "") {
