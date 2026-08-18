@@ -15,7 +15,7 @@ back to #link(label("index"))[the root vertebra].
 #idea("sub-note", title: [Sub note])[
   A note written on the nested vertebra, windowing back at the root one's note —
   so transclusion is exercised in BOTH directions and the pair is mutually
-  windowed. At `window-depth: 0` the inner window collapses to a permalink,
+  windowed. At `window-depth: 0` the inner window becomes a link row,
   which is what keeps the cycle finite.
 
   #window(<root-note>)

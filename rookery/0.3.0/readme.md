@@ -1033,14 +1033,22 @@ at all.
 
 ## Limitations
 
-- **`#window` transcludes one level by default.** A note transcluded via
-  `#window` renders its content once, and a `#window` inside that content
-  collapses to its own `[idea:x]` permalink; that is `window-depth: 1`, the
-  default. `window-depth: n` (or `depth: n` on one call site) unfurls `n-1`
-  further levels before collapsing, and `0` transcludes nothing at all —
-  every `#window` becomes a link to the note's page. What is permanent is that
-  the budget is finite — that is what makes self-windows and window cycles safe
-  to compile. See "Nested windows, and `window-depth`" above.
+- **`window-depth` is a RECURSION depth, and it is finite.** It counts how many
+  levels of transclusion are allowed before links take over:
+
+  | value | what happens |
+  | --- | --- |
+  | `0` | no windowing anywhere — every `#window` is a link row |
+  | `1` | a window renders its note once; a window inside that body is a link row |
+  | `n` | `n` levels render, level `n+1` is a link row |
+
+  `1` is the default, and `depth: n` on one call site overrides it there. A
+  bottomed-out window is ONE rendering wherever it ran out: the note's title,
+  linked to its page, in the same row shape a page backlink uses — a titleless
+  note falls back to its `[idea:x]` permalink, having nothing else to be named
+  by. What is permanent is that the budget is finite: that is what makes
+  self-windows and window cycles safe to compile. See "Nested windows, and
+  `window-depth`" above.
 - An author's own `<label>` written inside a note's body is duplicated if
   that note is transcluded elsewhere — a note owns exactly one id, attached
   by `#idea` itself.

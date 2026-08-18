@@ -547,6 +547,39 @@
   link(_resolve-dest(id, "page"), text(gray, raw("[" + id + "]")))
 }
 
+// THE ONE BOTTOM-OUT RENDERING. A `#window` that has no recursion budget left emits
+// this, wherever it ran out: `#window` itself at depth 0, and `_flatten`'s WK arm for
+// a window nested past the budget. It used to be TWO renderings — a bare `[idea:x]`
+// permalink from the WK arm, and this row from the depth-0 branch — so a bottomed-out
+// window looked like a different KIND of object depending on WHY it bottomed out.
+// Factored here so the two cannot drift again; that drift is what the shared
+// `_permalink`/`_note-file`/`_truncate` helpers all exist to prevent.
+//
+// The note's TITLE, linked to its own page, in the row shape a page backlink uses
+// (`.idea-page-row` gives it the frame's bar and indent at body size). A TITLELESS
+// note falls back to its permalink — there is nothing else to name it by, and that
+// is the one case the old rendering survives in.
+//
+// Defined HERE, above `_flatten`, for the reason `_blocks` and `_truncate` are: a
+// `#let` closure captures the scope visible AT DEFINITION time, and `_flatten` is one
+// of the two callers.
+#let _window-link(id, rec) = {
+  let row = if rec.title == none { _permalink(id) } else {
+    link(_resolve-dest(id, "page"), rec.title)
+  }
+  if _target() == "html" or _target() == "epub" {
+    html.elem(
+      "ul",
+      attrs: _themed((class: "idea-page-list")),
+      html.elem("li", attrs: (class: "idea-page-row"), row),
+    )
+  } else {
+    // `align(start)` for the reason `_window-content`'s paged branch uses it: a
+    // Typst figure centres its body.
+    align(start, block(row))
+  }
+}
+
 // ---- #idea — marker, idea:<id> label, anchor, flattened registration -----
 //
 // `#idea[body]`, `#idea("name")[body]`, and `#idea(<name>)[body]` all work via
@@ -1183,13 +1216,12 @@
       } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)), IK)
     }
   }
-  // A `#window` nested inside a transcluded body. With no budget left over for
-  // it (`depth: 1`, the default — and `depth: 0`, where nothing is transcluded
-  // anywhere) it collapses to the SAME permalink affordance the window's own
-  // summary would have carried — so the one-link rule holds at every depth:
-  // the id navigates, nothing else does. (It used to collapse
-  // to a `[window of idea:x]` link on the label anchor, which was a second,
-  // differently-styled navigational form for the same destination.)
+  // A `#window` nested inside a transcluded body. With no recursion budget left
+  // over for it (`depth: 1`, the default — and `depth: 0`, where nothing is
+  // transcluded anywhere) it bottoms out to `_window-link`, THE SAME row
+  // `#window` itself emits at depth 0. One rendering for one meaning: the
+  // one-link rule holds at every depth, and the row names the note by its title
+  // rather than by its id.
   //
   // With budget left, it renders as a real window instead, identical to the
   // same `#window` written at the top level — same summary, same disclosure,
@@ -1212,11 +1244,7 @@
     let v = m.value
     let id = v.rookery-window-id
     if depth <= 1 {
-      if _target() == "html" or _target() == "epub" {
-        _permalink(id)
-      } else {
-        _permalink-paged(id)
-      }
+      _window-link(id, _registry.final().at(id))
     } else {
       let rec = _registry.final().at(id)
       // The nested `#window` has already run in full by the time this rule
@@ -1810,20 +1838,7 @@
     // them intact — the budget belongs to the scope doing the expanding, and
     // that is as true of `depth: 0` as of any other value.
     if d <= 0 {
-      let row = if rec.title == none { _permalink(id) } else {
-        link(_resolve-dest(id, "page"), rec.title)
-      }
-      let shape = if _target() == "html" or _target() == "epub" {
-        html.elem(
-          "ul",
-          attrs: _themed((class: "idea-page-list")),
-          html.elem("li", attrs: (class: "idea-page-row"), row),
-        )
-      } else {
-        // `align(start)` for the reason `_window-content`'s paged branch uses
-        // it: a Typst figure centres its body.
-        align(start, block(row))
-      }
+      let shape = _window-link(id, rec)
       _bracket(figure(kind: WK, supplement: none, [#marker#shape]), WK)
       continue
     }
