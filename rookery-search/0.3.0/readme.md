@@ -118,6 +118,12 @@ below.
 is a static index of just the notes tagged `phd`. It changes what is searched,
 not what the query matches; see "Scoping the corpus by tag" below.
 
+**A leading `tags:` in the QUERY narrows it too**, on a different axis — the
+reader's rather than the author's. `#search-ideas("tags:draft window")` keeps
+the notes tagged `draft` and ranks those by the text query `window`, and the
+same expression works typed into the bar or the modal. See "Filtering by tag"
+below.
+
 ### What matches, and what doesn't
 
 **id and title** match by **subsequence** — the note's better-scoring one of
@@ -149,11 +155,12 @@ times; a weighted sum only approximates that and needs constant retuning,
 where two tiers say it plainly. `kind` on each result is what tells a caller
 (and the modal's preview pane) which rule matched.
 
-**Tags are not searched**, on id/title or on body. The query never matches a
-tag, so "phd" finds the note *called* that, not the notes *tagged* with it. What
-tags do instead is choose the corpus: `tags:` narrows WHICH notes are searched,
-before anything is scored. Two separate axes — see "Scoping the corpus by tag"
-below.
+**A tag is never a search TERM**, on id/title or on body. A bare "phd" finds
+the note *called* that, not the notes *tagged* with it. What tags do instead is
+choose the corpus, by two routes that both run before anything is scored: the
+author's `tags:` parameter (see "Scoping the corpus by tag" below) and a
+reader's leading `tags:` expression in the query itself (see "Filtering by tag"
+below). Neither turns a tag into something the query scores against.
 
 **Accents are not folded**, on id/title or on body: "cafe" does not match
 "Café". Fixing it means Unicode normalisation that the JavaScript half of this
@@ -169,12 +176,240 @@ tense or a word like "the" has to be typed as it appears in the note.
 integer. Rank something other than notes with it, or sort matches your own way,
 without inventing a second rule that disagrees with the bar's.
 
+## Filtering by tag
+
+A query that OPENS with `tags:` is a **filter**, not a search term. Everything
+up to the first unescaped space is a boolean expression over each note's own
+tags, applied before a single score is computed; everything after it is an
+ordinary text query over the notes that survived.
+
+```
+tags:draft window depth     among my drafts, ranked by "window depth"
+tags:draft                  every draft, in id order
+window depth                no prefix, no filter — unchanged
+tags:                       an empty expression is no filter: everything
+```
+
+This is the READER's axis, typed into a bar or a modal. The `tags:`/`match:`
+PARAMETERS on `#search-bar`, `#search-modal`, `#search-index` and
+`#search-ideas` are the AUTHOR's, fixed at build time — see "Scoping the corpus
+by tag" below. Both exist, both narrow before anything is scored, and they
+compose: a reader's expression filters within whatever the parameter already
+selected.
+
+The rule is written twice, once per language — `parse-tag-query`/
+`eval-tag-query`/`split-query` in `src/lib.typ` and `parseTagQuery`/
+`evalTagQuery`/`splitQuery` in `src/rookery-search.js` — so `#search-ideas`
+and the live bar answer the same query identically. `just parity` pins the two
+over 21 cases in `test/parity.typ`, diffing the parsed expression itself as
+data rather than only its final verdict.
+
+### The grammar
+
+`&` binds tighter than `|`, `!` binds tightest of all, and `()` groups:
+
+```
+tags:a&b                  tagged a AND tagged b
+tags:a|b&c                a OR (b AND c) — `&` first, without parentheses
+tags:(a|b)&c              the grouped form: (a OR b) AND c
+tags:!draft               every note NOT tagged draft
+tags:!(draft|todo)&note   tagged note, and neither draft nor todo
+```
+
+`!` is right-associative, which is what makes a stacked negation parse rather
+than emit a `!` with nothing under it: `tags:!!draft` is `tags:draft`, and
+`tags:!!!draft&note` is `tags:!draft&note`.
+
+### Where the expression ends
+
+At the **first unescaped whitespace**. What follows is the residual text query,
+trimmed; repeated spaces inside it cost nothing, both matchers dropping empty
+terms.
+
+```
+tags:draft   window  depth      residual "window  depth" — the extra spaces are dropped
+tags:draft                      residual "", so every survivor sits in the name
+                                tier at score 0, in id order
+```
+
+Only a **leading** `tags:` is recognised, case-insensitively (`TAGS:note`
+works), and only leading whitespace is trimmed before that test. So a note
+whose body contains the literal "tags:" can never be mistaken for a filter, and
+a `tags:` appearing mid-query is just characters the text query matches.
+
+### The escape set, and it is frozen
+
+`\` takes the next cluster literally into the current atom. The characters that
+need it are exactly `( ) | & !` and `\` itself:
+
+```
+tags:a\&b         the single tag `a&b`
+tags:a\|b|c       the tag `a|b`, OR the tag `c`
+tags:\(paren\)    the tag `(paren)`
+tags:a\ b         the tag `a b` — an escaped space does not end the expression
+```
+
+**The set is frozen, and that is part of the contract rather than an
+implementation detail.** Promoting some further character to an operator later
+would silently change what queries already written mean — a tag containing it
+would stop being addressable, and no error would say so. That sentence is why
+`!` shipped in the first version instead of being added when someone wanted it.
+
+### Prefix matching, and the honest consequence
+
+An atom matches a tag **by prefix** on the folded form. `tags:note` matches
+`note`, `notebook` and `notes` alike, and **there is no way to spell "exactly
+note"**.
+
+That is deliberate. The bar and the modal are incremental: with exact matching,
+every keystroke of a tag until the last one shows an empty list, so a reader
+typing `draft` would see nothing at all four times out of five.
+
+The mitigation is legibility rather than precision — each row in the MODAL
+shows that note's own tags as pills on a second line, so a `notebook` hit
+explains itself instead of looking like a mystery. **The dropdown ships them
+hidden**, and a site that wants the same mitigation in the bar writes one rule:
+
+```css
+.rookery-search-results .rookery-search-tags { display: flex }
+```
+
+See "Tag pills on a result row" below for why that is the default.
+
+### Folding: `a-b`, `a_b` and `a b` are one tag
+
+Atoms and tags both go through the same `_fold` the rest of the package uses —
+lowercase, `-` and `_` read as a space — and on both sides, so all three of
+
+```
+tags:in-progress
+tags:in_progress
+tags:In\ Progress
+```
+
+match a tag written `in-progress`, `in_progress`, `In Progress` or `In-Progress`.
+It follows that `a-b`, `a_b` and `a b` are the SAME tag as far as search is
+concerned; no query distinguishes them.
+
+### Nothing typeable is an error
+
+**Parsing never fails.** A live search box types every prefix of a valid query
+on the way to it — `tags:(a|` is what a reader has typed one keystroke before
+`tags:(a|b)` — so an incomplete expression cannot be treated as a failure.
+Every malformed form REPAIRS instead. MEASURED, these are the actual answers:
+
+```
+tags:(a|          unclosed group; the dangling `|` is skipped for want of
+                  operands, so it matches what `tags:a` matches
+tags:a&           dangling operator, the same skip: matches `tags:a`
+tags:)a           unmatched close, discarded: matches `tags:a`
+tags:a\           a trailing `\` has nothing to escape and is dropped: `tags:a`
+tags:note&&draft  the doubled `&` collapses: matches `tags:note&draft`
+tags:((note))     redundant groups: matches `tags:note`
+tags:             no filter at all — every note matches
+```
+
+The parser does record WHY it repaired (`unclosed-open`, `unmatched-close`,
+`trailing-backslash`) on the `repaired` field of its result. Nothing reads that
+field yet; it is there for an affordance in the bar.
+
+This holds on the Typst side too — `#search-ideas("tags:(a|")` returns matches
+rather than failing the build. One lenient rule shared by both languages is
+also the only version of this that could be parity-tested: two different error
+paths cannot be diffed against each other.
+
+### A tag is a predicate, never a scorer
+
+A tag match adds **no third tier and no score bonus**, and leaves the two-tier
+ranking above exactly as it was. Tags decide which notes are CANDIDATES; the
+residual text decides how they rank. With no residual text there is nothing to
+rank by, and no special case is needed for it: `fuzzy-score` returns 0 for an
+empty query, so every survivor lands in the name tier at score 0 and the stable
+sort leaves them in the id order `#ideas()` gave.
+
+**Highlighting uses the residual only.** MEASURED in a browser, `tags:phd alpha`
+marks "Alpha" in a title and "alpha" in an id and nothing else — the literal
+`tags:` is an instruction, not something any note contains, so marking it would
+highlight the query rather than the match. A bare `tags:draft` still opens the
+dropdown, the raw input being non-empty, and marks nothing.
+
+### What it costs
+
+Filtering happens BEFORE scoring, which makes a tag query **cheaper** than a
+bare text query rather than dearer: the pool the body tier walks shrinks before
+it is walked. MEASURED in node over a synthetic corpus with 1200-cluster
+bodies, per keystroke:
+
+| corpus | `window depth` | `tags:note&draft` |
+| --- | --- | --- |
+| 500 notes | 1.734 ms | 0.096 ms |
+| 5000 notes | 15.1 ms | 0.850 ms |
+
+Parsing itself is 1-2 microseconds, which is why it does not show up in those
+numbers.
+
+**A negation is the exception**, keeping most of the corpus: `tags:!draft window
+depth` costs the baseline, 13.2 ms at 5000 notes. No speedup, and no
+regression either.
+
+Typst-side a parse is about 60 microseconds, and a build parses once — the
+split happens before the ranking loop rather than per row.
+
+Carrying each note's tags in the JSON island costs about **18 bytes a note**.
+MEASURED at 40 tagged notes, with bodies under 0.2.0's 1200-cluster prefix cap:
+51.1 KB -> 51.8 KB, so +723 B, +1.4%. The per-note cost is unchanged now the cap
+is a term budget; the percentage is larger, the rest of the row having shrunk.
+**That is why there is no `tag-search: false` switch to match `body-search:
+false`**: 18 bytes a note does not earn a knob, where `body-search: false`
+removes the largest field in the row — a tenth of the island, measured above —
+and settles a real per-project question about whether full-text hits are noise.
+
+### The limits of a tag query
+
+- **No way to express an exact tag match.** See prefix matching above:
+  `tags:note` cannot be narrowed to exclude `notebook`.
+- **A tag containing a space produces a broken class, here and in rookery
+  alike.** `#idea` validates tags nowhere, so a tag written `my tag` already
+  emits a two-class `idea-tag-my tag` in rookery's own output; the pills this
+  package renders reproduce that rather than sanitising it. A package quietly
+  disagreeing with rookery about what class a tag carries would be worse than
+  reproducing a hazard rookery already has.
+- **The whitespace test is each language's own `trim`**, and JavaScript trims
+  U+FEFF where Rust does not. A tag expression containing a zero-width no-break
+  space therefore ends in the browser and not in Typst. Stated for
+  completeness: it cannot arise from typing.
+- **Only a LEADING `tags:` is a filter**, so a note whose body contains the
+  literal "tags:" is still findable by text. That is the intended trade — a
+  filter that could begin mid-query would make the string unsearchable.
+
+### Building your own UI on the same rule
+
+`#parse-tag-query(src)`, `#eval-tag-query(rpn, tags)` and `#split-query(q)` are
+public, and so are their ports `parseTagQuery`, `evalTagQuery` and `splitQuery`
+on the `RheoRookerySearch` global — the same reason the ranking is exported
+there. A site with its own search UI should run the reader's own rule rather
+than fork it or write a second one that disagrees with the bar about what
+`tags:!draft` means.
+
+`split-query` is the entry point a UI wants: it returns `(rpn, text, repaired)`,
+with `rpn: ()` for a query carrying no `tags:` prefix and `text` the residual to
+rank and highlight by. `parse-tag-query` returns `(rpn, residual, repaired)` for
+the expression alone. `eval-tag-query` expects tags **you have folded
+yourself** — the expression's atoms are folded when parsed, and folding one side
+only would make `in-progress` unfindable as "in progress". JavaScript exports
+`fold` for it; the Typst `_fold` is private, so a Typst caller spells out the
+same three steps: `lower(t).replace("-", " ").replace("_", " ")`.
+
 ## Scoping the corpus by tag: `tags:` and `match:`
 
-`tags:` narrows WHICH notes are searched. **It does not make the query match
-tags** — ranking still looks at id and title, and at body text when
-`body-search` is on, and never at a tag. The two are different axes: `tags:`
-decides what is in the corpus at all, the query decides what scores inside it.
+This is the AUTHOR's `tags:`, a build-time parameter, and it is a different
+thing from the reader's `tags:` expression in a query string — see "Filtering by
+tag" above. The parameter decides what is in the corpus at all, on every page it
+renders on; the reader's expression filters within that, at each keystroke.
+
+The parameter narrows WHICH notes are searched. **It does not make the query
+match tags** — ranking still looks at id and title, and at body text when
+`body-search` is on, and never at a tag, whichever axis put a note in the pool.
 
 Both parameters are rookery's own, passed straight through to its `#ideas()`:
 
@@ -201,9 +436,11 @@ only the notes that survived, so a scoped bar ships a smaller island — inline 
 every page, so the saving is multiplied by the page count, the same arithmetic as
 the `body-search: false` measurement below.
 
-The island gains no `tags` field, deliberately. The selection is settled at
-compile time, so the browser has nothing left to decide, and a field it never
-reads would only make every page bigger.
+The island DOES carry each note's own `tags`, and that is the reader's axis
+rather than this one: the parameter's selection is settled in Typst, but a
+reader's `tags:` expression is evaluated per row in the browser, so the field
+has something left to read it. It costs about 18 bytes a note — see "What it
+costs" above.
 
 ### A bar over one tag
 
@@ -244,19 +481,21 @@ A compile-time search is not a search box. For that the browser needs the
 corpus, and `#search-index()` puts it on the page as JSON:
 
 ```html
-<script type="application/json" id="rookery-search-index">[{"id":"idea:flat-ids","name":"flat-ids","text":"Flat ids, and why","body":"Flat ids are …","href":"ideas/flat-ids.html"}, ...]</script>
+<script type="application/json" id="rookery-search-index">[{"id":"idea:flat-ids","name":"flat-ids","text":"Flat ids, and why","tags":["phd"],"body":"Flat ids are …","href":"ideas/flat-ids.html"}, ...]</script>
 ```
 
 One row per note: `id`, `name`, `text` (the plain-text title, `""` when there
-is none), `body` (the plain-text body, `""` when there is none) and `href`.
+is none), `tags` (the note's own tag array — **the key is absent** when it has
+none, rather than written as `[]` per row), `body` (the plain-text body, `""`
+when there is none) and `href`.
 The field is `text` and not `title` deliberately — it is the same name,
 meaning and type as `search-ideas` returns, and a name that meant content in
 Typst and a string in JSON is how a consumer gets it wrong.
 
-**`tags:`/`match:` decide which notes reach the island**, and the row shape is
-unchanged by them — no `tags` field goes into the JSON, because the selection is
-already settled in Typst and the browser has nothing left to filter. See
-"Scoping the corpus by tag" above.
+**`tags:`/`match:` decide which notes reach the island**, and the `tags` field is
+what a READER's own `tags:` expression is evaluated against, per row, once they
+are there — the two axes again, and see "Filtering by tag" above. The author's
+selection is settled in Typst; the field is the reader's to filter with.
 
 **`body` is capped, not the whole note.** `search-index`'s `body-chars`
 parameter (1200 by default, `none` for no cap) truncates each row's body to
@@ -274,7 +513,9 @@ from `file://` with no fetch.
 ### Ids and titles only: `body-search: false`
 
 `body-search: false` leaves the `body` field OUT of every row, so the island
-carries `id`, `name`, `text` and `href` and nothing else. It is the one switch
+carries `id`, `name`, `text`, `href` and a tagged note's `tags` and nothing
+else — a reader's `tags:` filter keeps working with body text gone, having never
+read that field. It is the one switch
 for "search this rookery by name, not full text", and it is accepted by
 `#search-ideas`, `#search-index`, `#search-bar` and `#search-modal` alike —
 configure it where you invoke the package in your own files:
@@ -386,6 +627,8 @@ Style them from your own stylesheet; they are the contract.
 | `.rookery-search-row` | one result, an `<a>` |
 | `.rookery-search-title` | the note's title, or its name when untitled |
 | `.rookery-search-id` | the note's full id, bracketed — `[idea:etal]` |
+| `.rookery-search-tags` | a tagged row's second line of pills — `display: none` outside the modal |
+| `.rookery-search-tag` | one tag pill, also carrying rookery's own `idea-tag-<tag>` |
 
 The wrapper also carries `data-rookery-search-open="true|false"`, flipped as the
 results open and close — that is the hook to show and hide the list, so the CSS
@@ -633,6 +876,11 @@ figure at its intrinsic size would overflow the column.
 | `--rookery-search-modal-height` | `min(32rem, calc(100vh - 8rem))` |
 | `--rookery-search-backdrop` | `rgba(0, 0, 0, 0.5)` |
 | `--rookery-search-mark` | `--idea-link-color`, else `rgba(128, 0, 255, 0.25)` |
+| `--rookery-search-tag-color` | a tag pill's text: `--rookery-search-id-color`, else `--idea-id-color`, else `gray` |
+| `--rookery-search-tag-bg` | that pill's fill: a 14% `currentColor` tint (`rgba(128, 128, 128, 0.18)` without `color-mix`) |
+| `--rookery-search-tag-size` | that pill's text size, a factor of the row's own — `0.85em`, a chosen default and not a measurement |
+| `--rookery-search-tag-radius` | that pill's corners — `999px` is a pill, `0` is a rectangle |
+| `--rookery-search-tag-gap` | the space between two pills on a row — `0.3em` |
 
 Below a 40em (≈640px) viewport width the preview pane and the `Ctrl K` hint
 both disappear and the list takes the full width — a preview column that
@@ -640,6 +888,47 @@ narrow shows about four words and is worse than none. That breakpoint is a
 literal in the package's CSS, not a custom property (a `@media` condition
 cannot read one); a site wanting a different breakpoint overrides the whole
 `@media` block, unlayered, like any other rule here.
+
+### Tag pills on a result row
+
+A note that has tags gets a **second line** on its result row, beneath the title
+and the bracketed id: one filled, fully rounded pill per tag, in the author's own
+tag order. In the **modal's list only**, and only for a note that has tags — an
+untagged row stays one line tall, so the modal's fixed-height list keeps its
+result count.
+
+The dropdown's DOM carries the same pills and hides the container, because the
+row builder is shared between the two surfaces on purpose: building rows two ways
+is exactly what that sharing prevents, and visibility is something CSS can
+express without breaking it. One rule turns them on in the bar:
+
+```css
+.rookery-search-results .rookery-search-tags { display: flex }
+```
+
+That is not the default because a dropdown is a few titles hanging under an
+input, and doubling every row's height there is a cost the modal's fixed-height
+two-pane list does not pay.
+
+**One shape at one size, colour the only difference between tags.** A pill reads
+as a discrete thing in a list where every other line is prose. It is
+deliberately not the shape of `.rookery-search-keyword` in the preview pane —
+that is an unfilled `--rookery-search-radius` rectangle with a border — because
+the two are different KINDS of thing (a keyword is a term lifted out of the
+note's compressed body, a tag is something the author wrote) and they never
+appear in the same pane.
+
+Every pill also carries rookery's own `idea-tag-<tag>` class alongside
+`.rookery-search-tag`, the same class rookery puts on a note's heading and box.
+So per-tag styling written for a note's own page applies in the modal with no new
+selectors — and that, rather than a custom property per tag, is the intended way
+to colour tags by kind. Pill text is set with `textContent`, never `innerHTML`,
+like every other string this package renders.
+
+The shape is not this package's invention.
+[hacker-archives](https://ficarelli.github.io/hacker-archives/) shipped these
+chips in its own stylesheet before the package had any, and its `.listing-tag`
+is where the defaults above were taken from (its two pinks stayed its own).
 
 ## Working on it locally
 
@@ -677,11 +966,17 @@ from the index.
 just parity
 ```
 
-feeds two lists of cases (one per ranking rule) through both languages and
-diffs every score, failing loudly when they disagree. The cases live in
-`test/parity.typ`, as two labelled metadata arrays; extend them when you
-extend a rule, and change both copies in the same commit. It needs no build —
-the fixture imports `src/` on both sides.
+feeds each list of cases through both languages and diffs every score, failing
+loudly when they disagree. The cases live in `test/parity.typ`, as labelled
+metadata arrays; extend them when you extend a rule, and change both copies in
+the same commit. It needs no build — the fixture imports `src/` on both sides.
+
+The `tags:` parser is the one pair whose output is not a number, and it is
+diffed the same way: `<tag-parity>`'s 21 cases compare the parsed expression as
+a flattened RPN string, the residual text, and one boolean per fixed tag set —
+all three, because a parser agreeing only on the final verdict could still have
+drifted on precedence or on where the expression ended. That is why the parser
+is shunting-yard and emits a token array; see "Filtering by tag" above.
 
 To develop against a live rheo project, symlink the package into the Typst
 package cache:
