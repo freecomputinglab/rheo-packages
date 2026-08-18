@@ -34,12 +34,37 @@
 // `#asset(...)` directly and so is only exercisable under a real rheo build
 // (this fixture compiles to `--format pdf`, where `asset` bails if shown).
 
-#import "/src/lib.typ": _clean-page, _mint-plan, atom, feed, item, items, resolve-entries, spine
+#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, atom, feed, item, items, resolve-entries, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
 #assert.eq(_clean-page("/two.html"), "two.html")
 #assert.eq(_clean-page("./two.html"), "two.html")
+
+// ---- _plain-text — flatten CONTENT titles (the metadata beacon's own
+// shape, and any hand-written source forwarding `document.title`) to plain
+// strings, passing a plain string straight through. See `/src/lib.typ`'s
+// own doc comment on `_plain-text` for the MEASURED content shapes this
+// covers `c.text`/`c.children`/`c.body`/space-like leaves.
+#assert.eq(_plain-text(none), "")
+// A plain string passes through unchanged — no content involved at all.
+#assert.eq(_plain-text("Plain Str"), "Plain Str")
+// A single-word bracket title is one `text` leaf — the `c.text` field path.
+#assert.eq(_plain-text([Word]), "Word")
+// A multi-word bracket title with markup is a `sequence` of
+// `text`/`space`/`emph` children — the `c.children` recursion path, and
+// `emph`'s own `c.body` recursion nested inside it. This is the exact
+// fixture the bead itself names.
+#assert.eq(_plain-text([Two, #emph[emphatically]]), "Two, emphatically")
+// A run of markup with an explicit paragraph break — `parbreak` is one of
+// the space-like leaves that flattens to a single " ".
+#assert.eq(_plain-text([Para one
+
+Para two]), "Para one Para two")
+// A title that is CONTENT but carries no text at all (just a space)
+// flattens to "" once trimmed — this is what `_normalize-entry`'s own
+// non-empty check relies on to still catch an effectively-empty title.
+#assert.eq(_plain-text([ ]), "")
 
 // `feed(...)` requires at least one source (panics otherwise — see the top
 // comment), so every config below needs one even where its entries do not

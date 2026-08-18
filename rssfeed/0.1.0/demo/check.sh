@@ -8,9 +8,12 @@
 # `just check`, which builds first.
 #
 # ALSO pins the parity matrix of bead rheo-packages-parity-qrd (rows 1, 3, 5,
-# 6, 8, 10 land here — see ../verify/ for rows 2, 4, 7, 11, 12, which cannot
-# coexist with this demo's own content/config). Each block below is labelled
-# with its row number.
+# 6, 8, 9, 10 land here — see ../verify/ for rows 2, 4, 7, 11, 12, which
+# cannot coexist with this demo's own content/config). Each block below is
+# labelled with its row number. Row 9 — entry title from the AUTHORED
+# `#set document(title: ..)`, not spine()'s filename-derived fallback — was
+# recorded unpinnable in ../verify/EXPECTED.md until bead rheo-packages-mxqa
+# gave the beacon's own flattened title precedence in `spine()`.
 set -euo pipefail
 cd "$(dirname "$0")"
 H=build/html
@@ -172,23 +175,60 @@ if any((href or "").endswith("/index.html") for href in all_hrefs):
 # Row 10: an entry's timestamp falls back to the document date — each dated
 # post's `<updated>` (and, since spine() mirrors one date into both fields,
 # `<published>` too) must equal exactly the `#set document(date: ..)` value
-# its own content/posts/*.typ set, not e.g. a build-time value.
+# its own content/posts/*.typ set, not e.g. a build-time value. Keyed by the
+# entry's own URL suffix, not its title — bead rheo-packages-mxqa (below)
+# makes `title` the AUTHORED value now, so title can no longer double as a
+# stable lookup key here.
 expected_dates = {
-    "One": "2026-01-05T00:00:00Z",
-    "Two": "2026-02-12T00:00:00Z",
-    "Three": "2026-03-20T00:00:00Z",
+    "posts/one.html": "2026-01-05T00:00:00Z",
+    "posts/two.html": "2026-02-12T00:00:00Z",
+    "posts/deep/three.html": "2026-03-20T00:00:00Z",
 }
 for e in feed_entries:
-    title = field(e, "title")
-    want = expected_dates.get(title)
+    href = link(e) or ""
+    suffix = href.removeprefix("https://demo.example.org/")
+    want = expected_dates.get(suffix)
     if want is None:
         continue
     got_updated = field(e, "updated")
     got_published = field(e, "published")
     if got_updated != want:
-        fail(f"{title}'s <updated> is {got_updated!r}, expected {want!r} (its own #set document(date: ..))")
+        fail(f"{suffix}'s <updated> is {got_updated!r}, expected {want!r} (its own #set document(date: ..))")
     if got_published != want:
-        fail(f"{title}'s <published> is {got_published!r}, expected {want!r}")
+        fail(f"{suffix}'s <published> is {got_published!r}, expected {want!r}")
+
+# Row 9 (bead rheo-packages-mxqa): an entry's <title> is the AUTHORED
+# `#set document(title: ..)` value, not spine()'s filename-derived fallback.
+# `posts/one.typ` sets a plain STRING title; `posts/two.typ` sets a bracket
+# CONTENT title containing markup (`#emph[..]`) — the second exercises
+# `spine()`'s `_plain-text` flattener itself, not merely a field read that
+# happens to already be a string.
+expected_titles = {
+    "posts/one.html": "Custom Post Title",
+    "posts/two.html": "Two, emphatically",
+}
+for e in feed_entries:
+    href = link(e) or ""
+    suffix = href.removeprefix("https://demo.example.org/")
+    want = expected_titles.get(suffix)
+    if want is None:
+        continue
+    got = field(e, "title")
+    if got != want:
+        fail(f"{suffix}'s <title> is {got!r}, expected the AUTHORED {want!r} "
+             "(spine()'s filename-derived fallback must not win when the "
+             "vertebra sets its own #set document(title: ..))")
+# The filename-derived fallbacks ("One"/"Two") must not survive anywhere in
+# feed.xml now that both posts author their own title — a stronger,
+# fallback-catching check than the exact-match one above on its own (which
+# would stay silent if `title` were accidentally left blank instead).
+all_titles_now = {field(e, "title") for e in feed_entries}
+for stale in ("One", "Two"):
+    if stale in all_titles_now:
+        fail(
+            f"feed.xml still carries the filename-derived fallback title "
+            f"'{stale}' instead of the authored #set document(title: ..)",
+        )
 
 sys.exit(1 if bad else 0)
 PY

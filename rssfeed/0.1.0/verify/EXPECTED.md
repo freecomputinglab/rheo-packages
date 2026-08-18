@@ -130,33 +130,45 @@ vertebra just because no feed source matched it) — asserted anyway, per the
 bead's own reasoning: "'true by construction' is exactly what silently
 stops being true."
 
-## Row 9 — entry title falls back to the document title
+## Row 9 — entry title prefers the authored document title
 
-**Could not be empirically pinned with the provided branch build — flagged,
-not silently skipped.** `spine()` (`src/lib.typ`) reads `v.title` verbatim
-from rheo core's own spine-flat data — no scraping of a heading, no
-override of its own (confirmed by reading the source; this half of the
-row is a structural fact, not something worth re-testing at the package
-level).
+**Now empirically pinned — bead rheo-packages-mxqa.** The gap this row
+originally flagged was real: `v.title` (`spine()`'s input, from rheo core's
+own pre-compile spine-flat data) is filename-derived ONLY, on the
+`feat/transclusion` line — no pre-compile AST scan of `#set document(title:
+..)` feeds it, and none is coming back. But the AUTHORED title is still
+reachable — post-compile, through the same per-vertebra metadata beacon
+(`<rheo-meta:<handle>>`) `spine()` already reads for `date`/`keywords`. Its
+`title` field is CONTENT, not a string (MEASURED, typst 0.15.1: even a title
+authored as a plain string, e.g. `#set document(title: "Plain Str")`, queries
+back through the beacon as content `[Plain Str]`) — the missing piece was a
+flattener, landed as `_plain-text` in `src/lib.typ`. `spine()` now prefers
+the beacon's flattened `title` whenever it is non-empty, falling back to
+`v.title` only when `_meta` finds no beacon at all for that handle.
 
-The row's OTHER half — that rheo core's own spine-flat title reflects a
-page's `#set document(title: ..)` when present, else a filename fallback —
-is core behaviour, not this package's. It was probed directly (three
-isolated one-off fixtures: a bracket-content title, a plain string title,
-and a title combined with `date:` in one `#set document(...)` call) against
-the `feat/transclusion` binary this bead named. In all three, the emitted
-spine-flat `title` remained the filename-prettified fallback ("A"/"B"/"C"),
-unaffected by the explicit `#set document(title: ..)`.
+`demo/content/posts/one.typ` sets a PLAIN STRING title
+(`#set document(title: "Custom Post Title")`); `demo/content/posts/two.typ`
+sets a bracket CONTENT title containing markup
+(`#set document(title: [Two, #emph[emphatically]])`) — the second exercises
+`_plain-text`'s flattening itself, not merely a field read that happens to
+already be a string. Both differ from their filename-derived fallbacks
+("One"/"Two").
 
-This traces to `crates/core/src/parser/document_metadata.rs` in the `rheo/`
-checkout — a module that implements exactly this title-fallback chain, with
-its own full unit-test coverage — being ABSENT from the provided binary
-(`strings <binary> | grep 'does not retain styling'`, the module's own
-lossy-title warning text, finds nothing). The checked-out `rheo/` source has
-moved past whatever commit the binary was built from; this is a build/
-version-skew in the test environment, not a defect in `@rheo/rssfeed`.
-Left undemonstrated here rather than asserting on the CURRENT (stale)
-behaviour, which would pin the wrong thing.
+OBSERVED (`demo/build/html/feed.xml`):
+```
+<entry><id>https://demo.example.org/posts/one.html</id><title>Custom Post Title</title>...</entry>
+<entry><id>https://demo.example.org/posts/two.html</id><title>Two, emphatically</title>...</entry>
+```
+Neither the plain-string nor the markup-bearing entry carries its
+filename-derived fallback ("One"/"Two") — both carry the AUTHORED title.
+`posts/deep/three.typ` sets no title of its own, and its entry's `<title>`
+is still `Three` — the filename-derived fallback remains correct for a
+vertebra that never authors one, matching `spine()`'s own documented
+"beacon found no title, or no beacon at all" behaviour.
+
+PASS — pinned by `demo/check.sh` (exact-match on both authored titles, plus
+an explicit check that neither stale fallback string survives anywhere in
+`feed.xml`).
 
 ## Row 10 — entry timestamp falls back to the document date
 

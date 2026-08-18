@@ -165,6 +165,62 @@
   }
 }
 
+// ---- _plain-text — flatten CONTENT (or pass a string through unchanged) ---
+//
+// Needed because a `title` can arrive as CONTENT rather than a plain string:
+// `spine()`'s own beacon-sourced title (below) always is, and a hand-written
+// source that forwards Typst's own `document.title` gets content too —
+// MEASURED (typst 0.15.1, this package's own probe against rheo's
+// `<rheo-meta:*>` beacon) that even `#set document(title: "Plain Str")`
+// queries back as content `[Plain Str]`, and a bracket title with markup
+// (`[Bracket #emph[Title]]`) as a `sequence` of `text`/`space`/`emph`
+// children. There is no built-in content-to-string conversion in Typst, so
+// this is a hand-rolled flattener.
+//
+// MEASURED shapes (typst 0.15.1, via `c.func()`/`c.has(..)`) drove every
+// branch below:
+//   - a `text` leaf has a `text` FIELD (`c.text`) holding the plain string.
+//   - `sequence` (what a paragraph of mixed markup becomes) has a `children`
+//     FIELD — an array of content, recursed into and joined with NO
+//     separator: the space between two words is already its own `space`
+//     child, not something the join needs to insert.
+//   - `emph`/`strong` (and any similarly-shaped single-child wrapper) have a
+//     `body` FIELD holding that one child — recursed into.
+//   - `space`/`parbreak`/`linebreak` carry none of the three fields above
+//     (`.has(..)` is false for all of `text`/`children`/`body`) and each
+//     becomes a single " " — a title's flattened text has no need to
+//     distinguish a paragraph break from a plain space. `space`, unlike
+//     `parbreak`/`linebreak`, has no bindable global name in Typst — MEASURED
+//     "unknown variable: space" — so its element function is instead
+//     captured once, below, off a throwaway one-space content value.
+//   - anything else unrecognised flattens to "" rather than erroring — a
+//     title's content shape is not this function's place to validate; an
+//     empty-after-flattening result is caught by the CALLER's own non-empty
+//     check instead (`_normalize-entry`, immediately below).
+//
+// The recursive helper is a nested `#let` (Typst allows recursion in a `#let`
+// binding, top-level or nested) so only the trimmed, flattening entry point
+// is exported from this scope.
+#let _space-func = [ ].func()
+#let _plain-text(c) = {
+  let go(c) = if c == none {
+    ""
+  } else if type(c) == str {
+    c
+  } else if c.has("text") {
+    c.text
+  } else if c.has("children") {
+    c.children.map(go).join("")
+  } else if c.has("body") {
+    go(c.body)
+  } else if c.func() in (_space-func, parbreak, linebreak) {
+    " "
+  } else {
+    ""
+  }
+  go(c).trim()
+}
+
 // One source-supplied entry, normalised — or `none` when the entry must be
 // DROPPED (see the skip rule below). `cfg` is the resolved feed config, for
 // `base-url`/`author` fallbacks.
@@ -174,9 +230,21 @@
     message: "@rheo/rssfeed: a source returned a non-dictionary entry — got "
       + repr(type(e)),
   )
-  let title = e.at("title", default: none)
+  // A source's `title` may be a plain string OR content: Typst's own
+  // `document.title` is ALWAYS content even when authored as a plain string
+  // (MEASURED — see `_plain-text` above), and `spine()`'s beacon-sourced
+  // title (below) is content too. Flattened through `_plain-text` before the
+  // non-empty check so either shape is accepted from ANY source, not just
+  // rssfeed's own built-in ones.
+  let raw-title = e.at("title", default: none)
   assert(
-    type(title) == str and title.len() > 0,
+    type(raw-title) == str or type(raw-title) == content,
+    message: "@rheo/rssfeed: an entry's `title` must be a non-empty string "
+      + "or content — got " + repr(type(raw-title)),
+  )
+  let title = _plain-text(raw-title)
+  assert(
+    title.len() > 0,
     message: "@rheo/rssfeed: an entry is missing a non-empty `title`.",
   )
 
@@ -326,27 +394,44 @@
 // `#context { .. }` block. The normal case is `.marrow.typ`, which already
 // wraps its own read of `configure`'s state the same way.
 //
-// - `title` is the spine entry's own string `title`; `page` is built from
-//   its `handle`, NOT its `path` — `path` is the vertebra's SOURCE `.typ`
-//   path (`crates/core/src/reticulate/spine.rs`'s `rel_path`, e.g.
-//   "content/posts/one.typ"), never the compiled output `.marrow.typ`/
-//   `emit`'s `<rheo-content>` transclusion resolves against. MEASURED (this
-//   package's own end-to-end verify): minting `page: v.path` produced
-//   "`<rheo-content>` references unknown page 'content/index.typ'" — the
-//   compiled bundle has no such output. The handle is the correct source: a
-//   handle's `:` segments become `/` and the build's own `ext` (from
-//   `sys.inputs.rheo-context.ext`, same field `typ/rheo.typ`'s cross-vertebra
-//   link rule reads) is appended — exactly the mapping that rule itself
-//   applies to a handle to build a page's href, and the same convention
-//   rookery's `_note-page` relies on for its own minted-path/handle pairing.
-//   No `url` — `_normalize-entry` builds one from `base-url` + `page`.
+// - `title` PREFERS the vertebra's metadata beacon over the spine entry's
+//   own filename-derived `v.title`. `v.title` is computed from the file
+//   PATH before compile (`crates/core/src/reticulate/spine.rs`'s
+//   `spine_flat`); rheo core no longer pre-scans `#set document(title: ..)`
+//   to override it there, so the AUTHORED title is reachable only
+//   post-compile, through the beacon's own `title` field — which rheo's
+//   `#document(.., title: [<v.title>])` wrapper
+//   (`crates/core/src/util/typst_source.rs`'s `TypstStmt::Document`) seeds
+//   with `v.title` itself, and a vertebra's own `#set document(title: ..)`,
+//   if any, then overrides within that same document scope. Either way the
+//   beacon's `title` is CONTENT (Typst's resolved `document.title` is
+//   ALWAYS content, even for a title authored as a plain string —
+//   MEASURED, see `_plain-text` above), hence flattening it through
+//   `_plain-text` before comparing against "" below. Falling back to
+//   `v.title` itself covers the one case with no beacon value to read at
+//   all — `_meta` found no beacon (a vertebra rheo did not instrument) —
+//   and is still the right value there, being the same filename-derived
+//   string the wrapper itself would have seeded.
+// - `page` is built from its `handle`, NOT its `path` — `path` is the
+//   vertebra's SOURCE `.typ` path (`crates/core/src/reticulate/spine.rs`'s
+//   `rel_path`, e.g. "content/posts/one.typ"), never the compiled output
+//   `.marrow.typ`/`emit`'s `<rheo-content>` transclusion resolves against.
+//   MEASURED (this package's own end-to-end verify): minting `page: v.path`
+//   produced "`<rheo-content>` references unknown page 'content/index.typ'"
+//   — the compiled bundle has no such output. The handle is the correct
+//   source: a handle's `:` segments become `/` and the build's own `ext`
+//   (from `sys.inputs.rheo-context.ext`, same field `typ/rheo.typ`'s
+//   cross-vertebra link rule reads) is appended — exactly the mapping that
+//   rule itself applies to a handle to build a page's href, and the same
+//   convention rookery's `_note-page` relies on for its own
+//   minted-path/handle pairing. No `url` — `_normalize-entry` builds one
+//   from `base-url` + `page`.
 // - `select`, when given, is passed through to every entry unchanged.
 // - `date`, read from the vertebra's metadata beacon (i.e. its own `#set
 //   document(date: ...)`), fills BOTH `published` and `updated` — matching
 //   what the retired Rust generator effectively did (it carried only one
 //   date per page). `keywords` (an array, possibly empty) becomes
-//   `categories`. The beacon's own `title` is CONTENT, not a string, so it
-//   is deliberately ignored in favour of the spine entry's string `title`.
+//   `categories`.
 // - An UNDATED vertebra therefore yields an entry with neither `published`
 //   nor `updated`, which `resolve-entries`'s skip rule then DROPS. This is
 //   INTENTIONAL, not a gap: it is how a cover page or index falls out of
@@ -367,8 +452,15 @@
   entries.map(v => {
     let meta = _meta(v.handle)
     let date = _meta-date(meta)
+    // The beacon's `title` wins when it flattens to something non-empty —
+    // see this function's own doc comment above for why it, not `v.title`,
+    // carries the AUTHORED title. `v.title` (the spine's filename-derived
+    // fallback) is the ONLY thing left to fall back to when `meta` is `(:)`
+    // — no beacon found at all for this handle.
+    let beacon-title = _plain-text(meta.at("title", default: none))
+    let title = if beacon-title.len() > 0 { beacon-title } else { v.title }
     (
-      title: v.title,
+      title: title,
       page: v.handle.replace(":", "/") + "." + ext,
       select: select,
       published: date,
