@@ -13,6 +13,18 @@
   ("the window depth budget, and why an index does not want it", "window"),
   ("W i n d o w s", "window"), ("ETAL", "etal"), ("etal", "ETAL"),
   ("a_b_c", "a b"), ("Café", "cafe"),
+  // CLUSTERS WIDER THAN ONE CODE POINT, named rather than left to the generated
+  // suite. The port counted UTF-16 code points where `fuzzy-score` counts
+  // extended grapheme clusters, and since `hc.len()` and `first` are global terms
+  // in the score, one such sequence anywhere in a hay moved every query against
+  // it. These five are the failures that found it, kept as a named regression:
+  // the generator can only catch them again at a seed that happens to draw them.
+  // `\u{306}` written as an escape, NOT as a precomposed `ĕ`: the precomposed form
+  // is one code point AND one cluster, so it agrees either way and pins nothing.
+  // MEASURED — with the spread restored, four of these five fail and the
+  // precomposed spelling of this one passed.
+  ("👩‍💻-queRY", "💻eY"), ("résumé-❤️", "rsu❤"), ("❤️ window", "w"),
+  ("e\u{306} beta", "e\u{306} be"), ("检索c̃", "索c̃"),
 )
 #metadata(cases.map(c => (
   hay: c.at(0),
@@ -203,6 +215,22 @@
   // that needs it: read left-associatively, the second `!` pops the first off the
   // stack before it has an operand.
   "tags:!!draft", "tags:!!!draft&note",
+  // CLUSTERS IN A TAG QUERY, and these pin an EQUIVALENCE rather than a past bug.
+  // `parse-tag-query` walks `.clusters()`; the JavaScript port walked code points
+  // until bead rheo-packages-j6e, which is a real drift in `fuzzy-score` (see the
+  // five cases in `cases` above) — but MEASURED, it was unobservable here, and all
+  // four of these agreed under both implementations.
+  //
+  // WHY, because it is the thing that could stop being true: the only path that
+  // cares how wide a unit is is the escape branch, which consumes exactly ONE, and
+  // every other branch merely appends the unit to `atom` — where concatenating a
+  // cluster's code points rebuilds the same string. So `a\❤️b` is one atom either
+  // way: a spread escapes only U+2764 and then appends U+FE0F as ordinary text,
+  // which is where it would have landed regardless. It takes an operator character
+  // INSIDE a cluster to break that, and the frozen escape set is all ASCII while no
+  // grapheme cluster continues with ASCII. Widen the escape set and this is where
+  // it shows up.
+  "tags:résumé", "tags:❤️|c̃", "tags:👩‍💻&note", "tags:a\\❤️b",
 )
 // One fixed ladder of tag sets, evaluated for EVERY case, so the runner compares
 // a whole boolean row rather than a single verdict — the last set is the untagged
