@@ -548,6 +548,9 @@ Each entry is:
   the way handing out the content itself would.
 - `href` — a depth-relative link to the note's minted page, from wherever you
   are calling. See `#note-href()` below.
+- `page` — the same minted page, as a site-root-relative path instead — the
+  same string `#note-path()` returns, for a consumer with no page of its own
+  to measure depth from (a feed, a sitemap). See `#note-path()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
 
 `#ideas()` also takes `tags:` and `match:` — the same pair `#window` takes, with
@@ -632,6 +635,20 @@ Both `href` and `#note-href` are `none` where nothing mints pages: plain
 `typst compile` with no rheo, and the combined PDF target. `ideas()` itself
 still works there and still lists everything, because the corpus does not
 depend on rheo — only on links to pages that only rheo produces.
+
+`#note-path(name)` gives you the same page, but from the SITE ROOT rather than
+from wherever you're calling — the `page` field above, computed on demand:
+
+```typst
+#context note-path("etal")   // -> "ideas/etal.html"
+```
+
+Use it where `#note-href` is the wrong shape: a caller with no page of its
+own — a feed config, a sitemap, anything invoked once from shared code rather
+than from a vertebra — has no "current page" to measure depth from, so a
+depth-relative string built at the wrong call site would simply be wrong.
+`page` and `#note-path` are `none` under the same two conditions
+`href`/`#note-href` are.
 
 This is the supported way to build behaviour on top of a rookery, and it
 exists so that you do not have to reach into the package's internals to do it.

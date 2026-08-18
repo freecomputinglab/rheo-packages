@@ -2583,6 +2583,25 @@
 // caller must not cache the result across pages.
 #let note-href(name) = _note-href(_pfx() + _norm(name))
 
+// ---- #note-path — where a note's minted page lives, from the SITE ROOT -----
+//
+//   #context note-path("etal")   // -> "ideas/etal.html", or none
+//
+// `#note-href` above is relative to the page it is called from — right for a
+// link written inline in a vertebra's own prose. `#note-path` is the SAME
+// page, but from the site root, for a caller with no page of its own to
+// measure depth from — a feed config or sitemap invoked once from shared
+// code, not from a vertebra. It reuses `_note-file` directly, skipping
+// `_note-href`'s depth arithmetic entirely, and copies its unminted guard:
+// `none` under the same two conditions `#note-href` is — plain
+// `typst compile` with no rheo, and the combined PDF target.
+#let _note-path(id) = {
+  let c = _rheo-ctx()
+  if c == none or c.at("ext", default: none) == none { return none }
+  _note-file(id)
+}
+#let note-path(name) = _note-path(_pfx() + _norm(name))
+
 // ---- #ideas — every registered note, as data ------------------------------
 //
 //   #context ideas()                 // -> ((id: "idea:etal", name: "etal", ..), ..)
@@ -2602,6 +2621,7 @@
 //    tags:    ("note", "draft"), // as the author gave them, () if untagged
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
+//    page:    "ideas/etal.html", // site-root-relative, or none — see `note-path`
 //    minted:  datetime or none,
 //    updated: datetime or none)
 //
@@ -2680,6 +2700,7 @@
         tags: rec.at("tags", default: ()),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
+        page: _note-path(id),
         minted: rec.at("minted", default: none),
         updated: rec.at("updated", default: none),
       )
