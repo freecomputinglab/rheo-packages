@@ -45,6 +45,33 @@ jobs:
       - name: rookery unit fixture
         run: cd rookery/0.3.0 && just test
 
+      # `@rheo` IS A CUSTOM NAMESPACE, NOT A TYPST-UNIVERSE ONE, so there is no
+      # registry to download it from: it resolves only where the package cache
+      # already holds it. `rookery-search/0.3.0/src/lib.typ` imports
+      # `@rheo/rookery:0.3.0` for `ideas` and `note-href`, and `just parity` compiles
+      # that file through `typst eval` — so without this the next step dies with
+      # `error: package not found (searched for @rheo/rookery:0.3.0)`. MEASURED by
+      # running `just parity` under a scratch HOME with no namespace: three such
+      # errors, then green the moment the link exists.
+      #
+      # THE WHOLE NAMESPACE, not one package, and this is the same one-line setup
+      # CLAUDE.md prescribes for a developer's machine. Linking a single package in
+      # is the documented mistake: under a namespace link the target resolves back
+      # into the repo, where `<pkg>/` already exists, and `ln -sfn TARGET DIR` then
+      # writes the link INSIDE it, leaving a self-referential `<pkg>/<pkg>`.
+      #
+      # Only `rookery-search` needs it. `rookery`'s own fixture imports
+      # `/src/lib.typ` and `demo/pure` imports `../../src/lib.typ`, both by path —
+      # which is why those two steps have always passed while this one could not.
+      - name: Resolve the @rheo namespace from this checkout
+        run: |
+          set -euo pipefail
+          cache="${XDG_CACHE_HOME:-$HOME/.cache}/typst/packages"
+          mkdir -p "$cache"
+          ln -s "$PWD" "$cache/rheo"
+          # Fail HERE with something legible rather than inside a typst error later.
+          test -f "$cache/rheo/rookery-search/0.3.0/typst.toml"
+
       # `just parity` is the only thing keeping the Typst and JavaScript copies
       # of the ranking rule from drifting — two leaf scorers and the tiering rule
       # above them. `just build` first: parity imports `src/`, but a build failure
