@@ -23,6 +23,38 @@ spelled out below.
 #search-bar()
 ```
 
+## 0.3.0
+
+- **Breaking: the island's `body` field is no longer prose.** It used to be a
+  prefix of the note's own text; it is now a weight-ordered list of the
+  note's most distinctive terms — keyword soup, not readable prose. Anything
+  that read the island JSON and rendered `body` as text now renders keyword
+  soup instead. Read a note's prose from its own minted page instead —
+  `note-href()` plus a `fetch`, which is what `#search-modal`'s preview pane
+  itself now does. See "The preview pane fetches the note's page" below.
+- **A row now carries a `tags` key** when the note has any tags, omitted
+  entirely when it has none. MEASURED over a 40-note corpus: +723 bytes,
+  +1.4%.
+- **A `tags:` query grammar exists now** (`tags:draft window`, and so on) —
+  see "Filtering by tag" below for the grammar itself.
+- **Tag chips render on result rows, and keyboard navigation works in
+  `#search-bar`'s dropdown** — see "Working it from the keyboard" below.
+- **Both `#search-bar` and `#search-modal` now emit rookery's own theme**
+  onto their own containers, so `--idea-*` custom properties reach a bar or a
+  dialog even in a site header, for the first time. The last-resort fallback
+  colour of every rule moved from `rgba(0, 0, 0, 0.25)` to rookery's own
+  `rgba(128, 0, 255, 0.12)`. A site with no explicit theme override sees a
+  visible colour change.
+- **Focusing the search-bar input or the modal input now thickens the
+  input's own rule/border**, rather than drawing the browser's default blue
+  focus ring.
+- **The JavaScript ranking port now counts extended grapheme clusters** (via
+  `Intl.Segmenter`) rather than UTF-16 code points. A haystack containing a
+  combining mark or a multi-codepoint emoji now scores differently than it
+  did before. Typst-side scoring is unaffected — it already counted clusters.
+  This is a JS-only change, relevant only to a site with non-ASCII or emoji
+  note titles/ids.
+
 ## Import both packages, in your own files
 
 **A project using search must import `@rheo/rookery` AND `@rheo/rookery-search`
@@ -356,7 +388,7 @@ Typst-side a parse is about 60 microseconds, and a build parses once — the
 split happens before the ranking loop rather than per row.
 
 Carrying each note's tags in the JSON island costs about **18 bytes a note**.
-MEASURED at 40 tagged notes, with bodies under 0.2.0's 1200-cluster prefix cap:
+MEASURED at 40 tagged notes, with bodies under the previous release's 1200-cluster prefix cap:
 51.1 KB -> 51.8 KB, so +723 B, +1.4%. The per-note cost is unchanged now the cap
 is a term budget; the percentage is larger, the rest of the row having shrunk.
 **That is why there is no `tag-search: false` switch to match `body-search:

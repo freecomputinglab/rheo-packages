@@ -21,6 +21,17 @@ updated: none, show-date: false, ..args)`, where the sink accepts the body
 alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
 Typst label, identically.
 
+## 0.3.0
+
+`#ideas()` rows now carry a `tags` field — additive, part of the field-list
+contract documented in the comment above `ideas()`, and safe for a downstream
+package to rely on from this release. `#ideas-outline()` (and the rest of the
+outline/`#ideas()` family) gained their `tags:`/`match:`/`filter:` parameters
+in the same release. A new `label-font` theme key also landed:
+`#ideas-outline()`'s "Contents" title now renders in that face, as a hat,
+matching the rest of the theme system — see "The theme" and "The click
+budget" below.
+
 ## Setup, and the `idea:` prefix
 
 Nothing above needed any setup, and that stays true. One optional template
