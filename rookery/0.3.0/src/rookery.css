@@ -32,7 +32,8 @@
      --idea-border-color border-color the left rule on `.idea-box`/`.idea-window`,
                                       and the top tab rule (`.idea-tab`) that
                                       meets it at the corner
-     --idea-rule-width   rule-width   how THICK every one of those is, plus
+     --idea-rule-width   rule-width   how THICK every one of those is, plus the
+                                      floor under a FOLDED window's summary and
                                       `#ideas-outline`'s rule and its row
                                       markers: one thickness for the whole frame
                                       (2px). NOT the separators above a
@@ -580,6 +581,140 @@ h6.idea {
   flex: 0 0 100%;
 }
 
+/* A FOLDED window says so at rest. Closed, a `#window` is its summary row and
+   nothing else, and the only sign a body is behind it was the hover tint — which
+   a reader has to find with a pointer, and which does not exist at all on a touch
+   device or for someone tabbing past. This rule under the summary, the full width
+   of the window's content, is the boundary that says "there is more here".
+   Complementary to the tint rather than a replacement: the tint says the row
+   RESPONDS, the rule says there is CONTENT.
+
+   IT IS THE FLOOR TO THE TAB'S HAT. The hat (`.idea-tab::before` above) reaches
+   back across the card's own `padding-left` PLUS the width of the left rule, so it
+   lands on that rule's OUTER edge and the corner has no notch in it; the floor is
+   the same frame closed at the bottom, and it gets there by being the window's own
+   `border-bottom` rather than by reaching:
+
+     -[idea:etal]-        <- the hat, out of the corner, stopping at the id
+     |
+     | Note title
+     +-------------       <- the floor, out of the same corner, full content width
+
+   Two frames' worth of arithmetic in one place, so the two ends cannot drift:
+   both use `calc(0.75em + var(--idea-rule-width, 2px))`.
+
+   Keyed to `:not([open])` and not to a class emitted at build time, because
+   `folded: true` sets only the INITIAL state — a reader can click it open, and the
+   rule has to leave with the disclosure and come back when it shuts. `[open]` is
+   present exactly when the body shows, so the browser does that for free, with no
+   JS and nothing for `#window` to emit.
+
+   The CHILD combinator is load-bearing: a window nested inside another window's
+   body has a summary of its own, and a descendant selector would let a closed
+   OUTER window draw a rule under an INNER one's summary too.
+
+   `--idea-rule-width`, THE FRAME'S OWN THICKNESS, because that is what this line
+   is. It closes the box the left rule and the tab open, so it is the fourth side
+   of a frame rather than a separator laid across content — the distinction the
+   header above draws when it excludes the footnotes/references rules from this
+   property. One consequence and it is the point: a project setting
+   `#show: rookery.with(rule-width: ...)` moves the floor with the left rule, the
+   tab and `#ideas-outline`'s markers, so a heavier or lighter frame stays one
+   system instead of three-quarters of one.
+
+   TWO PROPERTIES, EACH DOING WHAT IT IS FOR. The floor is `--idea-border-color`,
+   the frame colour, because a boundary is what it is. The folded row also takes
+   `--idea-fold-color` as a BACKGROUND WASH, which is the colour that already means
+   "this folds" — `.idea-window:hover` paints exactly it. So a folded window reads
+   as pre-hovered: the affordance is on the row at rest instead of waiting for a
+   pointer that a touch device does not have.
+
+   THE WASH, NOT A FOLD-COLOURED LINE, and this is measured rather than taste.
+   `--idea-fold-color`'s default is `rgba(0, 100, 255, 0.05)` — 5% alpha, tuned for
+   a large background — and MEASURED as a 1px border it composites to
+   `rgb(242, 247, 255)` on white, a delta of 13/8/0 and about 1.04:1 contrast:
+   invisible, which is the opposite of the point. The same 5% across the whole row
+   reads fine, because area is what a 5% wash needs. Alpha that is too low for a
+   hairline is exactly right for a wash.
+
+   Hovering a folded window therefore paints the wash twice — once here, once from
+   `.idea-window:hover` behind it — compositing to about 9.75%. That is deliberate:
+   hover still does something, it just deepens a tint that is already there.
+
+   Inert everywhere it should be: `[open]` exists only in HTML, so the paged
+   target (where `folded` is ignored and the body always shows) never sees this,
+   and `#idea-body` emits no `<details>`/`<summary>` at all. */
+/* THE FLOOR IS THE WINDOW'S OWN BOTTOM BORDER, not a rule under the summary, and
+   that is what makes it line up. Two borders of the SAME box meet at their corner
+   by construction — no arithmetic, nothing to drift — so the floor ends exactly
+   where the left rule ends, and it inherits the box's `border-radius` at the
+   bottom-right for free. A `border-bottom` on the summary instead sits one
+   `padding-bottom` short of the frame's bottom, and no amount of reaching sideways
+   fixes a vertical mismatch.
+   `padding-bottom: 0` while folded closes that gap from the other side, and
+   `.idea-window-details:not([open])` gives up its own `margin-bottom` for the same
+   reason — MEASURED, that margin is `0.2em`, 3.2px at a 16px root, and it sat
+   between the wash and the floor as an untinted seam. With both gone the summary's
+   bottom IS the floor's top, so the tint runs into the rule. `:has()` is already how this sheet scopes to its own
+   figures (see `figure:has(> .idea-window)` above); where it is unsupported a
+   folded window simply keeps today's appearance. */
+.idea-window:has(> .idea-window-details:not([open])) {
+  border-bottom: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  padding-bottom: 0;
+  /* SHARP, overriding `.idea-window`'s own `0 5px 5px 0`. That radius exists to
+     soften a hover tint on an open block; a folded window is a closed box, and a
+     rule that turns a corner reads as a curve rather than as the frame meeting
+     itself. Folded only — an OPEN window keeps its rounded right corners. */
+  border-radius: 0;
+}
+
+/* THE WASH stays on the SUMMARY rather than joining the floor on `.idea-window`,
+   and the reason is `:hover`. `.idea-window:hover` paints the same
+   `--idea-fold-color` on the window; put the resting wash on that same element and
+   the two rules fight over one property — this selector is the more specific, so
+   hover would stop doing anything visible at all on a folded window. On separate
+   elements they COMPOSITE instead: about 9.75% under the pointer against 5% at
+   rest, so hover still deepens what is already there.
+   Both ends reach the frame so the wash spans the floor's full length: left to the
+   rule's outer edge (the hat's arithmetic, above), right across the window's own
+   `padding-right`. No radius on it: the folded window is square (see above), so
+   the wash has no rounded corner to stay inside of.
+
+   SUB-PIXEL AT A FRACTIONAL `rule-width`, and it is the same wart `.idea-tab`'s
+   stub carries, from the same arithmetic. MEASURED with
+   `rookery.with(rule-width: 5pt)`: the calc subtracts 6.67px where the browser
+   renders the border at 6px, so the wash's left edge lands 0.66px OUTSIDE the
+   frame. Invisible at 5% alpha and it cannot be fixed here without moving the
+   wash onto `.idea-window`, which is what the hover paragraph above rules out.
+   Whole-pixel widths — including the 2px default — line up exactly. */
+.idea-window-details:not([open]) > .idea-window-summary {
+  background-color: var(--idea-fold-color, rgba(0, 100, 255, 0.05));
+  margin-left: calc(-0.75em - var(--idea-rule-width, 2px));
+  padding-left: calc(0.75em + var(--idea-rule-width, 2px));
+  margin-right: -10px;
+  padding-right: 10px;
+  /* BALANCE: the title sits CENTRED between the window's top edge and the floor.
+     MEASURED before this line, the title was 8.58px below that top edge and 0px
+     above the floor — flush against it.
+
+     The 8.58px is not a magic number and is not frozen as one. It DERIVES, and the
+     derivation is why this is a `calc` rather than a pixel count: the tab is lifted
+     `0.5 * label-size + 2px` and the window pads 2px, so the tab's baseline row
+     ends exactly `0.5 * label-size` below the top edge (the +2px lift and the 2px
+     padding cancel — that is what the lift is for), and `.idea-tab`'s own
+     `margin-bottom` adds 0.25em before the title. Mirroring the sum puts equal
+     space above and below.
+
+     Written from the same two custom properties the lift uses, so a project that
+     retheme's `--idea-label-size` or changes the font keeps the balance instead of
+     drifting off a hardcoded 8.58px.
+
+     It goes on the SUMMARY, not back onto `.idea-window`'s `padding-bottom`: the
+     wash is the summary's background, so padding here is tinted and still meets
+     the floor, where window padding would reopen the untinted seam. */
+  padding-bottom: calc(0.5 * var(--idea-label-size, 0.57rem) + 0.25em);
+}
+
 .idea-window-summary::marker,
 .idea-window-summary::-webkit-details-marker {
   display: none;
@@ -623,6 +758,14 @@ h6.idea {
    folded windows reads as one undifferentiated block. */
 .idea-window-details {
   margin-bottom: 0.2em;
+}
+
+/* FOLDED, the window's own `border-bottom` is the floor and this margin would sit
+   between the summary's wash and that rule as an untinted seam — see the folded
+   rule above. Nothing needs the gap here: with the body hidden there is nothing
+   below the summary to be spaced away from. */
+.idea-window-details:not([open]) {
+  margin-bottom: 0;
 }
 
 .idea-window-details[open] {
