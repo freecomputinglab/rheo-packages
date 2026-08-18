@@ -1154,19 +1154,15 @@ h6.idea {
    tighter one, and the fractional widths that halving invites render
    inconsistently across displays and on some not at all.
 
-   THE TAB'S OFFSET DOES halve, and must. Its `margin-left` cancels this
-   `padding-left` (plus the rule's own 2px), so leaving it at the desktop value
-   would drag the id 0.375em to the left of the corner it is supposed to sit on —
-   and `::before`'s width, which spans the same distance, with it. */
+   THE INDENT NO LONGER HALVES AT ALL. It used to, and the reason it stopped is
+   that the desktop value came down to `0.5em`: halving that gave `0.25em`, which
+   is 4px — less than the 2px rule beside it plus the space a reader reads as
+   separation, so a note's content sat almost on its own rule. `--idea-pad` is
+   therefore `0.5em` at every width, and this block no longer touches it.
+   Nothing else has to change with it: the tab's offset, `::before`'s width and a
+   folded window's wash all READ the variable, so they follow whatever it is. That
+   is the whole reason it became a variable — see its declaration. */
 @media (max-width: 600px) {
-  /* HALVE THE INDENT, once. Everything that has to agree with it reads the
-     variable, so this is the only declaration the narrow layout needs. */
-  .idea-box,
-  .idea-window,
-  .idea-head {
-    --idea-pad: 0.25em;
-  }
-
   .idea-outline {
     padding-left: 0.625em;
   }
