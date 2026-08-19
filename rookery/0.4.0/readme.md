@@ -723,6 +723,14 @@ when nothing reads it. A note with neither `minted` nor `updated` never gets
 one: Atom requires `<updated>`, so an undated beacon would only be an entry
 `items()`/`resolve-entries` drops on the floor.
 
+`demo/rheo` turns it on and asserts it: the demo's own vertebra queries the
+beacons back and renders their payloads, and `check.sh` pins the count, the
+titles and the minted paths. That query is half the point — the beacons are
+emitted inside the minted pages, so reading them from a vertebra is what shows
+rheo's introspection carries them across the bundle, which is the premise the
+whole protocol rests on. Nothing in that demo imports `@rheo/rssfeed`.
+
+
 ## The click budget
 
 Interaction is modelled on [Forester](https://www.forester-notes.org), and the

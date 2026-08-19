@@ -125,6 +125,46 @@ if [ -f "$H/ideas/index.html" ]; then
 fi
 
 
+# 7. The `<rssfeed:item>` syndication beacons, opt-in via `syndicate: true` in
+#    `content/lib.typ`. `.marrow.typ` emits one inside each MINTED page for every
+#    note that carries a date, and `content/index.typ` queries them back on a
+#    vertebra and renders their payloads — `#metadata` produces no HTML, so
+#    without that rendering there is nothing here to grep.
+#
+#    That query is itself half the assertion: the beacons live inside documents
+#    this page is not, so a passing check proves rheo's introspection carries
+#    them across the bundle, which is the whole premise of the protocol. The
+#    OTHER half is the payload shape, which `@rheo/rssfeed`'s `items()` reads by
+#    key: id, title, page, categories.
+#
+#    This demo imports no rssfeed and rssfeed imports no rookery — neither
+#    package sees the other, by design. The consuming side is covered in
+#    rssfeed's own demo, which needs rheo >= 0.6.0 and so cannot run here.
+#
+#    EXACTLY the dated notes, and only them: `.marrow.typ` skips a beacon for a
+#    note with neither `minted` nor `updated`, because Atom requires `<updated>`
+#    and an undated entry is one `items()` would drop anyway. root-note and
+#    inner-note are undated on purpose, so a beacon for either means that gate
+#    stopped working.
+# `{ grep || true; }` INSIDE the braces, the same guard this file's own header
+# comment records for the version in `check-versions`: with `set -o pipefail`,
+# grep's exit 1 for NO MATCHES kills the script before `note` can say anything —
+# and no match is exactly the failure this line exists to report. MEASURED while
+# writing it: with `syndicate: false` the check exited 1 silently instead of
+# naming the count.
+beacons=$({ grep -o '<li>idea:[^<]*</li>' "$H/index.html" || true; } | wc -l)
+[ "$beacons" -eq 2 ] ||
+  note "index.html renders $beacons syndication beacons, expected exactly 2 (the dated notes)"
+# The TITLE the note authored, not its slug, and the minted page's own path.
+grep -q '<li>idea:plain-note | Plain note | ideas/plain-note.html | note</li>' "$H/index.html" ||
+  note "plain-note's beacon payload is wrong (id, title, page or categories)"
+grep -q '<li>idea:sub-note | Sub note | ideas/sub-note.html |' "$H/index.html" ||
+  note "sub-note's beacon payload is wrong — note it is written on a NESTED vertebra"
+if grep -q '<li>idea:root-note' "$H/index.html"; then
+  note "an undated note emitted a beacon; the minted/updated gate is not holding"
+fi
+
+
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"
   exit 1

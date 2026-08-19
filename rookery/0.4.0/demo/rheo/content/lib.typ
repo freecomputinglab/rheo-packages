@@ -28,6 +28,7 @@
   show: rookery.with(
     idea-page-template: idea-page,
     index-page: true,
+    syndicate: true,
     // `bytes(read(..))`, not a path: Typst resolves a path against the file the
     // `#bibliography` call appears in, and that call lives inside the package.
     // Reading here resolves against THIS file, where `refs.bib` sits.
