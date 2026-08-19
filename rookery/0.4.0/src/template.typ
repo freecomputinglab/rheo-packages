@@ -116,7 +116,7 @@
   refs: true,
   ref-target: "page",
   syndicate: false,
-  index-page: false,
+  index-page: true,
   doc,
 ) = {
   _validate-config(

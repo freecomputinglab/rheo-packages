@@ -36,9 +36,10 @@ landed in 0.3.0. The theme is published once at document scope as a `:root`
 rule, so a package layered on top of rookery inherits it instead of restating
 it — `@rheo/rookery-search` 0.4.0 is the first to do so.
 
-`#show: rookery.with(index-page: true)` mints an `ideas/index.html` landing page
-for the whole rookery — every note linked to its own page, with its date and its
-tags. Default off. See "A landing page for the whole rookery" below.
+Rookery mints an `ideas/index.html` landing page for the whole rookery by
+default now — every note linked to its own page, with its date and its tags.
+Set `index-page: false` to opt out. See "A landing page for the whole rookery"
+below.
 
 A citation written inside a `#footnote` now belongs to the idea the footnote was
 written in, which is what this readme always said it did. Before this it was
@@ -1123,28 +1124,24 @@ nothing to say.
 ### A landing page for the whole rookery: `index-page`
 
 `ideas/` is the parent directory of every permalink this package mints, and the
-URL a reader will guess. Nothing is minted there by default, so it is a 404 (or a
-raw directory listing on a server configured to allow one). Turn one on:
-
-```typst
-#show: rookery.with(index-page: true)
-```
-
-That mints `ideas/index.html`: a heading, a count, and every note in the rookery
-linked to **its own minted page**, carrying its date and its tags. The rows wear
-`#ideas-outline`'s classes — `.idea-outline`, `.idea-outline-row`,
-`.idea-tag-<tag>` — so a stylesheet that already knows the outline knows this
-page too, and it needs no CSS of its own. They are listed in id order, which is
-what `#ideas()` returns.
+URL a reader will guess. Rookery mints `ideas/index.html` there by default: a
+heading, a count, and every note in the rookery linked to **its own minted
+page**, carrying its date and its tags. The rows wear `#ideas-outline`'s
+classes — `.idea-outline`, `.idea-outline-row`, `.idea-tag-<tag>` — so a
+stylesheet that already knows the outline knows this page too, and it needs no
+CSS of its own. They are listed in id order, which is what `#ideas()` returns.
 
 It is NOT `#ideas-outline(rookery-wide: true)`, and the difference matters: the
 outline links each row to the note's anchor on the vertebra that authored it,
 which is right for a table of contents sitting on that page and wrong for a page
 whose whole job is to index the minted ones.
 
-**Default off, deliberately.** A project that already has its own index — a
-homepage built from `#window(tags: "post")`, say — should not find a second one
-published under it because it upgraded the package.
+Turn it off if a project already has its own index — a homepage built from
+`#window(tags: "post")`, say — and doesn't want a second one published under it:
+
+```typst
+#show: rookery.with(index-page: false)
+```
 
 The page goes through `idea-page-template` exactly as a note page does, so it
 inherits your project's chrome. It is the one minted page that is not a note,

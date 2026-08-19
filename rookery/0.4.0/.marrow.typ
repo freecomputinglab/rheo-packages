@@ -433,12 +433,13 @@
     )
   }
 
-  // THE LANDING PAGE, opt-in via `#show: rookery.with(index-page: true)`.
+  // THE LANDING PAGE, on by default; opt out with
+  // `#show: rookery.with(index-page: false)`.
   //
   // `ideas/` is the parent directory of every permalink this file mints and the
   // URL a reader will guess, and without this it is a 404 (or a raw directory
-  // listing on a server that allows one). Off by default: a project with its own
-  // index must not find a second one published under it because it upgraded.
+  // listing on a server that allows one). Opt out if a project has its own
+  // index and doesn't want a second one published under it.
   //
   // `_IDEA-DIR`, never the literal "ideas", for the same reason the loop above
   // takes its paths from `_note-page` — a project running

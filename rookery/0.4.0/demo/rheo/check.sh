@@ -88,9 +88,10 @@ for p in index.html ideas/plain-note.html; do
 done
 
 
-# 6. The `ideas/index.html` landing page, opt-in via `index-page: true` in
-#    `content/lib.typ`. `/ideas/` is the parent directory of every permalink this
-#    demo mints and the URL a reader will guess; without this page it is a 404.
+# 6. The `ideas/index.html` landing page, on by default (`content/lib.typ`
+#    also sets `index-page: true` explicitly). `/ideas/` is the parent directory
+#    of every permalink this demo mints and the URL a reader will guess;
+#    without this page it is a 404.
 #
 #    Its rows must point AT the minted pages, which is what makes it an index of
 #    them rather than a second table of contents: `#ideas-outline` links each row
