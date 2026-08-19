@@ -990,6 +990,42 @@
 // THE KEY IS OMITTED for an untagged note rather than written as `()`, exactly as
 // `body-search: false` omits `body`: an absent key means "none", where `()` would
 // cost a key per row to say the same thing. The port reads `row.tags ?? []`.
+// ---- The build-once corpus cache ------------------------------------------
+//
+// `_compress-corpus` is a pure function of its arguments and Typst memoises it
+// perfectly WITHIN one document — MEASURED natively: 20 identical calls cost
+// the same 1.1s as one, whether the argument array is a reused value or rebuilt
+// with `.map` on every call, inside `context` or not. None of the obvious
+// suspects defeats it.
+//
+// Under rheo it does not collapse, and that is what this cache is for. rheo
+// emits many documents from one build, and the memo does not carry across them.
+// MEASURED on a synthetic rookery of 200 notes at 1500 words, 40 vertebrae, one
+// `#search-modal` each:
+//
+//     40 vertebrae emitting the island   10.2s
+//      1 vertebra  emitting the island    5.6s
+//     40 vertebrae, body-search: false     1.0s
+//
+// so ~118ms per emitting page, against ~15ms for the island's own JSON, which
+// scales the whole build by the page count on exactly the sites big enough to
+// want search.
+//
+// `.marrow.typ` next to this file runs ONCE at the bundle root, compresses the
+// whole rookery there, and publishes the result here. KEYED BY NOTE ID, not by
+// position: `#search-index` selects and orders its own rows, and an id lookup
+// survives both. The knobs that change the terms are in the key too, so an index
+// built with different `body-terms`/`df-ceiling` never reads another's terms.
+//
+// EMPTY WITHOUT RHEO, which is the whole fallback: `.final()` gives `(:)`, every
+// lookup misses, and `#search-index` compresses inline exactly as before. Same
+// under rheo for a TAG-FILTERED index — see the miss path at its call site.
+#let _corpus-cache = state("rookery-search-corpus", (:))
+
+// The cache key for one set of compression knobs. A string rather than a dict
+// so it can be a dictionary key at all.
+#let _corpus-key(body-terms, df-ceiling) = "t" + str(body-terms) + "/d" + str(df-ceiling)
+
 #let search-index(
   elem-id: "rookery-search-index",
   body-terms: 48,
@@ -1031,14 +1067,25 @@
   // this call runs on every output page and is memoised only while every argument
   // is page-invariant, which `href` is not. `e.body` is projected out here and
   // the result is zipped back on positionally below.
-  let bodies = if body-search {
-    _compress-corpus(
-      selected.map(e => e.body),
-      body-terms: body-terms,
-      df-ceiling: df-ceiling,
-    )
-  } else {
+  let bodies = if not body-search {
     ()
+  } else {
+    // The bundle-root cache first (see `_corpus-cache` above). Only for an
+    // UNFILTERED index: `tags:` narrows the corpus, and both the note count and
+    // the document frequencies are corpus-wide, so a filtered index's terms are
+    // genuinely different terms and must be computed over the notes it selected.
+    // A missing id falls through the same way — a note the marrow could not see
+    // (no minted page yet, no rheo at all) must not silently index as nothing.
+    let cached = _corpus-cache.final().at(_corpus-key(body-terms, df-ceiling), default: (:))
+    if tags == none and selected.len() > 0 and selected.all(e => e.id in cached) {
+      selected.map(e => cached.at(e.id))
+    } else {
+      _compress-corpus(
+        selected.map(e => e.body),
+        body-terms: body-terms,
+        df-ceiling: df-ceiling,
+      )
+    }
   }
   // Built by insertion rather than as one literal, so `body` can be left out
   // entirely under `body-search: false` and `tags` left out for an untagged note.

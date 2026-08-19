@@ -32,6 +32,11 @@ spelled out below.
 - **The default browse listing — the empty query — sorts dated notes
   newest-first**, instead of by id. An undated note still sorts after every
   dated one.
+- **The corpus is compressed once per build under rheo**, in this package's new
+  `.marrow.typ`, rather than once per emitted page. MEASURED on a 200-note,
+  40-page synthetic rookery: 10.9s to 6.3s, with byte-identical islands. See
+  "The corpus is compressed once per build" below for the two cases that still
+  compress inline.
 
 ## 0.3.0
 
@@ -555,6 +560,39 @@ truncates. No separate fetched JSON file, on purpose: rheo emits pages from
 typst with no supported way to emit a standalone asset alongside them, so an
 inline island is what the package can actually produce — and it also works
 from `file://` with no fetch.
+
+### The corpus is compressed once per build, not once per page
+
+`#search-index` runs on every page that carries the island, and the corpus pass
+behind `body-search` costs far more than the island's own JSON. Under rheo the
+whole compression is hoisted into this package's `.marrow.typ`, which runs ONCE
+at the bundle root, and every page reads the finished terms back out of a state
+keyed by note id.
+
+MEASURED on a synthetic rookery — 200 notes of 1500 words, 40 vertebrae, one
+`#search-modal` each:
+
+| | build |
+| --- | --- |
+| before, compressed per page | 10.9s |
+| after, compressed once | 6.3s |
+| `body-search: false` (no corpus pass at all) | 1.0s |
+
+The island's bytes are identical either way — this is a timing change and
+nothing else. What is left is the one corpus pass, which is the irreducible
+part.
+
+Two cases fall back to compressing inline, and both are correct rather than
+merely tolerated:
+
+- **Without rheo.** There is no bundle root, the marrow never runs, and the
+  state keeps its empty default. Plain `typst compile` behaves exactly as it
+  did.
+- **A tag-filtered index**, `#search-index(tags: "post")`. Note count and
+  document frequency are properties of the CORPUS, so a filtered index's terms
+  are genuinely different terms and have to be computed over the notes it
+  selected. Same for a non-default `body-terms`/`df-ceiling`, which the marrow
+  does not know to precompute.
 
 ### Ids and titles only: `body-search: false`
 
