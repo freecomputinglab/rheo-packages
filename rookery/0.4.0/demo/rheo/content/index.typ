@@ -1,5 +1,5 @@
 #import "lib.typ": demo
-#import "@rheo/rookery:0.4.0": idea, ideas-outline, note, window
+#import "@rheo/rookery:0.4.0": footnote, idea, ideas-outline, note, window
 #show: demo
 
 = Rookery under rheo
@@ -23,6 +23,10 @@ the only thing that produces a page backlink:
 #note("plain-note", title: [Plain note])[
   A `#note`, so the registry carries a prepended `note` tag and the heading a
   `idea-tag-note` class.
+
+  Its only citation sits inside a footnote, which is the case that used to
+  vanish: the marker rendered and no references block was emitted anywhere.
+  #footnote[A second work, cited from inside the footnote @lamport1994.]
 ]
 
 #ideas-outline(rookery-wide: true)

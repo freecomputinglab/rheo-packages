@@ -36,6 +36,13 @@ landed in 0.3.0. The theme is published once at document scope as a `:root`
 rule, so a package layered on top of rookery inherits it instead of restating
 it — `@rheo/rookery-search` 0.4.0 is the first to do so.
 
+A citation written inside a `#footnote` now belongs to the idea the footnote was
+written in, which is what this readme always said it did. Before this it was
+dropped: the author-date marker rendered and no references block was emitted
+anywhere, so a reader met a citation with nothing on the site saying what it
+cited. A `#window` or `@idea:` reference written inside a footnote registers its
+backlink now for the same reason — one walk, two symptoms.
+
 Minted note pages can carry an opt-in `<rssfeed:item>` beacon,
 `#show: rookery.with(syndicate: true)`, default off. See "A feed is another"
 below for when to reach for it and when to source a feed from `#ideas()`

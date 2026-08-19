@@ -17,9 +17,10 @@
 // demo-based beads.
 
 #import "/src/lib.typ": (
-  _bib, _bib-keys, _blocks, _body-plain, _body-text, _dedup-tag, _is-inline,
-  _join, _nest-outline, _norm, _note-file, _plain, _sort-ids, _tag-pred,
-  _truncate, note-href, note-path,
+  _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
+  _is-inline, _join, _nest-outline, _norm, _note-file, _outbound,
+  _own-cited-keys, _plain, _sort-ids, _tag-pred, _truncate, footnote, idea,
+  note-href, note-path, window,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -233,4 +234,34 @@
 )))
 #context {
   assert.eq(_bib-keys(), ("smith2020", "jones2021"))
+}
+
+// ---- _cite-scan / _outbound — a `#footnote`'s body is a metadata payload ---
+// A `#footnote` stores its body inside `metadata((rookery-fn: body))`, and both
+// walks used to stop dead at any metadata that was not a window marker. MEASURED
+// before the fix: an idea whose only citation sat in a footnote rendered the
+// author-date marker and no references block at all, and a `#window` written in
+// a footnote registered no outbound link, so the windowed note lost that
+// backlink. Both are the same missing descent.
+//
+// `_own-cited-keys` filters against `_bib-keys()`, so these run after the
+// `_bib.update` above.
+#context {
+  let cited = [Prose #footnote[A note citing @smith2020.] and more prose.]
+  assert.eq(_cite-scan(cited), ((kind: "cite", key: "smith2020"),))
+  assert.eq(_own-cited-keys(cited), ("smith2020",))
+
+  // Counted once. The payload is the only place the citation is seen: the
+  // rendered footnote `_footnoted` appends is never scanned again.
+  assert.eq(_cite-scan(cited).len(), 1)
+
+  // A nested idea still claims its own. The outer body keeps the key from ITS
+  // footnote and none from the inner one, which renders its own block.
+  let nested = [
+    Outer #idea("units-fn-inner")[Inner #footnote[cites @smith2020.]]
+    tail #footnote[cites @jones2021.]
+  ]
+  assert.eq(_own-cited-keys(nested), ("jones2021",))
+
+  assert.eq(_outbound([See #footnote[#window("etal")] here.]), ("idea:etal",))
 }

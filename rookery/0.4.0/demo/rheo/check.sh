@@ -63,6 +63,31 @@ for page in sorted((root / "ideas").glob("*.html")):
 sys.exit(1 if bad else 0)
 PY
 
+# 5. A citation written inside a `#footnote` belongs to the idea the footnote was
+#    written in. `plain-note`'s ONLY citation sits in one, so the whole
+#    references block on both its pages depends on the walk descending into the
+#    footnote's metadata payload. MEASURED before that descent existed: the
+#    author-date marker rendered, `.idea-references` was emitted nowhere, and an
+#    empty `.idea-page-refs` appeared in its place — a reader saw a citation with
+#    nothing on the site saying what it cited.
+#
+#    Counted, not merely found: the BIBLIOGRAPHY ENTRY must appear exactly once
+#    per page. The footnote body is rendered as well as scanned, and a walk
+#    claiming the citation from both places would list the work twice. The
+#    author-date MARKER is a separate string ("Lamport 1994", inside the
+#    footnote's own text) and is asserted separately, so neither check can pass
+#    by finding the other.
+for p in index.html ideas/plain-note.html; do
+  grep -q 'idea-references' "$H/$p" ||
+    note "$p has no references block for plain-note's footnote citation"
+  grep -q 'doc-biblioref">Lamport 1994<' "$H/$p" ||
+    note "$p is missing the footnote's own author-date citation marker"
+  n=$(grep -o 'Lamport, Leslie' "$H/$p" | wc -l)
+  [ "$n" -eq 1 ] ||
+    note "$p lists the footnote's cited work $n times in its bibliography, expected exactly 1"
+done
+
+
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"
   exit 1

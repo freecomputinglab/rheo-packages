@@ -761,6 +761,21 @@
     if type(node.value) == dictionary and "rookery-window" in node.value {
       return ((kind: "claim", via: "window"),)
     }
+    // `#footnote` carries its body as a metadata PAYLOAD, so a citation written
+    // inside one is reachable ONLY through the value. Descend into it: "a
+    // citation belongs to the idea in which you write it, just as footnotes do"
+    // is what the documentation promises, and a footnote is written in this
+    // idea. MEASURED before this branch existed, on an idea whose only citation
+    // sat inside `#footnote[...]`: the author-date marker rendered, no
+    // `.idea-references` block was emitted at all, and the reader saw
+    // `(Wajcman 2009)` with nothing anywhere on the site saying what it cited.
+    //
+    // Counted ONCE, not twice. `_own-cited-keys` scans the RAW body; the
+    // rendered footnote content `_footnoted` appends is never fed back through
+    // it, so the payload is the only place this citation is ever seen.
+    if type(node.value) == dictionary and "rookery-fn" in node.value {
+      return _cite-scan(node.value.rookery-fn)
+    }
     return out
   }
   // A nested `#idea`, by contrast, IS a figure by the time it lands in the
@@ -1422,6 +1437,17 @@
   // time at all (it renders when the ref itself is shown, later).
   if f == metadata and type(node.value) == dictionary and "rookery-link" in node.value {
     return (_pfx() + node.value.rookery-link,)
+  }
+
+  // A `#footnote`'s body, same blind spot `_cite-scan` had: the body is a
+  // metadata payload, and the generic `node.fields()` recursion below cannot
+  // reach it because a dictionary is not content. MEASURED: `#footnote[See
+  // #window("etal").]` registered NO outbound link, so the windowed note showed
+  // no backlink from the idea that windowed it. One traversal bug with two
+  // symptoms — a missing reference and a missing backlink — so both walks
+  // descend here.
+  if f == metadata and type(node.value) == dictionary and "rookery-fn" in node.value {
+    return _outbound(node.value.rookery-fn)
   }
 
   let out = ()
