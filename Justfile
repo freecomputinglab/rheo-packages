@@ -126,6 +126,19 @@ bump PKG OLD NEW:
     grep -rl --binary-files=without-match "@rheo/$pkg:$old" "$pkg/$new" \
         | xargs -r sed -i "s|@rheo/$pkg:$old|@rheo/$pkg:$new|g"
 
+    # Path-form self-references: `rookery/0.3.0/src/pure.typ` in a comment, `cd
+    # rookery-search/0.3.0` in a readme, "run it from rookery/0.3.0" in a test
+    # fixture's header. `check-versions` reads the `@rheo/pkg:ver` spec form only,
+    # so these go stale silently and are found by a reader following one into the
+    # PREVIOUS version's file. MEASURED on the 0.3.0 -> 0.4.0 cut: 9 such
+    # references across both rookery packages, none of them caught.
+    #
+    # Directory form ONLY. Prose about what a version DID — "since 0.3.0",
+    # "0.3.0's breaking change", a `## 0.3.0` release-notes heading — says the old
+    # number on purpose and has to survive the bump.
+    grep -rl --binary-files=without-match "$pkg/$old" "$pkg/$new" \
+        | xargs -r sed -i "s|$pkg/$old|$pkg/$new|g"
+
     sed -i "s|^version = \"$old\"|version = \"$new\"|" "$pkg/$new/typst.toml"
     sed -i "s|$pkg/$old|$pkg/$new|g" .github/workflows/check.yml
 
@@ -136,10 +149,10 @@ bump PKG OLD NEW:
     stale=$({ grep -rn --binary-files=without-match \
         --exclude-dir=dist --exclude-dir=node_modules \
         --exclude-dir=.direnv --exclude-dir=build \
-        "@rheo/$pkg:$old" . || true; } | grep -v "^\./$pkg/" || true)
+        -e "@rheo/$pkg:$old" -e "$pkg/$old/" . || true; } | grep -v "^\./$pkg/" || true)
     if [ -n "$stale" ]; then
         echo
-        echo "Siblings still pinning @rheo/$pkg:$old (legal — $pkg/$old/ is still here):"
+        echo "Siblings still naming $pkg $old (legal — $pkg/$old/ is still here):"
         echo "$stale"
         echo "Decide per package whether each should follow the bump; this recipe will not."
     fi

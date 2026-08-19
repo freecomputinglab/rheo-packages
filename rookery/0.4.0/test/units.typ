@@ -4,7 +4,7 @@
 // named in the comment above the assertion. This is a regression suite: a case
 // is here because the behaviour was once wrong, not to describe the API.
 //
-// Run it with `just test` from `rookery/0.3.0`. There is no runner and no JS:
+// Run it with `just test` from `rookery/0.4.0`. There is no runner and no JS:
 // `assert.eq` fails the compile with a line number, which is the whole harness.
 // `--features html` is mandatory even though nothing here compiles to HTML —
 // `std.target` is gated by the feature rather than the output format, and

@@ -1,6 +1,6 @@
 # @rheo/rookery-search
 
-Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.3.0) — by
+Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.4.0) — by
 id and title, and by full text — a Typst primitive that ranks them, a JSON
 index of the corpus, an inline search bar, and a site-wide overlay modal.
 
@@ -1023,7 +1023,7 @@ Unlike rookery, this package is **built**. `typst.toml` points at `dist/`, and
 `dist/` is produced by vite:
 
 ```sh
-cd rookery-search/0.3.0
+cd rookery-search/0.4.0
 just build          # pnpm install && pnpm run build
 ```
 

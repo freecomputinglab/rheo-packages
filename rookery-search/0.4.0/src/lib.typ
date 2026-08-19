@@ -22,7 +22,7 @@
 
 // ---- Target detection — a deliberate copy of rookery's ---------------------
 //
-// The originals are `_rheo-ctx` and `_target` in `rookery/0.3.0/src/lib.typ`,
+// The originals are `_rheo-ctx` and `_target` in `rookery/0.4.0/src/lib.typ`,
 // where they are underscore-private. They are copied rather than exported and
 // imported: six lines of `sys.inputs` read, against making rookery widen its
 // public surface with something no author would ever call. `sys.inputs` is
@@ -54,7 +54,7 @@
 //
 // Rookery now ALSO publishes the configured theme once per page as a
 // document-scope `<style>:root { --idea-*: ...; }</style>` rule (see the banner
-// above `_THEME-KEYS`/`_theme`/`_themed` in `rookery/0.3.0/src/lib.typ`). Custom
+// above `_THEME-KEYS`/`_theme`/`_themed` in `rookery/0.4.0/src/lib.typ`). Custom
 // properties inherit down the WHOLE DOM from `:root`, so `#search-bar` and
 // `#search-modal` see the theme for free with no private copy of the table and
 // no state-key contract to keep in step. MEASURED 2026-08-18: `getComputedStyle`
@@ -444,7 +444,7 @@
   // answer. For `q == ""` (a bare `""` query, or a `tags:`-only query with no
   // residual) the DEFAULT/BROWSE listing sorts dated notes newest-first, with
   // undated notes falling to the end in their old id order. This mirrors
-  // `_sort-ids` in `rookery/0.3.0/src/pure.typ` (`sort: "date"`) — same
+  // `_sort-ids` in `rookery/0.4.0/src/pure.typ` (`sort: "date"`) — same
   // dated/undated split, same zero-padded `[year][month][day]` stamp comparison,
   // same dedup-and-walk-descending — applied here to `e.updated` instead of to
   // an id's registry-looked-up `minted`. The body tier stays empty for `q == ""`
@@ -494,7 +494,7 @@
   }
   // A REAL SEARCH (`q != ""`) sorts by score, descending — untouched. THE
   // EMPTY RESIDUAL (`q == ""`) instead sorts by date, newest first, mirroring
-  // `_sort-ids` in `rookery/0.3.0/src/pure.typ`: split into dated/undated
+  // `_sort-ids` in `rookery/0.4.0/src/pure.typ`: split into dated/undated
   // (each `.filter` preserves `name-hits`' existing id-ascending order within
   // its split, same as `_sort-ids`), walk the dated group's distinct stamps
   // newest to oldest, and append the undated group unchanged at the end.

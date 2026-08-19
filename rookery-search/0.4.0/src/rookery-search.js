@@ -347,7 +347,7 @@ export const bodyScore = (body, query) => {
 // tier at score 0. THAT tie no longer breaks by id alone: for `q === ""` (a bare
 // `""` query too) `dateCmp` below breaks it by `row.updated` first, newest
 // first, undated last — the JS twin of `_rank`'s date branch in `src/lib.typ`,
-// which mirrors `_sort-ids` in `rookery/0.3.0/src/pure.typ`. A REAL query
+// which mirrors `_sort-ids` in `rookery/0.4.0/src/pure.typ`. A REAL query
 // (`q !== ""`) is untouched: ties there still break by id alone, exactly as
 // before.
 //
@@ -817,7 +817,7 @@ const previewCache = new Map();
 // document holds no `h1.idea` (not a minted page) or the range is empty.
 //
 // THE RANGE STARTS AFTER `.idea-head`, NOT AFTER THE `<h1>`, and the two are
-// different elements. rookery 0.3.0 wraps a minted page's permalink tab and its
+// different elements. rookery 0.3.0 and later wrap a minted page's permalink tab and its
 // `<h1>` in one `<div class="idea-head">` (so the stylesheet's
 // `.idea-tab + h*.idea` rule always matches — Typst's HTML export otherwise
 // groups the leading inline run under a `<p>` unpredictably). Inside that
@@ -840,7 +840,7 @@ const previewCache = new Map();
 // which on a minted page live on its heading container (there being no
 // `.idea-box` around it) — take the siblings and leave that behind and the
 // preview renders in rookery's default colours rather than the project's own.
-// Under rookery 0.3.0 that container is `.idea-head`; under 0.2.0 it was the
+// Under rookery 0.3.0 and later that container is `.idea-head`; under 0.2.0 it was the
 // `<h1>` itself, so both are consulted, nearest first.
 //
 // Relative `href`/`src` values are resolved against the FETCHED page's URL, not

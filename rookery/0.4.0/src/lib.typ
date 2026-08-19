@@ -232,7 +232,7 @@
 // `_rheo-ctx`. So THREE things here are a cross-package contract, not private
 // detail: the state's key string, the shape of the dictionary it holds (theme key
 // -> already-stringified CSS value), and every property spelling in the table.
-// Change any of them and change `rookery-search/0.3.0/src/lib.typ` in the same
+// Change any of them and change `rookery-search/0.4.0/src/lib.typ` in the same
 // commit.
 #let _THEME-KEYS = (
   "link-color": "--idea-link-color",
