@@ -1140,6 +1140,66 @@
   )
 }
 
+// What `#search-bar` and `#search-modal` do identically, before either draws
+// anything: validate the four arguments they share and emit the island.
+//
+// MEASURED before this existed: 34 of `#search-bar`'s 66 code lines were byte
+// for byte the same as lines in `#search-modal` — the parameter list, the
+// guard, four asserts and the whole `#search-index` call with its six forwarded
+// arguments. Bead `rp-modal-limit-default-c88` was that duplication biting: the
+// modal's JavaScript fallback for `limit` had drifted from the Typst default.
+//
+// `where` is the caller's name for the messages, the same convention the
+// `_assert-*` validators above use.
+//
+// NOT SHARED, deliberately: the `<input>` element. Both spell the same eight
+// attributes, but in a different ORDER, and Typst emits them in the order given
+// — so one canonical version would change the bytes of every page carrying the
+// other. That is a real cleanup and it needs its own bead, with a diff a
+// reviewer can look at, not a silent rider on this one.
+//
+// The guard `if _target() != "html" or _rheo-ctx() == none { return }` stays in
+// both too: `return` belongs to the function that means to return.
+#let _search-ui-common(
+  where,
+  limit,
+  class,
+  index,
+  elem-id,
+  body-terms,
+  df-ceiling,
+  body-search,
+  tags,
+  match,
+) = {
+  assert(
+    type(limit) == int and limit > 0,
+    message: "@rheo/rookery-search: " + where + " `limit` must be a positive "
+      + "integer — got " + repr(limit),
+  )
+  assert(
+    class == none or type(class) == str,
+    message: "@rheo/rookery-search: " + where + " `class` must be none or a "
+      + "string — got " + repr(class),
+  )
+  _assert-tags(tags, where)
+  _assert-match(match, where)
+  if index {
+    search-index(
+      elem-id: elem-id,
+      body-terms: body-terms,
+      df-ceiling: df-ceiling,
+      body-search: body-search,
+      tags: tags,
+      match: match,
+    )
+  }
+}
+
+// One class attribute for both, so a project's `class:` lands the same way on a
+// bar and on a modal.
+#let _search-class(base, class) = if class == none { base } else { base + " " + class }
+
 // ---- #search-bar — the embeddable search UI. RHEO ONLY --------------------
 //
 //   #search-bar()
@@ -1192,35 +1252,25 @@
   match: "any",
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
-  assert(
-    type(limit) == int and limit > 0,
-    message: "@rheo/rookery-search: #search-bar's `limit` must be a positive "
-      + "integer — got " + repr(limit),
+  _search-ui-common(
+    "#search-bar's",
+    limit,
+    class,
+    index,
+    elem-id,
+    body-terms,
+    df-ceiling,
+    body-search,
+    tags,
+    match,
   )
-  assert(
-    class == none or type(class) == str,
-    message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
-      + "string — got " + repr(class),
-  )
-  _assert-tags(tags, "#search-bar's")
-  _assert-match(match, "#search-bar's")
-  if index {
-    search-index(
-      elem-id: elem-id,
-      body-terms: body-terms,
-      df-ceiling: df-ceiling,
-      body-search: body-search,
-      tags: tags,
-      match: match,
-    )
-  }
   html.elem(
     "span",
     // No inline theme style needed: it inherits rookery's `--idea-*` properties
     // from the document-scope `:root` rule. See the theme block near the top of
     // this file.
     attrs: (
-      class: if class == none { "rookery-search" } else { "rookery-search " + class },
+      class: _search-class("rookery-search", class),
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
       "data-rookery-search-open": "false",
@@ -1326,28 +1376,18 @@
   match: "any",
 ) = context {
   if _target() != "html" or _rheo-ctx() == none { return }
-  assert(
-    type(limit) == int and limit > 0,
-    message: "@rheo/rookery-search: #search-modal's `limit` must be a positive "
-      + "integer — got " + repr(limit),
+  _search-ui-common(
+    "#search-modal's",
+    limit,
+    class,
+    index,
+    elem-id,
+    body-terms,
+    df-ceiling,
+    body-search,
+    tags,
+    match,
   )
-  assert(
-    class == none or type(class) == str,
-    message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
-      + "string — got " + repr(class),
-  )
-  _assert-tags(tags, "#search-modal's")
-  _assert-match(match, "#search-modal's")
-  if index {
-    search-index(
-      elem-id: elem-id,
-      body-terms: body-terms,
-      df-ceiling: df-ceiling,
-      body-search: body-search,
-      tags: tags,
-      match: match,
-    )
-  }
   if trigger {
     html.elem(
       "button",
@@ -1377,7 +1417,7 @@
     // rule rather than from a DOM parent. See the theme block near the top of
     // this file.
     attrs: (
-      class: if class == none { "rookery-search-modal" } else { "rookery-search-modal " + class },
+      class: _search-class("rookery-search-modal", class),
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
     ),
