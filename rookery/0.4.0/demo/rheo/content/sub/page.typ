@@ -12,7 +12,7 @@ the demo has a subdirectory at all.
 A page-level citation, outside any note: @lamport1994. And a page-level link
 back to #link(label("index"))[the root vertebra].
 
-#idea("sub-note", title: [Sub note])[
+#idea("sub-note", title: [Sub note], updated: datetime(year: 2026, month: 3, day: 14))[
   A note written on the nested vertebra, windowing back at the root one's note —
   so transclusion is exercised in BOTH directions and the pair is mutually
   windowed. At `window-depth: 0` the inner window becomes a link row,

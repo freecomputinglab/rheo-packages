@@ -13,14 +13,21 @@
 // happened to be last would win (lib.typ's own warning above
 // `_idea-page-template`). The banner is what proves in the output that this
 // template ran at all.
+// `id` is `none` on ONE minted page: the `ideas/index.html` landing page, which
+// is the rookery rather than any one note (and gets `note: (:)` for the same
+// reason). A template that assumes a string here fails the build the moment a
+// project sets `index-page: true`, so this one branches — which is the shape a
+// real project's template wants too.
 #let idea-page(id: none, note: (:), doc) = {
-  html.elem("p", attrs: (class: "demo-minted-banner"), [Minted page for #raw(id).])
+  let what = if id == none { [the rookery] } else { [#raw(id)] }
+  html.elem("p", attrs: (class: "demo-minted-banner"), [Minted page for #what.])
   doc
 }
 
 #let demo(doc) = {
   show: rookery.with(
     idea-page-template: idea-page,
+    index-page: true,
     // `bytes(read(..))`, not a path: Typst resolves a path against the file the
     // `#bibliography` call appears in, and that call lives inside the package.
     // Reading here resolves against THIS file, where `refs.bib` sits.

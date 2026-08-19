@@ -88,6 +88,43 @@ for p in index.html ideas/plain-note.html; do
 done
 
 
+# 6. The `ideas/index.html` landing page, opt-in via `index-page: true` in
+#    `content/lib.typ`. `/ideas/` is the parent directory of every permalink this
+#    demo mints and the URL a reader will guess; without this page it is a 404.
+#
+#    Its rows must point AT the minted pages, which is what makes it an index of
+#    them rather than a second table of contents: `#ideas-outline` links each row
+#    to the note's anchor on the vertebra that authored it, and this page
+#    deliberately does not use it.
+[ -f "$H/ideas/index.html" ] || note "no ideas/index.html was minted"
+if [ -f "$H/ideas/index.html" ]; then
+  idx="$H/ideas/index.html"
+  # One row per minted note, each linking to that note's own page.
+  for slug in root-note inner-note plain-note sub-note; do
+    grep -q "href=\"[^\"]*ideas/$slug.html\"" "$idx" ||
+      note "ideas/index.html does not link ideas/$slug.html"
+  done
+  # No row may link to an anchor on an authoring vertebra — that is the
+  # `#ideas-outline` shape this page exists to avoid.
+  if grep -q 'idea-outline-row"><a href="[^"]*#loc-' "$idx"; then
+    note "ideas/index.html links a row at a vertebra anchor, not at a minted page"
+  fi
+  grep -q 'idea-index-count">4 ideas<' "$idx" ||
+    note "ideas/index.html does not count its 4 ideas"
+  # A dated note carries its date; sub-note is the demo's only dated one.
+  grep -q 'idea-date">2026-03-14<' "$idx" ||
+    note "ideas/index.html does not show the dated note's date"
+  # Tag classes ride on the row, as they do in the outline, so a stylesheet can
+  # reach them without this page inventing its own vocabulary.
+  grep -q 'idea-outline-row idea-tag-note' "$idx" ||
+    note "ideas/index.html does not carry a tagged note's idea-tag-note class"
+  # The project's template wrapped it, exactly as it wraps a note page. `id` is
+  # none here, and lib.typ's branch on that is what this proves runs.
+  grep -q 'Minted page for the rookery' "$idx" ||
+    note "ideas/index.html did not go through idea-page-template"
+fi
+
+
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"
   exit 1

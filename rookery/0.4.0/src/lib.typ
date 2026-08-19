@@ -406,6 +406,16 @@
 // not one.
 #let _syndicate = state("rheo-idea-syndicate", false)
 
+// Whether `.marrow.typ` should mint an `ideas/index.html` landing page for the
+// whole rookery. Same wrapper discipline as `_syndicate` above and for the same
+// reason: a bool is not a function, so `.update(index-page)` is right and
+// `.update(_ => index-page)` would store a closure.
+//
+// DEFAULT OFF. A project with its own index — ohrg.org's homepage is a
+// `#window(tags: "post", ..)`, weeknotes' is the same — must not find a second
+// one published under it because it upgraded the package.
+#let _index-page = state("rheo-idea-index-page", false)
+
 // ---- Note page URLs -------------------------------------------------------
 //
 // `.marrow.typ` mints one standalone page per note (see that file). Links
@@ -2838,6 +2848,7 @@
   refs: true,
   ref-target: "page",
   syndicate: false,
+  index-page: false,
   doc,
 ) = {
   assert(
@@ -2894,6 +2905,10 @@
   assert(
     type(syndicate) == bool,
     message: "@rheo/rookery: `syndicate` must be a boolean — got " + repr(syndicate),
+  )
+  assert(
+    type(index-page) == bool,
+    message: "@rheo/rookery: `index-page` must be a boolean — got " + repr(index-page),
   )
 
   // One converter for both sources, so `theme: (link-color: c)` and
@@ -2986,6 +3001,7 @@
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
   _syndicate.update(syndicate)
+  _index-page.update(index-page)
   _theme.update(resolved)
   // DOCUMENT-SCOPE theme publication, ADDITIVE to the per-container INLINE
   // styling `_themed` still applies everywhere it already did (see that

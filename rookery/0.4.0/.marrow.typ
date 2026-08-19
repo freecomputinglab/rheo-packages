@@ -89,7 +89,7 @@
 // any package) sourcing `ideas(tags:, match:)` straight into rssfeed's
 // `items()` is the primary one; this exists for what that route cannot
 // reach, e.g. a hand-authored page syndicating itself.
-#import "@rheo/rookery:0.4.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
+#import "@rheo/rookery:0.4.0": _registry, _note-page, _pfx, _IDEA-DIR, _index-page, ideas, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
 
 #context {
   let registry = _registry.final()
@@ -430,6 +430,78 @@
       format: "html",
       title: if rec.title == none { slug } else { rec.title },
       if tpl == none { page } else { tpl(id: id, note: rec, page) },
+    )
+  }
+
+  // THE LANDING PAGE, opt-in via `#show: rookery.with(index-page: true)`.
+  //
+  // `ideas/` is the parent directory of every permalink this file mints and the
+  // URL a reader will guess, and without this it is a 404 (or a raw directory
+  // listing on a server that allows one). Off by default: a project with its own
+  // index must not find a second one published under it because it upgraded.
+  //
+  // `_IDEA-DIR`, never the literal "ideas", for the same reason the loop above
+  // takes its paths from `_note-page` — a project running
+  // `#show: rookery.with(prefix: "note")` mints at the paths lib.typ links to,
+  // and a hardcoded directory here would put the index somewhere else.
+  //
+  // ROWS BUILT FROM `ideas()`, not from `#ideas-outline`. The outline links each
+  // row to the note's ANCHOR on the vertebra that authored it
+  // (`../index.html#loc-1`), which is right for a table of contents sitting on
+  // that page and wrong for this one: `ideas/index.html` is the index OF the
+  // minted pages, so its rows must point AT them. `ideas()` hands back `href`
+  // already resolved from this page's own handle, so the depth arithmetic is
+  // rookery's own and cannot drift from what the loop above minted.
+  //
+  // It wears `#ideas-outline`'s classes — `.idea-outline`, `.idea-outline-row`,
+  // `.idea-tag-<tag>` — so the stylesheet already knows this page and it needs
+  // no CSS of its own. Not a folded `#window` per note: a folded window over
+  // EVERY note on one page is the shape that made a real site's homepage 5.1 MB.
+  //
+  // ID ORDER, which is what `ideas()` returns. The outline's spine order reads
+  // better and is not reachable here without the anchors that come with it.
+  //
+  // `note: (:)` for the template, and `id: none`: this page is the rookery, not
+  // a note, so a fabricated record would be a lie a template could act on. A
+  // template that assumes a string id fails here — `demo/rheo/content/lib.typ`
+  // shows the two-line branch that handles it.
+  if _index-page.final() and registry.len() > 0 {
+    let rows = ideas().filter(e => e.href != none)
+    let page = [
+      // No permalink tab: this page is the rookery, not a note, and there is
+      // nothing for it to permalink to. `_head` still wraps the heading so the
+      // page carries the same `.idea-head` container — and the same themed
+      // border — every minted note page does.
+      #_head([], html.elem("h1", attrs: (class: "idea"), [Ideas]), attrs: _themed((:)))
+      #html.elem("p", attrs: (class: "idea-index-count"), [#rows.len() ideas])
+      #html.elem(
+        "ul",
+        attrs: (class: "idea-outline"),
+        rows
+          .map(e => {
+            // `updated` first and `minted` behind it, the same fallback the
+            // minted page's own date uses, so one note does not date itself two
+            // ways on two pages. A note with neither shows none, rather than a
+            // blank element the stylesheet would still space.
+            let when = if e.updated != none { e.updated } else { e.at("minted", default: none) }
+            html.elem(
+              "li",
+              attrs: (class: (("idea-outline-row",) + e.tags.map(t => "idea-tag-" + t)).join(" ")),
+              link(e.href, if e.title == none { e.name } else { e.title })
+                + if when == none { [] } else {
+                  html.elem("span", attrs: (class: "idea-date"), when.display("[year]-[month]-[day]"))
+                },
+            )
+          })
+          .join(),
+      )
+    ]
+    rheo-document(
+      _IDEA-DIR + "/index.html",
+      handle: _IDEA-DIR + ":index",
+      format: "html",
+      title: "Ideas",
+      if tpl == none { page } else { tpl(id: none, note: (:), page) },
     )
   }
 }
