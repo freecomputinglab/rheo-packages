@@ -357,7 +357,7 @@
   _cite-walk(body).filter(k => k in keys)
 }
 
-// ---- The template for a minted note page ----------------------------------
+// ---- Minted-page configuration: template, syndication, index page -------
 //
 // `.marrow.typ` mints one standalone page per note, and those pages are
 // separate `#document`s spliced in at the BUNDLE ROOT — outside every
@@ -640,7 +640,7 @@
   }
 }
 
-// ---- #idea — marker, idea:<id> label, anchor, flattened registration -----
+// ---- The registry, and a footnote's numbering within its idea -----------
 //
 // `#idea[body]`, `#idea("name")[body]`, and `#idea(<name>)[body]` all work via
 // an argument sink, since `#idea[body]` passes body as the first positional
@@ -1044,7 +1044,7 @@
 // markup block spans multiple lines, so `.first()` returns a `space` and
 // fails with `space does not have field "value"`. Use
 // `.children.find(c => c.func() == metadata)`.
-// ---- Depth markers, for page-level links ----------------------------------
+// ---- Transclusion: edge markers, window content, _flatten, _body-at ------
 //
 // A link that sits DIRECTLY in a page — in its prose, or a page-level `#window`
 // — is a backlink from that page. A link inside a note is a backlink from the
@@ -1467,6 +1467,19 @@
   out
 }
 
+// ---- #idea — the note itself: validation, registration, rendering ---------
+//
+// `#idea[body]`, `#idea("name")[body]`, and `#idea(<name>)[body]` all work via
+// an argument sink, since `#idea[body]` passes body as the first positional
+// argument. An unnamed note steps a package-wide counter and takes the
+// resulting sequence number as its id; a named note is pinned and does not
+// perturb that counter. Either way the note gets: an `idea:<id>` Typst label on
+// a hidden referenceable anchor, an HTML heading (only when `title` is given),
+// and a registry entry carrying its raw body for `#window` to transclude later.
+//
+// Defined after `_outbound` above because it calls it at registration time, and
+// a `#let` closure captures the scope visible AT DEFINITION time.
+
 #let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, show-tags: false, ..args) = {
   // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
@@ -1710,7 +1723,7 @@
   ])
 }
 
-// ---- #note / #todo — sugar over tags, NOT a kind/type axis --------------
+// ---- #note / #todo / #tags-of — sugar over an idea's tags ---------------
 //
 // Pure sugar: each PREPENDS its own tag to whatever `tags` the caller
 // passed, so `#note("x")[...]` is exactly `#idea("x", tags: ("note",))[...]`
@@ -1726,7 +1739,6 @@
 #let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
 #let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
 
-// ---- #tags-of — a note's tags, for callers outside this file -------------
 //
 //   #context tags-of("etal")   // -> ("note", "draft")
 //
