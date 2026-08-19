@@ -485,3 +485,44 @@
   if bs.len() <= limit { return body }
   bs.slice(0, limit).join(parbreak()) + [#text(gray)[ ... ]]
 }
+
+// ---- Argument validators shared by more than one public function ----------
+//
+// `tags`, `match` and `limit` are checked identically by several functions, and
+// before these existed each wrote its own six-line `assert` with its own copy of
+// the message. MEASURED at 0.4.0: 32 assert blocks in `lib.typ`, `tags` written
+// out four times, `match` three, `limit` twice.
+//
+// `where` is the caller's own name as it already appears in the message —
+// "#idea", "#ideas'", "#window's" — so the text a reader sees is byte for byte
+// what it was. Pass the possessive exactly as the original wrote it, apostrophe
+// included: `#ideas'` and `#idea's` are both correct English for their nouns,
+// and matching the old text matters more than regularising it.
+//
+// ONLY THE ONES WITH SEVERAL CALLERS live here. `depth` deliberately does NOT:
+// `#window` and `#idea-body` accept `auto or int >= 0` while `#ideas-outline`
+// accepts `none or int >= 1`, and `#window`'s message spends four lines
+// explaining what each depth renders. Three different checks that happen to
+// share a parameter name are not one check, and folding them would either lose
+// that explanation or attach it to functions it does not describe.
+#let _assert-tags(v, where) = assert(
+  v == none
+    or type(v) == str
+    or (type(v) == array and v.all(t => type(t) == str)),
+  message: "@rheo/rookery: " + where + " `tags` must be none, a string, or an "
+    + "array of strings — got " + repr(v),
+)
+
+#let _assert-match(v, where) = assert(
+  v == "any" or v == "all",
+  message: "@rheo/rookery: " + where + " `match` must be \"any\" or \"all\" — got "
+    + repr(v),
+)
+
+// The block-count form: `none` or a positive integer, shared by `#window` and
+// `#idea-body`, which truncate the same way and say so the same way.
+#let _assert-limit(v, where) = assert(
+  v == none or (type(v) == int and v >= 1),
+  message: "@rheo/rookery: " + where + " `limit` must be none or a positive "
+    + "integer (the number of leading blocks to show) — got " + repr(v),
+)

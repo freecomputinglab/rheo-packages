@@ -73,6 +73,47 @@
 // reproduce exactly. Recorded as a known limitation in the readme instead.
 #let _fold(s) = lower(s).replace("-", " ").replace("_", " ")
 
+// ---- Argument validators shared by more than one public function ----------
+//
+// `tags`, `match` and `body-search` are checked identically by several of this
+// package's public functions, each of which used to carry its own six-line
+// `assert` and its own copy of the message. MEASURED at 0.4.0: 18 assert blocks
+// in this file, `tags` written out four times and `match` four.
+//
+// `where` is the caller's own name as it already appears in the message, so the
+// text a reader sees is byte for byte what it was — possessive included, since
+// `#search-ideas'` and `#search-index's` are both correct for their nouns.
+//
+// A DELIBERATE COPY of `@rheo/rookery`'s three, not an import of them, for the
+// same reason `_target` above is a copy: these say `@rheo/rookery-search:` and
+// belong to this package's messages. Importing an internal of another package to
+// save nine lines would couple the two on something neither documents.
+//
+// `limit` and `class` are NOT here. They are checked by `#search-bar` and
+// `#search-modal`, which are being folded onto one shared core in their own
+// bead — deduplicating them here would only move the same lines twice. And
+// `#search-ideas`' `limit` is a different check anyway: it accepts 0, the UI's
+// does not.
+#let _assert-tags(v, where) = assert(
+  v == none
+    or type(v) == str
+    or (type(v) == array and v.all(t => type(t) == str)),
+  message: "@rheo/rookery-search: " + where + " `tags` must be none, a "
+    + "string, or an array of strings — got " + repr(v),
+)
+
+#let _assert-match(v, where) = assert(
+  v == "any" or v == "all",
+  message: "@rheo/rookery-search: " + where + " `match` must be \"any\" or "
+    + "\"all\" — got " + repr(v),
+)
+
+#let _assert-bool(v, name, where) = assert(
+  type(v) == bool,
+  message: "@rheo/rookery-search: " + where + " `" + name + "` must be a "
+    + "boolean — got " + repr(v),
+)
+
 // ---- tags: query — a boolean expression over a note's tags ----------------
 //
 //   tags:(a|b)&c        `&` binds tighter than `|`; `()` groups
@@ -636,23 +677,9 @@
     message: "@rheo/rookery-search: #search-ideas' `limit` must be none or a "
       + "non-negative integer — got " + repr(limit),
   )
-  assert(
-    type(body-search) == bool,
-    message: "@rheo/rookery-search: #search-ideas' `body-search` must be a "
-      + "boolean — got " + repr(body-search),
-  )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery-search: #search-ideas' `tags` must be none, a "
-      + "string, or an array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery-search: #search-ideas' `match` must be \"any\" or "
-      + "\"all\" — got " + repr(match),
-  )
+  _assert-bool(body-search, "body-search", "#search-ideas'")
+  _assert-tags(tags, "#search-ideas'")
+  _assert-match(match, "#search-ideas'")
   _rank(
     ideas(tags: tags, match: match),
     query,
@@ -1045,23 +1072,9 @@
     message: "@rheo/rookery-search: #search-index's `df-ceiling` must be an "
       + "integer between 1 and 100 — got " + repr(df-ceiling),
   )
-  assert(
-    type(body-search) == bool,
-    message: "@rheo/rookery-search: #search-index's `body-search` must be a "
-      + "boolean — got " + repr(body-search),
-  )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery-search: #search-index's `tags` must be none, a "
-      + "string, or an array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery-search: #search-index's `match` must be \"any\" or "
-      + "\"all\" — got " + repr(match),
-  )
+  _assert-bool(body-search, "body-search", "#search-index's")
+  _assert-tags(tags, "#search-index's")
+  _assert-match(match, "#search-index's")
   let selected = search-ideas("", tags: tags, match: match).filter(e => e.href != none)
   // BODIES, NOT ROWS, and the whole reason is in `_compress-corpus`' comment:
   // this call runs on every output page and is memoised only while every argument
@@ -1189,18 +1202,8 @@
     message: "@rheo/rookery-search: #search-bar's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery-search: #search-bar's `tags` must be none, a "
-      + "string, or an array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery-search: #search-bar's `match` must be \"any\" or "
-      + "\"all\" — got " + repr(match),
-  )
+  _assert-tags(tags, "#search-bar's")
+  _assert-match(match, "#search-bar's")
   if index {
     search-index(
       elem-id: elem-id,
@@ -1333,18 +1336,8 @@
     message: "@rheo/rookery-search: #search-modal's `class` must be none or a "
       + "string — got " + repr(class),
   )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery-search: #search-modal's `tags` must be none, a "
-      + "string, or an array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery-search: #search-modal's `match` must be \"any\" or "
-      + "\"all\" — got " + repr(match),
-  )
+  _assert-tags(tags, "#search-modal's")
+  _assert-match(match, "#search-modal's")
   if index {
     search-index(
       elem-id: elem-id,

@@ -1485,13 +1485,7 @@
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
   // surfaced as an opaque method-not-found far from the actual mistake.
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery: #idea's `tags` must be none, a string, or an "
-      + "array of strings — got " + repr(tags),
-  )
+  _assert-tags(tags, "#idea's")
   let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
   let pos = args.pos()
   let (name, body) = if pos.len() == 1 {
@@ -1844,23 +1838,9 @@
   )
   // `>= 1`, not `>= 0`: a window showing nothing but an ellipsis truncates
   // nothing, so `limit: 0` reads as a mistake rather than a request.
-  assert(
-    limit == none or (type(limit) == int and limit >= 1),
-    message: "@rheo/rookery: #window's `limit` must be none or a positive "
-      + "integer (the number of leading blocks to show) — got " + repr(limit),
-  )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery: #window's `tags` must be none, a string, or an "
-      + "array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery: #window's `match` must be \"any\" or \"all\" — got "
-      + repr(match),
-  )
+  _assert-limit(limit, "#window's")
+  _assert-tags(tags, "#window's")
+  _assert-match(match, "#window's")
   assert(
     sort == auto or sort == "date" or sort == "lexicographic",
     message: "@rheo/rookery: #window's `sort` must be auto, \"date\" or "
@@ -2088,11 +2068,7 @@
     message: "@rheo/rookery: #idea-body's `depth` must be auto or a "
       + "non-negative integer — got " + repr(depth),
   )
-  assert(
-    limit == none or (type(limit) == int and limit >= 1),
-    message: "@rheo/rookery: #idea-body's `limit` must be none or a positive "
-      + "integer (the number of leading blocks to show) — got " + repr(limit),
-  )
+  _assert-limit(limit, "#idea-body's")
   let id = _pfx() + _norm(name)
   let reg = _registry.final()
   if id not in reg {
@@ -2493,18 +2469,8 @@
     message: "@rheo/rookery: #ideas-outline's `rookery-wide` must be a boolean "
       + "— got " + repr(rookery-wide),
   )
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery: #ideas-outline's `tags` must be none, a string, or "
-      + "an array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery: #ideas-outline's `match` must be \"any\" or \"all\" "
-      + "— got " + repr(match),
-  )
+  _assert-tags(tags, "#ideas-outline's")
+  _assert-match(match, "#ideas-outline's")
   assert(
     filter == none or type(filter) == function,
     message: "@rheo/rookery: #ideas-outline's `filter` must be none or a "
@@ -2729,18 +2695,8 @@
 // is not itself a context function, because a context function can only return
 // content and the whole point here is to return data.
 #let ideas(tags: none, match: "any") = {
-  assert(
-    tags == none
-      or type(tags) == str
-      or (type(tags) == array and tags.all(t => type(t) == str)),
-    message: "@rheo/rookery: #ideas' `tags` must be none, a string, or an "
-      + "array of strings — got " + repr(tags),
-  )
-  assert(
-    match == "any" or match == "all",
-    message: "@rheo/rookery: #ideas' `match` must be \"any\" or \"all\" — got "
-      + repr(match),
-  )
+  _assert-tags(tags, "#ideas'")
+  _assert-match(match, "#ideas'")
   let reg = _registry.final()
   let keep = _tag-pred(tags, match)
   reg
