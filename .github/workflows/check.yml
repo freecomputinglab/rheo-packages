@@ -43,14 +43,14 @@ jobs:
         run: just check-versions
 
       - name: rookery unit fixture
-        run: cd rookery/0.3.0 && just test
+        run: cd rookery/0.4.0 && just test
 
       # `@rheo` IS A CUSTOM NAMESPACE, NOT A TYPST-UNIVERSE ONE, so there is no
       # registry to download it from: it resolves only where the package cache
-      # already holds it. `rookery-search/0.3.0/src/lib.typ` imports
-      # `@rheo/rookery:0.3.0` for `ideas` and `note-href`, and `just parity` compiles
+      # already holds it. `rookery-search/0.4.0/src/lib.typ` imports
+      # `@rheo/rookery:0.4.0` for `ideas` and `note-href`, and `just parity` compiles
       # that file through `typst eval` — so without this the next step dies with
-      # `error: package not found (searched for @rheo/rookery:0.3.0)`. MEASURED by
+      # `error: package not found (searched for @rheo/rookery:0.4.0)`. MEASURED by
       # running `just parity` under a scratch HOME with no namespace: three such
       # errors, then green the moment the link exists.
       #
@@ -70,14 +70,14 @@ jobs:
           mkdir -p "$cache"
           ln -s "$PWD" "$cache/rheo"
           # Fail HERE with something legible rather than inside a typst error later.
-          test -f "$cache/rheo/rookery-search/0.3.0/typst.toml"
+          test -f "$cache/rheo/rookery-search/0.4.0/typst.toml"
 
       # `just parity` is the only thing keeping the Typst and JavaScript copies
       # of the ranking rule from drifting — two leaf scorers and the tiering rule
       # above them. `just build` first: parity imports `src/`, but a build failure
       # is worth catching here too, since publish-packages.yml only builds on main.
       - name: rookery-search build and parity
-        run: cd rookery-search/0.3.0 && just build && just parity
+        run: cd rookery-search/0.4.0 && just build && just parity
 
       # This repo's definition of "lint" is that a package's demo compiles
       # (CLAUDE.md, "Build"). `demo/pure` is plain `typst compile`, so it runs
@@ -91,4 +91,4 @@ jobs:
       # new root added to the Justfile is gated in CI automatically instead of
       # needing this step updated in the same commit and possibly forgotten.
       - name: rookery pure demo compiles, HTML and PDF
-        run: cd rookery/0.3.0/demo/pure && just build
+        run: cd rookery/0.4.0/demo/pure && just build
