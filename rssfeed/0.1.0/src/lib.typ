@@ -479,7 +479,9 @@
 // Order of operations matters and is fixed: normalise (and drop undated)
 // THEN sort THEN dedupe THEN limit. Deduping after sorting is what makes
 // "keep the first occurrence" mean "keep the newest one" when the same `id`
-// is produced by two sources (or twice by one) with different dates.
+// is produced by two sources (or twice by one) with different dates. Within
+// ONE date the sort is stable in source order, so dedupe there keeps the copy
+// its source listed FIRST.
 #let resolve-entries(cfg) = {
   let raw = ()
   for src in cfg.sources {
@@ -494,9 +496,14 @@
 
   let normalized = raw.map(e => _normalize-entry(e, cfg)).filter(e => e != none)
 
-  // `.sorted` is ascending; `.rev()` turns it into newest-first. Typst has no
-  // descending-sort argument, and negating a `datetime` is not a thing.
-  let ordered = normalized.sorted(key: e => _sort-key(e)).rev()
+  // Newest first, with ties keeping their SOURCE order. `.sorted` is ascending
+  // and stable, Typst has no descending-sort argument, and negating a
+  // `datetime` is not a thing — so the list is reversed BEFORE the sort rather
+  // than after. `.sorted().rev()` would reverse equal keys too, silently
+  // flipping every entry that shares a date with another; `spine()` dates are
+  // day-granular (one `#set document(date: ..)` per vertebra), so two posts on
+  // one day is the common case, not the corner case.
+  let ordered = normalized.rev().sorted(key: e => _sort-key(e)).rev()
 
   let seen-ids = ()
   let deduped = ()

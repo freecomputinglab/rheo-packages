@@ -242,6 +242,67 @@ Para two]), "Para one Para two")
   ("Entry Two", "Entry Three"),
 )
 
+// ---- ties — one date, source order preserved ------------------------------
+//
+// `.sorted` is stable, so `.sorted().rev()` used to reverse EQUAL keys along
+// with everything else: three entries sharing a date came out ("Third",
+// "Second", "First"). Day-granular dates are the norm (`spine()` reads one
+// `#set document(date: ..)` per vertebra), so this is the common case.
+#let _stub-ties(cfg) = {
+  let d = datetime(year: 2026, month: 1, day: 1)
+  (
+    (title: "First", url: "https://example.com/1", updated: d),
+    (title: "Second", url: "https://example.com/2", updated: d),
+    (title: "Third", url: "https://example.com/3", updated: d),
+  )
+}
+#let cfg-ties = feed(
+  path: "ties.xml",
+  title: "Ties Feed",
+  base-url: "https://example.com",
+  sources: (_stub-ties,),
+)
+#assert.eq(
+  resolve-entries(cfg-ties).map(e => e.title),
+  ("First", "Second", "Third"),
+)
+
+// Mixed dates still sort newest-first AROUND a tie group, and the tie group
+// itself stays in source order: source order Feb, Jan-a, Jan-b, Mar resolves
+// to Mar, Feb, Jan-a, Jan-b.
+#let _stub-ties-mixed(cfg) = (
+  (
+    title: "Feb",
+    url: "https://example.com/feb",
+    updated: datetime(year: 2026, month: 2, day: 1),
+  ),
+  (
+    title: "Jan A",
+    url: "https://example.com/jan-a",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+  (
+    title: "Jan B",
+    url: "https://example.com/jan-b",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+  (
+    title: "Mar",
+    url: "https://example.com/mar",
+    updated: datetime(year: 2026, month: 3, day: 1),
+  ),
+)
+#let cfg-ties-mixed = feed(
+  path: "ties-mixed.xml",
+  title: "Ties Mixed Feed",
+  base-url: "https://example.com",
+  sources: (_stub-ties-mixed,),
+)
+#assert.eq(
+  resolve-entries(cfg-ties-mixed).map(e => e.title),
+  ("Mar", "Feb", "Jan A", "Jan B"),
+)
+
 // ---- categories — a real array survives; a bare string is rejected --------
 //
 // The rejection itself is not assertable (see the top comment), so this pins
