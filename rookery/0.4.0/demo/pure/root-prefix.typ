@@ -17,6 +17,7 @@
     id-color: rgb("#888888"),
     date-color: rgb("#888888"),
     border-color: rgb("#3366ff"),
+    tags-color: (phd: (background: rgb("#ffcc00"), text: rgb("#000000"))),
   ),
   // Granular arguments override whatever `theme:` set (lib.typ:2756-2767) —
   // this OVERRIDES the theme dict's `border-color` above, and adds two keys

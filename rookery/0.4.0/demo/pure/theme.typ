@@ -9,7 +9,7 @@
 // coverage is "compiles under a non-default theme", same as `prefix`.
 #import "../../src/lib.typ": idea, window, hyperlink, tags-of, ideas-outline
 
-#idea("etal", title: [Et al.], tags: ("phd",))[
+#idea("etal", title: [Et al.], tags: ("phd",), show-tags: true)[
   A note registered under the "note:" prefix, not "idea:" — its id is
   "note:etal", proving `#idea`'s registration read the configured prefix.
 ]

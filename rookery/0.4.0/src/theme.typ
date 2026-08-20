@@ -101,3 +101,25 @@
   let s = _theme-style()
   if s == none { attrs } else { attrs + (style: s) }
 }
+
+// Return inline CSS for a tag pill's colour, or `none` if no theme colour
+// is configured for the tag. Reads the normalized `tags-color` dict where each
+// tag maps to a dict with optional `background` and/or `text` keys, all
+// CSS-stringified (hex or passthrough). When present, builds a declaration list
+// joining whichever are present with `"; "`, omitting any missing keys.
+#let _tag-style(t) = {
+  let tags-color = _theme.final().at("tags-color", default: (:))
+  let tag-def = tags-color.at(t, default: none)
+  if tag-def == none {
+    none
+  } else {
+    let decls = ()
+    if "background" in tag-def {
+      decls.push("background-color: " + tag-def.at("background"))
+    }
+    if "text" in tag-def {
+      decls.push("color: " + tag-def.at("text"))
+    }
+    if decls.len() == 0 { none } else { decls.join("; ") }
+  }
+}

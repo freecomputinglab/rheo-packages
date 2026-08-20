@@ -95,7 +95,11 @@
   attrs: (class: "idea-tab"),
   _permalink(id, href: href)
     + (if tags.len() == 0 { [] } else {
-      tags.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
+      tags.map(t => {
+        let base = (class: "idea-tag idea-tag-" + t)
+        let style = _tag-style(t)
+        html.elem("span", attrs: if style == none { base } else { base + (style: style) }, t)
+      }).join()
     })
     + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
 )

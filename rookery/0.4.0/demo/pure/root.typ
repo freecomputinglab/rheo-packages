@@ -30,7 +30,10 @@
 // Build (PDF):  typst compile --features html --root ../.. root.typ build/root.pdf
 // Build (HTML): typst compile --features html --format html --root ../.. root.typ build/root.html
 #import "../../src/lib.typ": rookery
-#show: rookery.with(bibliography: arguments(bytes(read("refs.bib")), style: "chicago-author-date"))
+#show: rookery.with(
+  theme: (tags-color: (draft: rgb("#3366ff"))),
+  bibliography: arguments(bytes(read("refs.bib")), style: "chicago-author-date")
+)
 
 #include "a.typ"
 #include "b.typ"
