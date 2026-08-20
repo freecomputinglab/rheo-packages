@@ -33,7 +33,9 @@
 //     neither a datetime nor none — a STRING date especially, since the
 //     retired `rheo-feed-updated` variable this package's readme migrates
 //     from took one, and an unchecked string used to die inside `_rfc3339`
-//     instead.
+//     instead; a `url` that is RELATIVE (it used to reach `<link href>`
+//     verbatim, silently) or not a string; a non-string `id`, `page` or entry
+//     `author`; a `select`/`summary` that is neither a string nor none.
 //   - `resolve-entries` panics when a source's return value is not an array.
 //   - `items()` panics (at query time) on a `<rssfeed:item>` (or custom
 //     `label-name`) beacon whose value is not a dictionary. Its beacon
@@ -189,6 +191,11 @@ Para two]), "Para one Para two")
 // "Entry Three" had only `published`; `updated` must be filled from it.
 #assert.eq(dated.at(1).published, datetime(year: 2026, month: 2, day: 1))
 #assert.eq(dated.at(1).updated, datetime(year: 2026, month: 2, day: 1))
+
+// An entry's OWN absolute `url` passes through untouched — asserted explicitly
+// rather than left implicit in the fixture above, because the check that makes
+// a RELATIVE url fail runs on this same path.
+#assert.eq(dated.at(2).url, "https://example.com/one")
 
 // `limit: 2` keeps the 2 most recent, post-sort.
 #let cfg-limited = feed(
