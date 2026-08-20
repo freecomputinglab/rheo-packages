@@ -303,6 +303,22 @@
      own ink into a dark theme; the gray literal above it is the fallback for an
      engine without `color-mix`.
 
+     CHAINING TO `--idea-tag-*` IS A DIFFERENT CASE from the `--idea-link-color`
+     one just refused, and the two look alike enough to be worth separating.
+     `--idea-link-color` is the row's own hover background, which every row has;
+     `--idea-tag-bg`/`--idea-tag-color` exist ONLY for a tag the author themed BY
+     NAME through rookery's `theme: (tags-color: ..)`, which delivers them as a
+     generated `.idea-tag-<tag>` rule — and every chip here already wears that
+     class (`renderRow` sets `rookery-search-tag idea-tag-<tag>`), so the rule
+     reaches a chip JavaScript inserts long after Typst has run. Nothing on the JS
+     side is involved; the chain below is the whole mechanism.
+
+     ORDER IS THE POINT. `--rookery-search-tag-*` is what a project set for EVERY
+     chip in this modal, so it still wins outright — a project wanting uniform
+     chips keeps setting `--rookery-search-tag-bg` and nothing changes for it.
+     `--idea-tag-*` is what an author themed for ONE tag, so it beats only this
+     package's own defaults, which stay last.
+
      `0.85em` IS A CHOSEN DEFAULT, NOT A MEASUREMENT — nothing here has been
      counted against a real site's row density. If a project's modal visibly
      loses results to the second line, turn `--rookery-search-tag-size` down
@@ -315,9 +331,9 @@
     border-radius: var(--rookery-search-tag-radius, 999px);
     padding: 0.15em 0.6em;
     white-space: nowrap;
-    color: var(--rookery-search-tag-color, var(--rookery-search-id-color, var(--idea-id-color, gray)));
-    background-color: var(--rookery-search-tag-bg, rgba(128, 128, 128, 0.18));
-    background-color: var(--rookery-search-tag-bg, color-mix(in oklab, currentColor 14%, transparent));
+    color: var(--rookery-search-tag-color, var(--idea-tag-color, var(--rookery-search-id-color, var(--idea-id-color, gray))));
+    background-color: var(--rookery-search-tag-bg, var(--idea-tag-bg, rgba(128, 128, 128, 0.18)));
+    background-color: var(--rookery-search-tag-bg, var(--idea-tag-bg, color-mix(in oklab, currentColor 14%, transparent)));
   }
 
   /* ---- #search-modal — the overlay's telescope-style two-pane layout ---- */

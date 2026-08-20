@@ -1001,8 +1001,8 @@ figure at its intrinsic size would overflow the column.
 | `--rookery-search-modal-height` | `min(32rem, calc(100vh - 8rem))` |
 | `--rookery-search-backdrop` | `rgba(0, 0, 0, 0.5)` |
 | `--rookery-search-mark` | `--idea-link-color`, else `rgba(128, 0, 255, 0.25)` |
-| `--rookery-search-tag-color` | a tag pill's text: `--rookery-search-id-color`, else `--idea-id-color`, else `gray` |
-| `--rookery-search-tag-bg` | that pill's fill: a 14% `currentColor` tint (`rgba(128, 128, 128, 0.18)` without `color-mix`) |
+| `--rookery-search-tag-color` | a tag pill's text: `--idea-tag-color`, else `--rookery-search-id-color`, else `--idea-id-color`, else `gray` |
+| `--rookery-search-tag-bg` | that pill's fill: `--idea-tag-bg`, else a 14% `currentColor` tint (`rgba(128, 128, 128, 0.18)` without `color-mix`) |
 | `--rookery-search-tag-size` | that pill's text size, a factor of the row's own — `0.85em`, a chosen default and not a measurement |
 | `--rookery-search-tag-radius` | that pill's corners — `999px` is a pill, `0` is a rectangle |
 | `--rookery-search-tag-gap` | the space between two pills on a row — `0.3em` |
@@ -1049,6 +1049,17 @@ So per-tag styling written for a note's own page applies in the modal with no ne
 selectors — and that, rather than a custom property per tag, is the intended way
 to colour tags by kind. Pill text is set with `textContent`, never `innerHTML`,
 like every other string this package renders.
+
+**A tag themed in rookery colours its chip here too.** `theme: (tags-color:
+(draft: rgb("#3366ff")))` in `#show: rookery.with(..)` is delivered as a
+generated `.idea-tag-draft` rule setting `--idea-tag-bg` and `--idea-tag-color`,
+and this package's chip reads both — so a chip picks the colour up even though
+JavaScript inserts it long after Typst has run, because the rule matches the
+class the chip already wears. Precedence, in order: `--rookery-search-tag-bg` /
+`--rookery-search-tag-color`, which a project sets for EVERY chip in the modal,
+still win; a rookery-themed tag comes next; this package's own defaults last. A
+project that wants uniform chips keeps setting the `--rookery-search-tag-*`
+properties and sees no change.
 
 The shape is not this package's invention.
 [hacker-archives](https://ficarelli.github.io/hacker-archives/) shipped these

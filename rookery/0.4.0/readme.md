@@ -926,7 +926,7 @@ A bare colour or CSS colour string is shorthand for `(background: ...)`. A tag w
 
 Like the rest of `theme:`, this is **one value for the whole document** — apply the same arguments in every vertebra (see "The theme" above and "Setup").
 
-`@rheo/rookery-search`'s own result-row chips do NOT yet pick up `tags-color` — that package renders its result chips client-side from JavaScript, on a separate build path. Tag colouring for search results is tracked separately and is not part of this release.
+`@rheo/rookery-search`'s own result-row chips DO pick up `tags-color`. That package renders them client-side from JavaScript, so no style Typst writes can reach them — but each chip carries `idea-tag-<tag>`, and `tags-color` arrives as a rule on that class, which applies whenever the chip enters the DOM. A chip reads `--idea-tag-bg`/`--idea-tag-color` behind its own `--rookery-search-tag-bg`/`--rookery-search-tag-color`, so a project styling every chip in the modal still wins over a themed tag.
 
 `#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
 whatever the caller passes:
