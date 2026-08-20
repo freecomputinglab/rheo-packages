@@ -37,6 +37,15 @@
 // comments): they read `sys.inputs`/`query()` when rheo is present and fall
 // back to empty output when it is not.
 
+// ---- modal — re-exported, the one part of this package that emits markup ---
+//
+// Kept in its own file because it shares nothing with feed generation: no
+// validator, no entry model, no serializer. Re-exported here so a project
+// imports it from the package entrypoint like everything else. It emits
+// NOTHING unless called — see the banner in `modal.typ` for why that matters,
+// and for why this package still ships no `[tool.rheo.html]` bundle.
+#import "modal.typ": atom-icon, feeds-modal, mail-icon
+
 // ---- entry — one syndicated page -------------------------------------------
 //
 // The shape `resolve-entries` normalises every source's output into:
