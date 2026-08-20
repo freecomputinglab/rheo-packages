@@ -184,6 +184,29 @@
   v
 }
 
+// Strip a single leading "./" or "/" from an output-relative path, so
+// `cfg.base-url + "/" + <path>` never doubles the slash: `base-url` loses its
+// own trailing one in `feed(...)` below, and a caller writing
+// `page: "/posts/x.html"` or `page: "./posts/x.html"` (both natural ways to
+// spell a "plugin-output-relative path") must not be punished for it.
+//
+// Used for BOTH an entry's `page` and a feed's own `path` — the same hazard in
+// two places. Keeps its name: `page` is still what it reads like at the call
+// site that matters most, and `test/units.typ` imports it under this name.
+//
+// Defined ABOVE `feed(...)`, which calls it: MEASURED (typst 0.15.1) that a
+// Typst closure captures its DEFINITION scope, so a `#let` appearing later in
+// the module is `unknown variable` from inside a function body defined earlier.
+#let _clean-page(page) = {
+  if page.starts-with("./") {
+    page.slice(2)
+  } else if page.starts-with("/") {
+    page.slice(1)
+  } else {
+    page
+  }
+}
+
 // ---- feed — the top-level config -------------------------------------------
 //
 // Every panic below names `@rheo/rssfeed` and the offending field: a package
@@ -239,7 +262,13 @@
   // source" count, the enumerated `content` values) that the generic helpers
   // would flatten away.
   (
-    path: _expect-str(path, "path"),
+    // Normalized through the same helper an entry's `page` uses, so a feed
+    // written as `path: "/feed.xml"` cannot produce `base-url + "//" + path`
+    // in its `<id>`, its `rel="self"` link and its autodiscovery `<link>` —
+    // and so the collision check below, which compares paths as plain
+    // strings, sees "feed.xml" and "./feed.xml" as the one output file they
+    // really are.
+    path: _clean-page(_expect-str(path, "path")),
     title: title,
     // Trimmed here, ONCE, so every downstream consumer (`_normalize-entry`,
     // the later XML emitter) can join with a bare "/" and never worry about
@@ -254,21 +283,6 @@
 }
 
 // ---- resolve-entries — run the sources, normalise, order, dedupe, limit ---
-
-// Strip a single leading "./" or "/" from a source-supplied `page`, so
-// `cfg.base-url + "/" + page` never doubles the slash: `base-url` already
-// lost its own trailing one in `feed(...)` above, and a caller writing
-// `page: "/posts/x.html"` or `page: "./posts/x.html"` (both natural ways to
-// spell a "plugin-output-relative path") must not be punished for it.
-#let _clean-page(page) = {
-  if page.starts-with("./") {
-    page.slice(2)
-  } else if page.starts-with("/") {
-    page.slice(1)
-  } else {
-    page
-  }
-}
 
 // ---- _plain-text — flatten CONTENT (or pass a string through unchanged) ---
 //
@@ -767,6 +781,13 @@
 // `AtomFeed::serialize`/`AtomEntry::to_atom`) — not byte-identical output;
 // whitespace is not chased.
 
+// A feed's own absolute URL — its `<id>`, its `rel="self"` link, and the `href`
+// of its autodiscovery `<link>` in `.rheo/head.html` are all this same string.
+// One helper so the three can never disagree: `base-url` lost its trailing
+// slash in `feed(...)` and `path` its leading one, so the bare "/" join is safe
+// here and nowhere else has to know that.
+#let _feed-url(cfg) = cfg.base-url + "/" + cfg.path
+
 // Largest `updated` across `entries` — becomes the feed-level `<updated>`
 // (RFC 4287 §4.2.15: "most recent instant in which the feed was modified").
 // Never called with an empty array — `atom(...)` below returns `none`
@@ -877,7 +898,7 @@
     return none
   }
 
-  let feed-url = cfg.base-url + "/" + cfg.path
+  let feed-url = _feed-url(cfg)
   let head = (
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
     "<feed xmlns=\"http://www.w3.org/2005/Atom\">",
@@ -985,18 +1006,21 @@
   }
 
   let minted = () // (path: str, data: str)
-  let links = () // (base-url: str, path: str, title: str) — minted feeds only
+  // The CONFIGS that actually minted, not a projection of three of their
+  // fields: everything the head fragment needs is already on the config, and
+  // `_feed-url` is the same join `atom(...)` used for the feed's own `<id>`.
+  let linked = ()
   for cfg in feeds {
     let xml = atom(cfg)
     if xml == none { continue }
     minted += ((path: cfg.path, data: xml),)
-    links += ((base-url: cfg.base-url, path: cfg.path, title: cfg.title),)
+    linked += (cfg,)
   }
 
-  if links.len() > 0 {
-    let tags = links
-      .map(l => "<link rel=\"alternate\" type=\"application/atom+xml\" href=\""
-        + _esc-attr(l.base-url + "/" + l.path) + "\" title=\"" + _esc-attr(l.title) + "\">")
+  if linked.len() > 0 {
+    let tags = linked
+      .map(cfg => "<link rel=\"alternate\" type=\"application/atom+xml\" href=\""
+        + _esc-attr(_feed-url(cfg)) + "\" title=\"" + _esc-attr(cfg.title) + "\">")
       .join("")
     minted += ((path: ".rheo/head.html", data: tags),)
   }
