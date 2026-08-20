@@ -1282,7 +1282,21 @@ h6.idea {
    middle` buys: it puts a zero-height box at the parent's baseline plus half
    its x-height, i.e. exactly through the middle of a lowercase letter, from
    the FONT's metrics rather than from a guessed `top` offset that a host
-   page's line-height would throw off. */
+   page's line-height would throw off.
+
+   THE MARKER IS WHAT A THEMED TAG COLOURS ON THIS ROW, not the row's link text.
+   A row wears `idea-tag-<tag>`, and `theme: (tags-color: ..)` publishes
+   `--idea-tag-line` on that class, so the tick takes the tag's colour. Colouring
+   the LINK instead would read as two dozen different link states down a long
+   index; a column of coloured ticks lets the eye group kinds without touching
+   the prose. An untagged row, and a row whose tags are not themed, keeps exactly
+   the colour it has below: `--idea-tag-line` is only ever set by a generated rule
+   for a tag the project themed by name.
+
+   A ROW CARRYING SEVERAL THEMED TAGS takes the LAST generated rule that matches
+   — plain cascade, since the generated rules all have equal specificity and are
+   emitted in `tags-color` iteration order. That is the defined behaviour, not an
+   accident worth a mechanism. */
 .idea-outline-row::before {
   content: "";
   display: inline-block;
@@ -1293,7 +1307,7 @@ h6.idea {
   margin-right: 0.5em;
   /* 2px, matching the rule it grows out of. A 1px marker on a 2px rule reads as
      a different, thinner kind of line rather than as a branch off that one. */
-  border-top: var(--idea-rule-width, 2px) solid var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12)));
+  border-top: var(--idea-rule-width, 2px) solid var(--idea-tag-line, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
 }
 
 /* ---- Narrow screens: half the indent ---------------------------------------

@@ -132,6 +132,15 @@
 // `rookery.css` is itself unlayered and unaffected either way: it only READS
 // these properties, it never sets them.
 //
+// THREE PROPERTIES FROM TWO KEYS. `--idea-tag-line` is not in the `tags-color`
+// vocabulary an author writes: it is derived here, and it colours the hairline
+// MARKER on an outline row (`.idea-outline-row::before`, rookery.css). A 2px
+// rule and a pill's text are different jobs, so reusing `--idea-tag-color` for
+// both would leave the tick uncoloured for the documented shorthand — `draft:
+// rgb("#3366ff")` means BACKGROUND-only. Hence: `text` when the entry has one,
+// `background` otherwise. `_resolve-tags-color` rejects an entry with neither,
+// so a themed tag always publishes a line colour.
+//
 // Reads the normalized `tags-color` dict (`_resolve-tags-color`, data.typ),
 // where each tag maps to a dict with optional `background` and/or `text` keys,
 // both already CSS-stringified (hex or passthrough) — and whose KEY is already
@@ -145,6 +154,10 @@
       let decls = ()
       if "background" in def { decls.push("--idea-tag-bg: " + def.at("background")) }
       if "text" in def { decls.push("--idea-tag-color: " + def.at("text")) }
+      decls.push(
+        "--idea-tag-line: "
+          + if "text" in def { def.at("text") } else { def.at("background") },
+      )
       ".idea-tag-" + tag + " { " + decls.join("; ") + " }"
     })
   if rules.len() == 0 { none } else { "@layer rookery-tags { " + rules.join(" ") + " }" }
