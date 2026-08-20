@@ -19,7 +19,11 @@
 //     `author` that is not a non-empty string; a `subtitle` that is neither a
 //     string nor none; a `limit` that is not a positive integer or none
 //     (`limit: 0` used to empty the feed silently, `limit: -1` to drop its
-//     oldest entry).
+//     oldest entry); a `format` other than "atom"/"rss"/"json"; a
+//     `content: "xhtml"` paired with a non-atom `format` (xhtml is Atom's own
+//     content model); a `format: "json"` without `content: none` (JSON Feed
+//     content needs a JSON-safe `<rheo-content>` encoding rheo lacks, so a
+//     json feed is summary-only and must say so).
 //   - the ONE non-empty-title rule (`_expect-title`) panics wherever a title
 //     arrives from outside the package — a source's entry, an
 //     `<rssfeed:item>` beacon read by `items()`, or an `item(...)` call — when
@@ -142,6 +146,30 @@ Para two]), "Para one Para two")
 #assert.eq(feed-opts.author, "Someone")
 #assert.eq(feed-opts.subtitle, "A subtitle")
 #assert.eq(feed-opts.limit, 5)
+// `format` defaults to atom, so every pre-existing config is unchanged, and
+// carries through when set.
+#assert.eq(feed1.format, "atom")
+#assert.eq(
+  feed(
+    path: "r.xml",
+    title: "R",
+    base-url: "https://example.com",
+    sources: (_empty-source,),
+    format: "rss",
+  ).format,
+  "rss",
+)
+#assert.eq(
+  feed(
+    path: "j.json",
+    title: "J",
+    base-url: "https://example.com",
+    sources: (_empty-source,),
+    format: "json",
+    content: none,
+  ).format,
+  "json",
+)
 
 // ---- path — normalized like an entry's `page`, so no feed URL doubles a
 // slash and two spellings of one output file collide as they should ----------
@@ -1293,6 +1321,56 @@ Para two]), "Para one Para two")
   ),
   message: "head.html must carry feed B's link too — multiple feeds is the headline capability",
 )
+
+// Three feeds, one per format, from the same source — the headline capability
+// the `format:` key buys. Four members: three feed files plus ONE
+// `.rheo/head.html` carrying all three autodiscovery links, each `type=`
+// paired with its OWN feed's href. Asserted as exact whole tags, so a
+// mispaired type and href would fail rather than pass on a substring.
+#let cfg-fmt-atom = feed(
+  path: "all.xml",
+  title: "All Atom",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+)
+#let cfg-fmt-rss = feed(
+  path: "all-rss.xml",
+  title: "All Rss",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+  format: "rss",
+)
+#let cfg-fmt-json = feed(
+  path: "all.json",
+  title: "All Json",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+  format: "json",
+  content: none,
+)
+#let plan-three = _mint-plan((cfg-fmt-atom, cfg-fmt-rss, cfg-fmt-json))
+#assert.eq(
+  plan-three.map(m => m.path),
+  ("all.xml", "all-rss.xml", "all.json", ".rheo/head.html"),
+)
+// Each minted file really is its own format, not three copies of one.
+#assert(plan-three.at(0).data.contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">"))
+#assert(plan-three.at(1).data.contains("<rss version=\"2.0\""))
+#assert(plan-three.at(2).data.contains("https://jsonfeed.org/version/1.1"))
+#let head-three = plan-three.at(3).data
+#for (mime, path, title) in (
+  ("application/atom+xml", "all.xml", "All Atom"),
+  ("application/rss+xml", "all-rss.xml", "All Rss"),
+  ("application/feed+json", "all.json", "All Json"),
+) {
+  assert(
+    head-three.contains(
+      "<link rel=\"alternate\" type=\"" + mime + "\" href=\"https://example.com/"
+        + path + "\" title=\"" + title + "\">",
+    ),
+    message: "head.html must pair " + mime + " with " + path + "'s own href and title",
+  )
+}
 
 // A zero-entry feed among a real one is SKIPPED entirely — no minted XML
 // file for it, and no autodiscovery link for it either.
