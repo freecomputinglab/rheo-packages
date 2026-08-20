@@ -42,77 +42,24 @@
   if c != none and "target" in c { c.target } else { std.target() }
 }
 
-// ---- The rookery theme — carried across the package boundary BY STATE KEY ----
+// ---- The rookery theme — inherited, not copied ----------------------------
 //
 // This package's stylesheet reads rookery's own custom properties before its
 // literals — `var(--rookery-search-border, var(--idea-border-color, ...))` and
 // friends — so a site that themes its notes tints the search UI to match with no
-// second configuration. That only works if the properties are IN SCOPE, and
-// rookery emits them as an INLINE style on its own containers (`.idea-box`,
-// `.idea-window`, `.idea-outline`): a custom property inherits DOWN the DOM, so
-// anything that is not inside a note card sees none of them.
+// second configuration. That used to require this package to carry its own copy
+// of rookery's theme table and inject it as an inline `style` on `#search-bar`'s
+// span and `#search-modal`'s dialog, because neither has a `.idea-*` ancestor to
+// inherit from and rookery only emitted the properties on its own containers.
 //
-// MEASURED 2026-08-18 on rookery.ohrg.org, headless chromium 151: `#search-modal`
-// puts its `<dialog>` in the site header — ancestry `html > body >
-// header.site-header > div.site-header-inner > dialog` — with no `.idea-*` element
-// anywhere above it, and `getComputedStyle(dialog).getPropertyValue(
-// "--idea-border-color")` came back the empty string both closed and open. (A
-// `<dialog>` promoted to the top layer still inherits from its DOM parent; top
-// layer changes paint order, not inheritance. The emptiness is the ancestry, not
-// the layer.) So the fallback chain could never reach the theme, and the modal's
-// three dividers always shipped their last-resort literal, whatever the project
-// configured.
-//
-// THE FIX IS THE ONE ROOKERY ALREADY USES: emit the properties on OUR OWN
-// containers too. `#idea` cannot reach a dialog in a site's header, but
-// `#search-modal` can, because it emits the dialog itself.
-//
-// AND THE CONTRACT IS THE STATE KEY, not an import. `state("rheo-idea-theme")` is
-// keyed by a STRING, and a Typst state is global per key, so reading it here
-// reads exactly the value `#show: rookery` wrote — no widening of rookery's
-// public surface, and no importing an underscore-private `_themed`. The same
-// bargain as `_rheo-ctx` above, and the same obligation: rookery's
-// `_THEME-KEYS`/`_theme`/`_themed` (`rookery/0.3.0/src/lib.typ`, near the top)
-// are the originals and carry a banner pointing back here. IF THE KEY OR THE
-// SHAPE OF THAT DICTIONARY CHANGES, BOTH FILES CHANGE.
-//
-// Copying the whole key table rather than the three properties the stylesheet
-// happens to read today: a table that agrees with rookery's cannot drift into
-// disagreeing about a spelling, and an unset key emits nothing either way.
-#let _IDEA-THEME-KEYS = (
-  "link-color": "--idea-link-color",
-  "fold-color": "--idea-fold-color",
-  "id-color": "--idea-id-color",
-  "date-color": "--idea-date-color",
-  "border-color": "--idea-border-color",
-  "rule-width": "--idea-rule-width",
-  "pad": "--idea-pad",
-)
-#let _idea-theme = state("rheo-idea-theme", (:))
-
-// The `style` attribute value for rookery's configured theme, or `none` when
-// nothing is configured — in which case no attribute is emitted at all and the
-// stylesheet's own literals stand, exactly as before this existed.
-//
-// `.final()`, matching rookery's, so the answer does not depend on whether the
-// bar is emitted above or below the `#show: rookery` that set it. Both
-// `#search-bar` and `#search-modal` are `context` functions already, which is
-// what makes the read legal here.
-#let _theme-style() = {
-  let t = _idea-theme.final()
-  let decls = _IDEA-THEME-KEYS
-    .pairs()
-    .filter(((key, prop)) => t.at(key, default: none) != none)
-    .map(((key, prop)) => prop + ": " + t.at(key))
-  if decls.len() == 0 { none } else { decls.join("; ") }
-}
-
-// Add that style to an attrs dictionary, or leave it untouched. Every container
-// this package emits goes through here, so none can drift.
-#let _themed(attrs) = {
-  let s = _theme-style()
-  if s == none { attrs } else { attrs + (style: s) }
-}
+// Rookery now ALSO publishes the configured theme once per page as a
+// document-scope `<style>:root { --idea-*: ...; }</style>` rule (see the banner
+// above `_THEME-KEYS`/`_theme`/`_themed` in `rookery/0.3.0/src/lib.typ`). Custom
+// properties inherit down the WHOLE DOM from `:root`, so `#search-bar` and
+// `#search-modal` see the theme for free with no private copy of the table and
+// no state-key contract to keep in step. MEASURED 2026-08-18: `getComputedStyle`
+// on both elements resolves `--idea-border-color` correctly via that inheritance
+// alone, with no inline style of their own.
 
 // Lowercase, and `-`/`_` read as a space. Applied to the HAYSTACK AND THE
 // QUERY, which is what makes an id findable by how a person types it: the note
@@ -491,12 +438,17 @@
   // — otherwise a `tags:draft window` query would hand the literal "tags:draft"
   // to `fuzzy-score` and match nothing.
   //
-  // THE EMPTY RESIDUAL NEEDS NO SPECIAL CASE, verified rather than assumed:
-  // `fuzzy-score` returns 0 for an empty query (its own first guard), so with
-  // `q == ""` every surviving note scores 0 in the NAME tier and the stable sort
-  // leaves them in the id order `ideas()` gave — which is exactly the wanted
-  // answer for a bare `tags:draft`. The body tier stays empty for it, `body-score`
-  // returning `none` for an empty query.
+  // THE EMPTY RESIDUAL IS NO LONGER "NO SPECIAL CASE": `fuzzy-score` still
+  // returns 0 for an empty query, so every surviving note ties at score 0 in the
+  // NAME tier — but a plain stable sort over that tie is no longer the wanted
+  // answer. For `q == ""` (a bare `""` query, or a `tags:`-only query with no
+  // residual) the DEFAULT/BROWSE listing sorts dated notes newest-first, with
+  // undated notes falling to the end in their old id order. This mirrors
+  // `_sort-ids` in `rookery/0.3.0/src/pure.typ` (`sort: "date"`) — same
+  // dated/undated split, same zero-padded `[year][month][day]` stamp comparison,
+  // same dedup-and-walk-descending — applied here to `e.updated` instead of to
+  // an id's registry-looked-up `minted`. The body tier stays empty for `q == ""`
+  // either way, `body-score` returning `none` for an empty query.
   let tq = split-query(query)
   let q = tq.text
   let name-hits = ()
@@ -540,7 +492,27 @@
       body-hits.push((..e, score: body-score-val, kind: "body"))
     }
   }
-  name-hits = name-hits.sorted(key: e => -1 * e.score)
+  // A REAL SEARCH (`q != ""`) sorts by score, descending — untouched. THE
+  // EMPTY RESIDUAL (`q == ""`) instead sorts by date, newest first, mirroring
+  // `_sort-ids` in `rookery/0.3.0/src/pure.typ`: split into dated/undated
+  // (each `.filter` preserves `name-hits`' existing id-ascending order within
+  // its split, same as `_sort-ids`), walk the dated group's distinct stamps
+  // newest to oldest, and append the undated group unchanged at the end.
+  name-hits = if q != "" {
+    name-hits.sorted(key: e => -1 * e.score)
+  } else {
+    let stamp-of(e) = {
+      let u = e.at("updated", default: none)
+      if u == none { none } else { u.display("[year][month][day]") }
+    }
+    let dated = name-hits.filter(e => stamp-of(e) != none)
+    let undated = name-hits.filter(e => stamp-of(e) == none)
+    let ordered = ()
+    for s in dated.map(stamp-of).dedup().sorted().rev() {
+      ordered += dated.filter(e => stamp-of(e) == s)
+    }
+    ordered + undated
+  }
   body-hits = body-hits.sorted(key: e => -1 * e.score)
   let out = name-hits + body-hits
   if limit == none { out } else { out.slice(0, calc.min(limit, out.len())) }
@@ -573,7 +545,8 @@
 // the rest of the query is a normal text search over the survivors:
 //
 //   tags:draft window depth   notes tagged draft*, ranked by "window depth"
-//   tags:draft                notes tagged draft*, no ranking, id order
+//   tags:draft                notes tagged draft*, no residual: the browse
+//                              order — dated newest-first, undated by id
 //   window depth              unchanged — no `tags:` prefix, no filter
 //   tags:                     the whole corpus; an empty expression is no filter
 //
@@ -908,10 +881,14 @@
 //   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
-// one row per note: `(id, name, text, tags, body, href)`, where `text` is the
-// plain-text title ("" when untitled), `tags` is the note's own tag array (THE KEY
-// IS ABSENT when it has none), `body` is that note's compressed term
-// string ("" when it compresses to nothing), and `href` is the depth-relative
+// one row per note: `(id, name, text, tags, body, updated, href)`, where `text`
+// is the plain-text title ("" when untitled), `tags` is the note's own tag
+// array (THE KEY IS ABSENT when it has none), `body` is that note's compressed
+// term string ("" when it compresses to nothing), `updated` is that note's
+// resolved date as a zero-padded `"[year][month][day]"` string (THE KEY IS
+// ABSENT when the note is undated — never shipped as `""` or `null`; this is
+// the same stamp `_rank` computes from `e.updated` for the default/browse
+// listing, see its comment), and `href` is the depth-relative
 // path to the note's minted page — computed against the page this call sits on,
 // so an island in a site's shared chrome comes out right on a nested vertebra
 // too.
@@ -1087,6 +1064,11 @@
     let row = (id: e.id, name: e.name, text: e.text)
     if e.tags.len() > 0 { row.insert("tags", e.tags) }
     if body-search { row.insert("body", bodies.at(i)) }
+    // Same `"[year][month][day]"` stamp `_rank`'s `stamp-of` computes from
+    // `e.updated` — omitted, never `""` or `none`, for an undated note, the
+    // same convention `tags`/`body` above already use.
+    let u = e.at("updated", default: none)
+    if u != none { row.insert("updated", u.display("[year][month][day]")) }
     row.insert("href", e.href)
     row
   })
@@ -1184,16 +1166,15 @@
   }
   html.elem(
     "span",
-    // Themed for the same reason the dialog below is: a bar in a site's header
-    // has no `.idea-*` ancestor to inherit rookery's properties from, so its own
-    // border and its dropdown's edge fell back to a literal. See the theme block
-    // near the top of this file.
-    attrs: _themed((
+    // No inline theme style needed: it inherits rookery's `--idea-*` properties
+    // from the document-scope `:root` rule. See the theme block near the top of
+    // this file.
+    attrs: (
       class: if class == none { "rookery-search" } else { "rookery-search " + class },
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
       "data-rookery-search-open": "false",
-    )),
+    ),
     html.elem("input", attrs: (
       class: "rookery-search-input",
       type: "search",
@@ -1350,15 +1331,16 @@
   }
   html.elem(
     "dialog",
-    // THE THEME GOES ON THE DIALOG ITSELF, and nowhere else will do: this element
-    // is emitted wherever the author calls `#search-modal` — in practice a site's
-    // header — and inherits from its DOM parent, which is not a note card. See the
-    // theme block near the top of this file for the measurement.
-    attrs: _themed((
+    // No inline theme style needed here either: this element is emitted wherever
+    // the author calls `#search-modal` — in practice a site's header — and now
+    // inherits rookery's `--idea-*` properties from the document-scope `:root`
+    // rule rather than from a DOM parent. See the theme block near the top of
+    // this file.
+    attrs: (
       class: if class == none { "rookery-search-modal" } else { "rookery-search-modal " + class },
       "data-rookery-search": elem-id,
       "data-rookery-search-limit": str(limit),
-    )),
+    ),
     html.elem(
       "div",
       attrs: (class: "rookery-search-modal-inner"),

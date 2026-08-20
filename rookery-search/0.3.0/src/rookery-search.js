@@ -344,8 +344,24 @@ export const bodyScore = (body, query) => {
 //
 // With a tag expression and NO residual text (`tags:draft` on its own), `q` is
 // `""`, `score(hay, "")` is 0 for every survivor, and they all land in the name
-// tier at score 0 in id order. That is the wanted behaviour and needs no special
-// case — same as the Typst side, where `fuzzy-score` returns 0 on an empty query.
+// tier at score 0. THAT tie no longer breaks by id alone: for `q === ""` (a bare
+// `""` query too) `dateCmp` below breaks it by `row.updated` first, newest
+// first, undated last — the JS twin of `_rank`'s date branch in `src/lib.typ`,
+// which mirrors `_sort-ids` in `rookery/0.3.0/src/pure.typ`. A REAL query
+// (`q !== ""`) is untouched: ties there still break by id alone, exactly as
+// before.
+//
+// `row.updated` is ALREADY the zero-padded `"[year][month][day]"` stamp
+// `#search-index` ships (see its comment in `src/lib.typ`) — never a raw date
+// object — so lexicographic string comparison is numeric-order comparison,
+// with no parsing needed here.
+const dateCmp = (a, b) => {
+  if (a.updated == null && b.updated == null) return 0;
+  if (a.updated == null) return 1;
+  if (b.updated == null) return -1;
+  return a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0;
+};
+
 export const search = (rows, query, limit) => {
   const { rpn, text } = splitQuery(query);
   const q = text;
@@ -366,7 +382,10 @@ export const search = (rows, query, limit) => {
   const tier = (hit) => (hit.kind === "name" ? 0 : 1);
   out.sort(
     (a, b) =>
-      tier(a) - tier(b) || b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      tier(a) - tier(b) ||
+      b.score - a.score ||
+      (q === "" ? dateCmp(a, b) : 0) ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
   return limit == null ? out : out.slice(0, limit);
 };
@@ -1076,12 +1095,13 @@ const wireModal = (dialog, rows) => {
     // it again on every path that has something to select.
     sel.clear();
     // EMPTY QUERY shows the corpus, not nothing: `search(rows, "", limit)`
-    // already returns everything at score 0 in id order — telescope's
+    // already returns everything at score 0, dated rows newest-first ahead of
+    // undated rows (which keep their id order) — see `dateCmp` — telescope's
     // empty-prompt behaviour, deliberately unlike `#search-bar`'s dropdown,
     // which stays shut on an empty query.
     //
     // With a `tags:` expression and no residual text, that becomes the whole
-    // FILTERED corpus at score 0 in id order — the same sentence one level in.
+    // FILTERED corpus ranked the same way — the same sentence one level in.
     hits = search(rows, q, limit);
     // The residual, not the raw input: see `wire`'s `render` above. Marking the
     // literal "tags:" in every note is the failure this avoids. And the tag

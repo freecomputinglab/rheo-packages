@@ -75,11 +75,26 @@
 // Every name here is INTERNAL to `@rheo/rookery` and load-bearing for this
 // file. lib.typ carries the matching "CONSUMED BY .marrow.typ" banner; renaming
 // or re-signing any of them means changing both files in the same commit.
-#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, window
+// SYNDICATION BEACON. Opt-in via `#show: rookery.with(syndicate: true)`
+// (default off — a package must not emit into another package's label
+// namespace unasked). When on, each minted note page also carries a
+// `#metadata((..)) <rssfeed:item>` beacon shaped to the contract
+// `@rheo/rssfeed`'s `items()` reads (see that package's readme and the
+// `<rssfeed:item>` label — `rssfeed:item` is `items()`'s own default
+// `label-name`). Emitted whether or not `@rheo/rssfeed` is installed at
+// all: this file never imports it, and an unread `#metadata` beacon is
+// inert — `#metadata` renders nothing on any target, so a project with no
+// rssfeed in its dependency tree pays nothing for a beacon nobody queries.
+// This is the SECONDARY syndication path — a project's own `.marrow.typ` (or
+// any package) sourcing `ideas(tags:, match:)` straight into rssfeed's
+// `items()` is the primary one; this exists for what that route cannot
+// reach, e.g. a hand-authored page syndicating itself.
+#import "@rheo/rookery:0.3.0": _registry, _note-page, _pfx, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
 
 #context {
   let registry = _registry.final()
   let tpl = _idea-page-template.final()
+  let syndicate = _syndicate.final()
 
   // NOTE backlinks: the inverse of every note's recorded outbound links.
   let backlinks = (:)
@@ -187,6 +202,12 @@
         _permalink-tab(
           id,
           href: "#" + id,
+          // ALWAYS SHOWN, for the same reason the date is always shown here
+          // (see above): a minted page has no call site to carry a
+          // `show-tags:` argument, and a note's OWN page is the one place
+          // its tags are not clutter. An untagged note's `rec.tags` is `()`,
+          // which `_permalink-tab` already renders as nothing.
+          tags: rec.at("tags", default: ()),
           date: if rec.updated == none { none } else {
             rec.updated.display("[year]-[month]-[day]")
           },
@@ -365,6 +386,36 @@
             context-part + backlinks-part,
           )
         }
+      }
+      // The beacon itself. Skipped when `syndicate` is off (the default), and
+      // skipped per-note when the note has neither `minted` nor `updated`:
+      // rssfeed drops an undated entry anyway (Atom's `<updated>` is
+      // required, and Typst cannot stat a file to invent one), so emitting
+      // one here would only produce an entry the feed silently discards.
+      // Skips the BEACON only — the page above is still minted regardless.
+      //
+      // Field mapping, matched to what `.marrow.typ`'s own `rheo-document`
+      // call below is given, so beacon and page cannot drift apart:
+      //   - `id`: the note's full id, unique because it keys the registry.
+      //   - `page`: `page-at.file` — the exact path/expression this loop
+      //     passes `rheo-document` as its own output path (see below), not a
+      //     second, independently-derived call to `_note-file`/`_note-path`.
+      //   - `title`: `slug` when the note has no title, matching the
+      //     `rheo-document(title: ...)` call below, so a titleless note
+      //     syndicates under the name its own page shows; otherwise the
+      //     title flattened to a string with `_plain` (rssfeed's `items()`
+      //     requires a `str`, not content).
+      //   - `categories`: `rec.at("tags", ..)` with a default, not `rec.tags`,
+      //     so a stale record cannot hard-fail this.
+      #if syndicate and (rec.minted != none or rec.updated != none) {
+        [#metadata((
+          id: id,
+          title: if rec.title == none { slug } else { _plain(rec.title) },
+          page: page-at.file,
+          published: rec.minted,
+          updated: rec.updated,
+          categories: rec.at("tags", default: ()),
+        ))#label("rssfeed:item")]
       }
     ]
 

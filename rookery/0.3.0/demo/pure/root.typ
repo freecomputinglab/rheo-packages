@@ -40,3 +40,4 @@
 #include "tags.typ"
 #include "windows.typ"
 #include "cycles.typ"
+#include "idea-body.typ"

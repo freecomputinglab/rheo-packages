@@ -243,6 +243,7 @@
   "rule-width": "--idea-rule-width",
   "pad": "--idea-pad",
   "label-font": "--idea-label-font",
+  "label-size": "--idea-label-size",
 )
 #let _theme = state("rheo-idea-theme", (:))
 
@@ -396,6 +397,15 @@
 // store the result. The wrapper is what makes the function a value.
 #let _idea-page-template = state("rheo-idea-page-template", none)
 
+// Whether `.marrow.typ` should emit an `<rssfeed:item>` beacon alongside each
+// minted note page — see the "syndicate" comment in `.marrow.typ` for the
+// contract. A plain value, not a function, so this carries the same wrapper
+// discipline as `_idea-page-template` in reverse: `.update(syndicate)`, NOT
+// `.update(_ => syndicate)` — the `_ =>` wrapper exists only to stop
+// `state.update` from calling a FUNCTION value as an updater, and a bool is
+// not one.
+#let _syndicate = state("rheo-idea-syndicate", false)
+
 // ---- Note page URLs -------------------------------------------------------
 //
 // `.marrow.typ` mints one standalone page per note (see that file). Links
@@ -533,10 +543,26 @@
 // document's own, `_window-content` from the registry record), and the paged
 // branches need the same string without a hat to hang it on. Formatting here would
 // put that decision in a third place.
-#let _permalink-tab(id, href: auto, date: none) = html.elem(
+// `tags:` renders each tag as a VISIBLE PILL, between the id and the date —
+// opt-in per call site (`#idea`/`#window`'s `show-tags:`, off by default,
+// same mechanism as `date:` above), and empty when the note carries none
+// either way (an empty `tags` array maps to no output).
+//
+// TWO classes per pill, on purpose: `idea-tag` is the pill's own shape hook
+// (see `.idea-tab > .idea-tag` in rookery.css); `idea-tag-<tag>` is the SAME
+// class this package already puts on the card and the heading (`_flatten`'s
+// IK rule, `#idea` below), and the same class `@rheo/rookery-search` puts on
+// its own chips — so one project rule (`.idea-tag-draft { ... }`) now styles
+// a tag everywhere it appears, including this pill. A project stylesheet
+// that only meant to style the card is affected too — that is the intent of
+// sharing the class, not an accident.
+#let _permalink-tab(id, href: auto, tags: (), date: none) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
   _permalink(id, href: href)
+    + (if tags.len() == 0 { [] } else {
+      tags.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
+    })
     + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
 )
 
@@ -1075,7 +1101,7 @@
 //
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
-#let _window-content(id, rec, shown, folded, show-date, windows-claim: false) = {
+#let _window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: false) = {
   // `updated`, not `minted`, matching `#idea`'s own hat. The registry record
   // carries both, and `updated` already falls back to `minted` (which falls back
   // to the document's date) when the note never named one — so a note that says
@@ -1103,7 +1129,11 @@
     let summary = html.elem(
       "summary",
       attrs: (class: "idea-window-summary"),
-      _permalink-tab(id, date: date) + title-span,
+      _permalink-tab(
+        id,
+        tags: if show-tags { rec.at("tags", default: ()) } else { () },
+        date: date,
+      ) + title-span,
     )
     // `open` is a BOOLEAN html attribute: present means open and there is no
     // value meaning closed, so the attrs dictionary itself has to differ
@@ -1294,7 +1324,23 @@
         _flatten(rec.raw, depth: depth - 1)
       }
       let shown = _truncate(inner, v.limit)
-      _bracket(_window-content(id, rec, shown, v.folded, v.show-date, windows-claim: depth - 1 > 1), WK)
+      // `.at(..., default: false)`, not a bare field access: a WK marker
+      // minted before this bead (or by an older rookery version) carries no
+      // `show-tags` key at all. NOTE: `v.show-date` just above is a bare
+      // field access with no such guard — a pre-existing risk this bead does
+      // not touch.
+      _bracket(
+        _window-content(
+          id,
+          rec,
+          shown,
+          v.folded,
+          v.show-date,
+          v.at("show-tags", default: false),
+          windows-claim: depth - 1 > 1,
+        ),
+        WK,
+      )
     }
   }
   body
@@ -1385,7 +1431,7 @@
   out
 }
 
-#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, ..args) = {
+#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, show-tags: false, ..args) = {
   // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
@@ -1574,7 +1620,7 @@
         // `h*.idea:empty` in the stylesheet is what keeps it from taking any space,
         // and it now applies to a dated titleless note as well.
         let header = _head(
-          _permalink-tab(id, date: date),
+          _permalink-tab(id, tags: if show-tags { tags } else { () }, date: date),
           html.elem(
             "h" + str(level + 1),
             attrs: (id: id, class: cls.join(" ")),
@@ -1735,6 +1781,7 @@
   limit: none,
   folded: false,
   show-date: false,
+  show-tags: false,
   depth: auto,
   tags: none,
   match: "any",
@@ -1864,6 +1911,7 @@
       rookery-window-id: id,
       folded: folded,
       show-date: show-date,
+      show-tags: show-tags,
       limit: limit,
     ))
 
@@ -1903,7 +1951,7 @@
     // its links must not read as links from whatever page is showing it.
     _bracket(
       figure(kind: WK, supplement: none, [
-        #marker#_window-content(id, rec, shown, folded, show-date, windows-claim: d > 1)
+        #marker#_window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: d > 1)
       ]),
       WK,
     )
@@ -2544,6 +2592,25 @@
 // caller must not cache the result across pages.
 #let note-href(name) = _note-href(_pfx() + _norm(name))
 
+// ---- #note-path — where a note's minted page lives, from the SITE ROOT -----
+//
+//   #context note-path("etal")   // -> "ideas/etal.html", or none
+//
+// `#note-href` above is relative to the page it is called from — right for a
+// link written inline in a vertebra's own prose. `#note-path` is the SAME
+// page, but from the site root, for a caller with no page of its own to
+// measure depth from — a feed config or sitemap invoked once from shared
+// code, not from a vertebra. It reuses `_note-file` directly, skipping
+// `_note-href`'s depth arithmetic entirely, and copies its unminted guard:
+// `none` under the same two conditions `#note-href` is — plain
+// `typst compile` with no rheo, and the combined PDF target.
+#let _note-path(id) = {
+  let c = _rheo-ctx()
+  if c == none or c.at("ext", default: none) == none { return none }
+  _note-file(id)
+}
+#let note-path(name) = _note-path(_pfx() + _norm(name))
+
 // ---- #ideas — every registered note, as data ------------------------------
 //
 //   #context ideas()                 // -> ((id: "idea:etal", name: "etal", ..), ..)
@@ -2563,6 +2630,7 @@
 //    tags:    ("note", "draft"), // as the author gave them, () if untagged
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
+//    page:    "ideas/etal.html", // site-root-relative, or none — see `note-path`
 //    minted:  datetime or none,
 //    updated: datetime or none)
 //
@@ -2641,6 +2709,7 @@
         tags: rec.at("tags", default: ()),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
+        page: _note-path(id),
         minted: rec.at("minted", default: none),
         updated: rec.at("updated", default: none),
       )
@@ -2739,8 +2808,10 @@
   rule-width: none,
   pad: none,
   label-font: none,
+  label-size: none,
   refs: true,
   ref-target: "page",
+  syndicate: false,
   doc,
 ) = {
   assert(
@@ -2794,16 +2865,21 @@
     message: "@rheo/rookery: `ref-target` must be \"page\" or \"anchor\" — got "
       + repr(ref-target),
   )
+  assert(
+    type(syndicate) == bool,
+    message: "@rheo/rookery: `syndicate` must be a boolean — got " + repr(syndicate),
+  )
 
   // One converter for both sources, so `theme: (link-color: c)` and
   // `link-color: c` cannot disagree about what a value may be.
   //
   // THREE KINDS OF VALUE, not two. Colours are the default and the majority;
-  // `rule-width`/`pad` are LENGTHS; `label-font` is a FONT STACK, which is
-  // neither — it is CSS text this package cannot validate and must not mangle, so
-  // it is passed straight through. An array is accepted and joined with `", "`,
-  // because a stack is what a font is and writing it as `("Berkeley Mono",
-  // "monospace")` reads better than embedding the commas in a string.
+  // `rule-width`/`pad`/`label-size` are LENGTHS; `label-font` is a FONT STACK,
+  // which is neither — it is CSS text this package cannot validate and must
+  // not mangle, so it is passed straight through. An array is accepted and
+  // joined with `", "`, because a stack is what a font is and writing it as
+  // `("Berkeley Mono", "monospace")` reads better than embedding the commas
+  // in a string.
   //
   // The LENGTH branch: `repr` on a Typst length gives exactly the CSS it needs —
   // `2pt` -> "2pt", `0.15em` -> "0.15em" — so both spellings work and neither
@@ -2817,7 +2893,12 @@
         + "((\"Berkeley Mono\", \"monospace\")) — got " + repr(value),
     )
     if type(value) == array { value.join(", ") } else { value }
-  } else if key in ("rule-width", "pad") {
+  } else if key in ("rule-width", "pad", "label-size") {
+    // For `label-size` specifically, the STRING path is the primary one,
+    // unlike `rule-width`/`pad` where a Typst length is more commonly used —
+    // this key's whole point is staying in `rem` (see the readme), and Typst
+    // has no `rem` literal, so `"0.8rem"` rather than a length is expected to
+    // be the normal spelling here.
     assert(
       type(value) == length or type(value) == str,
       message: "@rheo/rookery: theme `" + key + "` must be a length (2pt, 0.15em) "
@@ -2852,6 +2933,7 @@
     rule-width: rule-width,
     pad: pad,
     label-font: label-font,
+    label-size: label-size,
   ) {
     if value != none { resolved.insert(key, css(key, value)) }
   }
@@ -2877,7 +2959,48 @@
   })
   // `_ => f`, not `f` — see `_idea-page-template`.
   _idea-page-template.update(_ => idea-page-template)
+  _syndicate.update(syndicate)
   _theme.update(resolved)
+  // DOCUMENT-SCOPE theme publication, ADDITIVE to the per-container INLINE
+  // styling `_themed` still applies everywhere it already did (see that
+  // function and its callers) — this does not replace them, it gives
+  // anything ELSE on the page a `:root` to inherit from. Custom properties
+  // inherit DOWN the DOM, but only from an ancestor that carries them: before
+  // this, that was ever only `.idea-box`/`.idea-window`/etc, so a sibling
+  // element with no rookery ancestor (a `<dialog>` in a site's own header, a
+  // search bar not nested inside a note) saw nothing. MEASURED bug this
+  // fixes: `@rheo/rookery-search`'s `#search-modal` reading an empty string
+  // for `--idea-border-color` and having to carry its own copy of the theme
+  // table to cope (see the banner above `_THEME-KEYS`).
+  //
+  // EXACTLY ONCE PER OUTPUT PAGE: `#show: rookery` is applied PER FILE, and
+  // under rheo one FILE is one VERTEBRA is one OUTPUT PAGE (the same fact
+  // `_prefix`/`_bib`/`_theme` above are already document-wide state for) —
+  // so one call to this function is one page, and this line runs exactly
+  // once per call. `demo/rheo/content/lib.typ` is the shape every multi-page
+  // project already uses: ONE shared `#show: rookery.with(..)` wrapper that
+  // EVERY vertebra applies, so every page gets its own `<style>`, all of them
+  // carrying the same document-wide `.final()` theme. A minted note page
+  // (`.marrow.typ`) is a separate `#document` that never calls `rookery()`
+  // again, so it is untouched by this — same as it always was.
+  //
+  // Reuses `_theme-style()` rather than re-deriving anything: it already
+  // returns `none` for an unconfigured theme, so an unthemed project's
+  // `<style>` count stays exactly zero, matching the promise inline theming
+  // already keeps ("an unconfigured document emits nothing extra at all").
+  //
+  // GATED to html/epub, exactly like every other `html.elem` call in this
+  // file: `html.elem` renders nothing meaningful on the paged (PDF) target,
+  // and unconditionally calling it there is what `demo/pure`'s two PDF roots
+  // exist to catch.
+  context {
+    if _target() == "html" or _target() == "epub" {
+      let style = _theme-style()
+      if style != none {
+        html.elem("style", ":root { " + style + "; }")
+      }
+    }
+  }
   // The fallback for a rookery `#footnote` written OUTSIDE any idea: page-wide
   // numbering and a body in the page's own endnote section, exactly as Typst's
   // own footnote behaves. `#idea` installs a nested rule that wins over this

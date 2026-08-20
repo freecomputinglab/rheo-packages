@@ -1,0 +1,20 @@
+# rheo is NOT in this repo's devShell — locally it is the sibling `rheo/` crate
+# (`cargo install --path ../../../../rheo`, or point at a built binary). CI does
+# NOT need that: it installs the pinned rheo 0.5.2 RELEASE, which is this
+# package's declared `[tool.rheo] min_version`, and runs `just check` below.
+# So this recipe is both the local check and the CI one, against the floor the
+# manifest promises rather than whatever a developer happens to have built.
+#
+# To run it against a specific rheo instead of whatever is on PATH — which is
+# how the 0.5.2 floor was verified — invoke the binary directly:
+#   /path/to/rheo compile . && ./check.sh
+build:
+    rheo compile .
+
+watch:
+    rheo watch .
+
+# Asserts on the OUTPUT, not merely that the build succeeded — every path below
+# exists only under rheo and none of it is covered by `demo/pure`.
+check: build
+    ./check.sh

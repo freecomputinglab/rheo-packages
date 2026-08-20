@@ -19,7 +19,7 @@
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _dedup-tag, _is-inline,
   _join, _nest-outline, _norm, _note-file, _plain, _sort-ids, _tag-pred,
-  _truncate,
+  _truncate, note-href, note-path,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -212,6 +212,15 @@
 #context {
   assert.eq(_note-file("idea:etal"), "ideas/etal.html")
   assert.eq(_note-file("etal"), "ideas/etal.html")
+}
+
+// ---- note-href / note-path — none with no rheo context --------------------
+// Neither was covered here before: this fixture compiles WITHOUT rheo (no
+// `sys.inputs.rheo-context`), which is exactly the condition both must
+// return `none` under, rather than a path to a page nothing minted.
+#context {
+  assert.eq(note-href("etal"), none)
+  assert.eq(note-path("etal"), none)
 }
 
 // ---- _bib-keys — BibTeX headers, and the Hayagriva-YAML fallback ----------

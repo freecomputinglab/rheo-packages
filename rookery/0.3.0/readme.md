@@ -17,9 +17,20 @@ next to the note, since with no name there's no other way to know it.
 ```
 
 Full signature: `idea(level: 1, title: none, tags: (), minted: none,
-updated: none, show-date: false, ..args)`, where the sink accepts the body
+updated: none, show-date: false, show-tags: false, ..args)`, where the sink accepts the body
 alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
 Typst label, identically.
+
+## 0.3.0
+
+`#ideas()` rows now carry a `tags` field — additive, part of the field-list
+contract documented in the comment above `ideas()`, and safe for a downstream
+package to rely on from this release. `#ideas-outline()` (and the rest of the
+outline/`#ideas()` family) gained their `tags:`/`match:`/`filter:` parameters
+in the same release. A new `label-font` theme key also landed:
+`#ideas-outline()`'s "Contents" title now renders in that face, as a hat,
+matching the rest of the theme system — see "The theme" and "The click
+budget" below.
 
 ## Setup, and the `idea:` prefix
 
@@ -109,7 +120,7 @@ of what points here is a list to scan, not prose to unfurl.
 
 ### The theme
 
-Five colours, two lengths and one font — the whole of what the package will style
+Five colours, three lengths and one font — the whole of what the package will style
 for you:
 
 | key | what it colours | default |
@@ -122,6 +133,7 @@ for you:
 | `rule-width` | how **thick** every one of those rules is, markers included | `2px` |
 | `pad` | the indent between a note's rule and its content, and a window's right padding | `0.5em` (halved under 600px) |
 | `label-font` | the face every **hat** is set in — a note's id, and `#ideas-outline`'s title | `monospace` |
+| `label-size` | the size every **hat** is set in — a note's id, and `#ideas-outline`'s title | `0.57rem` |
 
 The first two are the look, and the contrast between them is the point. Both
 are hover *backgrounds*, so they compare like with like: the lighter blue
@@ -186,6 +198,30 @@ whatever monospace face the reader has configured, not one this package chose fo
 them. An id is machine text and a monospace face says so without a word of
 explanation. A `#footnote` or references block's own heading is NOT a hat and does
 not follow this: those label a list inside a note, not the note's frame.
+
+The size a hat is set in travels with its face — a project theming `label-font`
+should usually theme `label-size` alongside it, since both describe the same
+object.
+
+`label-size` is the fourth exception, a length like `rule-width`/`pad` but with a
+twist: the primary way to set it is a **string in `rem`**, not a bare Typst
+length, and that matters more here than for the other two. `--idea-label-size`
+is not just cosmetic — the tab's lift, a window's summary lift, a folded
+window's tint offset and the footer's own padding are all expressed as
+`calc()`s against this same variable, so retheming it keeps the card's corner
+shut instead of opening a notch. It is `rem`, deliberately, not `em`: an id is
+one object wherever it appears, and `em` made it three visibly different
+sizes depending on context — 0.57 of an `#idea` heading, 0.57 of a minted
+page's `<h1>`, 0.57 of a window summary's body text (MEASURED, on
+rookery.ohrg.org). `rem` keeps a hat one size everywhere; `em` does not. This
+package doesn't police a theme's choice of unit — `em`, `px`, anything CSS
+accepts is still a legal value — but a theme reaching for something other
+than `rem` here is opting back into that per-context drift.
+
+```typst
+#show: rookery.with(theme: (label-size: "0.8rem"))
+#show: rookery.with(label-size: "0.8rem")   // identical
+```
 
 Like the prefix, the theme is **one value for the whole document** — two
 vertebrae asking for different themes get whichever the spine ends on, not one
@@ -275,6 +311,10 @@ Three ways, pick by how much ceremony you want:
 
   `show-date: true` shows the note's `updated` date at the right-hand end of the
   hat, opposite the permalink — off by default. See "Dates" below.
+
+  `show-tags: true` shows the note's tags as a row of pills in the hat, between
+  the permalink and the date — off by default, same mechanism as `show-date`.
+  See "Tags" below.
 
   `depth: 0` renders this window as a LINK to the note's page and transcludes
   nothing; `depth: 1` renders the note and collapses any `#window` written
@@ -508,6 +548,9 @@ Each entry is:
   the way handing out the content itself would.
 - `href` — a depth-relative link to the note's minted page, from wherever you
   are calling. See `#note-href()` below.
+- `page` — the same minted page, as a site-root-relative path instead — the
+  same string `#note-path()` returns, for a consumer with no page of its own
+  to measure depth from (a feed, a sitemap). See `#note-path()` below.
 - `minted`, `updated` — the note's dates, or `none`. See "Dates".
 
 `#ideas()` also takes `tags:` and `match:` — the same pair `#window` takes, with
@@ -593,6 +636,20 @@ Both `href` and `#note-href` are `none` where nothing mints pages: plain
 still works there and still lists everything, because the corpus does not
 depend on rheo — only on links to pages that only rheo produces.
 
+`#note-path(name)` gives you the same page, but from the SITE ROOT rather than
+from wherever you're calling — the `page` field above, computed on demand:
+
+```typst
+#context note-path("etal")   // -> "ideas/etal.html"
+```
+
+Use it where `#note-href` is the wrong shape: a caller with no page of its
+own — a feed config, a sitemap, anything invoked once from shared code rather
+than from a vertebra — has no "current page" to measure depth from, so a
+depth-relative string built at the wrong call site would simply be wrong.
+`page` and `#note-path` are `none` under the same two conditions
+`href`/`#note-href` are.
+
 This is the supported way to build behaviour on top of a rookery, and it
 exists so that you do not have to reach into the package's internals to do it.
 An index page, a feed, a "recently minted" list, a graph of the rookery: all
@@ -606,6 +663,34 @@ worth having with JavaScript, and this package ships none: no `package.json`,
 no build step, `typst.toml` pointing straight at `src/`. Keeping search out
 keeps that true. Install it alongside rookery if you want it; nothing here
 depends on it, and nothing here changes if you never do.
+
+**A feed is another.** `@rheo/rssfeed` builds Atom feeds from sources — plain
+functions `cfg => (entries)` — and a rookery reaches it two ways.
+
+The direct way, and the one to reach for first: write a source that calls
+`ideas(tags:)` itself and maps its rows onto rssfeed's entry shape. Because
+`page` above (and `#note-path()`) is site-root-relative rather than
+depth-relative, this works from a feed config exactly as it would from a
+vertebra — there is no "current page" for a feed to measure a link from, and
+none is needed. `@rheo/rssfeed`'s own readme, "Sourcing from another
+package", carries the worked recipe verbatim, run against this package's
+`ideas()`; the two packages import nothing from each other, in either
+direction.
+
+The other way is `@rheo/rssfeed`'s own `<rssfeed:item>` beacon protocol, for a
+source with no accessor like `ideas()` to call at all — a hand-authored page
+syndicating itself, or a package that cannot import rookery's internals. For
+rookery's own notes this stays secondary: every note is already reachable
+through `ideas()`, so a rookery-sourced feed should reach for the direct way
+above first. It exists as an opt-in, `#show: rookery.with(syndicate: true)`
+(default `false` — a package must not emit into another package's label
+namespace unasked). Turned on, each minted note page (`ideas/<slug>.html`)
+also carries a `#metadata((..)) <rssfeed:item>` beacon, so `@rheo/rssfeed`'s
+`items()` picks it up with no import in either direction — rookery never
+imports `@rheo/rssfeed`, and the beacon is inert (`#metadata` renders no HTML)
+when nothing reads it. A note with neither `minted` nor `updated` never gets
+one: Atom requires `<updated>`, so an undated beacon would only be an entry
+`items()`/`resolve-entries` drops on the floor.
 
 ## The click budget
 
@@ -670,7 +755,7 @@ get Typst's plain nested `list()` instead: there is no `.idea-box` rule there
 for an outline to be in line with.
 
 Override any of it; the classes are the contract: `.idea`, `.idea-box`,
-`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag-<tag>`, `.idea-ref`,
+`.idea-title`, `.idea-tab`, `.idea-label`, `.idea-date`, `.idea-tag`, `.idea-tag-<tag>`, `.idea-ref`,
 `.idea-window`, `.idea-window-summary`, `.idea-window-title`,
 `.idea-window-body`, `.idea-window-details`, `.idea-outline`,
 `.idea-outline-row`, `.idea-outline-title`, on an idea that carries footnotes `.idea-fn-ref`,
@@ -746,6 +831,37 @@ tags, not a taxonomy, and NOT a task tracker.
 
 Each tag becomes its own `idea-tag-<tag>` CSS class on the note's
 heading, alongside the base `idea` class — style them in your own stylesheet.
+
+**`show-tags: true`** on `#idea`/`#window` ALSO renders a note's tags as a row
+of visible pills in the hat — the same `.idea-tab` the id and (with
+`show-date: true`) the date sit on, in that fixed order: id, then tags, then
+date. Off by default, the same mechanism as `show-date`:
+
+```typst
+#idea("meeting-notes", tags: ("draft", "review"), show-tags: true)[...]
+#window("meeting-notes", show-tags: true) // pills again here, independently
+```
+
+An untagged note's tag list is empty either way, so `show-tags: true` renders
+no pill for it.
+
+Each pill carries TWO classes: `.idea-tag`, the pill's own hook, and
+`.idea-tag-<tag>` — the SAME class the note's heading and card already wear.
+**`@rheo/rookery-search`'s own result-row chips wear it too** (alongside that
+package's own `.rookery-search-tag`), so one project rule — `.idea-tag-draft {
+color: ...; }` — styles that tag everywhere it shows up: the note's heading,
+its card, an outline row, a hat pill, and a search result chip alike.
+
+Four CSS custom properties style the pill, the same "your own stylesheet, no
+Typst-side key" mechanism as `--idea-external-color` — there is no `theme:`
+entry for these, unlike the nine keys in "The theme" above:
+
+| property | what it sets | default |
+| --- | --- | --- |
+| `--idea-tag-size` | the pill's font size | `--idea-label-size` (`0.57rem`) |
+| `--idea-tag-radius` | the pill's corner radius | `999px` |
+| `--idea-tag-color` | the pill's text colour | `--idea-id-color` (`gray`) |
+| `--idea-tag-bg` | the pill's background | `rgba(128, 128, 128, 0.18)`, or `color-mix(in oklab, currentColor 14%, transparent)` where supported |
 
 `#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
 whatever the caller passes:
@@ -824,9 +940,11 @@ falls back to the document's own date, so a note that never says `updated:` look
 exactly as it did.
 
 A note's own minted page is the exception: there the date shows **always**, with
-no `show-date:` to gate it. Nobody writes an `#idea` call for that page —
-`.marrow.typ` mints it from the registry — and a note's own page is the one place
-its date is metadata rather than a decoration on someone else's prose.
+no `show-date:` to gate it — and its tags render as pills too, same hat, same
+"always", no `show-tags:` to gate that either. Nobody writes an `#idea` call for
+that page — `.marrow.typ` mints it from the registry — and a note's own page is
+the one place its date and its tags are metadata rather than a decoration on
+someone else's prose.
 
 The two call-site settings are independent: passing `show-date: true` to a
 `#window` surfaces the date even when the note's own `#idea` left it hidden, and

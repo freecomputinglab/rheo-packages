@@ -23,6 +23,40 @@ spelled out below.
 #search-bar()
 ```
 
+## 0.3.0
+
+- **Breaking: the island's `body` field is no longer prose.** It used to be a
+  prefix of the note's own text; it is now a weight-ordered list of the
+  note's most distinctive terms — keyword soup, not readable prose. Anything
+  that read the island JSON and rendered `body` as text now renders keyword
+  soup instead. Read a note's prose from its own minted page instead —
+  `note-href()` plus a `fetch`, which is what `#search-modal`'s preview pane
+  itself now does. See "The preview pane fetches the note's page" below.
+- **A row now carries a `tags` key** when the note has any tags, omitted
+  entirely when it has none. MEASURED over a 40-note corpus: +723 bytes,
+  +1.4%.
+- **A `tags:` query grammar exists now** (`tags:draft window`, and so on) —
+  see "Filtering by tag" below for the grammar itself.
+- **Tag chips render on result rows, and keyboard navigation works in
+  `#search-bar`'s dropdown** — see "Working it from the keyboard" below.
+- **Both `#search-bar` and `#search-modal` now pick up rookery's own theme**
+  even in a site header, for the first time: `--idea-*` custom properties reach
+  them by inheriting rookery's document-scope `:root` rule (`@rheo/rookery`
+  publishes it once per page), the same rule any other element on the page
+  inherits from — no per-container copy needed on this package's side. The
+  last-resort fallback colour of every rule moved from `rgba(0, 0, 0, 0.25)` to
+  rookery's own `rgba(128, 0, 255, 0.12)`. A site with no explicit theme
+  override sees a visible colour change.
+- **Focusing the search-bar input or the modal input now thickens the
+  input's own rule/border**, rather than drawing the browser's default blue
+  focus ring.
+- **The JavaScript ranking port now counts extended grapheme clusters** (via
+  `Intl.Segmenter`) rather than UTF-16 code points. A haystack containing a
+  combining mark or a multi-codepoint emoji now scores differently than it
+  did before. Typst-side scoring is unaffected — it already counted clusters.
+  This is a JS-only change, relevant only to a site with non-ASCII or emoji
+  note titles/ids.
+
 ## Import both packages, in your own files
 
 **A project using search must import `@rheo/rookery` AND `@rheo/rookery-search`
@@ -185,7 +219,7 @@ ordinary text query over the notes that survived.
 
 ```
 tags:draft window depth     among my drafts, ranked by "window depth"
-tags:draft                  every draft, in id order
+tags:draft                  every draft, newest-dated first, undated by id
 window depth                no prefix, no filter — unchanged
 tags:                       an empty expression is no filter: everything
 ```
@@ -229,7 +263,8 @@ terms.
 ```
 tags:draft   window  depth      residual "window  depth" — the extra spaces are dropped
 tags:draft                      residual "", so every survivor sits in the name
-                                tier at score 0, in id order
+                                tier at score 0 — the default browse order,
+                                newest-dated first, undated by id
 ```
 
 Only a **leading** `tags:` is recognised, case-insensitively (`TAGS:note`
@@ -323,9 +358,10 @@ paths cannot be diffed against each other.
 A tag match adds **no third tier and no score bonus**, and leaves the two-tier
 ranking above exactly as it was. Tags decide which notes are CANDIDATES; the
 residual text decides how they rank. With no residual text there is nothing to
-rank by, and no special case is needed for it: `fuzzy-score` returns 0 for an
-empty query, so every survivor lands in the name tier at score 0 and the stable
-sort leaves them in the id order `#ideas()` gave.
+rank by: `fuzzy-score` returns 0 for an empty query, so every survivor lands in
+the name tier at score 0 — and THAT tie breaks by date, newest first, undated
+notes falling to the end in `#ideas()`'s own id order (the same default browse
+order described above).
 
 **Highlighting uses the residual only.** MEASURED in a browser, `tags:phd alpha`
 marks "Alpha" in a title and "alpha" in an id and nothing else — the literal
@@ -356,7 +392,7 @@ Typst-side a parse is about 60 microseconds, and a build parses once — the
 split happens before the ranking loop rather than per row.
 
 Carrying each note's tags in the JSON island costs about **18 bytes a note**.
-MEASURED at 40 tagged notes, with bodies under 0.2.0's 1200-cluster prefix cap:
+MEASURED at 40 tagged notes, with bodies under the previous release's 1200-cluster prefix cap:
 51.1 KB -> 51.8 KB, so +723 B, +1.4%. The per-note cost is unchanged now the cap
 is a term budget; the percentage is larger, the rest of the row having shrunk.
 **That is why there is no `tag-search: false` switch to match `body-search:
