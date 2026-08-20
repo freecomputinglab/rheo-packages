@@ -121,8 +121,9 @@
   }
   .dialog-close:hover { color: var(--feeds-modal-fg, inherit); }
 
+  /* `margin`/`padding` are still zeroed even though a div starts with neither:
+     they are cheap, and they make the intent explicit next to the gap. */
   .subscribe-options {
-    list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
@@ -243,11 +244,28 @@
 
 // ---- options ---------------------------------------------------------------
 
-// One `<li>`. Shared by the pregiven Atom option and every caller-supplied one,
-// so the two cannot drift apart in markup.
+// One option row. Shared by the pregiven Atom option and every caller-supplied
+// one, so the two cannot drift apart in markup.
+//
+// A `<div role="listitem">` rather than an `<li>`, and the container below a
+// `<div role="list">` rather than a `<ul>`. This is NOT a semantic downgrade —
+// the roles carry the same meaning to assistive tech — it is what keeps a host
+// project's global list styling out of the modal.
+//
+// MEASURED, and the reason this changed: every one of the three sites this was
+// lifted from carries an unlayered `ul { padding-left: 1.5em }` (or `ul, ol`)
+// in its own stylesheet, and unlayered CSS beats layered CSS whatever the
+// specificity. So the package's `.subscribe-options { padding: 0 }`, sitting in
+// `@layer feeds-modal`, LOST to a generic element selector the site never
+// intended to point at a dialog — indenting the options by 24-32px on all
+// three. Raising specificity cannot fix that; only not matching `ul` can.
+//
+// The layer is still right for everything thematic, where a site overriding the
+// package is the WANTED behaviour. It is wrong only for structure the package
+// has to be able to rely on.
 #let _option(icon, label, href, desc) = html.elem(
-  "li",
-  attrs: (class: "subscribe-option"),
+  "div",
+  attrs: (class: "subscribe-option", role: "listitem"),
 )[
   #html.elem("a", attrs: (href: href, class: "subscribe-option-link"))[
     #icon
@@ -347,7 +365,7 @@
     #html.elem("form", attrs: (method: "dialog", class: "subscribe-dialog-close-form"))[
       #html.elem("button", attrs: (type: "submit", class: "dialog-close", aria-label: "Close"))[✕]
     ]
-    #html.elem("ul", attrs: (class: "subscribe-options"))[
+    #html.elem("div", attrs: (class: "subscribe-options", role: "list"))[
       #_option(atom-icon(size: icon-size), feed-label, feed-path, feed-desc)
       #extra.join()
     ]
