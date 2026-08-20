@@ -41,6 +41,10 @@
 //     `label-name`) beacon whose value is not a dictionary. Its beacon
 //     `title` is checked by the shared rule above.
 //   - `_mint-plan` panics when two feeds in its input share the same `path`.
+//   - `configure`/`emit`/`_mint-plan` panic when `feeds` is not an array, or
+//     is an array holding a dictionary that did not come from `feed(..)` —
+//     which used to surface at the bundle root as `dictionary does not contain
+//     key "sources"`, with no page or line behind it.
 //
 // `_mint-plan` itself IS testable here, unlike `emit`/`.marrow.typ`: it
 // returns plain `(path, data)` pairs rather than minting with `#asset(...)`
@@ -716,6 +720,45 @@ Para two]), "Para one Para two")
     "<link rel=\"self\" href=\"https://example.com/custom/atom.xml\"/>",
   ),
   message: "rel=\"self\" href must match the same base-url + \"/\" + path",
+)
+
+// ---- atom(entries:) — a supplied list is normalised like a source's --------
+//
+// `entries:` is a public parameter, so a hand-built sparse list must work: it
+// used to die on the first key `_entry-elem` reached that `_normalize-entry`
+// would have filled (`dictionary does not contain key "id"`).
+#let cfg-atom-supplied = feed(
+  path: "supplied.xml",
+  title: "Supplied Feed",
+  base-url: "https://example.com",
+  sources: (_empty-source,),
+)
+#let xml-supplied = atom(
+  cfg-atom-supplied,
+  entries: (
+    (
+      title: "Hand",
+      url: "https://example.com/h",
+      updated: datetime(year: 2026, month: 1, day: 1),
+    ),
+  ),
+)
+#assert(
+  xml-supplied.contains("<title>Hand</title>"),
+  message: "a hand-built entry must serialize, not panic on a missing key",
+)
+#assert(
+  xml-supplied.contains("<id>https://example.com/h</id>"),
+  message: "a hand-built entry gets `id` defaulted from its url, as any source's would",
+)
+// The skip rule applies to a supplied list too: one undated entry leaves
+// nothing to serialize, so the whole feed comes back `none`.
+#assert.eq(
+  atom(
+    cfg-atom-supplied,
+    entries: ((title: "Undated", url: "https://example.com/u"),),
+  ),
+  none,
 )
 
 // ---- _mint-plan — the shared marrow/emit minting plan ----------------------
