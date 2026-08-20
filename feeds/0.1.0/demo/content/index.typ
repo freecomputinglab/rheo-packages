@@ -1,4 +1,4 @@
-#import "@rheo/feeds:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, feeds-modal, mail-icon, spine
 #import "@rheo/rookery:0.3.0": ideas
 
 // A project-level feeds SOURCE built on rookery's `ideas(tags:)` — with NO
@@ -107,6 +107,27 @@
 ))
 
 = Feeds demo
+
+// The subscribe modal, the one part of this package that emits page markup.
+// Called HERE and nowhere else in this demo — `notes.typ` deliberately does
+// not call it, so `check.sh` can assert that a page which merely imports the
+// package carries no modal markup, no `@layer feeds-modal` and no script.
+// That negative is the whole promise of the feature: opt-in by call.
+#feeds-modal(
+  feed-desc: [Pull each new post into an #html.elem("a", attrs: (
+    href: "https://aboutfeeds.com",
+    target: "_blank",
+    rel: "noopener",
+  ))[RSS/Atom reader].],
+  options: (
+    (
+      icon: mail-icon(),
+      label: "Newsletter",
+      href: "mailto:demo@example.org?subject=subscribe",
+      desc: [Email us to subscribe.],
+    ),
+  ),
+)
 
 Two Atom feeds come out of this one small site, built from disjoint
 subsets of it:

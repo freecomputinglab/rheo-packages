@@ -230,6 +230,34 @@ then
   fail=1
 fi
 
+# 11. The subscribe modal (`feeds-modal`), called once from content/index.typ.
+count() { grep -o "$1" "$2" 2>/dev/null | wc -l | tr -d ' '; }
+
+[ "$(count 'id="subscribe-dialog"' $H/index.html)" = "1" ] \
+  || note "index.html should carry exactly one subscribe dialog"
+# Two options: the PREGIVEN Atom entry plus the one supplied via `options:`.
+[ "$(count 'class="subscribe-option"' $H/index.html)" = "2" ] \
+  || note "index.html should carry exactly two subscribe options (Atom + Newsletter)"
+grep -q 'href="/feed.xml"' $H/index.html \
+  || note "the pregiven Atom option should link this demo's own feed path"
+grep -q 'href="mailto:demo@example.org?subject=subscribe"' $H/index.html \
+  || note "the supplied Newsletter option should link its mailto"
+[ "$(count '@layer feeds-modal' $H/index.html)" = "1" ] \
+  || note "index.html should carry exactly one layered modal stylesheet"
+grep -q 'getElementById("subscribe-dialog")' $H/index.html \
+  || note "index.html should carry the modal script, scoped to the dialog's id"
+
+# 12. THE LOAD-BEARING NEGATIVE. notes.html is built by the same project, from
+# the same bundle, and reaches @rheo/feeds the same way — but never calls
+# `feeds-modal`. Importing the package must therefore add nothing to it. If any
+# of these three fire, the modal has stopped being opt-in-by-call, which is the
+# entire reason it emits its CSS and JS inline instead of declaring a
+# `[tool.rheo.html]` bundle.
+for pattern in 'subscribe-dialog' '@layer feeds-modal' 'subscribe-btn'; do
+  grep -q "$pattern" $H/notes.html \
+    && note "notes.html calls no feeds-modal, so it must not carry '$pattern'"
+done
+
 if [ "$fail" -ne 0 ]; then
   echo "demo: FAILED"
   exit 1
