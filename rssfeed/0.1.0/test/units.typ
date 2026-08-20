@@ -74,6 +74,13 @@
 #assert.eq(_plain-text([Para one
 
 Para two]), "Para one Para two")
+// An apostrophe or quote typed inside markup is its OWN `smartquote` element,
+// not part of the surrounding `text` node, and it carries only a `double`
+// field. Before it had a branch of its own it fell to the final `else` and
+// flattened to "" — DELETING the character: a real title authored as
+// `[Mladen Dolar: What's in a Name?]` came out as "Whats in a Name?".
+#assert.eq(_plain-text([It's a test]), "It's a test")
+#assert.eq(_plain-text([She said #emph[hello] to "everyone"]), "She said hello to \"everyone\"")
 // A title that is CONTENT but carries no text at all (just a space)
 // flattens to "" once trimmed — this is what `_normalize-entry`'s own
 // non-empty check relies on to still catch an effectively-empty title.
