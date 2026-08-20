@@ -1,4 +1,4 @@
-# Exercises @rheo/rssfeed's headline capability: ONE project, TWO Atom feeds
+# Exercises @rheo/feeds's headline capability: ONE project, TWO Atom feeds
 # built from different subsets of the site — a spine-filtered feed of posts
 # (feed.xml) and a project-level feed sourced from @rheo/rookery's
 # `ideas(tags:)` (notes.xml), with no import coupling between the two

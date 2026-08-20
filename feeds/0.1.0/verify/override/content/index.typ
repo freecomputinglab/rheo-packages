@@ -5,14 +5,14 @@
 // "index.html") has neither `published` nor `updated` and is dropped by
 // `resolve-entries`'s skip rule before ever reaching the XML — it is not
 // explicitly filtered out here, and does not need to be.
-#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, spine
 
 // The composition this bead's readme entry documents verbatim (adjusted from
 // the bead's own sketch to this project's actual page names): a plain
 // function wrapping the built-in `spine()` source, `.map`-ing over its
 // output to replace specific entries by `page` — the replacement for the
 // retired `rheo-feed-title`/`rheo-feed-updated` per-vertebra variables, with
-// no `#set document` involved and no rssfeed-side "current page" state.
+// no `#set document` involved and no feeds-side "current page" state.
 #let with-overrides(s) = spine()(s).map(e => if e.page == "a.html" {
   e + (
     title: "Override",

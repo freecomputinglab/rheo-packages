@@ -1,4 +1,4 @@
-// @rheo/rssfeed
+// @rheo/feeds
 //
 // Atom 1.0 feed generation for Rheo projects, in pure Typst. This package
 // replaces the Rust feed generator that was removed from rheo core — feed
@@ -61,7 +61,7 @@
 //
 // ADDING A FIELD means touching three places, not one: this table,
 // `_normalize-entry`'s returned dictionary, and `item(...)`'s pair list (which
-// decides what a `<rssfeed:item>` beacon carries). The readme's entry table is
+// decides what a `<feeds:item>` beacon carries). The readme's entry table is
 // a fourth, user-facing copy.
 
 // ---- source — a plain function, not a registry --------------------------
@@ -91,7 +91,7 @@
 
 // ---- field validators — one message shape, every field ---------------------
 //
-// These exist so that EVERY field error names `@rheo/rssfeed` and the offending
+// These exist so that EVERY field error names `@rheo/feeds` and the offending
 // field, per the rule stated in the `feed` section immediately below. Without
 // them an unchecked field does not fail here at all: it fails much later, deep
 // inside the XML serializer, with a raw Typst error (`type integer has no
@@ -106,7 +106,7 @@
 #let _expect-str(v, field) = {
   assert(
     type(v) == str and v.len() > 0,
-    message: "@rheo/rssfeed: `" + field + "` must be a non-empty string — got "
+    message: "@rheo/feeds: `" + field + "` must be a non-empty string — got "
       + repr(v),
   )
   v
@@ -115,7 +115,7 @@
 #let _expect-str-or-none(v, field) = {
   assert(
     v == none or type(v) == str,
-    message: "@rheo/rssfeed: `" + field + "` must be a string or none — got "
+    message: "@rheo/feeds: `" + field + "` must be a string or none — got "
       + repr(v),
   )
   v
@@ -132,7 +132,7 @@
   let s = _expect-str(v, field)
   assert(
     s.match(_abs-url-re) != none,
-    message: "@rheo/rssfeed: `" + field + "` must be an absolute URL (start "
+    message: "@rheo/feeds: `" + field + "` must be an absolute URL (start "
       + "with a scheme, e.g. \"https://\") — got " + repr(s)
       + ". A page-relative path belongs in `page`, which is joined onto the "
       + "feed's `base-url` for you.",
@@ -149,14 +149,14 @@
 #let _expect-strs(v, field) = {
   assert(
     type(v) == array,
-    message: "@rheo/rssfeed: `" + field + "` must be an array of strings — got "
+    message: "@rheo/feeds: `" + field + "` must be an array of strings — got "
       + repr(v) + ". A single value must still be a one-element array, e.g. "
       + "`categories: (\"note\",)`.",
   )
   for s in v {
     assert(
       type(s) == str,
-      message: "@rheo/rssfeed: every value in `" + field + "` must be a string "
+      message: "@rheo/feeds: every value in `" + field + "` must be a string "
         + "— got " + repr(s),
     )
   }
@@ -172,7 +172,7 @@
 #let _expect-datetime-or-none(v, field) = {
   assert(
     v == none or type(v) == datetime,
-    message: "@rheo/rssfeed: `" + field + "` must be a datetime or none — got "
+    message: "@rheo/feeds: `" + field + "` must be a datetime or none — got "
       + repr(v) + ". Write `datetime(year: .., month: .., day: ..)`, not a "
       + "string: the retired `rheo-feed-updated` variable took a string, this "
       + "field does not.",
@@ -183,7 +183,7 @@
 #let _expect-positive-int-or-none(v, field) = {
   assert(
     v == none or (type(v) == int and v > 0),
-    message: "@rheo/rssfeed: `" + field + "` must be a positive integer or "
+    message: "@rheo/feeds: `" + field + "` must be a positive integer or "
       + "none — got " + repr(v),
   )
   v
@@ -214,7 +214,7 @@
 
 // ---- feed — the top-level config -------------------------------------------
 //
-// Every panic below names `@rheo/rssfeed` and the offending field: a package
+// Every panic below names `@rheo/feeds` and the offending field: a package
 // error must be self-identifying, since it surfaces in a project author's
 // build log, not this package's own.
 #let feed(
@@ -230,38 +230,38 @@
 ) = {
   assert(
     type(title) == str and title.len() > 0,
-    message: "@rheo/rssfeed: feed's `title` must be a non-empty string.",
+    message: "@rheo/feeds: feed's `title` must be a non-empty string.",
   )
   assert(
     type(base-url) == str and base-url.len() > 0,
-    message: "@rheo/rssfeed: feed's `base-url` must be a non-empty string.",
+    message: "@rheo/feeds: feed's `base-url` must be a non-empty string.",
   )
   // Absolute means "starts with a scheme" — see `_abs-url-re` above, which an
   // entry's own `url` is held to as well.
   assert(
     base-url.match(_abs-url-re) != none,
-    message: "@rheo/rssfeed: feed's `base-url` must be absolute (start with "
+    message: "@rheo/feeds: feed's `base-url` must be absolute (start with "
       + "a scheme, e.g. \"https://\") — got " + repr(base-url),
   )
   assert(
     type(sources) == array and sources.len() > 0,
-    message: "@rheo/rssfeed: feed needs at least one source in `sources`.",
+    message: "@rheo/feeds: feed needs at least one source in `sources`.",
   )
   for s in sources {
     assert(
       type(s) == function,
-      message: "@rheo/rssfeed: every entry in `sources` must be a function "
+      message: "@rheo/feeds: every entry in `sources` must be a function "
         + "(cfg) -> (entry, ..) — got " + repr(type(s)),
     )
   }
   assert(
     content == "html" or content == "xhtml" or content == none,
-    message: "@rheo/rssfeed: feed's `content` must be \"html\", \"xhtml\", "
+    message: "@rheo/feeds: feed's `content` must be \"html\", \"xhtml\", "
       + "or none — got " + repr(content),
   )
   assert(
     format == "atom" or format == "rss" or format == "json",
-    message: "@rheo/rssfeed: feed's `format` must be \"atom\", \"rss\" or "
+    message: "@rheo/feeds: feed's `format` must be \"atom\", \"rss\" or "
       + "\"json\" — got " + repr(format),
   )
   // Two cross-field rules, both asserts rather than silent coercions: a
@@ -269,14 +269,14 @@
   // its own dropped-summary bug was.
   assert(
     content != "xhtml" or format == "atom",
-    message: "@rheo/rssfeed: `content: \"xhtml\"` is Atom-only (it is Atom's "
+    message: "@rheo/feeds: `content: \"xhtml\"` is Atom-only (it is Atom's "
       + "own `type=\"xhtml\"` content model) — got format " + repr(format)
       + ". RSS carries HTML in `<description>`/`<content:encoded>`, and JSON "
       + "Feed carries none yet; use `content: \"html\"` or none.",
   )
   assert(
     format != "json" or content == none,
-    message: "@rheo/rssfeed: `format: \"json\"` requires `content: none` — got "
+    message: "@rheo/feeds: `format: \"json\"` requires `content: none` — got "
       + repr(content) + ". JSON Feed content needs a JSON-safe "
       + "`<rheo-content>` encoding that rheo does not have yet, so entries "
       + "carry their `summary` only.",
@@ -395,18 +395,18 @@
 // had one.
 //
 // Returns the FLATTENED string, so no caller re-flattens. `what` is a
-// caller-supplied phrase ("an entry", "a <rssfeed:item> beacon", "item(...)")
+// caller-supplied phrase ("an entry", "a <feeds:item> beacon", "item(...)")
 // spliced into both messages, so each site keeps its own wording.
 #let _expect-title(v, what) = {
   assert(
     type(v) == str or type(v) == content,
-    message: "@rheo/rssfeed: " + what + "'s `title` must be a non-empty string "
+    message: "@rheo/feeds: " + what + "'s `title` must be a non-empty string "
       + "or content — got " + repr(type(v)),
   )
   let t = _plain-text(v)
   assert(
     t.len() > 0,
-    message: "@rheo/rssfeed: " + what + " is missing a non-empty `title` — got "
+    message: "@rheo/feeds: " + what + " is missing a non-empty `title` — got "
       + repr(v),
   )
   t
@@ -418,7 +418,7 @@
 #let _normalize-entry(e, cfg) = {
   assert(
     type(e) == dictionary,
-    message: "@rheo/rssfeed: a source returned a non-dictionary entry — got "
+    message: "@rheo/feeds: a source returned a non-dictionary entry — got "
       + repr(type(e)),
   )
   // A source's `title` may be a plain string OR content: Typst's own
@@ -466,7 +466,7 @@
   if url == none {
     assert(
       page != none,
-      message: "@rheo/rssfeed: entry '" + title + "' has neither `url` nor "
+      message: "@rheo/feeds: entry '" + title + "' has neither `url` nor "
         + "`page` — cannot build a URL.",
     )
     url = cfg.base-url + "/" + _clean-page(page)
@@ -517,7 +517,7 @@
     let out = src(cfg)
     assert(
       type(out) == array,
-      message: "@rheo/rssfeed: a source must return an array of entries — "
+      message: "@rheo/feeds: a source must return an array of entries — "
         + "got " + repr(type(out)),
     )
     raw += out
@@ -683,23 +683,23 @@
   })
 }
 
-// ---- items — built-in source: entries from `<rssfeed:item>` beacons -------
+// ---- items — built-in source: entries from `<feeds:item>` beacons -------
 //
 // Lets ANY code, anywhere in the bundle, contribute a feed entry for
 // something that is not a spine vertebra (an idea's page, a generated
 // listing, whatever) with NO import coupling in either direction: this
 // package never imports the contributor's package, and the contributor
-// need not import `@rheo/rssfeed` either — though `item(...)` below makes
+// need not import `@rheo/feeds` either — though `item(...)` below makes
 // that easy when it wants to.
 //
-// THE PROTOCOL: emit `#metadata((..)) <rssfeed:item>` (or a matching custom
+// THE PROTOCOL: emit `#metadata((..)) <feeds:item>` (or a matching custom
 // `label-name`) anywhere in the bundle, with the metadata value shaped as an
 // entry per this file's entry model (see the top of this file), e.g.:
 //
 //   #metadata((
 //     id: "idea:etal", title: "Et al.", page: "notes/etal.html",
 //     published: datetime(..), updated: datetime(..), categories: ("note",),
-//   )) <rssfeed:item>
+//   )) <feeds:item>
 //
 // rheo compiles the whole bundle in ONE `typst::compile` pass with one
 // introspection loop, so `query()` sees beacons from every vertebra, not
@@ -714,18 +714,18 @@
 //
 // Each beacon's value is VALIDATED here, not left for `_normalize-entry` to
 // discover later: a value that is not a dictionary, or a dictionary with no
-// non-empty `title`, is a hard failure naming `@rheo/rssfeed`, the label,
+// non-empty `title`, is a hard failure naming `@rheo/feeds`, the label,
 // and what was found — a silently dropped malformed item is worse than a
 // build failure.
-#let items(filter: none, label-name: "rssfeed:item") = cfg => {
+#let items(filter: none, label-name: "feeds:item") = cfg => {
   let found = query(label(label-name))
   let out = ()
   for f in found {
     let v = f.value
     assert(
       type(v) == dictionary,
-      message: "@rheo/rssfeed: a <" + label-name + "> beacon's value must "
-        + "be a dictionary shaped as an rssfeed entry — got "
+      message: "@rheo/feeds: a <" + label-name + "> beacon's value must "
+        + "be a dictionary shaped as a feed entry — got "
         + repr(type(v)),
     )
     // Validation gate only — the flattened title is DISCARDED and the
@@ -746,7 +746,7 @@
   out
 }
 
-// Author-facing half of the `<rssfeed:item>` protocol: emits a well-formed
+// Author-facing half of the `<feeds:item>` protocol: emits a well-formed
 // beacon so an author (or another package) can syndicate an arbitrary page
 // without knowing the label name `items()` reads by default. Arguments
 // mirror the entry model (see the top of this file) — everything but
@@ -768,7 +768,7 @@
   categories: (),
   author: none,
   id: none,
-  label-name: "rssfeed:item",
+  label-name: "feeds:item",
 ) = {
   // Flattened at the EMITTING end, deliberately: a beacon's value is data
   // crossing into another scope, and a plain string is what every reader of it
@@ -1199,7 +1199,7 @@
 #let json-feed(cfg, entries: none) = {
   assert(
     cfg.content == none,
-    message: "@rheo/rssfeed: a JSON feed must be configured with `content: "
+    message: "@rheo/feeds: a JSON feed must be configured with `content: "
       + "none` — got " + repr(cfg.content) + ". JSON Feed content needs a "
       + "JSON-safe `<rheo-content>` encoding that rheo does not have yet, so "
       + "entries carry their `summary` only. Write `content: none` to "
@@ -1266,13 +1266,13 @@
 #let _expect-feeds(feeds, who) = {
   assert(
     type(feeds) == array,
-    message: "@rheo/rssfeed: " + who + "'s `feeds` must be an array of feed "
+    message: "@rheo/feeds: " + who + "'s `feeds` must be an array of feed "
       + "configs, e.g. `" + who + "(feeds: (feed(..), feed(..)))`.",
   )
   for f in feeds {
     assert(
       type(f) == dictionary and "sources" in f and "path" in f,
-      message: "@rheo/rssfeed: " + who + "'s `feeds` must hold configs built "
+      message: "@rheo/feeds: " + who + "'s `feeds` must hold configs built "
         + "by `feed(..)` — got " + repr(f) + ". Call `feed(title: .., "
         + "base-url: .., sources: (..))` and pass its return value.",
     )
@@ -1280,12 +1280,12 @@
   feeds
 }
 
-#let _feeds = state("rheo-rssfeed-feeds", ())
+#let _feeds = state("rheo-feeds-feeds", ())
 
 // Register one or more feeds for `.marrow.typ` to mint. Call ONCE from any
 // vertebra:
 //
-//   #import "@rheo/rssfeed:0.1.0": feed, configure
+//   #import "@rheo/feeds:0.1.0": feed, configure
 //   #configure(feeds: (
 //     feed(title: "My Site", base-url: "https://example.com", sources: (...)),
 //   ))
@@ -1354,7 +1354,7 @@
     for j in range(i + 1, feeds.len()) {
       assert(
         feeds.at(i).path != feeds.at(j).path,
-        message: "@rheo/rssfeed: two feeds both write to '" + feeds.at(i).path
+        message: "@rheo/feeds: two feeds both write to '" + feeds.at(i).path
           + "' (\"" + feeds.at(i).title + "\" and \"" + feeds.at(j).title
           + "\") — give each feed its own `path`.",
       )
@@ -1399,7 +1399,7 @@
 // `items()`) — call from inside `#context { .. }` in your own `.marrow.typ`,
 // exactly as this package's own `.marrow.typ` does for `configure`'s feeds:
 //
-//   #import "@rheo/rssfeed:0.1.0": feed, emit
+//   #import "@rheo/feeds:0.1.0": feed, emit
 //   #context { emit(feeds: (feed(...), feed(...))) }
 #let emit(feeds: ()) = {
   for m in _mint-plan(_expect-feeds(feeds, "emit")) {

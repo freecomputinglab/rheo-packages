@@ -1,5 +1,5 @@
 [package]
-name = "rssfeed"
+name = "feeds"
 version = "0.1.0"
 compiler = "0.15.0"
 entrypoint = "src/lib.typ"

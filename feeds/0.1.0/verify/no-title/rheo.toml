@@ -1,6 +1,6 @@
 # Bead rheo-packages-parity-qrd, row 4: `title` is REQUIRED — no fallback
 # chain (the retired Rust generator fell back to the HTML spine title, then
-# the project directory name; @rheo/rssfeed fails the build instead). This
+# the project directory name; @rheo/feeds fails the build instead). This
 # project's only content omits `title` from its one `feed(...)` call, so the
 # build must fail with the package's own assert message. See ../run.sh.
 #

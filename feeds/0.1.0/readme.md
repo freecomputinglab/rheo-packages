@@ -1,4 +1,4 @@
-# @rheo/rssfeed
+# @rheo/feeds
 
 Syndication feeds for Rheo projects, in pure Typst — Atom 1.0, RSS 2.0 and JSON
 Feed 1.1 from one config. This package replaces the Rust feed generator retired
@@ -7,7 +7,7 @@ project-shaped concerns out of the engine before it; that generator emitted Atom
 alone, so the other two formats are new here rather than restored.
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, spine
 
 #configure(feeds: (
   feed(
@@ -40,7 +40,7 @@ no `rheo.toml` entry needed — reads that state once, at the end of the build,
 and mints every feed it finds:
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": feed, configure
+#import "@rheo/feeds:0.1.0": feed, configure
 
 #configure(feeds: (
   feed(title: "My Site", base-url: "https://example.com", sources: (...)),
@@ -53,7 +53,7 @@ minted one:
 
 ```typst
 // content/.marrow.typ
-#import "@rheo/rssfeed:0.1.0": feed, emit
+#import "@rheo/feeds:0.1.0": feed, emit
 
 #context {
   emit(feeds: (
@@ -169,7 +169,7 @@ see [rheo.ohrg.org](https://rheo.ohrg.org) for that half.
 three paths and get all three, from one `configure(...)` call:
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, spine
 
 #let posts = spine(filter: e => e.handle.starts-with("posts:"))
 
@@ -252,7 +252,7 @@ array. `@rheo/rookery`'s `ideas(tags:)` is exactly that, and this is the
 recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, spine
 #import "@rheo/rookery:0.3.0": ideas
 
 #let from-ideas(tags: none, match: "any") = cfg => (
@@ -282,7 +282,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 Neither package imports the other, in either direction. `ideas()` is
 rookery's own public API, called here by the *project*; `from-ideas` is
 nothing more than a plain function shaped `cfg => (entries)`, the same shape
-every source has, and `@rheo/rssfeed` never sees `@rheo/rookery` at all. The
+every source has, and `@rheo/feeds` never sees `@rheo/rookery` at all. The
 parentheses wrapping the `.filter(...).map(...)` chain are load-bearing, not
 decorative: written across several lines without them, the chained calls fall
 outside the `#let`'s single expression and back into markup, which renders as
@@ -292,7 +292,7 @@ The `.filter(...)` ahead of the `.map(...)` matters too. It drops any note
 with no minted page or no date before it ever becomes a candidate entry — the
 same skip rule `resolve-entries` enforces on every source's output, just
 applied a step earlier here, so an unminted or undated note never reaches
-`@rheo/rssfeed`'s own validation at all.
+`@rheo/feeds`'s own validation at all.
 
 This generalises past rookery: anything with its own array-returning
 accessor — another package's registry, a hand-rolled list of dictionaries,
@@ -300,14 +300,14 @@ accessor — another package's registry, a hand-rolled list of dictionaries,
 few lines that reshape its fields into the entry table above. Reach for the
 beacon protocol below only when there is no such accessor to call.
 
-## The `<rssfeed:item>` beacon protocol
+## The `<feeds:item>` beacon protocol
 
 This is the fallback, not the first thing to reach for: use it when the data
 has no `ideas()`-style accessor to call — an arbitrary hand-authored page with
 no registry behind it, or a package that holds its own data but exposes no
-synchronous function for `@rheo/rssfeed` (or anything else) to call into.
+synchronous function for `@rheo/feeds` (or anything else) to call into.
 
-The protocol is a label. Emit `#metadata((...)) <rssfeed:item>` anywhere in
+The protocol is a label. Emit `#metadata((...)) <feeds:item>` anywhere in
 the bundle, with the metadata value shaped as an entry (the table above).
 rheo compiles a whole project in one pass, so `items()` sees every beacon in
 the bundle, not only the vertebra currently calling it:
@@ -320,13 +320,13 @@ the bundle, not only the vertebra currently calling it:
   published: datetime(year: 2026, month: 1, day: 1),
   updated: datetime(year: 2026, month: 1, day: 2),
   categories: ("note",),
-)) <rssfeed:item>
+)) <feeds:item>
 ```
 
 `item(...)` is the same thing without hand-writing the metadata dict:
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": item
+#import "@rheo/feeds:0.1.0": item
 
 #item(
   title: "Et al.",
@@ -343,7 +343,7 @@ and `items(filter:, label-name:)` is the source that reads them back:
 feed(..., sources: (items(),))
 ```
 
-The label is `rssfeed:item` by default; pass a matching `label-name` to both
+The label is `feeds:item` by default; pass a matching `label-name` to both
 `item(...)` and `items(label-name: ...)` to use one of your own. `filter`,
 when given, is a predicate over the parsed value — the dict — not over the
 beacon itself. Every beacon `items()` finds is validated on the spot: a value
@@ -365,7 +365,7 @@ comes from composing a small function over a built-in source (`spine()`,
 `items()`, or any other) rather than annotating the page itself:
 
 ```typst
-#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+#import "@rheo/feeds:0.1.0": feed, configure, spine
 
 #let with-overrides(s) = spine()(s).map(e => if e.page == "a.html" {
   e + (title: "Override", updated: datetime(year: 2026, month: 6, day: 1))
@@ -393,7 +393,7 @@ to that fixture's own page names.
 
 ## Migrating from the retired Rust feed generator
 
-`@rheo/rssfeed` pins parity against the Rust Atom generator retired from rheo
+`@rheo/feeds` pins parity against the Rust Atom generator retired from rheo
 core (`rheo/crates/html/src/feed.rs`), but it is not a drop-in replacement.
 Every `[html]` key and per-vertebra variable the old generator read has a home
 here, but a few things are deliberate simplifications or genuine fixes, not
@@ -419,7 +419,7 @@ oversights.
 **`title` is required, with no fallback chain.** The retired generator fell
 back from an explicit title, to the HTML spine's own title, to the project's
 directory name. `feed(...)` here panics instead
-(`@rheo/rssfeed: feed's \`title\` must be a non-empty string.`) — a deliberate
+(`@rheo/feeds: feed's \`title\` must be a non-empty string.`) — a deliberate
 simplification someone migrating will come looking for, not a gap. See
 `verify/no-title/` for a fixture that pins exactly this failure.
 
@@ -465,9 +465,9 @@ ln -sfn "$PWD" ~/.cache/typst/packages/rheo   # one time, per machine — symlin
 ```
 
 Symlink the whole `rheo` namespace from the repo root, not this package on its
-own — under the namespace symlink, `ln -sfn` targeting an existing `rssfeed/`
+own — under the namespace symlink, `ln -sfn` targeting an existing `feeds/`
 directory writes the link *inside* it instead of replacing it, leaving a
-self-referential `rssfeed/rssfeed`.
+self-referential `feeds/feeds`.
 
 No package-specific devShell either: this repo's own root `flake.nix`/
 `.envrc` already provide `just` and `typst`, and direnv finds them by walking
