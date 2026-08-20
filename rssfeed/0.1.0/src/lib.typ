@@ -812,6 +812,30 @@
   }
 }
 
+// ---- timestamps — RFC 822, for RSS 2.0 ------------------------------------
+//
+// RSS 2.0 dates are RFC 822 with a four-digit year, not RFC 3339. MEASURED
+// (typst 0.15.1) that no weekday/month name tables are needed:
+// `datetime(year: 2026, month: 1, day: 5).display("[weekday repr:short],
+// [day] [month repr:short] [year]")` == "Mon, 05 Jan 2026".
+//
+// "GMT" rather than "+0000": both are legal per RFC 822 and GMT is what real
+// RSS feeds use. Every `datetime` here is treated as UTC, the same assumption
+// `_rfc3339` above records — nothing in this package's data model carries a
+// timezone.
+//
+// The date-only arm exists for the same MEASURED reason as `_rfc3339`'s: a
+// `datetime` built from year/month/day alone has `.hour() == none` and
+// hard-errors if `.display` is asked for an `[hour]` field.
+#let _rfc822(d) = {
+  let date-part = d.display("[weekday repr:short], [day] [month repr:short] [year]")
+  if d.hour() == none {
+    date-part + " 00:00:00 GMT"
+  } else {
+    date-part + " " + d.display("[hour]:[minute]:[second]") + " GMT"
+  }
+}
+
 // ---- atom — serialize a resolved config + entries to an Atom 1.0 string ---
 //
 // The element set is a PARITY TARGET against the retired Rust generator
@@ -979,6 +1003,120 @@
   let entry-strs = entries.map(e => _entry-elem(cfg, e))
 
   (head + subtitle + rest + entry-strs + ("</feed>",)).join("")
+}
+
+// ---- rss — serialize a resolved config + entries to an RSS 2.0 string -----
+//
+// Same signature and same three contracts as `atom(...)` above: `entries:
+// none` means resolve them here (requiring context when a source does), a
+// supplied list is normalised like any source's output, and zero entries
+// returns `none` so `_mint-plan` skips the feed rather than minting an empty
+// one.
+//
+// WHAT DOES NOT TRANSFER FROM ATOM, and why each is a mapping rather than an
+// omission:
+//
+//   - ONE DATE PER ITEM. RSS has `pubDate` and no second slot, so Atom's
+//     `published`/`updated` distinction collapses: `pubDate` takes
+//     `published` when present, else `updated` — the same preference
+//     `_sort-key` uses for ordering. The channel's `lastBuildDate` carries the
+//     newest `updated` across the feed.
+//   - `<dc:creator>`, NOT `<author>`. RSS 2.0's own `<author>` element must
+//     contain an EMAIL ADDRESS; this package's `author` is a plain name
+//     ("Rheo"), and a name in `<author>` produces a feed validators reject.
+//     `<dc:creator>` is the conventional element for a name, hence the `dc`
+//     namespace below. Emitted on EVERY item, because RSS has no
+//     channel-to-item author inheritance — Atom's "omit when it matches the
+//     feed's" rule (RFC 4287 §4.1.2) has no RSS equivalent.
+//   - `<guid isPermaLink=..>`. A reader treats a permalink guid as a URL, so
+//     the flag is `"true"` only when the id actually is one — tested with the
+//     same `_abs-url-re` an entry's `url` is held to. A rookery-sourced id
+//     like "idea:beta" is not a URL and must say so.
+//   - `<description>` is REQUIRED at channel level, and the nearest config
+//     field (`subtitle`) is optional, so it falls back to `cfg.title`.
+//   - `content: "xhtml"` is Atom's own content model and means nothing here;
+//     this treats it as `"html"`. The config-level guard lives in `feed(...)`.
+#let _rss-item(cfg, e) = {
+  let parts = (
+    _elem("title", e.title),
+    _elem("link", e.url),
+  )
+  let permalink = if e.id.match(_abs-url-re) != none { "true" } else { "false" }
+  parts += (
+    "<guid isPermaLink=\"" + permalink + "\">" + _esc-text(e.id) + "</guid>",
+    "<pubDate>"
+      + _rfc822(if e.published != none { e.published } else { e.updated })
+      + "</pubDate>",
+    _elem("dc:creator", e.author),
+  )
+  for cat in e.categories {
+    parts += (_elem("category", cat),)
+  }
+
+  // RSS has ONE `<description>`, so summary and content compete for it. With
+  // both, the summary wins the slot and the content goes in
+  // `<content:encoded>` — what that namespace exists for, and the same
+  // "summary is not swallowed by content" rule `_content-elem` follows for
+  // Atom. `select` keeps its omit-entirely-when-absent rule: absent means
+  // rheo's own default cascade, never `select=""`.
+  let placeholder = if cfg.content != none and e.page != none {
+    let select-attr = if e.select != none {
+      " select=\"" + _esc-attr(e.select) + "\""
+    } else { "" }
+    // Parenthesised deliberately: inside a code block a continuation line
+    // beginning with `+` is parsed as a unary plus on a new statement, not as
+    // string concatenation — "cannot apply unary '+' to string".
+    (
+      "<rheo-content page=\"" + _esc-attr(e.page) + "\"" + select-attr
+        + " as=\"escaped\"/>"
+    )
+  } else { none }
+
+  if e.summary != none {
+    parts += (_elem("description", e.summary),)
+    if placeholder != none {
+      parts += ("<content:encoded>" + placeholder + "</content:encoded>",)
+    }
+  } else if placeholder != none {
+    parts += ("<description>" + placeholder + "</description>",)
+  }
+
+  "<item>" + parts.join("") + "</item>"
+}
+
+#let rss(cfg, entries: none) = {
+  let entries = if entries == none {
+    resolve-entries(cfg)
+  } else {
+    entries.map(e => _normalize-entry(e, cfg)).filter(e => e != none)
+  }
+  if entries.len() == 0 {
+    return none
+  }
+
+  let feed-url = _feed-url(cfg)
+  let head = (
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+    "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\""
+      + " xmlns:content=\"http://purl.org/rss/1.0/modules/content/\""
+      + " xmlns:dc=\"http://purl.org/dc/elements/1.1/\">",
+    "<channel>",
+    _elem("title", cfg.title),
+    // The SITE, as Atom's own feed-level `rel="alternate"` is.
+    _elem("link", cfg.base-url),
+    _elem(
+      "description",
+      if cfg.subtitle != none { cfg.subtitle } else { cfg.title },
+    ),
+    // RSS 2.0 has no self-link of its own; borrowing Atom's is the universal
+    // convention, and the reason for the `atom` namespace above.
+    "<atom:link rel=\"self\" href=\"" + _esc-attr(feed-url)
+      + "\" type=\"application/rss+xml\"/>",
+    "<lastBuildDate>" + _rfc822(_max-updated(entries)) + "</lastBuildDate>",
+  )
+  let item-strs = entries.map(e => _rss-item(cfg, e))
+
+  (head + item-strs + ("</channel>", "</rss>")).join("")
 }
 
 // ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
