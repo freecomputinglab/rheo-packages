@@ -387,6 +387,105 @@ the demo's `notes.xml` goes through `ideas(tags:)` directly (above), not
 through this protocol — the beacon exists for the case that recipe cannot
 reach, not as a mechanism rookery itself uses.
 
+## The subscribe modal
+
+Everything above mints a feed file. This is the one part of the package that
+puts anything on a page — a button, and the `<dialog>` it opens, offering a
+reader the feed you just built.
+
+```typst
+#import "@rheo/feeds:0.1.0": feeds-modal, mail-icon
+
+#feeds-modal(
+  feed-desc: [Pull each new post into an #link("https://aboutfeeds.com")[RSS/Atom reader].],
+  options: (
+    (
+      icon: mail-icon(),
+      label: "Newsletter",
+      href: "mailto:news@example.org?subject=subscribe",
+      desc: [To subscribe, email #strong[news\@example.org] with #strong[subscribe] in the subject line.],
+    ),
+  ),
+)
+```
+
+Call it once, wherever the trigger belongs — a site header, usually. It returns
+the button and the dialog as SIBLINGS in that order, never nested, so your own
+stylesheet can position the trigger without the dialog inheriting the header's
+layout or typography.
+
+**The Atom option is pregiven.** It is always the first entry in the list, and
+no argument removes it: a feeds package whose modal can omit the feed is
+offering the wrong thing. `feed-path` (default `"/feed.xml"`), `feed-label`
+(default `"Atom feed"`) and `feed-desc` re-word and re-target it, which is all
+a project normally wants.
+
+Everything else goes through `options:`, an array rendered after the Atom entry
+in array order. Each is a dictionary:
+
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `label` | `str`, non-empty | yes | the option's own name |
+| `href` | `str`, non-empty | yes | `mailto:`, a URL, anything |
+| `icon` | `content` | no | `mail-icon()`, `atom-icon()`, or your own |
+| `desc` | `content` | no | arbitrary markup — bolded addresses, links |
+
+`icon` and `desc` are CONTENT rather than strings, which is the point: a mail
+option usually wants its address bolded and its instructions written as prose,
+and a string could carry neither. A malformed entry fails the build naming the
+index it sits at rather than rendering an empty row.
+
+The remaining arguments: `button-label` and `button-title` (both `"Subscribe"`),
+`icon-size` (`18`), `id` (`"subscribe-dialog"`), and the two escape hatches
+`styles` and `script`, described next. `atom-icon(size:)` and `mail-icon(size:)`
+are exported alongside `feeds-modal` so an `options:` entry has something to put
+in its `icon`.
+
+### Why this package still ships no bundle
+
+A reader arriving from `@rheo/rookery-search` will expect the modal's CSS and JS
+to come from a `[tool.rheo.html]` bundle in `typst.toml`, the way that package
+ships its own. This one deliberately has no bundle at all, and the modal carries
+its `<style>` and `<script>` inline in the content it returns.
+
+The reason is that a bundle is not opt-in. rheo injects an imported package's
+bundle into every consumer of that package, whether or not that consumer uses
+the feature — and, worse, rheo only auto-injects a project's implicit
+`style.css`/`index.js` while NO imported package declares a bundle of its own.
+Adding one here would silently strip the default assets from every project that
+imports `@rheo/feeds` for `configure(...)` and had not named its own assets in
+`rheo.toml`. Emitting inline instead means a project that never calls
+`feeds-modal` produces exactly the output it produced before this function
+existed — which `demo/check.sh` pins directly, by asserting that the demo's
+`notes.html` carries no modal markup, no stylesheet and no script.
+
+Pass `styles: false` or `script: false` to suppress either, for a project that
+would rather write its own. With `script: false` the dialog still closes on
+Escape and on its own ✕ button — those are `<dialog>` and
+`<form method="dialog">` behaviour, needing no script — but nothing opens it.
+
+### Theming
+
+The default rules sit in `@layer feeds-modal`. Unlayered CSS beats layered CSS
+whatever the source order, so your own plain `.subscribe-dialog { ... }` wins
+without `!important` and without depending on where your stylesheet is linked.
+
+For smaller adjustments, set the custom properties instead:
+`--feeds-modal-fg`, `--feeds-modal-muted`, `--feeds-modal-border`,
+`--feeds-modal-accent`, `--feeds-modal-hover`, `--feeds-modal-backdrop`,
+`--feeds-modal-shadow`, `--feeds-modal-font`, `--feeds-modal-small`. Each falls
+back to a neutral default, so setting none of them still looks deliberate.
+
+The TRIGGER is deliberately under-styled — the button reset every project needs,
+and nothing else. Positioning and typography are left to you, because the sites
+this was lifted from genuinely disagree: one absolutely positions the trigger
+against a centred title, the others run it as uppercase mono in a flex row. A
+package guessing between those would be wrong more often than right.
+
+The class names are `subscribe-btn`, `subscribe-dialog`,
+`subscribe-dialog-close-form`, `dialog-close`, `subscribe-options`,
+`subscribe-option`, `subscribe-option-link` and `subscribe-option-desc`.
+
 ## Per-entry overrides: no more `rheo-feed-title`/`rheo-feed-updated`
 
 The retired generator let a vertebra override its own feed title or timestamp
