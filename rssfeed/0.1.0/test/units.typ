@@ -24,7 +24,11 @@
 //     entry from a source; an entry missing/empty `title`; an entry with
 //     neither `url` nor `page`; a `categories` that is not an array, or an
 //     array holding a non-string (`categories: "note"` used to emit one
-//     `<category>` per LETTER, silently).
+//     `<category>` per LETTER, silently); a `published` or `updated` that is
+//     neither a datetime nor none — a STRING date especially, since the
+//     retired `rheo-feed-updated` variable this package's readme migrates
+//     from took one, and an unchecked string used to die inside `_rfc3339`
+//     instead.
 //   - `resolve-entries` panics when a source's return value is not an array.
 //   - `items()` panics (via its own beacon validation, at query time) on: a
 //     `<rssfeed:item>` (or custom `label-name`) beacon whose value is not a

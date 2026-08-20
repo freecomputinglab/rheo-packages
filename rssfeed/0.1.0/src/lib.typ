@@ -139,6 +139,23 @@
   v
 }
 
+// The migration hint in this message is load-bearing. This package's own
+// readme maps the retired `#let rheo-feed-updated = "..."` variable — a STRING
+// — onto these fields, so a string arriving here is the single likeliest
+// migration slip. Unchecked, it survived the skip rule and died much later
+// inside `_rfc3339` as `type string has no method 'display'`, naming neither
+// this package nor the field.
+#let _expect-datetime-or-none(v, field) = {
+  assert(
+    v == none or type(v) == datetime,
+    message: "@rheo/rssfeed: `" + field + "` must be a datetime or none — got "
+      + repr(v) + ". Write `datetime(year: .., month: .., day: ..)`, not a "
+      + "string: the retired `rheo-feed-updated` variable took a string, this "
+      + "field does not.",
+  )
+  v
+}
+
 #let _expect-positive-int-or-none(v, field) = {
   assert(
     v == none or (type(v) == int and v > 0),
@@ -319,8 +336,13 @@
     message: "@rheo/rssfeed: an entry is missing a non-empty `title`.",
   )
 
-  let published = e.at("published", default: none)
-  let updated = e.at("updated", default: none)
+  // Validated at the READ, before the skip rule below tests them against
+  // `none`, so the skip rule can never be reached with a non-datetime value.
+  let published = _expect-datetime-or-none(
+    e.at("published", default: none),
+    "published",
+  )
+  let updated = _expect-datetime-or-none(e.at("updated", default: none), "updated")
 
   // THE SKIP RULE. Atom requires <updated> per entry (RFC 4287 §4.2.15).
   // rheo's old Rust generator fell back to the compiled output file's mtime
