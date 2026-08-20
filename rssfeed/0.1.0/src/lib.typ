@@ -510,11 +510,18 @@
   // one day is the common case, not the corner case.
   let ordered = normalized.rev().sorted(key: e => _sort-key(e)).rev()
 
-  let seen-ids = ()
+  // A dictionary as a set, not an array: `id not in <array>` is a linear scan
+  // per entry, and a feed sourced from `@rheo/rookery`'s `ideas()` is every
+  // note in a rookery — several hundred on a real site, so the loop was doing
+  // tens of thousands of string comparisons to dedupe a list that usually has
+  // no duplicates at all. Every `id` is a non-empty string by now
+  // (`_normalize-entry` defaults it from `url` and type-checks it), so it is a
+  // valid dictionary key.
+  let seen = (:)
   let deduped = ()
   for e in ordered {
-    if e.id not in seen-ids {
-      seen-ids += (e.id,)
+    if e.id not in seen {
+      seen.insert(e.id, true)
       deduped += (e,)
     }
   }

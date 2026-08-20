@@ -358,6 +358,39 @@ Para two]), "Para one Para two")
 #assert.eq(dup.len(), 1)
 #assert.eq(dup.first().title, "Dup New")
 
+// Three copies of one id, three different dates: exactly one survives, and it
+// is the newest. Pins first-wins over the sorted list with more than the two
+// entries the pair above can distinguish.
+#let _stub-dup3(cfg) = (
+  (
+    id: "trip",
+    title: "Mid",
+    url: cfg.base-url + "/mid",
+    updated: datetime(year: 2026, month: 3, day: 1),
+  ),
+  (
+    id: "trip",
+    title: "Newest",
+    url: cfg.base-url + "/newest",
+    updated: datetime(year: 2026, month: 9, day: 1),
+  ),
+  (
+    id: "trip",
+    title: "Oldest",
+    url: cfg.base-url + "/oldest",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-dup3 = feed(
+  path: "dup3.xml",
+  title: "Dup Three Feed",
+  base-url: "https://example.org",
+  sources: (_stub-dup3,),
+)
+#let dup3 = resolve-entries(cfg-dup3)
+#assert.eq(dup3.len(), 1)
+#assert.eq(dup3.first().title, "Newest")
+
 // ---- spine — no rheo present, so spine-flat is empty and there's no error -
 //
 // This fixture runs under plain `typst compile` with no rheo, so
