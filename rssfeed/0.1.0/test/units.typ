@@ -139,6 +139,38 @@ Para two]), "Para one Para two")
 #assert.eq(feed-opts.subtitle, "A subtitle")
 #assert.eq(feed-opts.limit, 5)
 
+// ---- path — normalized like an entry's `page`, so no feed URL doubles a
+// slash and two spellings of one output file collide as they should ----------
+#let _stub-path-slash(cfg) = (
+  (
+    title: "Any Entry",
+    url: "https://example.com/any",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-path-slash = feed(
+  path: "/feed.xml",
+  title: "Leading Slash Feed",
+  base-url: "https://example.com",
+  sources: (_stub-path-slash,),
+)
+#assert.eq(cfg-path-slash.path, "feed.xml")
+#assert(
+  atom(cfg-path-slash).contains("<id>https://example.com/feed.xml</id>"),
+  message: "a feed path written \"/feed.xml\" must not double the slash",
+)
+// `"feed.xml"` and `"./feed.xml"` name ONE output file, and now normalize to
+// one string — which is what makes `_mint-plan`'s plain-equality collision
+// assert catch them. (That panic itself is not assertable; see the top
+// comment.)
+#let cfg-path-dot = feed(
+  path: "./feed.xml",
+  title: "Dot Slash Feed",
+  base-url: "https://example.com",
+  sources: (_stub-path-slash,),
+)
+#assert.eq(cfg-path-dot.path, cfg-path-slash.path)
+
 // ---- resolve-entries — normalise, the skip rule, order, id/url fill -------
 //
 // Four hand-written entries from one stub source:
