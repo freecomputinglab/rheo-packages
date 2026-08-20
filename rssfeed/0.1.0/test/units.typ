@@ -20,8 +20,13 @@
 //     string nor none; a `limit` that is not a positive integer or none
 //     (`limit: 0` used to empty the feed silently, `limit: -1` to drop its
 //     oldest entry).
+//   - the ONE non-empty-title rule (`_expect-title`) panics wherever a title
+//     arrives from outside the package — a source's entry, an
+//     `<rssfeed:item>` beacon read by `items()`, or an `item(...)` call — when
+//     that title is neither a string nor content, or flattens to "". All
+//     three sites share the checker, so the rule cannot differ between them.
 //   - `resolve-entries` (via `_normalize-entry`) panics on: a non-dictionary
-//     entry from a source; an entry missing/empty `title`; an entry with
+//     entry from a source; an entry with
 //     neither `url` nor `page`; a `categories` that is not an array, or an
 //     array holding a non-string (`categories: "note"` used to emit one
 //     `<category>` per LETTER, silently); a `published` or `updated` that is
@@ -30,11 +35,9 @@
 //     from took one, and an unchecked string used to die inside `_rfc3339`
 //     instead.
 //   - `resolve-entries` panics when a source's return value is not an array.
-//   - `items()` panics (via its own beacon validation, at query time) on: a
-//     `<rssfeed:item>` (or custom `label-name`) beacon whose value is not a
-//     dictionary; a beacon dictionary with a missing/empty `title`.
-//   - `item(...)` panics on a missing/empty `title` (same rule, checked at
-//     the emitting end instead of the reading end).
+//   - `items()` panics (at query time) on a `<rssfeed:item>` (or custom
+//     `label-name`) beacon whose value is not a dictionary. Its beacon
+//     `title` is checked by the shared rule above.
 //   - `_mint-plan` panics when two feeds in its input share the same `path`.
 //
 // `_mint-plan` itself IS testable here, unlike `emit`/`.marrow.typ`: it
@@ -320,6 +323,35 @@ Para two]), "Para one Para two")
   assert.eq(all.at(0).author, "Rheo")
   assert.eq(all.at(0).url, "https://example.com/notes/b.html")
   assert.eq(all.at(0).id, "https://example.com/notes/b.html")
+}
+
+// A CONTENT title survives the whole round trip: `item(...)` flattens it at the
+// emitting end, `items()` reads the beacon back, and the resolved entry carries
+// the plain string. This is the shape that used to be rejected outright — the
+// entry model accepted `str` or `content` while `items()`/`item(...)` accepted
+// `str` only, so `spine()`'s own title shape could not reach a beacon.
+//
+// Emitted under its OWN `label-name`, for two reasons: it must not perturb the
+// `<rssfeed:item>` counts asserted above, and the matching-custom-label
+// contract (pass the same `label-name` to both `item(...)` and `items(...)`)
+// otherwise has no coverage at all.
+#item(
+  title: [Item #emph[Content]],
+  page: "notes/c.html",
+  updated: datetime(year: 2026, month: 5, day: 3),
+  label-name: "units:custom-item",
+)
+#let cfg-items-content = feed(
+  path: "items-content.xml",
+  title: "Items Feed Content",
+  base-url: "https://example.com",
+  sources: (items(label-name: "units:custom-item"),),
+)
+#context {
+  let one = resolve-entries(cfg-items-content)
+  assert.eq(one.len(), 1)
+  assert.eq(one.first().title, "Item Content")
+  assert.eq(one.first().url, "https://example.com/notes/c.html")
 }
 
 // `filter` over the parsed item VALUE keeps only the "note"-tagged beacon.
