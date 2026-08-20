@@ -116,6 +116,29 @@
   v
 }
 
+// The message names the FIX, not just the fault. Typst loops a string
+// character by character, so `categories: "note"` is not a type error at all:
+// it silently emits one `<category>` per letter (MEASURED — four of them,
+// `term="n"`, `term="o"`, `term="t"`, `term="e"`). Writing the bare string
+// instead of a one-element array looks correct to the author, so the error has
+// to say what to write instead.
+#let _expect-strs(v, field) = {
+  assert(
+    type(v) == array,
+    message: "@rheo/rssfeed: `" + field + "` must be an array of strings — got "
+      + repr(v) + ". A single value must still be a one-element array, e.g. "
+      + "`categories: (\"note\",)`.",
+  )
+  for s in v {
+    assert(
+      type(s) == str,
+      message: "@rheo/rssfeed: every value in `" + field + "` must be a string "
+        + "— got " + repr(s),
+    )
+  }
+  v
+}
+
 #let _expect-positive-int-or-none(v, field) = {
   assert(
     v == none or (type(v) == int and v > 0),
@@ -338,7 +361,7 @@
     published: published,
     updated: updated,
     summary: e.at("summary", default: none),
-    categories: e.at("categories", default: ()),
+    categories: _expect-strs(e.at("categories", default: ()), "categories"),
     author: e.at("author", default: cfg.author),
   )
 }

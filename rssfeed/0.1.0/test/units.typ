@@ -22,7 +22,9 @@
 //     oldest entry).
 //   - `resolve-entries` (via `_normalize-entry`) panics on: a non-dictionary
 //     entry from a source; an entry missing/empty `title`; an entry with
-//     neither `url` nor `page`.
+//     neither `url` nor `page`; a `categories` that is not an array, or an
+//     array holding a non-string (`categories: "note"` used to emit one
+//     `<category>` per LETTER, silently).
 //   - `resolve-entries` panics when a source's return value is not an array.
 //   - `items()` panics (via its own beacon validation, at query time) on: a
 //     `<rssfeed:item>` (or custom `label-name`) beacon whose value is not a
@@ -186,6 +188,29 @@ Para two]), "Para one Para two")
   resolve-entries(cfg-limited).map(e => e.title),
   ("Entry Two", "Entry Three"),
 )
+
+// ---- categories — a real array survives; a bare string is rejected --------
+//
+// The rejection itself is not assertable (see the top comment), so this pins
+// the POSITIVE half: an array of two strings arrives intact and serializes to
+// exactly two `<category>` elements — the count a bare `categories: "note"`
+// used to get wrong silently, emitting one per letter instead.
+#let _stub-cats(cfg) = (
+  (
+    title: "Tagged",
+    url: "https://example.com/tagged",
+    updated: datetime(year: 2026, month: 1, day: 1),
+    categories: ("a", "b"),
+  ),
+)
+#let cfg-cats = feed(
+  path: "cats.xml",
+  title: "Cats Feed",
+  base-url: "https://example.com",
+  sources: (_stub-cats,),
+)
+#assert.eq(resolve-entries(cfg-cats).first().categories, ("a", "b"))
+#assert.eq(atom(cfg-cats).matches("<category").len(), 2)
 
 // ---- resolve-entries — dedupe by id keeps the FIRST occurrence ------------
 //
