@@ -227,7 +227,7 @@ path:
 ```typst
 feed(
   path: "feed.xml",
-  title: "Rssfeed Demo — Posts",
+  title: "Feeds Demo — Posts",
   base-url: "https://demo.example.org",
   sources: (spine(filter: e => e.handle.starts-with("posts:")),),
 )
@@ -255,15 +255,25 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 #import "@rheo/feeds:0.1.0": feed, configure, spine
 #import "@rheo/rookery:0.3.0": ideas
 
+// rookery's `href` is depth-relative; this source runs at bundle root, where
+// the ambient handle is not the site root, so the leading `../` run has to go.
+#let root-relative(h) = {
+  let out = h
+  while out.starts-with("../") { out = out.slice(3) }
+  out
+}
+
 #let from-ideas(tags: none, match: "any") = cfg => (
   ideas(tags: tags, match: match)
-    .filter(e => e.page != none and e.updated != none)
+    .filter(e => e.href != none and e.updated != none)
     .map(e => (
       id: e.id,
       title: e.text,
-      page: e.page,
+      // rookery calls it `href`; the feeds entry model calls it `page`.
+      page: root-relative(e.href),
       updated: e.updated,
       published: e.minted,
+      summary: e.body,
       categories: e.tags,
     ))
 )
@@ -271,9 +281,10 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 #configure(feeds: (
   feed(
     path: "notes.xml",
-    title: "Rssfeed Demo — Notes",
+    title: "Feeds Demo — Notes",
     base-url: "https://demo.example.org",
     author: "The Rookery",
+    content: none,
     sources: (from-ideas(tags: "note"),),
   ),
 ))
@@ -293,6 +304,26 @@ with no minted page or no date before it ever becomes a candidate entry — the
 same skip rule `resolve-entries` enforces on every source's output, just
 applied a step earlier here, so an unminted or undated note never reaches
 `@rheo/feeds`'s own validation at all.
+
+Two details in that recipe are the kind you only find by building it, and both
+generalise beyond rookery.
+
+**The two packages spell the same thing differently.** A rookery row calls the
+minted page `href`; the entry table above calls it `page`. Reshaping one
+vocabulary into the other is the *project's* job — it is what a source function
+is for — but getting it wrong is not caught until build time, and the error
+(`dictionary does not contain key "page"`) names the key you asked for rather
+than the one that exists. Read the accessor's own documented row shape rather
+than assuming it matches this table.
+
+**A minted page's content cannot be syndicated.** `content: none` on that feed
+is required, not a preference: a rookery note's page is an `#asset(...)`, and
+`<rheo-content>` only transcludes compiled *vertebrae*. Ask for content anyway
+and the build fails with `<rheo-content> references unknown page
+'ideas/alpha.html'; available output paths include: ...` listing only the real
+pages. So these entries carry a `summary` — rookery's plain-text `body` — and
+the feed is a list of pointers rather than a full-text feed. Anything else
+whose pages are minted rather than compiled has the same constraint.
 
 This generalises past rookery: anything with its own array-returning
 accessor — another package's registry, a hand-rolled list of dictionaries,
@@ -498,18 +529,24 @@ rheo compile demo   # from the package root — or: just demo
 ./demo/check.sh     # asserts on the output — or: just check
 ```
 
-OBSERVED (rheo `feat/transclusion`, this package's own build): both feeds
-compiled to valid, non-empty Atom with disjoint entry sets. Every page's
-`<head>` — the root vertebra, the nested one, and every minted note page
-alike — carried both feeds' autodiscovery
+OBSERVED (rheo 0.6.0, this package's own build — `just check` prints
+`demo OK`): both feeds compiled to valid, non-empty Atom with disjoint entry
+sets. Every page's `<head>` — the root vertebra, the nested one, and every
+minted note page alike — carried both feeds' autodiscovery
 `<link rel="alternate" type="application/atom+xml">` tags, minted once as
 `.rheo/head.html` and spliced into every page rheo compiled, not just the one
 vertebra that called `configure(...)`. `notes.xml`'s entries linked to
 absolute URLs ending in `ideas/<slug>.html`, each matching a real minted file
 on disk — including the note nested inside another note's body
-(`ideas/alpha-inner.html`). Neither feed's `<content>` retained a
-`<rheo-content>` placeholder: both had already been resolved to the real,
-escaped HTML of the page they named.
+(`ideas/alpha-inner.html`).
+
+The two feeds differ in what they carry, for the structural reason described
+under "Sourcing from another package" above. `feed.xml`'s posts are compiled
+vertebrae, so its `<content>` was resolved to the real escaped HTML of each
+page and retained no `<rheo-content>` placeholder. `notes.xml`'s notes are
+minted pages, which cannot be transcluded, so that feed is configured
+`content: none` and its entries carry rookery's plain-text `body` as
+`<summary>` instead.
 
 ## Verify
 
