@@ -147,7 +147,7 @@
   assert(
     type(theme) == dictionary,
     message: "@rheo/rookery: `theme` must be a dictionary of "
-      + _THEME-KEYS.keys().join(", ") + " — got " + repr(theme),
+      + _THEME-KEYS.keys().join(", ") + ", tags-color" + " — got " + repr(theme),
   )
   assert(
     bibliography == none or type(bibliography) == arguments,
@@ -185,6 +185,64 @@
     type(index-page) == bool,
     message: "@rheo/rookery: `index-page` must be a boolean — got " + repr(index-page),
   )
+}
+
+// Resolve a tags-color dictionary: each tag maps to either a colour/CSS-string
+// (shorthand for background-only) or a dictionary with optional background/text keys.
+// Returns a normalized dict with all colours converted to CSS hex strings.
+#let _resolve-tags-color(tags-color) = {
+  assert(
+    type(tags-color) == dictionary,
+    message: "@rheo/rookery: theme `tags-color` must be a dictionary — got "
+      + repr(tags-color),
+  )
+
+  // Reusable colour converter: Typst color -> hex, string passthrough, else fail.
+  let _css-color(key, value) = if type(value) == color {
+    value.to-hex()
+  } else if type(value) == str {
+    value
+  } else {
+    assert(
+      false,
+      message: "@rheo/rookery: theme `tags-color` entry for \"" + key + "\" must be "
+        + "a colour, a CSS colour string, or a dictionary with `background`/`text` keys — got "
+        + repr(value),
+    )
+  }
+
+  let resolved = (:)
+  for (tag, value) in tags-color {
+    if type(value) == color or type(value) == str {
+      // Shorthand: scalar colour/string -> background-only dict
+      resolved.insert(tag, (background: _css-color(tag, value)))
+    } else if type(value) == dictionary {
+      // Dictionary form: validate and normalize
+      let normalized = (:)
+      for (key, val) in value {
+        assert(
+          key == "background" or key == "text",
+          message: "@rheo/rookery: theme `tags-color` entry for \"" + tag + "\" has "
+            + "unknown key `" + key + "` — valid keys are `background` and `text`",
+        )
+        normalized.insert(key, _css-color(tag + "." + key, val))
+      }
+      assert(
+        normalized.len() > 0,
+        message: "@rheo/rookery: theme `tags-color` entry for \"" + tag + "\" is an "
+          + "empty dictionary — at least one of `background` or `text` must be present",
+      )
+      resolved.insert(tag, normalized)
+    } else {
+      assert(
+        false,
+        message: "@rheo/rookery: theme `tags-color` entry for \"" + tag + "\" must be "
+          + "a colour, a CSS colour string, or a dictionary with `background`/`text` keys — got "
+          + repr(value),
+      )
+    }
+  }
+  resolved
 }
 
 // The theme dictionary as CSS, from both the `theme:` dictionary and the
@@ -253,11 +311,15 @@
   let resolved = (:)
   for (key, value) in theme {
     assert(
-      key in _THEME-KEYS,
+      key in _THEME-KEYS or key == "tags-color",
       message: "@rheo/rookery: unknown theme key `" + key + "` — valid keys are "
-        + _THEME-KEYS.keys().join(", "),
+        + _THEME-KEYS.keys().join(", ") + ", tags-color",
     )
-    if value != none { resolved.insert(key, css(key, value)) }
+    if key == "tags-color" {
+      if value != none { resolved.insert("tags-color", _resolve-tags-color(value)) }
+    } else if value != none {
+      resolved.insert(key, css(key, value))
+    }
   }
   // Granular arguments last: they override whatever `theme:` set.
   for (key, value) in (

@@ -19,8 +19,8 @@
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
   _is-inline, _join, _nest-outline, _norm, _note-file, _outbound,
-  _own-cited-keys, _plain, _sort-ids, _tag-pred, _truncate, footnote, idea,
-  note-href, note-path, window,
+  _own-cited-keys, _plain, _resolve-tags-color, _sort-ids, _tag-pred, _truncate,
+  footnote, idea, note-href, note-path, window,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -265,3 +265,29 @@
 
   assert.eq(_outbound([See #footnote[#window("etal")] here.]), ("idea:etal",))
 }
+
+// ---- _resolve-tags-color — dict validation and normalisation ------
+// String shorthand -> background-only dict
+#assert.eq(_resolve-tags-color((draft: rgb("#ff0000"))), (draft: (background: "#ff0000")))
+// CSS colour string shorthand
+#assert.eq(_resolve-tags-color((note: "#00ff00")), (note: (background: "#00ff00")))
+// Dict form with both keys
+#assert.eq(
+  _resolve-tags-color((todo: (background: rgb("#0000ff"), text: rgb("#ffffff")))),
+  (todo: (background: "#0000ff", text: "#ffffff")),
+)
+// Dict form, text only
+#assert.eq(_resolve-tags-color((warn: (text: "#000"))), (warn: (text: "#000")))
+// Dict form, background only (via dict)
+#assert.eq(_resolve-tags-color((info: (background: rgb("#ffff00")))), (info: (background: "#ffff00")))
+// Multiple tags
+#assert.eq(
+  _resolve-tags-color((
+    draft: rgb("#ff0000"),
+    note: (background: rgb("#00ff00"), text: "#ffffff"),
+  )),
+  (
+    draft: (background: "#ff0000"),
+    note: (background: "#00ff00", text: "#ffffff"),
+  ),
+)
