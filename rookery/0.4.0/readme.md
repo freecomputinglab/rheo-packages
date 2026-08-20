@@ -892,9 +892,12 @@ package's own `.rookery-search-tag`), so one project rule — `.idea-tag-draft {
 color: ...; }` — styles that tag everywhere it shows up: the note's heading,
 its card, an outline row, a hat pill, and a search result chip alike.
 
-Four CSS custom properties style the pill, the same "your own stylesheet, no
-Typst-side key" mechanism as `--idea-external-color` — there is no `theme:`
-entry for these, unlike the nine keys in "The theme" above:
+Four CSS custom properties style the pill. Two of them — `--idea-tag-size` and
+`--idea-tag-radius` — have no `theme:` entry and use only the raw custom-property
+mechanism, the same "your own stylesheet" pattern as `--idea-external-color`.
+The other two, `--idea-tag-color` and `--idea-tag-bg`, can ALSO be set per-tag
+through `theme: (tags-color: (...))` (described below), which wins over both
+the raw custom properties and CSS defaults for whichever tags it names:
 
 | property | what it sets | default |
 | --- | --- | --- |
@@ -902,6 +905,28 @@ entry for these, unlike the nine keys in "The theme" above:
 | `--idea-tag-radius` | the pill's corner radius | `999px` |
 | `--idea-tag-color` | the pill's text colour | `--idea-id-color` (`gray`) |
 | `--idea-tag-bg` | the pill's background | `rgba(128, 128, 128, 0.18)`, or `color-mix(in oklab, currentColor 14%, transparent)` where supported |
+
+### Per-tag colour: `tags-color`
+
+Syntax, both value forms:
+
+```typst
+#show: rookery.with(theme: (
+  tags-color: (
+    draft: rgb("#3366ff"),                          // background only
+    note: (background: rgb("#0000ff"), text: white), // background + text
+    warn: (text: rgb("#aa0000")),                    // text only
+  ),
+))
+```
+
+A bare colour or CSS colour string is shorthand for `(background: ...)`. A tag with no entry in `tags-color` keeps the CSS default (`--idea-tag-bg`/`--idea-tag-color`, or your own project stylesheet rule) — `tags-color` only overrides the tags it names.
+
+**Scope: pills only** (the `show-tags: true` chip). It does not recolour the card, the heading, or an outline row, even though those share the `.idea-tag-<tag>` class — that's still the existing raw-CSS mechanism described just above (`.idea-tag-draft { color: ...; }` styles that tag everywhere it shows up).
+
+Like the rest of `theme:`, this is **one value for the whole document** — apply the same arguments in every vertebra (see "The theme" above and "Setup").
+
+`@rheo/rookery-search`'s own result-row chips do NOT yet pick up `tags-color` — that package renders its result chips client-side from JavaScript, on a separate build path. Tag colouring for search results is tracked separately and is not part of this release.
 
 `#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
 whatever the caller passes:
