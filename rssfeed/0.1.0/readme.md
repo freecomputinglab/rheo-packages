@@ -1,8 +1,10 @@
 # @rheo/rssfeed
 
-Atom 1.0 feed generation for Rheo projects, in pure Typst — this package replaces
-the Rust feed generator retired from rheo core, the same way `@rheo/blogfeed` and
-`@rheo/sidebar` moved other project-shaped concerns out of the engine before it.
+Syndication feeds for Rheo projects, in pure Typst — Atom 1.0, RSS 2.0 and JSON
+Feed 1.1 from one config. This package replaces the Rust feed generator retired
+from rheo core, the same way `@rheo/blogfeed` and `@rheo/sidebar` moved other
+project-shaped concerns out of the engine before it; that generator emitted Atom
+alone, so the other two formats are new here rather than restored.
 
 ```typst
 #import "@rheo/rssfeed:0.1.0": feed, configure, spine
@@ -141,6 +143,7 @@ is:
 | `path` | `str` | no | `"feed.xml"` |
 | `author` | `str` | no | `"Rheo"` |
 | `subtitle` | `str` or `none` | no | `none` |
+| `format` | `"atom"`, `"rss"`, or `"json"` | no | `"atom"` |
 | `content` | `"html"`, `"xhtml"`, or `none` | no | `"html"` |
 | `limit` | positive integer or `none` | no | `none` (no limit) |
 
@@ -158,6 +161,59 @@ Atom's `type="xhtml"` requires); `none` skips `<content>` entirely. A
 list previews. `<rheo-content>` and rheo's
 other build-time control assets are rheo's own contract, not this package's —
 see [rheo.ohrg.org](https://rheo.ohrg.org) for that half.
+
+## Three formats, and what does not transfer between them
+
+`format` picks the serializer: `"atom"` emits Atom 1.0, `"rss"` emits RSS 2.0,
+`"json"` emits JSON Feed 1.1. One project can register the same sources at
+three paths and get all three, from one `configure(...)` call:
+
+```typst
+#import "@rheo/rssfeed:0.1.0": feed, configure, spine
+
+#let posts = spine(filter: e => e.handle.starts-with("posts:"))
+
+#configure(feeds: (
+  feed(path: "feed.xml", title: "My Site", base-url: "https://example.com", sources: (posts,)),
+  feed(path: "rss.xml", title: "My Site", base-url: "https://example.com", sources: (posts,), format: "rss"),
+  feed(
+    path: "feed.json",
+    title: "My Site",
+    base-url: "https://example.com",
+    sources: (posts,),
+    format: "json",
+    content: none,
+  ),
+))
+```
+
+Every page's `<head>` then carries one autodiscovery `<link>` per feed, each
+with its own type — `application/atom+xml`, `application/rss+xml`,
+`application/feed+json`.
+
+The entry model is shared, but the formats are not equivalent, and the
+differences are mappings rather than omissions:
+
+- **RSS has one date per item.** Atom's `published`/`updated` distinction has no
+  RSS slot, so `pubDate` takes `published` when present and `updated`
+  otherwise. The channel's `lastBuildDate` carries the newest `updated`.
+- **RSS's own `<author>` element must hold an email address.** This package's
+  `author` is a plain name, so it goes in `<dc:creator>` — a name in
+  `<author>` produces a feed validators reject. It is emitted on every item,
+  because RSS has no channel-to-item author inheritance the way Atom does.
+- **`content: "xhtml"` is Atom-only**, being Atom's own `type="xhtml"` content
+  model. Pairing it with another format fails the build rather than being
+  quietly reinterpreted.
+- **JSON Feed is summary-only for now**, and this is a rheo limitation rather
+  than a package one: `<rheo-content>` transclusion has no JSON-safe encoding,
+  so there is no way to put a page's compiled HTML inside a JSON string
+  without either breaking the JSON or leaving the placeholder unresolved.
+  `format: "json"` therefore requires `content: none`, so the constraint is
+  something you acknowledge rather than something that silently drops your
+  content. Tracked in the rheo repo as bead `rheo-rheo-content-json-vxv`.
+- **A `guid`'s `isPermaLink` is `false` when an entry's `id` is not a URL** —
+  rookery-sourced ids like `idea:beta` are the common case. This is why an `id`
+  need not be a URL at all; a reader would otherwise try to follow it.
 
 ## The built-in `spine()` source
 
