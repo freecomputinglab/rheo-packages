@@ -649,6 +649,175 @@ Para two]), "Para one Para two")
   message: "an entry with no page but a summary must get <summary type=\"text\">",
 )
 
+// ---- content: "xhtml" — the whole XHTML content model ---------------------
+//
+// Until this block the entire "xhtml" arm of `_content-elem` had no coverage:
+// its `as="raw"` attribute and the `<div xmlns=..>` wrapper Atom's
+// `type="xhtml"` requires (RFC 4287 §4.1.3.3) could both have been deleted
+// with every test still passing.
+#let _stub-atom-xhtml(cfg) = (
+  (
+    title: "Xhtml Entry",
+    page: "a.html",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-xhtml = feed(
+  path: "xhtml.xml",
+  title: "Xhtml Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-xhtml,),
+  content: "xhtml",
+)
+#let xml-xhtml = atom(cfg-atom-xhtml)
+#assert(
+  xml-xhtml.contains(
+    "<content type=\"xhtml\"><div xmlns=\"http://www.w3.org/1999/xhtml\"><rheo-content page=\"a.html\" as=\"raw\"/></div></content>",
+  ),
+  message: "xhtml content must wrap an as=\"raw\" placeholder in the XHTML div",
+)
+#assert(
+  not xml-xhtml.contains("as=\"escaped\""),
+  message: "xhtml content must NOT escape — the div is the content model",
+)
+
+// ---- subtitle — emitted when set, absent when not -------------------------
+#let cfg-atom-subtitle = feed(
+  path: "subtitle.xml",
+  title: "Subtitle Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+  subtitle: "A subtitle",
+)
+#assert(
+  atom(cfg-atom-subtitle).contains("<subtitle>A subtitle</subtitle>"),
+  message: "a configured subtitle must reach the feed",
+)
+#assert(
+  not xml-struct.contains("<subtitle"),
+  message: "a feed with no subtitle must emit no <subtitle> at all",
+)
+
+// ---- content: none — no <content> even with a page, summary still emitted --
+#let _stub-atom-nocontent(cfg) = (
+  (
+    title: "No Content",
+    page: "a.html",
+    summary: "Only a blurb.",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-nocontent = feed(
+  path: "nocontent.xml",
+  title: "No Content Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-nocontent,),
+  content: none,
+)
+#let xml-nocontent = atom(cfg-atom-nocontent)
+#assert(
+  not xml-nocontent.contains("<content"),
+  message: "content: none must suppress <content> even for an entry with a page",
+)
+#assert(
+  xml-nocontent.contains("<summary type=\"text\">Only a blurb.</summary>"),
+  message: "content: none leaves the summary as the entry's only body",
+)
+
+// ---- entry author — emitted only when it differs from the feed's -----------
+//
+// RFC 4287 §4.1.2 inheritance: an entry with no author of its own is covered
+// by the feed's, so `_entry-elem` suppresses a matching one. Only the
+// inherited case had coverage; the branch that EMITS one had none.
+#let _stub-atom-author(cfg) = (
+  (
+    title: "Guest Post",
+    url: "https://example.com/guest",
+    updated: datetime(year: 2026, month: 1, day: 1),
+    author: "Someone Else",
+  ),
+)
+#let cfg-atom-author = feed(
+  path: "author.xml",
+  title: "Author Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-author,),
+)
+#let xml-author = atom(cfg-atom-author)
+#assert(
+  xml-author.contains("<author><name>Someone Else</name></author>"),
+  message: "an entry author differing from the feed's must be emitted",
+)
+// Two <author> elements total: the feed's own, plus this one entry's.
+#assert.eq(xml-author.matches("<author>").len(), 2)
+// An entry whose author MATCHES the feed's contributes none — one in total.
+#assert.eq(xml-struct.matches("<author>").len(), 1)
+
+// ---- _rfc3339 — the arm for a datetime that carries a TIME ----------------
+//
+// A date-only datetime has `.hour() == none` and gets "T00:00:00Z" spliced on
+// by hand; a datetime with a time goes through `.display` instead. Every other
+// fixture here is date-only, so that second arm was never run.
+#let _stub-atom-timed(cfg) = (
+  (
+    title: "Timed",
+    url: "https://example.com/timed",
+    updated: datetime(
+      year: 2026,
+      month: 1,
+      day: 2,
+      hour: 3,
+      minute: 4,
+      second: 5,
+    ),
+  ),
+)
+#let cfg-atom-timed = feed(
+  path: "timed.xml",
+  title: "Timed Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-timed,),
+)
+#assert(
+  atom(cfg-atom-timed).contains("<updated>2026-01-02T03:04:05Z</updated>"),
+  message: "a datetime carrying a time must render that time, not midnight",
+)
+
+// ---- _esc-attr vs _esc-text — a double quote is escaped in ATTRIBUTES only -
+//
+// The asymmetry is deliberate: attribute values are double-quoted here, so `"`
+// must become `&quot;` there, while element text needs no such escape (XML
+// only requires `&`/`<` in text). `_esc-text` was covered by the "Tom & Jerry"
+// case above; the `"` replacement that makes `_esc-attr` different was not.
+#let _stub-atom-quotes(cfg) = (
+  (
+    title: "She said \"hi\"",
+    page: "q.html",
+    select: "a[data-x=\"y\"]",
+    updated: datetime(year: 2026, month: 1, day: 1),
+    categories: ("say \"hi\"",),
+  ),
+)
+#let cfg-atom-quotes = feed(
+  path: "quotes.xml",
+  title: "Quotes Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-quotes,),
+)
+#let xml-quotes = atom(cfg-atom-quotes)
+#assert(
+  xml-quotes.contains("<category term=\"say &quot;hi&quot;\"/>"),
+  message: "a quote inside an attribute must become &quot;",
+)
+#assert(
+  xml-quotes.contains("select=\"a[data-x=&quot;y&quot;]\""),
+  message: "select is an attribute too — its quotes must be escaped",
+)
+#assert(
+  xml-quotes.contains("<title>She said \"hi\"</title>"),
+  message: "a quote inside element TEXT is left alone, deliberately",
+)
+
 // ---- summary AND content together: independent, not either/or -------------
 //
 // An entry supplying both a `page` and a `summary` gets both elements. Atom
