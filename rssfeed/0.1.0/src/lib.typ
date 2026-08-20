@@ -904,11 +904,24 @@
 // `resolve-entries(cfg)` call, possibly inspected/filtered/adjusted first)
 // never requires context here regardless of how that list was produced.
 //
+// A supplied list is NORMALISED like any source's output — same validation,
+// same fallbacks, same skip rule — so a hand-built sparse entry is accepted
+// and an undated one is dropped. `_normalize-entry` is idempotent on an
+// already-normalised entry (every field it fills is present and every assert
+// it runs already passed), so the common case of passing a prior
+// `resolve-entries(cfg)` result is unchanged. Without this, a hand-built entry
+// died on the first missing key it reached: `dictionary does not contain key
+// "id"`.
+//
 // Feed `<id>` and the `rel="self"` link both use `cfg.base-url + "/" +
 // cfg.path` — the generalised form of the retired generator's hardcoded
 // `base-url + "/feed.xml"`, now following whatever `path` the config set.
 #let atom(cfg, entries: none) = {
-  let entries = if entries == none { resolve-entries(cfg) } else { entries }
+  let entries = if entries == none {
+    resolve-entries(cfg)
+  } else {
+    entries.map(e => _normalize-entry(e, cfg)).filter(e => e != none)
+  }
   if entries.len() == 0 {
     return none
   }
@@ -960,6 +973,32 @@
 // values — safe per the MEASURED fact in the "source" section above: a
 // Typst `state` holds a function through `.final()` and the result is still
 // callable.
+// Shared by `configure`, `emit` and `_mint-plan` — the three places a caller
+// hands over an array of feed configs. `who` is the caller's own name, spliced
+// into both messages so each site reads as its own error.
+//
+// The per-item check is a SHAPE check, not a re-validation: `feed(...)` already
+// checked every field, and all this has to catch is a dictionary that never
+// went through it. Unchecked, such a dictionary died at the bundle root as
+// `dictionary does not contain key "sources"` — no page, no line an author
+// could act on.
+#let _expect-feeds(feeds, who) = {
+  assert(
+    type(feeds) == array,
+    message: "@rheo/rssfeed: " + who + "'s `feeds` must be an array of feed "
+      + "configs, e.g. `" + who + "(feeds: (feed(..), feed(..)))`.",
+  )
+  for f in feeds {
+    assert(
+      type(f) == dictionary and "sources" in f and "path" in f,
+      message: "@rheo/rssfeed: " + who + "'s `feeds` must hold configs built "
+        + "by `feed(..)` — got " + repr(f) + ". Call `feed(title: .., "
+        + "base-url: .., sources: (..))` and pass its return value.",
+    )
+  }
+  feeds
+}
+
 #let _feeds = state("rheo-rssfeed-feeds", ())
 
 // Register one or more feeds for `.marrow.typ` to mint. Call ONCE from any
@@ -974,12 +1013,7 @@
 // the XML emitter) directly from their own `.marrow.typ` — need this
 // function not at all; the two entry points are independent.
 #let configure(feeds: ()) = {
-  assert(
-    type(feeds) == array,
-    message: "@rheo/rssfeed: configure's `feeds` must be an array of feed "
-      + "configs, e.g. `configure(feeds: (feed(...), feed(...)))`.",
-  )
-  _feeds.update(old => old + feeds)
+  _feeds.update(old => old + _expect-feeds(feeds, "configure"))
 }
 
 // ---- _mint-plan — shared minting plan for BOTH marrow entry points --------
@@ -1009,6 +1043,10 @@
 // `items()`) — call from inside `#context { .. }`, exactly as `atom(...)`'s
 // own no-`entries` form does.
 #let _mint-plan(feeds) = {
+  // The site that actually catches a bad config arriving through `configure`'s
+  // state: `configure` only appends, and `.marrow.typ` reads the state back
+  // much later, so its own check cannot see what a second caller put there.
+  let feeds = _expect-feeds(feeds, "_mint-plan")
   for i in range(feeds.len()) {
     for j in range(i + 1, feeds.len()) {
       assert(
@@ -1060,12 +1098,7 @@
 //   #import "@rheo/rssfeed:0.1.0": feed, emit
 //   #context { emit(feeds: (feed(...), feed(...))) }
 #let emit(feeds: ()) = {
-  assert(
-    type(feeds) == array,
-    message: "@rheo/rssfeed: emit's `feeds` must be an array of feed "
-      + "configs, e.g. `emit(feeds: (feed(...), feed(...)))`.",
-  )
-  for m in _mint-plan(feeds) {
+  for m in _mint-plan(_expect-feeds(feeds, "emit")) {
     asset(m.path, m.data)
   }
 }
