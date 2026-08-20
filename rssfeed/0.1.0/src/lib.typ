@@ -58,6 +58,11 @@
 //
 // A SOURCE need not fill every key — only `title` is mandatory on the way in;
 // everything else is filled or defaulted by `_normalize-entry` below.
+//
+// ADDING A FIELD means touching three places, not one: this table,
+// `_normalize-entry`'s returned dictionary, and `item(...)`'s pair list (which
+// decides what a `<rssfeed:item>` beacon carries). The readme's entry table is
+// a fourth, user-facing copy.
 
 // ---- source — a plain function, not a registry --------------------------
 //
@@ -738,15 +743,26 @@
   // crossing into another scope, and a plain string is what every reader of it
   // expects — including `items()`, which reads this dict back verbatim.
   let title = _expect-title(title, "item(...)")
-  let value = (title: title, categories: categories)
-  if url != none { value.insert("url", url) }
-  if page != none { value.insert("page", page) }
-  if select != none { value.insert("select", select) }
-  if published != none { value.insert("published", published) }
-  if updated != none { value.insert("updated", updated) }
-  if summary != none { value.insert("summary", summary) }
-  if author != none { value.insert("author", author) }
-  if id != none { value.insert("id", id) }
+  // One pair list rather than nine near-identical `if`s, so a new field means
+  // one more pair. `categories` is in it too: an omitted (or explicitly empty)
+  // array is left OUT of the beacon entirely, which is what this function's
+  // doc comment above promises and what the hand-rolled version got wrong by
+  // always inserting it. `_normalize-entry` supplies the same `()` default
+  // downstream, so "omitted" and "empty" mean the same thing to the feed.
+  let value = (title: title)
+  for (k, v) in (
+    ("url", url),
+    ("page", page),
+    ("select", select),
+    ("published", published),
+    ("updated", updated),
+    ("summary", summary),
+    ("author", author),
+    ("id", id),
+    ("categories", categories),
+  ) {
+    if v != none and v != () { value.insert(k, v) }
+  }
   [#metadata(value)#label(label-name)]
 }
 
@@ -758,6 +774,14 @@
 // text content does not.
 #let _esc-text(s) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 #let _esc-attr(s) = _esc-text(s).replace("\"", "&quot;")
+
+// One text element, escaped. Every `<tag>text</tag>` in this file goes through
+// here so no site can be added that forgets the escape — the failure that
+// would produce is malformed XML no assertion necessarily catches. Attributes
+// are deliberately NOT covered: they are built inline with their own quoting,
+// and `_content-elem`'s omit-`select`-entirely rule depends on staying
+// explicit about them.
+#let _elem(name, text) = "<" + name + ">" + _esc-text(text) + "</" + name + ">"
 
 // ---- timestamps — RFC 3339 with an explicit "Z" offset --------------------
 //
@@ -799,13 +823,7 @@
 // (RFC 4287 §4.2.15: "most recent instant in which the feed was modified").
 // Never called with an empty array — `atom(...)` below returns `none`
 // before reaching this when `entries` is empty.
-#let _max-updated(entries) = {
-  let m = entries.first().updated
-  for e in entries.slice(1) {
-    if e.updated > m { m = e.updated }
-  }
-  m
-}
+#let _max-updated(entries) = entries.map(e => e.updated).sorted().last()
 
 // This entry's `<summary>` and/or `<content>`, or `""` when it has neither.
 //
@@ -852,8 +870,8 @@
 // per `e.categories`, the alternate link, then content/summary.
 #let _entry-elem(cfg, e) = {
   let parts = (
-    "<id>" + _esc-text(e.id) + "</id>",
-    "<title>" + _esc-text(e.title) + "</title>",
+    _elem("id", e.id),
+    _elem("title", e.title),
   )
   if e.published != none {
     // atom:published (RFC 4287 §4.2.9 — creation instant), DISTINCT from
@@ -871,7 +889,7 @@
   }
   parts += ("<updated>" + _rfc3339(e.updated) + "</updated>",)
   if e.author != cfg.author {
-    parts += ("<author><name>" + _esc-text(e.author) + "</name></author>",)
+    parts += ("<author>" + _elem("name", e.author) + "</author>",)
   }
   for cat in e.categories {
     parts += ("<category term=\"" + _esc-attr(cat) + "\"/>",)
@@ -930,15 +948,15 @@
   let head = (
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
     "<feed xmlns=\"http://www.w3.org/2005/Atom\">",
-    "<id>" + _esc-text(feed-url) + "</id>",
-    "<title>" + _esc-text(cfg.title) + "</title>",
+    _elem("id", feed-url),
+    _elem("title", cfg.title),
   )
   let subtitle = if cfg.subtitle != none {
-    ("<subtitle>" + _esc-text(cfg.subtitle) + "</subtitle>",)
+    (_elem("subtitle", cfg.subtitle),)
   } else { () }
   let rest = (
     "<updated>" + _rfc3339(_max-updated(entries)) + "</updated>",
-    "<author><name>" + _esc-text(cfg.author) + "</name></author>",
+    "<author>" + _elem("name", cfg.author) + "</author>",
     "<link rel=\"self\" href=\"" + _esc-attr(feed-url) + "\"/>",
   )
   let entry-strs = entries.map(e => _entry-elem(cfg, e))
