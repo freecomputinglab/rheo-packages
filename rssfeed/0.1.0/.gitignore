@@ -1,3 +1,4 @@
 .direnv/
 build
 *.pdf
+__pycache__/
