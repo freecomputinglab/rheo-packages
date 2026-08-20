@@ -90,16 +90,19 @@
 // a tag everywhere it appears, including this pill. A project stylesheet
 // that only meant to style the card is affected too — that is the intent of
 // sharing the class, not an accident.
+//
+// CLASSES ONLY, no `style` attribute: `theme: (tags-color: ..)` used to reach
+// this pill as an inline style computed right here, and now arrives as a
+// generated `.idea-tag-<tag>` rule instead (`_tags-color-rules`, theme.typ),
+// carried by the class this element already wore. Nothing to do here but wear
+// the class — which is exactly why the theme now also reaches the surfaces this
+// function never touched.
 #let _permalink-tab(id, href: auto, tags: (), date: none) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
   _permalink(id, href: href)
     + (if tags.len() == 0 { [] } else {
-      tags.map(t => {
-        let base = (class: "idea-tag idea-tag-" + t)
-        let style = _tag-style(t)
-        html.elem("span", attrs: if style == none { base } else { base + (style: style) }, t)
-      }).join()
+      tags.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
     })
     + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
 )

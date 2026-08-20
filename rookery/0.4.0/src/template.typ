@@ -195,15 +195,29 @@
   // `<style>` count stays exactly zero, matching the promise inline theming
   // already keeps ("an unconfigured document emits nothing extra at all").
   //
+  // TWO BLOCKS, ONE `<style>`. The `:root` block carries the document-wide
+  // theme; the second is the per-tag `@layer rookery-tags` block that delivers
+  // `theme: (tags-color: ..)` as generated `.idea-tag-<tag>` rules
+  // (`_tags-color-rules`, theme.typ — read its banner for why a rule and why the
+  // layer). They are independent: a project may configure either, both or
+  // neither, and the element is emitted only when at least one has something to
+  // say, so the zero-`<style>` promise above still holds for an unthemed
+  // document.
+  //
   // GATED to html/epub, exactly like every other `html.elem` call in this
   // file: `html.elem` renders nothing meaningful on the paged (PDF) target,
   // and unconditionally calling it there is what `demo/pure`'s two PDF roots
   // exist to catch.
   context {
     if _target() == "html" or _target() == "epub" {
-      let style = _theme-style()
-      if style != none {
-        html.elem("style", ":root { " + style + "; }")
+      let root = _theme-style()
+      let tags = _tags-color-rules()
+      if root != none or tags != none {
+        html.elem(
+          "style",
+          (if root != none { ":root { " + root + "; }" } else { "" })
+            + (if tags != none { tags } else { "" }),
+        )
       }
     }
   }

@@ -102,24 +102,50 @@
   if s == none { attrs } else { attrs + (style: s) }
 }
 
-// Return inline CSS for a tag pill's colour, or `none` if no theme colour
-// is configured for the tag. Reads the normalized `tags-color` dict where each
-// tag maps to a dict with optional `background` and/or `text` keys, all
-// CSS-stringified (hex or passthrough). When present, builds a declaration list
-// joining whichever are present with `"; "`, omitting any missing keys.
-#let _tag-style(t) = {
+// Return `tags-color` as a block of GENERATED CSS RULES — one
+// `.idea-tag-<tag>` rule per themed tag, publishing that tag's colours as the
+// custom properties `rookery.css` already reads — or `none` when no tag is
+// themed, mirroring `_theme-style()`'s `none` contract above so an unthemed
+// document still emits nothing at all.
+//
+// RULES, NOT AN INLINE STYLE, and that is the whole point of the shape. These
+// colours used to be an inline `style` attribute on the one pill
+// `_permalink-tab` builds, which reached exactly that element and nothing else.
+// Every OTHER surface a themed tag should colour already wears the same
+// `idea-tag-<tag>` class — the note heading and the card (`idea.typ`), an
+// outline row (`outline.typ`), and the chips `@rheo/rookery-search` builds IN
+// THE BROWSER, long after Typst has run and therefore unreachable by any inline
+// style Typst could ever write. One rule on the shared class reaches all of them
+// at once, because `rookery.css`'s pill rule already resolves
+// `var(--idea-tag-color, ..)` and `var(--idea-tag-bg, ..)`.
+//
+// ACCEPTED CONSEQUENCE: a themed pill is UNCOLOURED in EPUB output, which ships
+// no stylesheet here, so those `var()`s fall back to their defaults. Paid
+// deliberately for the gain an inline style made impossible — a project can now
+// override a themed pill from its own stylesheet.
+//
+// `@layer rookery-tags` IS LOAD-BEARING, and not guessable from the output.
+// This `<style>` sits in the document BODY, and UNLAYERED CSS beats LAYERED CSS
+// regardless of source order — so WITHOUT the layer these generated rules would
+// outrank a project's own `.idea-tag-draft { --idea-tag-bg: .. }` in its linked
+// stylesheet, taking away the very override the shared class exists for.
+// `rookery.css` is itself unlayered and unaffected either way: it only READS
+// these properties, it never sets them.
+//
+// Reads the normalized `tags-color` dict (`_resolve-tags-color`, data.typ),
+// where each tag maps to a dict with optional `background` and/or `text` keys,
+// both already CSS-stringified (hex or passthrough) — and whose KEY is already
+// validated as a usable CSS class, which is what makes interpolating it into a
+// selector here safe.
+#let _tags-color-rules() = {
   let tags-color = _theme.final().at("tags-color", default: (:))
-  let tag-def = tags-color.at(t, default: none)
-  if tag-def == none {
-    none
-  } else {
-    let decls = ()
-    if "background" in tag-def {
-      decls.push("background-color: " + tag-def.at("background"))
-    }
-    if "text" in tag-def {
-      decls.push("color: " + tag-def.at("text"))
-    }
-    if decls.len() == 0 { none } else { decls.join("; ") }
-  }
+  let rules = tags-color
+    .pairs()
+    .map(((tag, def)) => {
+      let decls = ()
+      if "background" in def { decls.push("--idea-tag-bg: " + def.at("background")) }
+      if "text" in def { decls.push("--idea-tag-color: " + def.at("text")) }
+      ".idea-tag-" + tag + " { " + decls.join("; ") + " }"
+    })
+  if rules.len() == 0 { none } else { "@layer rookery-tags { " + rules.join(" ") + " }" }
 }
