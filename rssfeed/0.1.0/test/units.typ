@@ -53,7 +53,7 @@
 // `#asset(...)` directly and so is only exercisable under a real rheo build
 // (this fixture compiles to `--format pdf`, where `asset` bails if shown).
 
-#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, atom, feed, item, items, resolve-entries, spine
+#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, _rfc822, atom, feed, item, items, resolve-entries, rss, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -991,6 +991,151 @@ Para two]), "Para one Para two")
   ),
   none,
 )
+
+// ---- rss — RSS 2.0 serialization ------------------------------------------
+
+// `_rfc822` — both arms, unlike `_rfc3339`, whose time-carrying arm went
+// untested until it was added deliberately.
+#assert.eq(
+  _rfc822(datetime(year: 2026, month: 1, day: 5)),
+  "Mon, 05 Jan 2026 00:00:00 GMT",
+)
+#assert.eq(
+  _rfc822(datetime(
+    year: 2026,
+    month: 1,
+    day: 5,
+    hour: 3,
+    minute: 4,
+    second: 5,
+  )),
+  "Mon, 05 Jan 2026 03:04:05 GMT",
+)
+
+// Structural shape: declaration, rss/channel envelope, item count.
+#let cfg-rss = feed(
+  path: "rss.xml",
+  title: "Rss Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+)
+#let xml-rss = rss(cfg-rss)
+#assert(
+  xml-rss.starts-with("<?xml version=\"1.0\" encoding=\"utf-8\"?>"),
+  message: "rss(...) must start with the XML declaration",
+)
+#assert(
+  xml-rss.contains("<rss version=\"2.0\""),
+  message: "rss(...) must declare RSS 2.0",
+)
+#assert.eq(xml-rss.matches("<item>").len(), 2)
+// Channel `<link>` is the SITE; the self-link is the feed. Asserted together,
+// so one value cannot be used for both.
+#assert(
+  xml-rss.contains("<link>https://example.com</link>"),
+  message: "the channel link must be the site root",
+)
+#assert(
+  xml-rss.contains(
+    "<atom:link rel=\"self\" href=\"https://example.com/rss.xml\" type=\"application/rss+xml\"/>",
+  ),
+  message: "the self link must be the feed's own URL, with the RSS mime type",
+)
+// `<description>` is required by RSS 2.0 and falls back to the title.
+#assert(
+  xml-rss.contains("<description>Rss Feed</description>"),
+  message: "channel description must fall back to the title when no subtitle",
+)
+#let cfg-rss-sub = feed(
+  path: "rss-sub.xml",
+  title: "Rss Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-struct,),
+  subtitle: "The subtitle",
+)
+#assert(
+  rss(cfg-rss-sub).contains("<description>The subtitle</description>"),
+  message: "a configured subtitle must become the channel description",
+)
+// One date per item: `published` preferred, and no second date element.
+#let xml-rss-pub = rss(feed(
+  path: "rss-pub.xml",
+  title: "Rss Pub",
+  base-url: "https://example.com",
+  sources: (_stub-atom-pub,),
+))
+#assert(
+  xml-rss-pub.contains("<pubDate>Thu, 01 Jan 2026 00:00:00 GMT</pubDate>"),
+  message: "pubDate must prefer `published` over `updated`",
+)
+#assert.eq(xml-rss-pub.matches("<updated>").len(), 0)
+// A plain-name author goes in <dc:creator>, never RSS's email-only <author>.
+#assert(
+  xml-rss.contains("<dc:creator>Rheo</dc:creator>"),
+  message: "an author NAME belongs in dc:creator, not RSS's email-only author",
+)
+#assert.eq(xml-rss.matches("<author>").len(), 0)
+
+// `guid isPermaLink` — false for a non-URL id (rookery's shape), true when the
+// id really is a URL (the default, since `id` falls back to `url`).
+#let _stub-rss-guid(cfg) = (
+  (
+    id: "idea:beta",
+    title: "Opaque Id",
+    url: "https://example.com/opaque",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let xml-rss-guid = rss(feed(
+  path: "rss-guid.xml",
+  title: "Rss Guid",
+  base-url: "https://example.com",
+  sources: (_stub-rss-guid,),
+))
+#assert(
+  xml-rss-guid.contains("<guid isPermaLink=\"false\">idea:beta</guid>"),
+  message: "a non-URL id must be marked isPermaLink=\"false\"",
+)
+#assert(
+  xml-rss.contains(
+    "<guid isPermaLink=\"true\">https://example.com/struct-one</guid>",
+  ),
+  message: "an id that IS a url must be marked isPermaLink=\"true\"",
+)
+
+// Summary and content both present: the summary takes `<description>` and the
+// transclusion placeholder goes to `<content:encoded>`.
+#let xml-rss-both = rss(feed(
+  path: "rss-both.xml",
+  title: "Rss Both",
+  base-url: "https://example.com",
+  sources: (_stub-atom-both,),
+))
+#assert(
+  xml-rss-both.contains("<description>A preview blurb.</description>"),
+  message: "with both, the summary takes the single description slot",
+)
+#assert(
+  xml-rss-both.contains(
+    "<content:encoded><rheo-content page=\"both.html\" as=\"escaped\"/></content:encoded>",
+  ),
+  message: "with both, the content goes to content:encoded",
+)
+// Content but no summary: the placeholder takes `<description>` itself.
+#assert(
+  rss(feed(
+    path: "rss-content.xml",
+    title: "Rss Content",
+    base-url: "https://example.com",
+    sources: (_stub-atom-select,),
+  )).contains(
+    "<description><rheo-content page=\"a.html\" select=\"main\" as=\"escaped\"/></description>",
+  ),
+  message: "content with no summary takes the description slot, select intact",
+)
+
+// Zero entries -> no feed, the same contract atom(...) has.
+#assert.eq(rss(cfg-atom-empty), none)
 
 // ---- _mint-plan — the shared marrow/emit minting plan ----------------------
 
