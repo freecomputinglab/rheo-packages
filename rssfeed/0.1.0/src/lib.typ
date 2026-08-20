@@ -941,6 +941,12 @@
 // Feed `<id>` and the `rel="self"` link both use `cfg.base-url + "/" +
 // cfg.path` — the generalised form of the retired generator's hardcoded
 // `base-url + "/feed.xml"`, now following whatever `path` the config set.
+//
+// The feed-level `rel="alternate"` link is a DIFFERENT href: `base-url`
+// itself, the site the feed describes, as distinct from `rel="self"`, the
+// feed's own URL. Readers use it as the "visit site" affordance, and its
+// absence is a warning from the W3C Feed Validator (RFC 4287 does not require
+// it).
 #let atom(cfg, entries: none) = {
   let entries = if entries == none {
     resolve-entries(cfg)
@@ -964,6 +970,10 @@
   let rest = (
     "<updated>" + _rfc3339(_max-updated(entries)) + "</updated>",
     "<author>" + _elem("name", cfg.author) + "</author>",
+    // The SITE, not the feed — a reader's "visit site" target. No `type=`: an
+    // `alternate` link defaults to text/html (RFC 4287 §4.2.7.2), which is
+    // what a site root is.
+    "<link rel=\"alternate\" href=\"" + _esc-attr(cfg.base-url) + "\"/>",
     "<link rel=\"self\" href=\"" + _esc-attr(feed-url) + "\"/>",
   )
   let entry-strs = entries.map(e => _entry-elem(cfg, e))
