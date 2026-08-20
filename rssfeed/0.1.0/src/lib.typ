@@ -116,6 +116,25 @@
   v
 }
 
+// "Absolute" means "starts with a scheme" — RFC 3986's scheme grammar: a
+// letter, then letters/digits/`+`/`.`/`-`. Anchored at the START of the string,
+// not merely present, so "see http://x" still fails. ONE binding, used by both
+// `feed(...)`'s `base-url` assert and `_expect-abs-url` below, so the two
+// cannot drift into two spellings of the same rule.
+#let _abs-url-re = regex("^[a-zA-Z][a-zA-Z0-9+.\-]*://")
+
+#let _expect-abs-url(v, field) = {
+  let s = _expect-str(v, field)
+  assert(
+    s.match(_abs-url-re) != none,
+    message: "@rheo/rssfeed: `" + field + "` must be an absolute URL (start "
+      + "with a scheme, e.g. \"https://\") — got " + repr(s)
+      + ". A page-relative path belongs in `page`, which is joined onto the "
+      + "feed's `base-url` for you.",
+  )
+  s
+}
+
 // The message names the FIX, not just the fault. Typst loops a string
 // character by character, so `categories: "note"` is not a type error at all:
 // it silently emits one `<category>` per letter (MEASURED — four of them,
@@ -188,12 +207,10 @@
     type(base-url) == str and base-url.len() > 0,
     message: "@rheo/rssfeed: feed's `base-url` must be a non-empty string.",
   )
-  // Absolute means "starts with a scheme" — `http://`, `https://`, or
-  // anything shaped like one (RFC 3986's scheme grammar: a letter, then
-  // letters/digits/`+`/`.`/`-`). Anchored at the START of the string, not
-  // merely present, so "see http://x" (a title, not a base-url) still fails.
+  // Absolute means "starts with a scheme" — see `_abs-url-re` above, which an
+  // entry's own `url` is held to as well.
   assert(
-    base-url.match(regex("^[a-zA-Z][a-zA-Z0-9+.\-]*://")) != none,
+    base-url.match(_abs-url-re) != none,
     message: "@rheo/rssfeed: feed's `base-url` must be absolute (start with "
       + "a scheme, e.g. \"https://\") — got " + repr(base-url),
   )
@@ -396,28 +413,41 @@
     updated = published
   }
 
+  // A source-supplied `url` must be ABSOLUTE — a relative one used to sail
+  // through into `<link href>` and `<id>` verbatim, which is broken in every
+  // reader and reported by nothing. A url BUILT from `page` needs no such
+  // check: `feed(...)` already proved `base-url` absolute, so the join cannot
+  // produce a relative result and a second regex per entry would buy nothing.
+  let page = _expect-str-or-none(e.at("page", default: none), "page")
   let url = e.at("url", default: none)
   if url == none {
-    let page = e.at("page", default: none)
     assert(
       page != none,
       message: "@rheo/rssfeed: entry '" + title + "' has neither `url` nor "
         + "`page` — cannot build a URL.",
     )
     url = cfg.base-url + "/" + _clean-page(page)
+  } else {
+    url = _expect-abs-url(url, "url")
   }
 
   (
-    id: e.at("id", default: url),
+    // An `id` need NOT be a URL — a source may set its own opaque id, and
+    // rookery-sourced entries do exactly that ("idea:beta"). Only its type is
+    // checked. The default is `url`, already validated just above.
+    id: _expect-str(e.at("id", default: url), "id"),
     title: title,
     url: url,
-    page: e.at("page", default: none),
-    select: e.at("select", default: none),
+    page: page,
+    select: _expect-str-or-none(e.at("select", default: none), "select"),
     published: published,
     updated: updated,
-    summary: e.at("summary", default: none),
+    summary: _expect-str-or-none(e.at("summary", default: none), "summary"),
     categories: _expect-strs(e.at("categories", default: ()), "categories"),
-    author: e.at("author", default: cfg.author),
+    // An entry-level author reaches `_entry-elem` as a plain string and fails
+    // the same way an unchecked feed-level one would; the default is
+    // `cfg.author`, which `feed(...)` already validated.
+    author: _expect-str(e.at("author", default: cfg.author), "author"),
   )
 }
 
