@@ -132,8 +132,10 @@ is:
 `content` governs what an entry's `<content>` element resolves to: `"html"`
 and `"xhtml"` both splice in the entry's own `page` via rheo's
 `<rheo-content>` transclusion (`"xhtml"` wraps it in the XHTML content model
-Atom's `type="xhtml"` requires); `none` skips `<content>` entirely and falls
-back to `<summary>` where an entry supplies one. `<rheo-content>` and rheo's
+Atom's `type="xhtml"` requires); `none` skips `<content>` entirely. A
+`summary`, where an entry supplies one, is always emitted — alongside
+`<content>` rather than instead of it, which Atom permits and readers use for
+list previews. `<rheo-content>` and rheo's
 other build-time control assets are rheo's own contract, not this package's —
 see [rheo.ohrg.org](https://rheo.ohrg.org) for that half.
 

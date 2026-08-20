@@ -584,6 +584,36 @@ Para two]), "Para one Para two")
   message: "an entry with no page but a summary must get <summary type=\"text\">",
 )
 
+// ---- summary AND content together: independent, not either/or -------------
+//
+// An entry supplying both a `page` and a `summary` gets both elements. Atom
+// permits it (RFC 4287 §4.1.2) and readers use the summary for list previews;
+// the summary used to be the else-branch of content, so this entry silently
+// lost the summary it asked for.
+#let _stub-atom-both(cfg) = (
+  (
+    title: "Both",
+    page: "both.html",
+    summary: "A preview blurb.",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let cfg-atom-both = feed(
+  path: "both.xml",
+  title: "Both Feed",
+  base-url: "https://example.com",
+  sources: (_stub-atom-both,),
+)
+#let xml-both = atom(cfg-atom-both)
+#assert(
+  xml-both.contains("<summary type=\"text\">A preview blurb.</summary>"),
+  message: "an entry with a page must STILL emit its own summary",
+)
+#assert(
+  xml-both.contains("<content type=\"html\"><rheo-content page=\"both.html\" as=\"escaped\"/></content>"),
+  message: "the content element is unaffected by the summary beside it",
+)
+
 // ---- no entries -> no feed at all ------------------------------------------
 //
 // Mirrors the retired Rust generator's early return ("Skip feed generation
