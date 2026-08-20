@@ -226,6 +226,7 @@
   subtitle: none,
   content: "html",
   limit: none,
+  format: "atom",
 ) = {
   assert(
     type(title) == str and title.len() > 0,
@@ -258,6 +259,28 @@
     message: "@rheo/rssfeed: feed's `content` must be \"html\", \"xhtml\", "
       + "or none — got " + repr(content),
   )
+  assert(
+    format == "atom" or format == "rss" or format == "json",
+    message: "@rheo/rssfeed: feed's `format` must be \"atom\", \"rss\" or "
+      + "\"json\" — got " + repr(format),
+  )
+  // Two cross-field rules, both asserts rather than silent coercions: a
+  // setting this package quietly ignored would be exactly the failure mode
+  // its own dropped-summary bug was.
+  assert(
+    content != "xhtml" or format == "atom",
+    message: "@rheo/rssfeed: `content: \"xhtml\"` is Atom-only (it is Atom's "
+      + "own `type=\"xhtml\"` content model) — got format " + repr(format)
+      + ". RSS carries HTML in `<description>`/`<content:encoded>`, and JSON "
+      + "Feed carries none yet; use `content: \"html\"` or none.",
+  )
+  assert(
+    format != "json" or content == none,
+    message: "@rheo/rssfeed: `format: \"json\"` requires `content: none` — got "
+      + repr(content) + ". JSON Feed content needs a JSON-safe "
+      + "`<rheo-content>` encoding that rheo does not have yet, so entries "
+      + "carry their `summary` only.",
+  )
 
   // The four fields below are validated HERE, in the returned dict, rather than
   // as separate asserts above: each is checked exactly where it is stored, and
@@ -284,6 +307,7 @@
     subtitle: _expect-str-or-none(subtitle, "subtitle"),
     content: content,
     limit: _expect-positive-int-or-none(limit, "limit"),
+    format: format,
   )
 }
 
@@ -1299,6 +1323,28 @@
 // REQUIRES CONTEXT whenever any feed's `sources` needs it (`spine()`,
 // `items()`) — call from inside `#context { .. }`, exactly as `atom(...)`'s
 // own no-`entries` form does.
+// Which serializer a config's `format` selects, and the autodiscovery `type=`
+// that goes with it. Two helpers rather than one dispatch table because the
+// mime type is needed without serializing (the `.rheo/head.html` link is built
+// from the config alone).
+#let _serialize(cfg, entries: none) = if cfg.format == "rss" {
+  rss(cfg, entries: entries)
+} else if cfg.format == "json" {
+  json-feed(cfg, entries: entries)
+} else {
+  atom(cfg, entries: entries)
+}
+
+// `application/feed+json` is JSON Feed 1.1's registered type — not
+// `application/json+feed`.
+#let _feed-mime(cfg) = if cfg.format == "rss" {
+  "application/rss+xml"
+} else if cfg.format == "json" {
+  "application/feed+json"
+} else {
+  "application/atom+xml"
+}
+
 #let _mint-plan(feeds) = {
   // The site that actually catches a bad config arriving through `configure`'s
   // state: `configure` only appends, and `.marrow.typ` reads the state back
@@ -1321,15 +1367,16 @@
   // `_feed-url` is the same join `atom(...)` used for the feed's own `<id>`.
   let linked = ()
   for cfg in feeds {
-    let xml = atom(cfg)
-    if xml == none { continue }
-    minted += ((path: cfg.path, data: xml),)
+    let data = _serialize(cfg)
+    if data == none { continue }
+    minted += ((path: cfg.path, data: data),)
     linked += (cfg,)
   }
 
   if linked.len() > 0 {
     let tags = linked
-      .map(cfg => "<link rel=\"alternate\" type=\"application/atom+xml\" href=\""
+      .map(cfg => "<link rel=\"alternate\" type=\"" + _esc-attr(_feed-mime(cfg))
+        + "\" href=\""
         + _esc-attr(_feed-url(cfg)) + "\" title=\"" + _esc-attr(cfg.title) + "\">")
       .join("")
     minted += ((path: ".rheo/head.html", data: tags),)
