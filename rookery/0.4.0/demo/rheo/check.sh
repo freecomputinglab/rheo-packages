@@ -177,8 +177,13 @@ for page in ideas/index.html ideas/root-note.html; do
   grep -q '@layer rookery-tags' "$H/$page" ||
     note "$page carries no @layer rookery-tags block, so a minted page lost its tag theme"
 done
-grep -q 'idea-tag-note { --idea-tag-bg: #3366ff }' "$H/ideas/root-note.html" ||
+#    Matched DECLARATION BY DECLARATION, not as one exact rule string: the
+#    generator publishes as many properties as the entry warrants, and asserting
+#    the whole rule made adding `--idea-tag-line` look like a broken minted page.
+grep -q 'idea-tag-note { --idea-tag-bg: #3366ff[;}]' "$H/ideas/root-note.html" ||
   note "ideas/root-note.html's generated rule does not set --idea-tag-bg for the note tag"
+grep -q 'idea-tag-line: #3366ff' "$H/ideas/root-note.html" ||
+  note "ideas/root-note.html's generated rule does not set --idea-tag-line for the note tag"
 
 
 if [ "$fail" -ne 0 ]; then
