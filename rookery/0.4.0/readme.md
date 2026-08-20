@@ -32,9 +32,17 @@ as data".
 
 An idea's hat can show its tags as pills, opt-in via `show-tags`, and the hat's
 label size is themeable through `label-size` alongside the `label-font` that
-landed in 0.3.0. The theme is published once at document scope as a `:root`
-rule, so a package layered on top of rookery inherits it instead of restating
-it — `@rheo/rookery-search` 0.4.0 is the first to do so.
+landed in 0.3.0. The theme is published once per page as a `:root` rule, so a
+package layered on top of rookery inherits it instead of restating it —
+`@rheo/rookery-search` 0.4.0 is the first to do so.
+
+A tag can carry its own colour, `theme: (tags-color: (draft: rgb("#3366ff")))`,
+delivered as a generated `.idea-tag-<tag>` rule in `@layer rookery-tags` rather
+than as a style on the pill. That is what makes it reach every surface wearing the
+tag's class — the hat pill, an outline row's marker, and `@rheo/rookery-search`'s
+modal chips, which JavaScript builds in the browser — and what lets a project's
+own unlayered stylesheet override it. A themed tag's name must be usable as a CSS
+class, since it becomes one. See "Per-tag colour: `tags-color`".
 
 Rookery mints an `ideas/index.html` landing page for the whole rookery by
 default now — every note linked to its own page, with its date and its tags.
@@ -815,9 +823,11 @@ the index. MEASURED: a `#todo` row is
 order, and an untagged note's row is exactly `<li class="idea-outline-row">`.
 This is also the zero-API half of tag filtering: with the classes there, a site
 can grey, badge or hide rows in its own CSS with no Typst-side filter at all.
-The package ships NO default rule for any `.idea-tag-*`, here or on a note —
-`#note`/`#todo` are sugar, not a recognised set, and styling one would invent an
-opinion.
+The package ships NO default rule for any `.idea-tag-*` on the card or the note's
+heading — `#note`/`#todo` are sugar, not a recognised set, and styling one would
+invent an opinion. A row's own marker is the exception, and only for a tag you
+themed by name: `theme: (tags-color: ...)` publishes `--idea-tag-line` on that
+tag's class, which the marker reads (see "Per-tag colour" below).
 
 `.idea-tab` is a **hat**: a short stub of rule out of a frame's top-left corner
 with a label sitting on its end, in the same `--idea-border-color` as the rule
@@ -892,12 +902,13 @@ package's own `.rookery-search-tag`), so one project rule — `.idea-tag-draft {
 color: ...; }` — styles that tag everywhere it shows up: the note's heading,
 its card, an outline row, a hat pill, and a search result chip alike.
 
-Four CSS custom properties style the pill. Two of them — `--idea-tag-size` and
+Five CSS custom properties style a tag. Two of them — `--idea-tag-size` and
 `--idea-tag-radius` — have no `theme:` entry and use only the raw custom-property
 mechanism, the same "your own stylesheet" pattern as `--idea-external-color`.
-The other two, `--idea-tag-color` and `--idea-tag-bg`, can ALSO be set per-tag
-through `theme: (tags-color: (...))` (described below), which wins over both
-the raw custom properties and CSS defaults for whichever tags it names:
+The other three are what `theme: (tags-color: (...))` (described below) sets
+per-tag, as a rule on `.idea-tag-<tag>` in `@layer rookery-tags`. Being layered,
+those generated rules beat the package's own CSS defaults and lose to YOUR
+unlayered stylesheet — so a project can restate any of them for a themed tag:
 
 | property | what it sets | default |
 | --- | --- | --- |
@@ -905,6 +916,7 @@ the raw custom properties and CSS defaults for whichever tags it names:
 | `--idea-tag-radius` | the pill's corner radius | `999px` |
 | `--idea-tag-color` | the pill's text colour | `--idea-id-color` (`gray`) |
 | `--idea-tag-bg` | the pill's background | `rgba(128, 128, 128, 0.18)`, or `color-mix(in oklab, currentColor 14%, transparent)` where supported |
+| `--idea-tag-line` | the colour of an outline row's marker, the tick off the outline's rule | `--idea-border-color`, else `--idea-link-color`. Set from a themed tag's `text` colour where it has one and its `background` otherwise |
 
 ### Per-tag colour: `tags-color`
 
@@ -922,7 +934,20 @@ Syntax, both value forms:
 
 A bare colour or CSS colour string is shorthand for `(background: ...)`. A tag with no entry in `tags-color` keeps the CSS default (`--idea-tag-bg`/`--idea-tag-color`, or your own project stylesheet rule) — `tags-color` only overrides the tags it names.
 
-**Scope: pills only** (the `show-tags: true` chip). It does not recolour the card, the heading, or an outline row, even though those share the `.idea-tag-<tag>` class — that's still the existing raw-CSS mechanism described just above (`.idea-tag-draft { color: ...; }` styles that tag everywhere it shows up).
+A `tags-color` KEY has to be usable as a CSS class — a letter or an underscore first, then letters, digits, hyphens and underscores — because the key becomes a selector. `tags-color: ("in progress": ...)` fails the build with a message naming the tag. A tag in a note's own `tags:` array is unconstrained, as before: the rule is about naming a colour for a tag, not about carrying one.
+
+**Delivered as generated CSS rules, not as a style on the pill.** Each themed tag becomes one `.idea-tag-<tag>` rule setting `--idea-tag-bg`, `--idea-tag-color` and `--idea-tag-line`, wrapped in `@layer rookery-tags` and emitted once per page — by `#show: rookery` on every vertebra, and again on every page the package mints. So the colours reach every surface already wearing that class:
+
+- the **hat pill** (`show-tags: true`);
+- an **outline row's marker**, the hairline tick off the outline's own rule, through `--idea-tag-line`;
+- **`@rheo/rookery-search`'s modal chips**, built in the browser and therefore beyond the reach of anything Typst could write inline.
+
+It deliberately does NOT colour the **card** or the **note's heading**, which stay a rule for your own stylesheet to write. The pill already names the kind beside them, and colouring a note's own title makes the page's typography argue with its prose.
+
+Two consequences worth knowing:
+
+- **A project stylesheet can override a themed pill.** The generated rules sit in a layer, and unlayered CSS beats layered CSS whatever the source order, so your own `.idea-tag-draft { --idea-tag-bg: ... }` wins. The inline style this replaced could not be overridden at all.
+- **A themed pill is NOT coloured in EPUB or PDF.** An EPUB here ships no stylesheet, so the `var()`s fall back to their defaults, and the paged target renders no hat at all. Accepted deliberately in exchange for the reach above, not overlooked.
 
 Like the rest of `theme:`, this is **one value for the whole document** — apply the same arguments in every vertebra (see "The theme" above and "Setup").
 
