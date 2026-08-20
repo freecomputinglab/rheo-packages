@@ -53,7 +53,7 @@
 // `#asset(...)` directly and so is only exercisable under a real rheo build
 // (this fixture compiles to `--format pdf`, where `asset` bails if shown).
 
-#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, _rfc822, atom, feed, item, items, resolve-entries, rss, spine
+#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, _rfc822, atom, feed, item, items, json-feed, resolve-entries, rss, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -1136,6 +1136,104 @@ Para two]), "Para one Para two")
 
 // Zero entries -> no feed, the same contract atom(...) has.
 #assert.eq(rss(cfg-atom-empty), none)
+
+// ---- json-feed — JSON Feed 1.1 serialization ------------------------------
+//
+// Typst cannot parse JSON back out of a string, so the assertions here are
+// substring-based; the real parse check is in this bead's VERIFY, which runs
+// the output through python's `json.load`.
+//
+// Every json feed needs `content: none` — the serializer asserts it, because
+// full content needs a rheo-core encoding that does not exist yet (see
+// `json-feed`'s own doc comment). That panic is not assertable here.
+#let _stub-json(cfg) = (
+  (
+    title: "Says \"hi\"",
+    url: "https://example.com/hi",
+    summary: "A blurb.",
+    published: datetime(year: 2026, month: 1, day: 4),
+    updated: datetime(year: 2026, month: 1, day: 5),
+    categories: ("a", "b"),
+  ),
+)
+#let cfg-json = feed(
+  path: "feed.json",
+  title: "Json Feed",
+  base-url: "https://example.com",
+  sources: (_stub-json,),
+  content: none,
+  subtitle: "The subtitle",
+)
+#let js = json-feed(cfg-json)
+#assert(
+  js.contains("\"version\": \"https://jsonfeed.org/version/1.1\""),
+  message: "the 1.1 version member identifies the format",
+)
+// home_page_url is the SITE, feed_url the feed — asserted together so one
+// value cannot be used for both.
+#assert(
+  js.contains("\"home_page_url\": \"https://example.com\""),
+  message: "home_page_url must be the site root",
+)
+#assert(
+  js.contains("\"feed_url\": \"https://example.com/feed.json\""),
+  message: "feed_url must be base-url + \"/\" + path",
+)
+// A quote in a title comes back backslash-escaped — proof the output goes
+// through json.encode rather than string concatenation.
+#assert(
+  js.contains("Says \\\"hi\\\""),
+  message: "json.encode must escape a quote inside a value",
+)
+// `authors` (plural) is the 1.1 spelling; the deprecated singular must be absent.
+#assert(js.contains("\"authors\""), message: "1.1 uses `authors`, plural")
+#assert(
+  not js.contains("\"author\":"),
+  message: "the deprecated 1.0 singular `author` must not appear",
+)
+// RFC 3339 dates, reused from atom — no new date helper for this format.
+#assert(js.contains("\"date_published\": \"2026-01-04T00:00:00Z\""))
+#assert(js.contains("\"date_modified\": \"2026-01-05T00:00:00Z\""))
+// No content_html at all, deliberately — see the serializer's doc comment.
+#assert(
+  not js.contains("content_html"),
+  message: "content_html is not emitted: no JSON-safe transclusion encoding yet",
+)
+
+// An entry with no summary and no categories produces NEITHER key, rather than
+// a null-littered feed.
+#let _stub-json-sparse(cfg) = (
+  (
+    title: "Bare",
+    url: "https://example.com/bare",
+    updated: datetime(year: 2026, month: 1, day: 1),
+  ),
+)
+#let js-sparse = json-feed(feed(
+  path: "sparse.json",
+  title: "Sparse",
+  base-url: "https://example.com",
+  sources: (_stub-json-sparse,),
+  content: none,
+))
+#assert(not js-sparse.contains("summary"), message: "no summary key when absent")
+#assert(not js-sparse.contains("tags"), message: "no tags key when empty")
+#assert(
+  not js-sparse.contains("description"),
+  message: "no description key when the feed has no subtitle",
+)
+
+// Zero entries -> no feed, the same contract atom(...)/rss(...) have.
+#assert.eq(
+  json-feed(feed(
+    path: "empty.json",
+    title: "Empty Json",
+    base-url: "https://example.com",
+    sources: (_empty-source,),
+    content: none,
+  )),
+  none,
+)
 
 // ---- _mint-plan — the shared marrow/emit minting plan ----------------------
 
