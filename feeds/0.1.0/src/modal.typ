@@ -197,6 +197,50 @@
 }
 "
 
+// ---- behaviour -------------------------------------------------------------
+//
+// Only TWO behaviours are hand-written, because a `<dialog>` gives the rest
+// away: Escape, the focus trap, and the close button (a `<form method="dialog">`
+// submit) all work with no script at all.
+//
+//   a. click the trigger -> `showModal()`
+//   b. click the backdrop -> `close()`
+//
+// NOT DONE DECLARATIVELY, deliberately. Invoker commands
+// (`<button command="show-modal" commandfor="..">`) would delete (a) outright,
+// but they are newly-available rather than widely-available: on a browser
+// without them the button is simply dead, with no fallback, where the listener
+// below works everywhere. Revisit once the baseline is old enough — and if you
+// do, drop this listener rather than keeping both, or the dialog gets asked to
+// open twice on one click.
+//
+// Scoped by ID, not by class. `feeds-modal` lets a caller override `id:`, so a
+// page could carry two modals; `document.querySelector(".subscribe-btn")` — what
+// the sites this was lifted from used — would wire the first trigger to both.
+#let _script(id) = {
+  let sel = "\"" + id + "\""
+  // The attribute value is QUOTED inside the selector. Unquoted, it would have
+  // to be a bare CSS identifier, and `id:` is caller-supplied — one starting
+  // with a digit, or carrying a colon, would silently match nothing.
+  let attr = "'[aria-controls=\"" + id + "\"]'"
+  html.elem(
+    "script",
+    // No DOMContentLoaded wrapper: this element is emitted AFTER the markup it
+    // binds, so both nodes already exist by the time it runs.
+    "(function () {"
+      + "var d = document.getElementById(" + sel + ");"
+      + "var t = document.querySelector(" + attr + ");"
+      + "if (!d || !t) return;"
+      + "t.addEventListener('click', function () { d.showModal(); });"
+      // A modal dialog's click target is the dialog ELEMENT itself when the
+      // click lands on its UA-drawn ::backdrop, and an inner node otherwise.
+      // That identity test is the whole trick, and the reason this cannot be
+      // done with a stylesheet.
+      + "d.addEventListener('click', function (e) { if (e.target === d) d.close(); });"
+      + "})();",
+  )
+}
+
 // ---- options ---------------------------------------------------------------
 
 // One `<li>`. Shared by the pregiven Atom option and every caller-supplied one,
@@ -263,6 +307,7 @@
   icon-size: 18,
   id: "subscribe-dialog",
   styles: true,
+  script: true,
 ) = {
   assert(
     type(options) == array,
@@ -307,4 +352,7 @@
       #extra.join()
     ]
   ]
+
+  // Last, so the nodes it binds already exist — see `_script`.
+  if script { _script(id) }
 }
