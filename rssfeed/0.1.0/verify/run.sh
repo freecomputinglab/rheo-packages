@@ -61,24 +61,18 @@ else
   if [ ! -s "$F" ]; then
     note "override: feed.xml missing or empty"
   elif ! python3 - "$F" <<'PY'
-import re, sys
+import sys
+# The Atom-parsing helpers live in ./atomlib.py, shared with ../demo/check.sh.
+# `python3 -` puts the cwd on sys.path and this script already cd'd to its own
+# directory, so the import needs no path fiddling here (MEASURED: sys.path[0]
+# is '' for a stdin script).
+from atomlib import Checker, entries as parse_entries, field, link
+
 text = open(sys.argv[1]).read()
-bad = 0
+_checker = Checker()
+fail = _checker.fail
 
-def fail(msg):
-    global bad
-    print(f"FAIL: {msg}")
-    bad = 1
-
-def field(entry, tag):
-    m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", entry, re.S)
-    return m.group(1) if m else None
-
-def link(entry):
-    m = re.search(r'<link rel="alternate" href="([^"]+)"/>', entry)
-    return m.group(1) if m else None
-
-entries = re.findall(r"<entry>(.*?)</entry>", text, re.S)
+entries = parse_entries(text)
 a = next((e for e in entries if (link(e) or "").endswith("/a.html")), None)
 b = next((e for e in entries if (link(e) or "").endswith("/b.html")), None)
 
@@ -112,7 +106,7 @@ else:
     if field(b, "title") != "B":
         fail(f"b.html's entry title is {field(b, 'title')!r}, expected spine()'s own 'B' (untouched by the override)")
 
-sys.exit(1 if bad else 0)
+sys.exit(_checker.exit_code())
 PY
   then
     note "override: XML assertions failed (see above)"

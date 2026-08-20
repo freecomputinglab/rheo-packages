@@ -5,7 +5,9 @@
 # rookery/0.3.0/demo/rheo/check.sh — greps rather than a test framework,
 # deliberately: the package ships no runner and adding one for a handful of
 # assertions would be more machinery than the thing it checks. Run through
-# `just check`, which builds first.
+# `just check`, which builds first. The Atom-parsing helpers it uses are shared
+# with ../verify/run.sh and live in ../verify/atomlib.py — add to that module
+# rather than copying them into a third script.
 #
 # ALSO pins the parity matrix of bead rheo-packages-parity-qrd (rows 1, 3, 5,
 # 6, 8, 9, 10 land here — see ../verify/ for rows 2, 4, 7, 11, 12, which
@@ -71,31 +73,23 @@ done
 #    matrix that's easier to get right in a small parser than in nested
 #    greps — same tradeoff the reference check.sh already makes for its own
 #    backlink assertion.
-if ! python3 - "$H" <<'PY'
+if ! python3 - "$H" ../verify <<'PY'
 import re, sys, pathlib
+# The four Atom-parsing helpers live in ../verify/atomlib.py, shared with
+# ../verify/run.sh — they used to be copied into both scripts and had already
+# drifted by one function. A stdin script has no `__file__`, so the directory
+# holding them is passed in as argv[2] rather than derived here.
+sys.path.insert(0, sys.argv[2])
+from atomlib import Checker, entries, field, link
+
 root = pathlib.Path(sys.argv[1])
-bad = 0
-
-def fail(msg):
-    global bad
-    print(f"FAIL: {msg}")
-    bad = 1
-
-def entries(path):
-    return re.findall(r"<entry>(.*?)</entry>", path.read_text(), re.S)
-
-def field(entry, tag):
-    m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", entry, re.S)
-    return m.group(1) if m else None
-
-def link(entry):
-    m = re.search(r'<link rel="alternate" href="([^"]+)"/>', entry)
-    return m.group(1) if m else None
+_checker = Checker()
+fail = _checker.fail
 
 feed_text = (root / "feed.xml").read_text()
 notes_text = (root / "notes.xml").read_text()
-feed_entries = entries(root / "feed.xml")
-notes_entries = entries(root / "notes.xml")
+feed_entries = entries(feed_text)
+notes_entries = entries(notes_text)
 
 if len(feed_entries) == 0:
     fail("feed.xml has no entries")
@@ -230,7 +224,7 @@ for stale in ("One", "Two"):
             f"'{stale}' instead of the authored #set document(title: ..)",
         )
 
-sys.exit(1 if bad else 0)
+sys.exit(_checker.exit_code())
 PY
 then
   fail=1
