@@ -800,8 +800,15 @@
   m
 }
 
-// This entry's `<content>`/`<summary>`, or `""` when neither applies (feed
-// `content: none`, or an entry with no `page`, and no `summary` either).
+// This entry's `<summary>` and/or `<content>`, or `""` when it has neither.
+//
+// The two are INDEPENDENT, and that is the whole shape of this function: a
+// summary is emitted whenever the entry supplies one, and a content element is
+// emitted whenever the feed asks for content AND the entry names a page. An
+// entry may therefore carry both, which Atom permits (RFC 4287 §4.1.2) and
+// readers make use of — the summary for a list preview, the content for the
+// full article. Summary used to be the ELSE branch of content, so an entry
+// with both silently lost the summary it asked for.
 //
 // `page`'s value is the caller's `page` AS-IS (plugin-output-relative, e.g.
 // "notes/etal.html") — `atom(...)` never resolves or rewrites it. `select`
@@ -809,18 +816,16 @@
 // has none: ABSENT means rheo's own default cascade, not "select nothing",
 // so it must never be emitted as `select=""`.
 #let _content-elem(cfg, e) = {
-  if cfg.content == none or e.page == none {
-    if e.summary != none {
-      "<summary type=\"text\">" + _esc-text(e.summary) + "</summary>"
-    } else {
-      ""
-    }
-  } else {
+  let parts = ()
+  if e.summary != none {
+    parts += ("<summary type=\"text\">" + _esc-text(e.summary) + "</summary>",)
+  }
+  if cfg.content != none and e.page != none {
     let select-attr = if e.select != none {
       " select=\"" + _esc-attr(e.select) + "\""
     } else { "" }
     let page-attr = "page=\"" + _esc-attr(e.page) + "\""
-    if cfg.content == "html" {
+    parts += (if cfg.content == "html" {
       "<content type=\"html\"><rheo-content " + page-attr + select-attr + " as=\"escaped\"/></content>"
     } else {
       // "xhtml": the placeholder's own `as="raw"` is unescaped because the
@@ -828,8 +833,10 @@
       // requires for `type="xhtml"` (RFC 4287 §4.1.3.3) — escaping again
       // here would double-escape what rheo splices in.
       "<content type=\"xhtml\"><div xmlns=\"http://www.w3.org/1999/xhtml\">" + "<rheo-content " + page-attr + select-attr + " as=\"raw\"/></div></content>"
-    }
+    },)
   }
+  // Still `""` when there is neither — `_entry-elem` tests for that.
+  parts.join("")
 }
 
 // One `<entry>`. Order: id, title, published (when present), updated,
@@ -863,9 +870,10 @@
     parts += ("<category term=\"" + _esc-attr(cat) + "\"/>",)
   }
   parts += ("<link rel=\"alternate\" href=\"" + _esc-attr(e.url) + "\"/>",)
-  let content = _content-elem(cfg, e)
-  if content != "" {
-    parts += (content,)
+  // Summary and/or content — either, both, or neither. See `_content-elem`.
+  let body = _content-elem(cfg, e)
+  if body != "" {
+    parts += (body,)
   }
   "<entry>" + parts.join("") + "</entry>"
 }
