@@ -51,6 +51,152 @@
   #html.elem("path", attrs: (d: "m2 6 10 7 10-7"))
 ]
 
+// ---- default stylesheet ----------------------------------------------------
+//
+// Emitted inline as part of the returned content, because this package has no
+// bundle to put it in (see the banner above).
+//
+// EVERY rule sits in `@layer feeds-modal`. Unlayered CSS beats layered CSS
+// whatever the source order, so a project's own plain `.subscribe-dialog { .. }`
+// overrides any of this without `!important` and without caring whether its
+// stylesheet is linked before or after this `<style>`. `@rheo/rookery` uses the
+// same trick for its generated tag rules, and for the same reason.
+//
+// Colours and metrics are `var(--feeds-modal-*, <fallback>)`, so a project
+// re-themes by setting a handful of custom properties on any ancestor rather
+// than by restating the rules. The fallbacks are what these sites already used.
+//
+// The TRIGGER is deliberately under-styled — only the button reset every
+// project needs. Positioning and typography are left out because the sites this
+// was lifted from genuinely disagree: ohrg.org absolutely positions it against
+// a centred title, weeknotes and maths run it as uppercase mono in a flex row.
+// A package guessing between those would be wrong twice.
+#let _STYLES = "
+@layer feeds-modal {
+  .subscribe-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .subscribe-btn:hover { opacity: 1; }
+
+  .subscribe-dialog {
+    box-sizing: border-box;
+    border: none;
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 340px;
+    width: calc(100% - 2rem);
+    box-shadow: var(--feeds-modal-shadow, 0 4px 24px rgba(0, 0, 0, 0.15));
+    font-family: var(--feeds-modal-font, inherit);
+    font-variant: normal;
+    font-size: 1rem;
+    color: var(--feeds-modal-fg, inherit);
+  }
+  .subscribe-dialog::backdrop {
+    background: var(--feeds-modal-backdrop, rgba(0, 0, 0, 0.4));
+  }
+
+  .subscribe-dialog-close-form {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 0.5rem 0;
+  }
+  .dialog-close {
+    background: none;
+    border: none;
+    font-size: 1.1em;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--feeds-modal-muted, #666666);
+    padding: 0;
+  }
+  .dialog-close:hover { color: var(--feeds-modal-fg, inherit); }
+
+  .subscribe-options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .subscribe-option {
+    padding: 0.6em 0.7em;
+    border: 1px solid var(--feeds-modal-border, #dddddd);
+    border-radius: 6px;
+    transition: border-color 0.2s, background-color 0.2s;
+  }
+  .subscribe-option:hover {
+    border-color: var(--feeds-modal-accent, #9abddc);
+    background-color: var(--feeds-modal-hover, rgba(154, 189, 220, 0.1));
+  }
+  .subscribe-option-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    color: var(--feeds-modal-fg, inherit);
+    font-weight: 700;
+  }
+  .subscribe-option-desc {
+    margin: 0.35em 0 0 0;
+    font-size: var(--feeds-modal-small, 0.85em);
+    color: var(--feeds-modal-muted, #666666);
+  }
+  .subscribe-option-desc a { color: inherit; text-decoration: underline; }
+
+  /* A centred dialog drifts off-centre on mobile, where a collapsing toolbar
+     moves the viewport under it. Drop it in as a bottom sheet instead. */
+  @media (max-width: 600px) {
+    .subscribe-btn span { display: none; }
+
+    .subscribe-dialog {
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      margin: 0;
+      max-width: none;
+      /* Load-bearing: clears the base rule's `width: calc(100% - 2rem)` and the
+         UA's `dialog { width: fit-content }`, so `left: 0; right: 0` alone solve
+         for width. Any explicit width over-constrains the box — `right` is the
+         one dropped, leaving the sheet flush left with a gap on the right. */
+      width: auto;
+      /* Pinned to the bottom with no cap, a tall sheet pushes its own close
+         button off the top of a short viewport. `dvh` tracks the collapsing
+         toolbar; the `vh` line is the fallback where `dvh` is unsupported. */
+      max-height: 85vh;
+      max-height: 85dvh;
+      /* `overflow-y: auto` alone computes `overflow-x` up from `visible` to
+         `auto`, so one long token would scroll the sheet sideways. Pin the
+         cross axis. `overscroll-behavior` stops a rubber-band at the scroll
+         limit from chaining out to the page behind the backdrop. */
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      /* Clear the home indicator, or the last row sits under system chrome. */
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+      border-radius: 12px 12px 0 0;
+      animation: subscribe-dialog-slide-up 0.2s ease-out;
+    }
+
+    @keyframes subscribe-dialog-slide-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+  }
+}
+"
+
 // ---- options ---------------------------------------------------------------
 
 // One `<li>`. Shared by the pregiven Atom option and every caller-supplied one,
@@ -116,6 +262,7 @@
   button-title: "Subscribe",
   icon-size: 18,
   id: "subscribe-dialog",
+  styles: true,
 ) = {
   assert(
     type(options) == array,
@@ -131,6 +278,12 @@
       o.at("desc", default: []),
     )
   })
+
+  // Once per CALL, which is once per page in every use this was built for (a
+  // site header renders one modal). Two calls on one page emit it twice; that
+  // is harmless — identical layered rules — and deduplicating it would mean
+  // making this package hold document-wide state, which it otherwise never does.
+  if styles { html.elem("style", _STYLES) }
 
   html.elem("button", attrs: (
     type: "button",
