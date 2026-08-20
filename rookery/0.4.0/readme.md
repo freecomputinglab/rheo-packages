@@ -1368,6 +1368,15 @@ at all.
   that was never written. Plain `typst compile` is unaffected — the standalone
   half has no floor beyond typst itself, see "Two modes".
 
+  OBSERVED (rheo 0.5.2, built from source at tag `v0.5.2`; typst 0.15.1):
+  `rheo compile .` in `demo/rheo` mints all five `ideas/*.html` pages with no
+  warnings, and `./check.sh` prints `demo/rheo OK` — all eight blocks, including
+  the generated `@layer rookery-tags` assertions. The floor is measured, not
+  inferred: this package reads only `state("rheo-handle")`, `rheo-document()`,
+  and `rheo-context`'s `target`/`ext`/`spine-flat`, every one of which 0.5.2
+  provides. CI installs the 0.5.2 release and runs that demo, so the version
+  this line promises is the version actually tested.
+
 ## Build and local development
 
 Pure Typst, no build step: `typst.toml`'s entrypoint points straight at

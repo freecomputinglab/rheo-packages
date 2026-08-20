@@ -36,6 +36,30 @@ jobs:
           tar -xJf typst.tar.xz
           echo "$PWD/typst-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
 
+      # Pinned to the OLDEST rheo both rookery manifests declare as their floor
+      # ([tool.rheo] min_version = "0.5.2"), NOT to the newest rheo: the point is
+      # that the DECLARED floor is the floor actually tested, so a package that
+      # reaches for a newer surface fails here instead of on a user's machine.
+      # Nothing in rheo reads `min_version` yet, so this step is the only thing
+      # enforcing it.
+      #
+      # Pinned URL AND pinned digest, for the same auditability reason the Typst
+      # step gives: a re-uploaded asset fails this step rather than silently
+      # changing what CI tested. Digest from `gh release view v0.5.2 --json assets`.
+      #
+      # DO NOT bump this to 0.6.0 when it ships. Head-of-line coverage is a
+      # second matrix entry, not a replacement for testing the floor.
+      - name: Install rheo 0.5.2 (the declared min_version floor)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o rheo.zip \
+            https://github.com/freecomputinglab/rheo/releases/download/v0.5.2/rheo-x86_64-unknown-linux-gnu.zip
+          echo "bf95f9f617568c746bbb759071f36ed6fc5f32a38504f7bebf615b5fa7bd36b2  rheo.zip" | sha256sum -c -
+          unzip -q rheo.zip -d rheo-bin
+          chmod +x rheo-bin/rheo
+          echo "$PWD/rheo-bin" >> "$GITHUB_PATH"
+          rheo-bin/rheo --version   # must print: rheo 0.5.2
+
       # First, because it is the cheapest failure in the repo and the one that
       # silently ships a broken release: a version directory cut by copying and
       # bumping only the manifest leaves `.marrow.typ` importing its predecessor.
@@ -81,9 +105,7 @@ jobs:
 
       # This repo's definition of "lint" is that a package's demo compiles
       # (CLAUDE.md, "Build"). `demo/pure` is plain `typst compile`, so it runs
-      # anywhere. `demo/rheo` is NOT run here: it needs the `rheo` binary from the
-      # sibling `rheo/` crate, which is not installable from this repo — see that
-      # demo's own Justfile.
+      # anywhere.
       # `just build`, not a hand-copied subset of its `typst compile` lines: that
       # subset drifted before (it ran only root.typ->html and paged.typ->pdf while
       # the Justfile's own `build` recipe had grown to six compiles across three
@@ -92,3 +114,25 @@ jobs:
       # needing this step updated in the same commit and possibly forgotten.
       - name: rookery pure demo compiles, HTML and PDF
         run: cd rookery/0.4.0/demo/pure && just build
+
+      # The rheo half of rookery's coverage, and the only thing that proves
+      # package-`.marrow.typ` still mints: `check.sh` asserts on the OUTPUT —
+      # minted note pages, backlinks, depth-relative hrefs, and the generated
+      # `@layer rookery-tags` rules — none of which `demo/pure` can reach.
+      #
+      # AFTER the namespace-symlink step above, not before: the demo's
+      # `.marrow.typ` needs `@rheo/rookery:0.4.0` to resolve from the cache.
+      #
+      # This ran nowhere until rheo 0.5.2 shipped package-marrow support (PR #164,
+      # released 2026-08-16). MEASURED at that release: `demo/rheo OK`, all eight
+      # blocks.
+      - name: rookery rheo demo compiles and asserts, under the declared floor
+        run: cd rookery/0.4.0/demo/rheo && just check
+
+      # NO `@rheo/feeds` STEP, DELIBERATELY — not an oversight. That package
+      # declares `[tool.rheo] min_version = "0.6.0"` and rides three surfaces
+      # (the `<rheo-meta:>` beacon, `<rheo-content>` transclusion, `.rheo/`
+      # control assets) that no rheo RELEASE carries yet, so there is nothing
+      # for this workflow to install. Its `just test` unit fixture is plain
+      # typst and could run here; its `demo`/`verify` cannot until 0.6.0 ships.
+      # Add the step in the same commit that raises a floor CI can install.

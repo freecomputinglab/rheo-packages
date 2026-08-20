@@ -88,11 +88,17 @@
 // visible at definition time, and moving them to satisfy a banner would break
 // the thing the banner is protecting.
 //
-// NOT COVERED BY CI, and this is the gap: `demo/rheo` is the only thing that
-// proves marrow still mints, and it needs the `rheo` binary, which no published
-// release can supply yet — package-`.marrow.typ` support landed after v0.5.1.
-// Until a release carries it (the same release bead rheo-packages-2ps waits on),
-// this banner and a local `demo/rheo` run are the whole guard.
+// COVERED BY CI as of rheo 0.5.2. `demo/rheo` is still the only thing that
+// proves marrow mints, and it needs the `rheo` binary — but package-`.marrow.typ`
+// support shipped in v0.5.2 (PR #164, released 2026-08-16), so CI installs that
+// release and runs the demo against it. 0.5.2 is also this package's declared
+// `[tool.rheo] min_version`, which is the point: the floor CI tests is the floor
+// the manifest promises, and nothing in rheo enforces that key yet.
+//
+// MEASURED on a from-source build at tag v0.5.2: `rheo compile .` in `demo/rheo`
+// mints all five `ideas/*.html` pages with no warnings and `./check.sh` prints
+// `demo/rheo OK` — all eight blocks, tag-CSS assertions included. Nothing in this
+// package or in `@rheo/rookery-search` touches a surface newer than 0.5.2.
 
 // The human title of the vertebra a handle names — "Rookery under Rheo" for
 // `index`. Read from `rheo-context`'s `spine-flat`, which every vertebra and

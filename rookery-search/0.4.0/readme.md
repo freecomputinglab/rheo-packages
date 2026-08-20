@@ -119,6 +119,17 @@ older rheo nothing errors — no pages are minted, so the index comes out empty
 and the bar/modal have nothing to link to, which is the same silent failure as
 forgetting to import rookery at all.
 
+OBSERVED (rheo 0.5.2, built from source at tag `v0.5.2`; typst 0.15.1), on a
+project importing both this package and rookery: `dist/lib.js` and
+`dist/rookery-search.css` are copied to `build/html/rheo/rookery-search/` and
+linked from every page's `<head>` at the correct depth-relative prefix
+(`rheo/…` at the root, `../rheo/…` one level down), and the JSON index island
+parses with one row per note, every `href` resolving to a minted page that
+exists on disk. So both manifest keys this package depends on —
+`[tool.rheo.html] js_scripts` and `css_stylesheet` — and its `.marrow.typ`
+corpus cache all work on the declared floor. Nothing here reaches for a rheo
+surface newer than 0.5.2.
+
 ## Searching, without JavaScript
 
 `#search-ideas(query)` ranks the corpus and hands you the matches as data. It
