@@ -121,13 +121,18 @@ is:
 | Field | Type | Required | Default |
 | --- | --- | --- | --- |
 | `title` | `str`, non-empty | yes | — |
-| `base-url` | `str`, absolute (a scheme, e.g. `https://`) | yes | — |
+| `base-url` | `str`, absolute (a scheme, e.g. `https://`) | yes | — |*
 | `sources` | array of functions, at least one | yes | — |
 | `path` | `str` | no | `"feed.xml"` |
 | `author` | `str` | no | `"Rheo"` |
 | `subtitle` | `str` or `none` | no | `none` |
 | `content` | `"html"`, `"xhtml"`, or `none` | no | `"html"` |
 | `limit` | positive integer or `none` | no | `none` (no limit) |
+
+\* `base-url` does double duty: besides prefixing an entry's `page` into an
+absolute URL, it is emitted as the feed's own
+`<link rel="alternate">` — the site a reader "visits" from a subscription,
+distinct from `rel="self"`, which is the feed file itself.
 
 `content` governs what an entry's `<content>` element resolves to: `"html"`
 and `"xhtml"` both splice in the entry's own `page` via rheo's

@@ -945,6 +945,13 @@ Para two]), "Para one Para two")
   ),
   message: "rel=\"self\" href must match the same base-url + \"/\" + path",
 )
+// Asserted TOGETHER with the one above, deliberately: the failure this guards
+// against is one href being used for both links. `alternate` is the SITE,
+// `self` is the feed.
+#assert(
+  xml-path.contains("<link rel=\"alternate\" href=\"https://example.com\"/>"),
+  message: "the feed-level alternate link must be the site root, not the feed URL",
+)
 
 // ---- atom(entries:) — a supplied list is normalised like a source's --------
 //
