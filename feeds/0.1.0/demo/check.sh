@@ -53,8 +53,8 @@ done
 #    `<title>` AND the autodiscovery link's `title=`). Checked as one exact
 #    tag string per feed, not href and title separately, so a link with the
 #    WRONG title paired to a RIGHT href would still be caught.
-FEED_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/feed.xml" title="Rssfeed Demo — Posts">'
-NOTES_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/notes.xml" title="Rssfeed Demo — Notes">'
+FEED_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/feed.xml" title="Feeds Demo — Posts">'
+NOTES_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/notes.xml" title="Feeds Demo — Notes">'
 for p in index.html notes.html \
   posts/one.html posts/two.html posts/deep/three.html \
   ideas/alpha.html ideas/alpha-inner.html ideas/beta.html ideas/gamma.html; do

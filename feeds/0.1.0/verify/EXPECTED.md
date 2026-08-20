@@ -35,13 +35,13 @@ PASS — pinned by `verify/run.sh`.
 
 ## Row 3 — feed title doubles as the autodiscovery link's `title=`
 
-`demo/content/index.typ` configures `title: "Rssfeed Demo — Posts"` /
-`title: "Rssfeed Demo — Notes"`.
+`demo/content/index.typ` configures `title: "Feeds Demo — Posts"` /
+`title: "Feeds Demo — Notes"`.
 
-OBSERVED (`demo/build/html/feed.xml`): `<title>Rssfeed Demo — Posts</title>`
+OBSERVED (`demo/build/html/feed.xml`): `<title>Feeds Demo — Posts</title>`
 OBSERVED (every page's `<head>`, e.g. `demo/build/html/index.html`):
 `<link rel="alternate" type="application/atom+xml"
-href="https://demo.example.org/feed.xml" title="Rssfeed Demo — Posts">`
+href="https://demo.example.org/feed.xml" title="Feeds Demo — Posts">`
 
 Both the feed-level `<title>` and the `title=` attribute carry the SAME
 configured string, checked as one exact tag (href+title together, not
