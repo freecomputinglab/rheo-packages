@@ -84,6 +84,47 @@
 // needed: a config's `sources` array is simply carried through, functions
 // and all.
 
+// ---- field validators — one message shape, every field ---------------------
+//
+// These exist so that EVERY field error names `@rheo/rssfeed` and the offending
+// field, per the rule stated in the `feed` section immediately below. Without
+// them an unchecked field does not fail here at all: it fails much later, deep
+// inside the XML serializer, with a raw Typst error (`type integer has no
+// method 'replace'` from `_esc-text`, `type string has no method 'display'`
+// from `_rfc3339`) that names neither this package nor the field the author
+// actually got wrong.
+//
+// Each returns its argument, so a call site reads as an annotation on the value
+// rather than a statement before it:
+//
+//   path: _expect-str(path, "path"),
+#let _expect-str(v, field) = {
+  assert(
+    type(v) == str and v.len() > 0,
+    message: "@rheo/rssfeed: `" + field + "` must be a non-empty string — got "
+      + repr(v),
+  )
+  v
+}
+
+#let _expect-str-or-none(v, field) = {
+  assert(
+    v == none or type(v) == str,
+    message: "@rheo/rssfeed: `" + field + "` must be a string or none — got "
+      + repr(v),
+  )
+  v
+}
+
+#let _expect-positive-int-or-none(v, field) = {
+  assert(
+    v == none or (type(v) == int and v > 0),
+    message: "@rheo/rssfeed: `" + field + "` must be a positive integer or "
+      + "none — got " + repr(v),
+  )
+  v
+}
+
 // ---- feed — the top-level config -------------------------------------------
 //
 // Every panic below names `@rheo/rssfeed` and the offending field: a package
@@ -133,18 +174,25 @@
       + "or none — got " + repr(content),
   )
 
+  // The four fields below are validated HERE, in the returned dict, rather than
+  // as separate asserts above: each is checked exactly where it is stored, and
+  // nothing else in this function needs their values. `title`, `base-url`,
+  // `sources` and `content` keep their own asserts up top instead — each
+  // carries field-specific wording (the scheme regex, the "at least one
+  // source" count, the enumerated `content` values) that the generic helpers
+  // would flatten away.
   (
-    path: path,
+    path: _expect-str(path, "path"),
     title: title,
     // Trimmed here, ONCE, so every downstream consumer (`_normalize-entry`,
     // the later XML emitter) can join with a bare "/" and never worry about
     // a double slash from an author-supplied trailing one.
     base-url: base-url.trim("/", at: end),
     sources: sources,
-    author: author,
-    subtitle: subtitle,
+    author: _expect-str(author, "author"),
+    subtitle: _expect-str-or-none(subtitle, "subtitle"),
     content: content,
-    limit: limit,
+    limit: _expect-positive-int-or-none(limit, "limit"),
   )
 }
 
