@@ -465,6 +465,28 @@ Para two]), "Para one Para two")
   assert.eq(one.first().url, "https://example.com/notes/c.html")
 }
 
+// An `item(...)` with no `categories:` argument leaves the key OUT of the
+// beacon entirely — the sparse-emission promise in its own doc comment — and
+// the entry still arrives with `()` because `_normalize-entry` supplies that
+// default downstream. So "omitted" and "empty" mean the same thing to the feed.
+#item(
+  title: "No Cats",
+  page: "notes/nocats.html",
+  updated: datetime(year: 2026, month: 5, day: 4),
+  label-name: "units:nocats",
+)
+#let cfg-items-nocats = feed(
+  path: "items-nocats.xml",
+  title: "Items Feed No Cats",
+  base-url: "https://example.com",
+  sources: (items(label-name: "units:nocats"),),
+)
+#context {
+  let one = resolve-entries(cfg-items-nocats)
+  assert.eq(one.first().categories, ())
+  assert.eq(atom(cfg-items-nocats, entries: one).matches("<category").len(), 0)
+}
+
 // `filter` over the parsed item VALUE keeps only the "note"-tagged beacon.
 #let cfg-items-filtered = feed(
   path: "items-filtered.xml",
