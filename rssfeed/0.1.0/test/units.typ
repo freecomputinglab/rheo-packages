@@ -15,7 +15,11 @@
 //   - `feed(...)` panics on: empty/missing `title`; empty/missing
 //     `base-url`; a `base-url` with no scheme (e.g. "example.com"); an empty
 //     `sources`; a non-function `sources` entry; a `content` other than
-//     "html"/"xhtml"/none.
+//     "html"/"xhtml"/none; a `path` that is not a non-empty string; an
+//     `author` that is not a non-empty string; a `subtitle` that is neither a
+//     string nor none; a `limit` that is not a positive integer or none
+//     (`limit: 0` used to empty the feed silently, `limit: -1` to drop its
+//     oldest entry).
 //   - `resolve-entries` (via `_normalize-entry`) panics on: a non-dictionary
 //     entry from a source; an entry missing/empty `title`; an entry with
 //     neither `url` nor `page`.
@@ -98,6 +102,24 @@ Para two]), "Para one Para two")
 #assert.eq(feed1.content, "html")
 #assert.eq(feed1.subtitle, none)
 #assert.eq(feed1.limit, none)
+
+// The four fields validated in `feed(...)`'s returned dict pass VALID values
+// through untouched — the validators annotate, they never rewrite. (Their
+// invalid values panic, and a panic is not assertable here; see the top
+// comment.)
+#let feed-opts = feed(
+  path: "opts.xml",
+  title: "Opts Feed",
+  base-url: "https://example.com",
+  sources: (_empty-source,),
+  author: "Someone",
+  subtitle: "A subtitle",
+  limit: 5,
+)
+#assert.eq(feed-opts.path, "opts.xml")
+#assert.eq(feed-opts.author, "Someone")
+#assert.eq(feed-opts.subtitle, "A subtitle")
+#assert.eq(feed-opts.limit, 5)
 
 // ---- resolve-entries — normalise, the skip rule, order, id/url fill -------
 //
