@@ -213,6 +213,31 @@
 
   let resolved = (:)
   for (tag, value) in tags-color {
+    // A THEMED TAG NAME IS A SELECTOR, which is why this is checked here and
+    // not left to the free-form `tags:` array on `#idea`. A tag becomes the
+    // class `idea-tag-<tag>` on the note, and a themed one ALSO becomes a
+    // generated `.idea-tag-<tag>` rule (`_tags-color-rules`, theme.typ), so a
+    // name carrying a space, a `.`, a `#`, a `:` or a leading digit either
+    // breaks the stylesheet or matches the wrong elements. The sibling defect
+    // one step upstream is already recorded in `_permalink-tab`
+    // (permalink.typ): a tag with a space emits a broken two-class attribute,
+    // `class="idea-tag idea-tag-my tag"`.
+    //
+    // REJECTED rather than escaped. Escaping an arbitrary name for a CSS
+    // selector is a second, subtler spelling of every tag — the class attribute
+    // would have to agree with it everywhere, including in a project's own
+    // stylesheet, where the author writes the name by hand.
+    //
+    // An UNTHEMED tag is unconstrained, as before: this is about `tags-color`
+    // KEYS, and a note may carry any string it likes as long as no colour is
+    // asked for it by name.
+    assert(
+      tag.matches(regex("^[A-Za-z_][A-Za-z0-9_-]*$")).len() == 1,
+      message: "@rheo/rookery: theme `tags-color` key \"" + tag + "\" is not usable "
+        + "as a CSS class — a themed tag becomes the class `idea-tag-<tag>` and a "
+        + "generated `.idea-tag-<tag>` rule, so it must start with a letter or an "
+        + "underscore and carry only letters, digits, hyphens and underscores",
+    )
     if type(value) == color or type(value) == str {
       // Shorthand: scalar colour/string -> background-only dict
       resolved.insert(tag, (background: _css-color(tag, value)))

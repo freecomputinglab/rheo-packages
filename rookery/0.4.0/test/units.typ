@@ -291,3 +291,17 @@
     note: (background: "#00ff00", text: "#ffffff"),
   ),
 )
+// A KEY IS A SELECTOR, so the key is checked against the CSS-identifier shape a
+// generated `.idea-tag-<tag>` rule needs. Hyphens and underscores are the two
+// separators a real tag actually uses, and both are legal INSIDE a name; an
+// underscore is legal as the first character too, a digit is not.
+#assert.eq(
+  _resolve-tags-color(("in-progress": rgb("#ff0000"))),
+  ("in-progress": (background: "#ff0000")),
+)
+#assert.eq(_resolve-tags-color((my_tag: "#0f0")), (my_tag: (background: "#0f0")))
+// NO NEGATIVE CASES HERE, and that is the harness rather than an oversight: a
+// failed `assert` aborts the whole compile, and this fixture has no
+// `#assert.fails` to catch one. A rejected key is exercised by hand instead —
+// `tags-color: ("my tag": rgb("#f00"))` in demo/pure/root.typ fails the build
+// with the message naming the key.
