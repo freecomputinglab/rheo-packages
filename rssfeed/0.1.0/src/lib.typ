@@ -309,6 +309,35 @@
   go(c).trim()
 }
 
+// ---- _expect-title — the ONE non-empty-title rule --------------------------
+//
+// Every place a title arrives from outside this package shares this checker, so
+// the rule cannot differ by entry point. It used to: `_normalize-entry`
+// accepted `str` OR `content` (the documented entry model), while `items()` and
+// `item(...)` accepted `str` only — so a beacon carrying a CONTENT title, the
+// exact shape `spine()` itself produces and what any package forwarding
+// Typst's own `document.title` yields, was rejected outright, with a message
+// claiming the title was "missing" while printing a dictionary that visibly
+// had one.
+//
+// Returns the FLATTENED string, so no caller re-flattens. `what` is a
+// caller-supplied phrase ("an entry", "a <rssfeed:item> beacon", "item(...)")
+// spliced into both messages, so each site keeps its own wording.
+#let _expect-title(v, what) = {
+  assert(
+    type(v) == str or type(v) == content,
+    message: "@rheo/rssfeed: " + what + "'s `title` must be a non-empty string "
+      + "or content — got " + repr(type(v)),
+  )
+  let t = _plain-text(v)
+  assert(
+    t.len() > 0,
+    message: "@rheo/rssfeed: " + what + " is missing a non-empty `title` — got "
+      + repr(v),
+  )
+  t
+}
+
 // One source-supplied entry, normalised — or `none` when the entry must be
 // DROPPED (see the skip rule below). `cfg` is the resolved feed config, for
 // `base-url`/`author` fallbacks.
@@ -321,20 +350,10 @@
   // A source's `title` may be a plain string OR content: Typst's own
   // `document.title` is ALWAYS content even when authored as a plain string
   // (MEASURED — see `_plain-text` above), and `spine()`'s beacon-sourced
-  // title (below) is content too. Flattened through `_plain-text` before the
-  // non-empty check so either shape is accepted from ANY source, not just
-  // rssfeed's own built-in ones.
-  let raw-title = e.at("title", default: none)
-  assert(
-    type(raw-title) == str or type(raw-title) == content,
-    message: "@rheo/rssfeed: an entry's `title` must be a non-empty string "
-      + "or content — got " + repr(type(raw-title)),
-  )
-  let title = _plain-text(raw-title)
-  assert(
-    title.len() > 0,
-    message: "@rheo/rssfeed: an entry is missing a non-empty `title`.",
-  )
+  // title (below) is content too. `_expect-title` flattens either shape, and
+  // is the same checker `items()`/`item(...)` use, so a title accepted at one
+  // entry point is accepted at all of them.
+  let title = _expect-title(e.at("title", default: none), "an entry")
 
   // Validated at the READ, before the skip rule below tests them against
   // `none`, so the skip rule can never be reached with a non-datetime value.
@@ -608,10 +627,12 @@
         + "be a dictionary shaped as an rssfeed entry — got "
         + repr(type(v)),
     )
-    assert(
-      type(v.at("title", default: none)) == str and v.at("title").len() > 0,
-      message: "@rheo/rssfeed: a <" + label-name + "> beacon is missing a "
-        + "non-empty `title` — got " + repr(v),
+    // Validation gate only — the flattened title is DISCARDED and the
+    // author's ORIGINAL dict is what goes downstream, so `_normalize-entry`
+    // still sees exactly what the beacon carried.
+    let _ = _expect-title(
+      v.at("title", default: none),
+      "a <" + label-name + "> beacon",
     )
     out += (v,)
   }
@@ -648,10 +669,10 @@
   id: none,
   label-name: "rssfeed:item",
 ) = {
-  assert(
-    type(title) == str and title.len() > 0,
-    message: "@rheo/rssfeed: item(...) needs a non-empty `title`.",
-  )
+  // Flattened at the EMITTING end, deliberately: a beacon's value is data
+  // crossing into another scope, and a plain string is what every reader of it
+  // expects — including `items()`, which reads this dict back verbatim.
+  let title = _expect-title(title, "item(...)")
   let value = (title: title, categories: categories)
   if url != none { value.insert("url", url) }
   if page != none { value.insert("page", page) }
