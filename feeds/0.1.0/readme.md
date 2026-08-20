@@ -28,6 +28,60 @@ points, the built-in sources, the beacon protocol, and the Atom serializer —
 is implemented and exercised end to end by `demo/` and `verify/`, both
 described near the bottom of this file.
 
+## Requirements
+
+- typst >= 0.15.
+- **rheo >= 0.6.0, and this one is not optional.** Unlike `@rheo/rookery`, which
+  is a real Typst package that rheo merely enhances, this package has no
+  standalone mode worth having: a feed of nothing is nothing. Three rheo
+  surfaces carry it, all three landed together after v0.5.2, and none is
+  emulable in Typst:
+
+  | Surface | What it does here | Engine |
+  | --- | --- | --- |
+  | `<rheo-meta:HANDLE>` beacon | per-vertebra title/date/keywords, read by `spine()` | `crates/core/src/util/typst_source.rs` |
+  | `<rheo-content page= select= as=>` | splices a page's rendered body into `<content>` | `crates/core/src/transclude.rs` |
+  | `.rheo/head.html` control asset | autodiscovery `<link>`s appended to every page's `<head>` | `crates/core/src/transclude.rs`, `crates/core/src/util/constants.rs` |
+
+  As of 2026-08-20 the latest rheo RELEASE is 0.5.2, which has none of them, so
+  this package needs a rheo built from the `feat/transclusion` line until 0.6.0
+  ships. `[tool.rheo] min_version = "0.6.0"` in `typst.toml` records the floor,
+  but nothing in rheo reads that key yet — so the package also asserts the floor
+  itself, at `configure(...)` and `emit(...)`. On too old a rheo you get:
+
+  ```
+  error: assertion failed: @rheo/feeds: needs rheo >= 0.6.0, but this rheo
+  predates it. […] Upgrade rheo: https://rheo.ohrg.org
+  ```
+
+  **The guard exists because every one of those three surfaces fails silently.**
+  OBSERVED, running `demo/` on rheo 0.5.2 (built from source at tag `v0.5.2`)
+  with the guard temporarily removed — `rheo compile demo` **exited 0** and
+  emitted not one warning about any of it:
+
+  - **`build/html/feed.xml` was never written.** The beacon query found nothing,
+    so every `spine()` entry lost its date, `resolve-entries` dropped all of
+    them, `atom()` returned `none`, and the feed was skipped. A project would
+    have shipped with its main feed simply missing.
+  - **`build/html/.rheo/head.html` landed as an ordinary file** — 0.5.2 takes the
+    leading-dot path without complaint — holding
+    `<link rel="alternate" type="application/atom+xml" …>` that reached no page.
+    Zero pages carried an autodiscovery link; the one that should have been
+    spliced sat orphaned on disk.
+  - **Worst, a `content:`-configured feed shipped the placeholder verbatim:**
+    `<content type="html"><rheo-content page="ideas/alpha.html" as="escaped"/></content>`
+    — well-formed XML, unreadable content, delivered to whatever subscribed to it.
+    On rheo 0.6.0 the identical project emits the note's real escaped body there.
+
+  A rookery on too old a rheo is visibly empty. A feed on too old a rheo is a
+  live endpoint serving markup nobody can read, which is why this package fails
+  the build rather than documenting the hazard and hoping.
+
+  Plain `typst compile` is a different case and stays supported: with no rheo at
+  all `sys.inputs` carries no `rheo-context`, the guard never fires, and
+  `test/units.typ` compiles as before. The floor applies to building *under*
+  rheo, not to the package's unit surface.
+
 ## Two entry points: `configure(...)` and `emit(...)`
 
 There are two independent ways to register a feed, and a project uses exactly
@@ -616,10 +670,11 @@ project, two Atom feeds built from different subsets of the same small site.
   through `ideas(tags:)` exactly as shown in "Sourcing from another package"
   above.
 
-Needs an unreleased rheo (>= 0.6.0, currently the `feat/transclusion` line):
-`<rheo-content>` transclusion and the `.rheo/` control-asset convention (both
-of which this demo depends on, the second to mint its two feeds'
-autodiscovery `<link>` tags) do not exist in 0.5.2. With that binary on `PATH`
+Needs the same rheo >= 0.6.0 the PACKAGE needs — see "Requirements" at the top
+for the floor and the evidence; it is not a constraint peculiar to this demo.
+Below the floor the package's own guard fails the compile, so `rheo compile demo`
+on an older rheo reports the version problem rather than the demo appearing to
+half-work. With a rheo at or above the floor on `PATH`
 (and this package reachable through the namespace symlink above, so
 `@rheo/rookery` resolves from the same checkout):
 
@@ -661,7 +716,12 @@ link's own `title=`, autodiscovery on every page, entry URL correctness
 entries take), an excluded page still being built, and an entry's timestamp
 tracking its own `#set document(date: ..)`.
 
-Same unreleased-rheo requirement as `demo/` above:
+Same rheo >= 0.6.0 floor as `demo/` above, for the same reason — it is the
+package's floor, not the fixtures'. MEASURED on 0.5.2 with the guard removed:
+rows 4 (`no-title`) and 7 (`no-configure`) still passed, because both are pure
+Typst with no feed minted, while `override` failed with the unhelpful
+`could not find b.html's entry` — the beacon's absence surfacing three layers
+from its cause. With the guard in place the same run names the version instead.
 
 ```sh
 just verify   # builds its own fixtures — some of them are SUPPOSED to fail

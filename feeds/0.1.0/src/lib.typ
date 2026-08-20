@@ -581,6 +581,82 @@
 // with measurements, that any such binding clobbers rheo's real injection.
 #let _rheo-ctx() = sys.inputs.at("rheo-context", default: (spine-flat: ()))
 
+// ---- the rheo floor -------------------------------------------------------
+//
+// True when rheo is present but PREDATES the three surfaces this package is
+// built on: the `<rheo-meta:HANDLE>` beacon, `<rheo-content>` transclusion and
+// the `.rheo/` control-asset prefix. All three arrived together after v0.5.2.
+//
+// WHY A GUARD AT ALL, when `typst.toml` already declares `min_version`: nothing
+// in rheo reads that key yet, so it is invisible to precisely the person who
+// needs the message. And every one of the three surfaces fails SILENTLY on an
+// older rheo rather than erroring — MEASURED against a real 0.5.2 build
+// (`cargo build` at tag v0.5.2; released latest as of 2026-08-20):
+//
+//   - `rheo compile demo` exits 0. Not one warning about any of this.
+//   - `_meta`'s `query(label("rheo-meta:" + h))` finds nothing, so every
+//     `spine()` entry loses its date, `resolve-entries` drops all of them,
+//     `atom()` returns `none`, and `_mint-plan` skips the feed — `feed.xml` is
+//     simply never written.
+//   - `.rheo/head.html` is written as an ORDINARY FILE into the output tree
+//     (0.5.2 has no reserved-prefix handling and takes the leading-dot path
+//     without complaint), so the autodiscovery `<link>` it carries reaches no
+//     page's `<head>` and sits orphaned on disk instead.
+//   - Worst: a `content:`-configured feed ships the literal string
+//     `<content type="html"><rheo-content page="..." as="escaped"/></content>`
+//     to real feed readers. Well-formed XML, garbage content, exit 0.
+//
+// That last one is why this is an assert and not a readme note. A rookery on
+// too-old a rheo mints nothing and is visibly empty; a feed on too-old a rheo
+// is a live syndication endpoint serving markup nobody can read.
+//
+// THE PROBE IS A REMOVAL, WHICH IS ITS ONE WEAKNESS. `spine-flat` entries
+// carried a `metadata` key at v0.5.2 (`crates/core/src/reticulate/spine.rs:989`)
+// and carry only `handle`/`path`/`title` after it (same file, `:987-991`), so
+// the key's PRESENCE dates the engine. If a future rheo ever re-adds a
+// `metadata` key to those entries this misfires and refuses to build on a
+// perfectly good engine — so the `rheo-version` branch below is the intended
+// long-term answer and this branch is the stopgap. rheo's bead
+// `rheo-rheo-version-key-n5k` publishes `rheo-version` in `rheo-context`;
+// once that ships, delete the `spine-flat` branch and keep the check above it.
+//
+// PATTERN B IS PRESERVED BY CONSTRUCTION: with no rheo at all `sys.inputs`
+// carries no `rheo-context`, `_rheo-ctx()` yields `(spine-flat: ())`, and this
+// returns `false` — so `test/units.typ` under bare `typst compile` never trips
+// it. Running without rheo stays a supported no-op; running under a rheo too
+// old to honour the output is what this refuses.
+//
+// KNOWN HOLE: a 0.5.2 build whose spine is EMPTY is undetectable, because the
+// probe needs one entry to inspect. Harmless — an empty spine means no
+// vertebrae, so there is nothing to feed either way.
+#let _rheo-too-old() = {
+  let ctx = _rheo-ctx()
+  if "rheo-version" in ctx {
+    false // rheo new enough to announce its own version
+  } else {
+    let flat = ctx.at("spine-flat", default: ())
+    flat.len() > 0 and "metadata" in flat.first()
+  }
+}
+
+// Applied at the two marrow entry points ONLY — `configure` and `emit` — and
+// deliberately not in `spine()`/`items()`. A project that imports this package
+// but configures no feed must stay a complete no-op even on an old rheo, which
+// is what `verify/no-configure` asserts; gating the sources instead would break
+// that row and would also fire from `test/units.typ`, where there is no rheo to
+// be too old.
+#let _assert-rheo-floor(who) = {
+  assert(
+    not _rheo-too-old(),
+    message: "@rheo/feeds: needs rheo >= 0.6.0, but this rheo predates it. "
+      + "The `<rheo-meta:>` beacon, `<rheo-content>` transclusion and `.rheo/` "
+      + "control assets this package is built on do not exist here, and none of "
+      + "them fails loudly: without this check `" + who + "` would SUCCEED and "
+      + "then write no feed at all (or one carrying a literal `<rheo-content>` "
+      + "placeholder). Upgrade rheo: https://rheo.ohrg.org",
+  )
+}
+
 // The value of the `#metadata((handle: .., title: .., date: .., ...))
 // <rheo-meta:<handle>>` beacon rheo emits per vertebra (rheo's
 // `feat/transclusion`, `crates/core/src/util/typst_source.rs`), or `(:)` when
@@ -1303,6 +1379,7 @@
 // the XML emitter) directly from their own `.marrow.typ` — need this
 // function not at all; the two entry points are independent.
 #let configure(feeds: ()) = {
+  _assert-rheo-floor("configure")
   _feeds.update(old => old + _expect-feeds(feeds, "configure"))
 }
 
@@ -1411,6 +1488,7 @@
 //   #import "@rheo/feeds:0.1.0": feed, emit
 //   #context { emit(feeds: (feed(...), feed(...))) }
 #let emit(feeds: ()) = {
+  _assert-rheo-floor("emit")
   for m in _mint-plan(_expect-feeds(feeds, "emit")) {
     asset(m.path, m.data)
   }

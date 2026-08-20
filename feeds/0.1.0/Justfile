@@ -16,19 +16,26 @@ test:
     typst compile --features html --root . --format pdf test/units.typ /dev/null
     @echo "units OK"
 
-# rheo, unlike typst, is NOT in this repo's devShell — it is the sibling
-# `rheo/` crate, installed separately (`cargo install --path ../../rheo` from
-# here, or run a built binary directly). So this demo is a LOCAL check, not
-# wired into CI: it proves the headline capability (ONE project, TWO Atom
-# feeds, the second sourced from `@rheo/rookery`'s `ideas(tags:)`) but needs
-# an UNRELEASED rheo — see this package's readme.md, "## Demo" — before it
-# can compile at all.
+# NOT WIRED INTO CI, and the reason is the rheo VERSION, not rheo's absence:
+# CI can install a rheo release (it pins 0.5.2 for rookery's demo), but this
+# package needs rheo >= 0.6.0, which is unreleased. Until it ships there is no
+# release for CI to install, so this stays a local check run against a built
+# `feat/transclusion` binary.
+#
+# It proves the headline capability — ONE project, TWO Atom feeds, the second
+# sourced from `@rheo/rookery`'s `ideas(tags:)`. On a rheo below the floor the
+# package's own guard now stops the build with a legible message instead of
+# quietly writing no feed; see `_assert-rheo-floor` in src/lib.typ and the
+# readme's "## Requirements".
 demo:
     rheo compile demo
 
-# Asserts on the OUTPUT, not merely that the build succeeded — every
-# assertion in `demo/check.sh` exists only under the unreleased rheo this
-# demo needs and none of it is covered by `just test`.
+# Asserts on the OUTPUT, not merely that the build succeeded — every assertion
+# in `demo/check.sh` exists only under the unreleased rheo >= 0.6.0 this demo
+# needs and none of it is covered by `just test`. MEASURED on rheo 0.5.2 before
+# the package guard existed: the build EXITED 0 and this script then failed on
+# a missing `feed.xml`, a surviving `.rheo/`, and every page's autodiscovery
+# link — which is why the guard fails the compile instead.
 check: demo
     ./demo/check.sh
 

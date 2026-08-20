@@ -7,3 +7,24 @@ authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
 license = "MIT"
 description = "Atom, RSS and JSON feeds for Rheo projects, generated from configurable sources"
 repository = "https://github.com/freecomputinglab/rheo-packages"
+
+# 0.6.0 NAMES AN UNRELEASED RHEO, and that is correct: this declares the floor,
+# not that the floor is downloadable. MEASURED on a real 0.5.2 build (the
+# released latest as of 2026-08-20): the three surfaces this package is built on
+# — the `<rheo-meta:HANDLE>` beacon, `<rheo-content>` transclusion, and the
+# `.rheo/` control-asset prefix — do not exist there, and NONE of them errors.
+# `rheo compile demo` exits 0, writes no `feed.xml` at all, leaves an orphaned
+# `.rheo/head.html` in the output, and a `content:`-configured feed ships a
+# literal `<rheo-content .../>` element to readers. See the readme's
+# `## Requirements` for the full evidence.
+#
+# Nothing in rheo reads this key yet (rheo's own bead `rheo-pkg-min-version-1fn`
+# is the work that would make it a hard error), so it is inert today and paired
+# with an in-Typst guard in `src/lib.typ` that IS enforced. Kept anyway: it
+# becomes the clean failure the moment that lands.
+#
+# THIS TABLE MUST STAY LAST. A `[tool.rheo.<format>]` subtable added after it
+# would capture `min_version` into the subtable instead. This package has none —
+# it emits XML, not HTML, so there is no `css_stylesheet` or `js_scripts`.
+[tool.rheo]
+min_version = "0.6.0"
