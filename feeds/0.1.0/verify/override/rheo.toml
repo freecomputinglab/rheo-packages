@@ -4,7 +4,7 @@
 #   - row 11: `<published>` distinct from `<updated>` (and omitted when an
 #     entry carries only `updated`).
 #   - row 12: per-entry overrides composed over the built-in `spine()` source,
-#     with NO `#set document` involved and no rssfeed-side "current page"
+#     with NO `#set document` involved and no feeds-side "current page"
 #     variable — the replacement for the retired `rheo-feed-title`/
 #     `rheo-feed-updated` variables. See content/index.typ's `configure(...)`
 #     call, and ../run.sh for the assertions.

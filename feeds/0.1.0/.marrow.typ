@@ -30,7 +30,7 @@
 // ordinary package code and cannot assume it. See `_mint-plan`'s own doc
 // comment in lib.typ for the full reasoning; `emit(...)` (lib.typ's
 // direct-call entry point, path (b)) shares this exact loop.
-#import "@rheo/rssfeed:0.1.0": _feeds, _mint-plan
+#import "@rheo/feeds:0.1.0": _feeds, _mint-plan
 
 #context {
   for m in _mint-plan(_feeds.final()) {

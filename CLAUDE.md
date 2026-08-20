@@ -136,7 +136,7 @@ Most packages here ship JS (a `package.json` + vite build). A package can
 also be pure Typst (+ CSS) — no `package.json`, no `pnpm-lock.yaml`, no build
 step at all: `@rheo/rookery` points `typst.toml`'s `entrypoint` and
 `css_stylesheet` straight at `src/` — editing `src/` takes effect immediately,
-nothing to rebuild or forget to re-run. `@rheo/rssfeed` is the same shape
+nothing to rebuild or forget to re-run. `@rheo/feeds` is the same shape
 minus the CSS: `entrypoint` alone, straight at `src/lib.typ`, no
 `css_stylesheet` because it emits XML, not HTML — no `dist/` for either
 package, and nothing to build before `just test`/`rheo compile` picks up an
@@ -151,7 +151,7 @@ precisely why search lives in its own package: search is only worth having
 with JavaScript, and rookery is the one package here that ships none.
 Splitting kept that true instead of trading it away. When adding a package,
 the built shape is the default; buildless needs a reason as good as
-rookery's or rssfeed's.
+rookery's or feeds's.
 
 `.github/workflows/publish-packages.yml` handles three cases per package: a
 `package.json` present means `pnpm install && pnpm run build`; no
@@ -166,10 +166,10 @@ manifest's entrypoint already points at.
 A package can contribute data to another package it has no import
 relationship with, in either direction, by emitting a `#metadata((..))
 <label>` beacon and letting the other side `query()` for it back.
-`@rheo/rssfeed`'s `<rssfeed:item>` protocol (`rssfeed/0.1.0/src/lib.typ`'s
+`@rheo/feeds`'s `<feeds:item>` protocol (`feeds/0.1.0/src/lib.typ`'s
 `items()`/`item()`) is the first instance of this pattern in the repo: any
 vertebra, or any package, can emit `#metadata((title: ..., ...))
-<rssfeed:item>`, and rssfeed's `items()` source reads every one of them back
+<feeds:item>`, and its `items()` source reads every one of them back
 from the bundle root — with nothing importing anything in either direction.
 rheo compiles a whole project in one `typst::compile` pass, so a `query()`
 at bundle root sees a beacon from any vertebra, the same fact rookery's own
@@ -179,9 +179,9 @@ This is the FALLBACK, not the first thing to reach for. Where the data
 already has a synchronous accessor — a function you can call directly, the
 way `@rheo/rookery`'s `ideas()` hands back every note as a plain array — call
 it directly instead, with a small function reshaping its output for the
-consumer and no beacon or `query()` involved. `@rheo/rssfeed`'s own readme
+consumer and no beacon or `query()` involved. `@rheo/feeds`'s own readme
 carries both worked examples side by side ("Sourcing from another package"
-for the accessor path, "The `<rssfeed:item>` beacon protocol" for this one)
+for the accessor path, "The `<feeds:item>` beacon protocol" for this one)
 along with the reasoning for reaching for a beacon only when no accessor
 exists to call — an arbitrary hand-authored page with no registry behind it,
 or a package that holds data but exposes no accessor for it.

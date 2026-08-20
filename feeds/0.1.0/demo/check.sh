@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Asserts on this demo's OUTPUT: two Atom feeds built from disjoint subsets
 # of one small site, the second sourced from @rheo/rookery's `ideas(tags:)`
-# rather than rssfeed's own `<rssfeed:item>` beacon protocol. Modelled on
+# rather than @rheo/feeds's own `<feeds:item>` beacon protocol. Modelled on
 # rookery/0.3.0/demo/rheo/check.sh — greps rather than a test framework,
 # deliberately: the package ships no runner and adding one for a handful of
 # assertions would be more machinery than the thing it checks. Run through
@@ -36,7 +36,7 @@ fi
 
 # 3. Neither feed carries a literal `<rheo-content` placeholder — both must
 #    have been resolved to real, escaped page content by rheo's transclusion
-#    pass, not left as the marker rssfeed's own `atom(...)` mints. `if !`
+#    pass, not left as the marker @rheo/feeds's own `atom(...)` mints. `if !`
 #    rather than `grep ... && note ...`: an AND-list whose first command is
 #    meant to FAIL reads as an accident, and one edit away from tripping
 #    `set -e` (same reasoning the reference check.sh's own comment records).

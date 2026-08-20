@@ -26,7 +26,7 @@ done
 echo "== row 4: no-title (must fail) =="
 if out="$(rheo compile no-title 2>&1)"; then
   note "no-title: build SUCCEEDED, expected it to fail (missing \`title\`)"
-elif ! printf '%s' "$out" | grep -qF "@rheo/rssfeed: feed's \`title\` must be a non-empty string."; then
+elif ! printf '%s' "$out" | grep -qF "@rheo/feeds: feed's \`title\` must be a non-empty string."; then
   note "no-title: build failed, but not with the package's own title message — got:"
   printf '%s\n' "$out"
 fi
@@ -35,9 +35,9 @@ fi
 # COMPLETE no-op — no feed XML anywhere in the output, no autodiscovery
 # <link> in the one page's <head>.
 echo "== row 7: no-configure (must build, mint nothing) =="
-if ! rheo compile no-configure >/tmp/rssfeed-verify-no-configure.log 2>&1; then
+if ! rheo compile no-configure >/tmp/feeds-verify-no-configure.log 2>&1; then
   note "no-configure: build FAILED, expected it to succeed with no-op output"
-  cat /tmp/rssfeed-verify-no-configure.log
+  cat /tmp/feeds-verify-no-configure.log
 else
   H=no-configure/build/html
   if find "$H" -name '*.xml' | grep -q .; then
@@ -47,15 +47,15 @@ else
     note "no-configure: index.html's <head> carries an atom autodiscovery link despite no configure(...) call"
   fi
 fi
-rm -f /tmp/rssfeed-verify-no-configure.log
+rm -f /tmp/feeds-verify-no-configure.log
 
 # ---- Rows 2, 11, 12: default feed author, `<published>` distinct from (and
 # omitted independently of) `<updated>`, and per-entry overrides composed
 # over the built-in `spine()` source with no `#set document` involved.
 echo "== rows 2, 11, 12: override (must build, exact XML) =="
-if ! rheo compile override >/tmp/rssfeed-verify-override.log 2>&1; then
+if ! rheo compile override >/tmp/feeds-verify-override.log 2>&1; then
   note "override: build FAILED"
-  cat /tmp/rssfeed-verify-override.log
+  cat /tmp/feeds-verify-override.log
 else
   F=override/build/html/feed.xml
   if [ ! -s "$F" ]; then
@@ -112,7 +112,7 @@ PY
     note "override: XML assertions failed (see above)"
   fi
 fi
-rm -f /tmp/rssfeed-verify-override.log
+rm -f /tmp/feeds-verify-override.log
 
 for d in no-title no-configure override; do
   rm -rf "$d/build"

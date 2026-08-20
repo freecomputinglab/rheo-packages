@@ -1,5 +1,5 @@
 default:
-    @echo "rssfeed: pure Typst package, entrypoint is src/lib.typ directly — nothing to build"
+    @echo "feeds: pure Typst package, entrypoint is src/lib.typ directly — nothing to build"
 
 # Unit fixture for the entry model, feed config, and `resolve-entries`. No
 # runner: `assert`/`assert.eq` inside `test/units.typ` fail the compile with a

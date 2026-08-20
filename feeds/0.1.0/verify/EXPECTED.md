@@ -55,7 +55,7 @@ PASS — pinned by `demo/check.sh`.
 
 OBSERVED (`rheo compile verify/no-title`, stderr):
 ```
-error: assertion failed: @rheo/rssfeed: feed's `title` must be a non-empty string.
+error: assertion failed: @rheo/feeds: feed's `title` must be a non-empty string.
 ```
 Compile exits non-zero. Documented as a deliberate migration difference in
 readme.md's "Migrating from the retired Rust feed generator" section — the
@@ -105,7 +105,7 @@ entry).
 
 ## Row 7 — no configuration, no output
 
-`verify/no-configure/content/index.typ` imports `@rheo/rssfeed:0.1.0` (so
+`verify/no-configure/content/index.typ` imports `@rheo/feeds:0.1.0` (so
 its `.marrow.typ` is spliced into the bundle root) but never calls
 `configure(...)`.
 

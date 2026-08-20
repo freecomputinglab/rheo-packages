@@ -2,7 +2,7 @@
 // `/src/lib.typ`. No runner and no JS: `assert`/`assert.eq` fail the compile
 // with a line number, and a passing compile is the green light.
 //
-// Run with `just test` from `rssfeed/0.1.0`.
+// Run with `just test` from `feeds/0.1.0`.
 //
 // SCOPE: this bead lands data modelling only — no concrete source, no XML
 // serialization, no `.marrow.typ` — so this fixture covers exactly that:
@@ -26,7 +26,7 @@
 //     json feed is summary-only and must say so).
 //   - the ONE non-empty-title rule (`_expect-title`) panics wherever a title
 //     arrives from outside the package — a source's entry, an
-//     `<rssfeed:item>` beacon read by `items()`, or an `item(...)` call — when
+//     `<feeds:item>` beacon read by `items()`, or an `item(...)` call — when
 //     that title is neither a string nor content, or flattens to "". All
 //     three sites share the checker, so the rule cannot differ between them.
 //   - `resolve-entries` (via `_normalize-entry`) panics on: a non-dictionary
@@ -41,7 +41,7 @@
 //     verbatim, silently) or not a string; a non-string `id`, `page` or entry
 //     `author`; a `select`/`summary` that is neither a string nor none.
 //   - `resolve-entries` panics when a source's return value is not an array.
-//   - `items()` panics (at query time) on a `<rssfeed:item>` (or custom
+//   - `items()` panics (at query time) on a `<feeds:item>` (or custom
 //     `label-name`) beacon whose value is not a dictionary. Its beacon
 //     `title` is checked by the shared rule above.
 //   - `_mint-plan` panics when two feeds in its input share the same `path`.
@@ -504,7 +504,7 @@ Para two]), "Para one Para two")
 // `str` only, so `spine()`'s own title shape could not reach a beacon.
 //
 // Emitted under its OWN `label-name`, for two reasons: it must not perturb the
-// `<rssfeed:item>` counts asserted above, and the matching-custom-label
+// `<feeds:item>` counts asserted above, and the matching-custom-label
 // contract (pass the same `label-name` to both `item(...)` and `items(...)`)
 // otherwise has no coverage at all.
 #item(

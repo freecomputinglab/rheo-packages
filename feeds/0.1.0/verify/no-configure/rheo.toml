@@ -1,4 +1,4 @@
-# Bead rheo-packages-parity-qrd, row 7: a project that imports @rheo/rssfeed
+# Bead rheo-packages-parity-qrd, row 7: a project that imports @rheo/feeds
 # but never calls `configure(...)` (and mints no marrow of its own) must get a
 # COMPLETE no-op — no feed XML, no autodiscovery <link>. See ../run.sh.
 #
