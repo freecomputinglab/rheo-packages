@@ -274,6 +274,18 @@
 //     child, not something the join needs to insert.
 //   - `emph`/`strong` (and any similarly-shaped single-child wrapper) have a
 //     `body` FIELD holding that one child — recursed into.
+//   - `smartquote` — what Typst's smartquote show rule splits an apostrophe or
+//     quote character typed inside markup into — carries ONLY a `double`
+//     field, so it matches none of the three field branches above and used to
+//     fall to the final `else` and contribute "". That DELETED the character
+//     rather than mis-encoding it: MEASURED against real content, a title
+//     authored as `[Mladen Dolar: What's in a Name?]` flattened to "Mladen
+//     Dolar: Whats in a Name?". It is mapped to the ASCII `'`/`"` here rather
+//     than the curly forms: the element records only whether the quote was
+//     double, not which language's glyph the show rule chose, and neither
+//     ASCII quote needs XML escaping in element text (`_esc-text` escapes only
+//     `&`/`<`/`>`, which is correct) nor in an attribute (`_esc-attr` turns `"`
+//     into `&quot;`).
 //   - `space`/`parbreak`/`linebreak` carry none of the three fields above
 //     (`.has(..)` is false for all of `text`/`children`/`body`) and each
 //     becomes a single " " — a title's flattened text has no need to
@@ -301,6 +313,8 @@
     c.children.map(go).join("")
   } else if c.has("body") {
     go(c.body)
+  } else if c.func() == smartquote {
+    if c.double { "\"" } else { "'" }
   } else if c.func() in (_space-func, parbreak, linebreak) {
     " "
   } else {
