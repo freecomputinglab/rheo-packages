@@ -1119,6 +1119,90 @@
   (head + item-strs + ("</channel>", "</rss>")).join("")
 }
 
+// ---- json-feed — serialize to a JSON Feed 1.1 string ----------------------
+//
+// Named `json-feed`, NOT `json`: a module-level `#let json = ..` would shadow
+// Typst's built-in `json` module this function calls into.
+//
+// Same three contracts as `atom(...)`/`rss(...)`: `entries: none` resolves
+// here, a supplied list is normalised, zero entries returns `none`.
+//
+// The whole serializer is "build a dictionary, encode it" — MEASURED (typst
+// 0.15.1) that `json.encode(value)` returns a `str` and escapes correctly (for
+// `(title: "He said \"hi\"")` the output contains `\"hi\"`), so there is no
+// hand-rolled string escaping here at all.
+//
+// SUMMARY-ONLY, and that is a rheo-core gap rather than a choice. JSON Feed
+// wants `content_html` per item, and `<rheo-content>` cannot produce it:
+// MEASURED against a real rheo 0.6.0 build, its only encodings are `escaped`
+// (XML entities for `&`/`<`/`>`) and `raw`, neither JSON-safe —
+//
+//   - with bare attribute quotes, so rheo's attribute regex matches, a
+//     transcluded page carrying ANY html attribute breaks the JSON: the minted
+//     file came out `{"content_html": "&lt;p&gt;.. &lt;a
+//     href="https://example.com/x"&gt;..` and `json.load` failed with
+//     `Expecting ',' delimiter: line 1 column 88`. `escaped` does not escape
+//     `"`.
+//   - with backslash-escaped attribute quotes, so the JSON stays valid, rheo's
+//     attribute pattern (which wants `="`, not `=\"`) never matches and the
+//     placeholder survives into the output verbatim, unresolved.
+//
+// So no `content_html` is emitted, and the `content: none` assert below makes
+// an author acknowledge that rather than have a `content: "html"` setting
+// silently ignored. Closing the gap needs a JSON-safe `Encoding` in rheo core
+// (`crates/core/src/transclude.rs`) — bead `rheo-rheo-content-json-vxv` in the
+// rheo repo.
+//
+// Absent values are OMITTED, never encoded as `null`: a null-littered feed
+// reads as a bug, and JSON Feed's own spec talks in terms of members being
+// present or absent.
+#let _json-item(e) = {
+  let it = (id: e.id, url: e.url, title: e.title)
+  for (k, v) in (
+    ("summary", e.summary),
+    ("date_published", if e.published != none { _rfc3339(e.published) } else { none }),
+    ("date_modified", if e.updated != none { _rfc3339(e.updated) } else { none }),
+    ("tags", e.categories),
+  ) {
+    if v != none and v != () { it.insert(k, v) }
+  }
+  // `authors` (plural, array of objects) is the 1.1 spelling; the singular
+  // `author` is deprecated 1.0.
+  it.insert("authors", ((name: e.author),))
+  it
+}
+
+#let json-feed(cfg, entries: none) = {
+  assert(
+    cfg.content == none,
+    message: "@rheo/rssfeed: a JSON feed must be configured with `content: "
+      + "none` — got " + repr(cfg.content) + ". JSON Feed content needs a "
+      + "JSON-safe `<rheo-content>` encoding that rheo does not have yet, so "
+      + "entries carry their `summary` only. Write `content: none` to "
+      + "acknowledge a summary-only feed.",
+  )
+  let entries = if entries == none {
+    resolve-entries(cfg)
+  } else {
+    entries.map(e => _normalize-entry(e, cfg)).filter(e => e != none)
+  }
+  if entries.len() == 0 {
+    return none
+  }
+
+  let doc = (
+    version: "https://jsonfeed.org/version/1.1",
+    title: cfg.title,
+    home_page_url: cfg.base-url,
+    feed_url: _feed-url(cfg),
+  )
+  if cfg.subtitle != none { doc.insert("description", cfg.subtitle) }
+  doc.insert("authors", ((name: cfg.author),))
+  doc.insert("items", entries.map(_json-item))
+
+  json.encode(doc)
+}
+
 // ---- CONSUMED BY .marrow.typ — a real API, with no other marker ------------
 //
 // `.marrow.typ` (this package's own, at the package root) imports `_feeds`
