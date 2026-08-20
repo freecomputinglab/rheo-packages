@@ -94,19 +94,34 @@ A source need not fill every field — only `title` is mandatory on the way in.
 silently dropped from the feed. See "Migrating" below for why, and for what
 this replaces.
 
+Every one of those types is checked, and the error names this package and the
+field rather than surfacing from somewhere inside the XML serializer. Three are
+worth calling out because the wrong value looks plausible: a `url` must be
+ABSOLUTE (a page-relative path belongs in `page`, which is joined onto
+`base-url` for you); `categories` must be an array even for a single tag, so
+`("note",)` and never `"note"`; and a date must be a real
+`datetime(year: .., month: .., day: ..)`, never a string — see
+"Migrating" below, since the variable this field replaces did take one.
+
 ### Source
 
 A source is not a shape with fields to fill in — it is a plain function of one
 argument, `cfg => (entries)`, where `cfg` is the resolved feed config (the same
 dict `feed(...)` returns) and the return value is an array of entries. There is
-no source registry and no descriptor dict: a built-in source such as `spine`
-is constructed with `.with(...)` so it is an ordinary function value at the
-call site, and a hand-written source is any function of the same shape, with
-nothing package-specific about it:
+no source registry and no descriptor dict. A built-in source such as `spine`
+takes its own options and *returns* the source, so it reads as an ordinary call
+at the call site — `spine(select: "main")` — and a hand-written source is any
+function of the same shape, with nothing package-specific about it:
 
 ```typst
 #let my-source(cfg) = ((title: "Hello", url: cfg.base-url + "/hi"),)
 ```
+
+`.with(...)` does **not** work here, and the mistake is an easy one: a source
+takes its `cfg` positionally, while `spine` itself takes none, so
+`spine.with(select: "main")` yields a function that still refuses a positional
+argument and fails with `error: unexpected argument` the moment
+`resolve-entries` calls it. Write `spine(select: "main")`.
 
 A Typst `state` can hold a function and still call it after `.final()`, which
 is why a `sources` array survives all the way from `configure(...)`'s call
@@ -371,6 +386,17 @@ happens to run on, so a vertebra dated with it produces a feed timestamp that
 changes on every build — every reader re-surfaces that entry as "updated" on
 every deploy, forever. Write a literal `datetime(year: ..., month: ...,
 day: ...)` for a post's own `#set document(date: ...)` instead.
+
+**A string date is rejected outright.** `rheo-feed-updated` took one; this
+does not. `updated: "2026-01-01"` fails the build naming the field, rather
+than being parsed on your behalf — the same reasoning as the trap above, since
+a package guessing at a date format is a package getting it wrong quietly.
+
+**Within one date, entries keep their source's order.** Dates from `spine()`
+are day-granular — one `#set document(date: ...)` per vertebra — so two posts
+published on one day are common, and the feed lists them in the order the
+source produced them rather than reversing them. Where that matters, give the
+two posts distinct dates rather than relying on source order.
 
 ## Local development
 
