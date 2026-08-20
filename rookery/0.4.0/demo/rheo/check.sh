@@ -166,6 +166,21 @@ if grep -q '<li>idea:root-note' "$H/index.html"; then
 fi
 
 
+# 8. The per-tag theme reaches MINTED pages. `theme: (tags-color: ..)` is
+#    delivered as generated `.idea-tag-<tag>` rules, and `rookery()` emits them
+#    once per VERTEBRA — which cannot reach a page `.marrow.typ` mints, that
+#    being a separate `#document` that never calls `rookery()` again. So
+#    `.marrow.typ` carries the block itself, on every note page and on the index,
+#    and this is the assertion that notices if it stops. `content/lib.typ` themes
+#    the `note` tag for exactly this reason; the demo has no other use for it.
+for page in ideas/index.html ideas/root-note.html; do
+  grep -q '@layer rookery-tags' "$H/$page" ||
+    note "$page carries no @layer rookery-tags block, so a minted page lost its tag theme"
+done
+grep -q 'idea-tag-note { --idea-tag-bg: #3366ff }' "$H/ideas/root-note.html" ||
+  note "ideas/root-note.html's generated rule does not set --idea-tag-bg for the note tag"
+
+
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"
   exit 1

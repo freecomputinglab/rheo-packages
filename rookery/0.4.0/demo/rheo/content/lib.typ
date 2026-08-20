@@ -29,6 +29,11 @@
     idea-page-template: idea-page,
     index-page: true,
     syndicate: true,
+    // Themes the `note` tag a demo note already carries, so check.sh can assert
+    // that the generated `.idea-tag-<tag>` rules reach the pages `.marrow.typ`
+    // mints — `rookery()`'s own emission runs per vertebra and never reaches
+    // them.
+    theme: (tags-color: (note: rgb("#3366ff"))),
     // `bytes(read(..))`, not a path: Typst resolves a path against the file the
     // `#bibliography` call appears in, and that call lives inside the package.
     // Reading here resolves against THIS file, where `refs.bib` sits.

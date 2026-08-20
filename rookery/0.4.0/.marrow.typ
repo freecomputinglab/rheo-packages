@@ -89,12 +89,38 @@
 // any package) sourcing `ideas(tags:, match:)` straight into rssfeed's
 // `items()` is the primary one; this exists for what that route cannot
 // reach, e.g. a hand-authored page syndicating itself.
-#import "@rheo/rookery:0.4.0": _registry, _note-page, _pfx, _IDEA-DIR, _index-page, ideas, _head, _permalink, _permalink-tab, _themed, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
+#import "@rheo/rookery:0.4.0": _registry, _note-page, _pfx, _IDEA-DIR, _index-page, ideas, _head, _permalink, _permalink-tab, _themed, _tags-color-rules, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
 
 #context {
   let registry = _registry.final()
   let tpl = _idea-page-template.final()
   let syndicate = _syndicate.final()
+
+  // THE PER-TAG THEME, which every page below has to carry for itself.
+  //
+  // `theme: (tags-color: ..)` is delivered as generated `.idea-tag-<tag>` rules
+  // (`_tags-color-rules`, src/theme.typ), and `rookery()` emits them once per
+  // VERTEBRA — which cannot reach a page THIS file mints, because a minted page
+  // is a separate `#document` that never calls `rookery()` again (the same fact
+  // recorded at src/template.typ's emission). Without this the pages where tag
+  // colour matters MOST would be the only ones without it: every minted note
+  // page renders its tags as pills unconditionally (see `tags:` below), and
+  // `ideas/index.html` puts `idea-tag-<tag>` on every row and carries the site's
+  // search modal, whose chips wear the same classes.
+  //
+  // Read ONCE, outside both loops, like `minted-depth` and the backlink maps:
+  // `_tags-color-rules()` reads one document-wide `.final()` theme, so every
+  // minted page gets the identical block. `none` — no themed tag — must produce
+  // no `<style>` element at all, keeping the "an unthemed document emits nothing
+  // extra" promise on these pages too.
+  //
+  // The `:root` block is deliberately NOT emitted here: minted pages already
+  // carry the rest of the theme as inline custom properties through `_themed`
+  // on `.idea-head`, and that mechanism is unchanged.
+  let tag-style = {
+    let rules = _tags-color-rules()
+    if rules == none { [] } else { html.elem("style", rules) }
+  }
 
   // NOTE backlinks: the inverse of every note's recorded outbound links.
   let backlinks = (:)
@@ -173,6 +199,9 @@
     // project's template can wrap the WHOLE page — heading, body and footer —
     // and see exactly what a vertebra's own `#show:` would.
     let page = [
+      // The per-tag theme, first thing on the page — see `tag-style` above for
+      // why a minted page has to carry it itself. Empty when nothing is themed.
+      #tag-style
       // The id as this page's top rule, above the <h1> rather than inside it —
       // the same treatment a note gets in a card or a window summary, so a
       // minted page reads as the same object.
@@ -469,6 +498,10 @@
   if _index-page.final() and registry.len() > 0 {
     let rows = ideas().filter(e => e.href != none)
     let page = [
+      // The per-tag theme, as on every minted note page above: this page gives
+      // every row the `idea-tag-<tag>` classes, and carries the search modal
+      // whose chips wear them too.
+      #tag-style
       // No permalink tab: this page is the rookery, not a note, and there is
       // nothing for it to permalink to. `_head` still wraps the heading so the
       // page carries the same `.idea-head` container — and the same themed
