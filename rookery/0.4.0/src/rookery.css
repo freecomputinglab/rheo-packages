@@ -640,6 +640,40 @@ figure:has(> .idea-window) + figure:has(> .idea-window),
   margin-top: 1rem;
 }
 
+/* A PAGE LIST AFTER A CARD — the fourth shape a run of backlink rows arrives in,
+   and the only one that is not a figure, so the rule above cannot reach it. A
+   minted page's Backlinks lists notes as figure-wrapped windows and then pages as
+   a BARE `ul.idea-page-list` (`.marrow.typ`'s `page-list`), so
+   `.idea-footer figure + figure` misses it, `.idea-page-list` zeroes its own
+   margins and `.idea-page-row` sets `margin-bottom` alone: nothing gave it a top
+   margin at all. MEASURED on rookery.ohrg.org's `ideas/windows.html`, eight
+   backlink windows then one page row: the row's top sat at 1673.16 and the last
+   card's floor at 1673.16 — no gap whatever, where every pair of cards above it
+   had one.
+
+   THE FOOTER IS THE ONLY PLACE THIS BITES, which is why it went unseen for so
+   long. Elsewhere adjacent figures still collapse the UA's own
+   `figure { margin: 1em }` into a 16px gap; `.idea-footer figure` zeroes exactly
+   that — the same reason `.idea-footer figure + figure` had to exist above.
+
+   `1rem` MINUS HALF A LABEL, not a flat `1rem`, because two gaps are the same gap
+   only if they LOOK the same. Between two cards the 1rem above buys 16px of box
+   gap and the next card's id is lifted up into it: the figure's `padding-top` and
+   the tab's negative `margin-top` put the label's top exactly
+   `0.5 * --idea-label-size` above the figure's edge, so the reader sees 11.44px
+   of empty space at the default, not 16px. MEASURED, and the arithmetic is exact
+   — card floor to next id label is 11.44px, and `calc(1rem - 0.5 * 0.57rem)` is
+   11.44px. A page row has no id to lift, so a flat `1rem` would read as a LARGER
+   gap than the run of cards it ends. Reading the same custom property is what
+   keeps the two in step when a project retunes `--idea-label-size`.
+
+   No mirrored `.idea-page-list + figure`: pages come after notes in Backlinks
+   (see `page-rows` in `.marrow.typ`) and Context is a lone list with no figure
+   beside it, so the reverse order does not arise. */
+.idea-footer figure + .idea-page-list {
+  margin-top: calc(1rem - 0.5 * var(--idea-label-size, 0.57rem));
+}
+
 /* A note and a transclusion of one indent identically, from a rule in the same
    place: they are the same kind of thing, and a `#window` that sat further in
    than the note beside it would read as subordinate to it rather than as
