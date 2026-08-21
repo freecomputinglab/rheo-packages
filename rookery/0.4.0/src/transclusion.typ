@@ -256,11 +256,17 @@
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
       // prose citations written before this note. The references block goes
       // inside the bracket, so the back-references Typst puts in its entries
-      // count as this note's links rather than the page's.
+      // count as this note's links rather than the page's — and inside the CARD
+      // as well, for the reason `#idea`'s own branch records: the card's rule and
+      // indent are what make a block read as this note's apparatus, exactly as
+      // its footnotes do, and a sibling of the card gets neither.
       _sweep-block()
       _bracket(
-        html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(v.body))
-          + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)),
+        html.elem(
+          "div",
+          attrs: _themed((class: box-cls.join(" "))),
+          header + _footnoted(v.body) + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)),
+        ),
         IK,
       )
     } else {

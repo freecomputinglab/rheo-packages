@@ -229,9 +229,23 @@
         _sweep-block()
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.
+        //
+        // THE REFERENCES BLOCK GOES INSIDE THE CARD, beside the footnotes block
+        // rather than under the card's floor. Both are apparatus for this note,
+        // and the card's `border-left` and `padding-left` are what say so: a
+        // sibling gets neither, so its "References" heading hung flush against
+        // the page's own margin while the footnotes one line above it sat at the
+        // note's text margin. MEASURED in `demo/pure/build/root.html`: the card
+        // closed, then `<div class="idea-references">` opened outside it.
+        // Document order is unchanged by the move, which is what leaves Typst's
+        // POSITIONAL citation partitioning alone — the block still follows the
+        // body, so it still claims exactly this note's citations.
         _bracket(
-          html.elem("div", attrs: _themed((class: box-cls.join(" "))), header + _footnoted(body))
-            + _refs-block(_own-cited-keys(body)),
+          html.elem(
+            "div",
+            attrs: _themed((class: box-cls.join(" "))),
+            header + _footnoted(body) + _refs-block(_own-cited-keys(body)),
+          ),
           IK,
         )
       } else {
