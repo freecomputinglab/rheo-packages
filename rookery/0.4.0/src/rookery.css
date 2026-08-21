@@ -1108,7 +1108,19 @@ h6.idea {
    all of that is left alone.
 
    An idea's block is apparatus for that idea, exactly like its footnotes above:
-   smaller than body text, hairline above, aligned to the note's text margin. */
+   smaller than body text, hairline above, aligned to the note's text margin.
+
+   THAT ALIGNMENT IS NOT A RULE HERE, and nothing below should try to make it
+   one. `#idea` emits this block as a CHILD of `.idea-box` (see the note at the
+   `_bracket` call in `idea.typ`), so the card's own `border-left` and
+   `padding-left` reach it: the bar runs down beside the entries and they start
+   at the note's text margin, for free and by the same declarations the footnotes
+   block above it takes. It used to be a SIBLING of the card, which is what made
+   this paragraph's last clause false — MEASURED in `demo/pure/build/root.html`,
+   the card closed and then `<div class="idea-references">` opened outside it,
+   flush left. Giving this class a `border-left` or a `padding-left` of its own
+   would draw a SECOND bar inside the card's, so do not: the fix lives at the
+   emission site, and `.idea-page-refs` below stays outside on purpose. */
 .idea-references {
   margin-top: 1em;
   padding-top: 0.4em;
