@@ -97,13 +97,23 @@ done
 #    them rather than a second table of contents: `#ideas-outline` links each row
 #    to the note's anchor on the vertebra that authored it, and this page
 #    deliberately does not use it.
+#
+#    AS A BARE BASENAME, and that is the assertion, not an incidental spelling.
+#    This page IS `ideas/index.html`, so a minted note page is its SIBLING and
+#    `<slug>.html` is the whole correct href. It used to be spelled
+#    `ideas/<slug>.html` here, matching what rookery emitted — and what rookery
+#    emitted was wrong, resolving to `ideas/ideas/<slug>.html`. Measured on an
+#    82-note site: every row 404. So the old form must NOT be accepted again.
 [ -f "$H/ideas/index.html" ] || note "no ideas/index.html was minted"
 if [ -f "$H/ideas/index.html" ]; then
   idx="$H/ideas/index.html"
   # One row per minted note, each linking to that note's own page.
   for slug in root-note inner-note plain-note sub-note; do
-    grep -q "href=\"[^\"]*ideas/$slug.html\"" "$idx" ||
-      note "ideas/index.html does not link ideas/$slug.html"
+    grep -q "idea-outline-row[^\"]*\"><a href=\"$slug.html\"" "$idx" ||
+      note "ideas/index.html does not link $slug.html as a sibling basename"
+    if grep -q "idea-outline-row[^\"]*\"><a href=\"[^\"]*ideas/$slug.html\"" "$idx"; then
+      note "ideas/index.html links $slug through a directory prefix; from inside ideas/ that resolves to ideas/ideas/$slug.html"
+    fi
   done
   # No row may link to an anchor on an authoring vertebra — that is the
   # `#ideas-outline` shape this page exists to avoid.
