@@ -70,9 +70,46 @@
 // unconditionally. Used by `_permalink-paged` (always `"page"`) and by
 // `#hyperlink` (both its explicit-call and `show ref:` forms), so the two
 // cannot drift on what either mode means.
+// HANDED TO RHEO UNRESOLVED, as `rheo-page:<handle>`, rather than resolved here —
+// and the split from `_note-href` above is the whole point of the shape.
+//
+// Reading `state("rheo-handle")` is correct when it happens in a page's OWN
+// context, which is where `note-href()`'s data consumers call it from:
+// `@rheo/rookery-search`'s corpus bakes the result into a per-page JSON index that
+// is right today and that no show rule could reach. So `_note-href` stays exactly
+// as it is.
+//
+// Inside a note body it is a different question, because a body is REPLAYED — onto
+// the vertebra that authored it, into every `#window` transcluding it, and onto its
+// own minted page. When the document converges a `context` there does resolve per
+// insertion and the old code was correct: verified, one stored body yielding
+// `ideas/m.html` at depth 0 and `../ideas/m.html` at depth 1. When it does NOT
+// converge, every copy degenerates to ONE shared value — measured, a single author
+// link came out `../ideas/x.html` on four pages at two depths, 72 links dead from
+// the site root.
+//
+// A show rule installed by the enclosing #document has no such failure mode: it
+// applies afresh at each realization, which is why rheo's own cross-vertebra links
+// were always right on transcluded content where this was not. So hand the dest
+// over and let rheo's per-#document rule answer per page. A note link is then
+// correct even while something else in the stack fails to converge, instead of only
+// when everything behaves.
+//
+// A STRING, not a label: Typst 0.15 attaches labels syntactically, so a computed
+// `<ideas:slug>` does not exist and `#link(label(..))` fails with "label does not
+// exist in the document" before any show rule can run. Only rheo, synthesizing
+// bundle source in Rust, can mint a labelled anchor, so a reserved URL scheme is
+// the only channel a package has.
+//
+// REQUIRES the rheo that rewrites the scheme. An older rheo passes it straight
+// through and the href ships as a literal `rheo-page:…`, so this is a hard floor,
+// not a graceful degradation. `link-to: "anchor"` and every non-rheo target still
+// fall back to the label as before.
 #let _resolve-dest(id, link-to) = {
-  let href = if link-to == "anchor" { none } else { _note-href(id) }
-  if href == none { label(id) } else { href }
+  if link-to == "anchor" { return label(id) }
+  let c = _rheo-ctx()
+  if c == none or c.at("ext", default: none) == none { return label(id) }
+  "rheo-page:" + _IDEA-DIR + ":" + id.trim(_pfx(), at: start)
 }
 // ---- #note-href — where a note's minted page lives, from here -------------
 //
