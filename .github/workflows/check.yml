@@ -63,16 +63,13 @@ jobs:
       - name: Install rheo 0.6.0 (the declared min_version floor)
         run: |
           set -euo pipefail
-          # Digest of the v0.6.0 asset. Fill from:
+          # Digest of the v0.6.0 rheo-x86_64-unknown-linux-gnu.zip asset, published
+          # 2026-08-24. Read back with:
           #   gh release view v0.6.0 --repo freecomputinglab/rheo --json assets
-          # The guard below exists so that bumping the URL without the digest fails
-          # LOUDLY here, rather than quietly downloading an unverified binary.
-          sha256="FILL-AFTER-CUTTING-v0.6.0"
-          if [ "$sha256" = "FILL-AFTER-CUTTING-v0.6.0" ]; then
-            echo "::error::check.yml still carries the placeholder digest for the rheo v0.6.0 release asset."
-            echo "Fill it with: gh release view v0.6.0 --repo freecomputinglab/rheo --json assets"
-            exit 1
-          fi
+          # BUMP THIS IN THE SAME EDIT AS THE URL BELOW: the `sha256sum -c` is what
+          # makes a re-uploaded or wrong-version asset fail here rather than silently
+          # changing what CI tested.
+          sha256="05c40231acaaf58fd0e3cba0b40e1c1d1a939bfe6bea8e775868dbf6f9c79d7f"
           curl -fsSL -o rheo.zip \
             https://github.com/freecomputinglab/rheo/releases/download/v0.6.0/rheo-x86_64-unknown-linux-gnu.zip
           echo "$sha256  rheo.zip" | sha256sum -c -
