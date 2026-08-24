@@ -36,29 +36,50 @@ jobs:
           tar -xJf typst.tar.xz
           echo "$PWD/typst-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
 
-      # Pinned to the OLDEST rheo both rookery manifests declare as their floor
-      # ([tool.rheo] min_version = "0.5.2"), NOT to the newest rheo: the point is
-      # that the DECLARED floor is the floor actually tested, so a package that
-      # reaches for a newer surface fails here instead of on a user's machine.
-      # Nothing in rheo reads `min_version` yet, so this step is the only thing
-      # enforcing it.
+      # Pinned to the OLDEST rheo the rookery manifests under test declare as their
+      # floor, NOT to the newest rheo: the point is that the DECLARED floor is the
+      # floor actually tested, so a package that reaches for a newer surface fails
+      # here instead of on a user's machine. Nothing in rheo reads `min_version`
+      # yet, so this step is the only thing enforcing it.
+      #
+      # THE FLOOR MOVED to 0.6.0, and this is not the "bump it to whatever just
+      # shipped" that the previous version of this comment forbade. rookery 0.4.1
+      # declares `[tool.rheo] min_version = "0.6.0"` because it REQUIRES a 0.6.0
+      # surface: `_resolve-dest` (rookery/0.4.1/src/urls.typ) emits a reserved
+      # `rheo-page:<handle>` link dest, and only rheo 0.6.0 rewrites it into a
+      # depth-correct href. Under 0.5.2 the dest passes straight through and every
+      # page ships a literal `href="rheo-page:ideas:<slug>"`, which is what
+      # `rookery/0.4.1/demo/rheo/check.sh` catches. Following a floor that moved is
+      # still testing the floor; head-of-line coverage would be a second matrix
+      # entry, and still is not a replacement for this.
+      #
+      # rookery/0.4.0 and rookery-search/0.4.0 remain in the tree and still declare
+      # 0.5.2. They are NOT exercised here — that is the second matrix entry, not
+      # this step.
       #
       # Pinned URL AND pinned digest, for the same auditability reason the Typst
       # step gives: a re-uploaded asset fails this step rather than silently
-      # changing what CI tested. Digest from `gh release view v0.5.2 --json assets`.
-      #
-      # DO NOT bump this to 0.6.0 when it ships. Head-of-line coverage is a
-      # second matrix entry, not a replacement for testing the floor.
-      - name: Install rheo 0.5.2 (the declared min_version floor)
+      # changing what CI tested.
+      - name: Install rheo 0.6.0 (the declared min_version floor)
         run: |
           set -euo pipefail
+          # Digest of the v0.6.0 asset. Fill from:
+          #   gh release view v0.6.0 --repo freecomputinglab/rheo --json assets
+          # The guard below exists so that bumping the URL without the digest fails
+          # LOUDLY here, rather than quietly downloading an unverified binary.
+          sha256="FILL-AFTER-CUTTING-v0.6.0"
+          if [ "$sha256" = "FILL-AFTER-CUTTING-v0.6.0" ]; then
+            echo "::error::check.yml still carries the placeholder digest for the rheo v0.6.0 release asset."
+            echo "Fill it with: gh release view v0.6.0 --repo freecomputinglab/rheo --json assets"
+            exit 1
+          fi
           curl -fsSL -o rheo.zip \
-            https://github.com/freecomputinglab/rheo/releases/download/v0.5.2/rheo-x86_64-unknown-linux-gnu.zip
-          echo "bf95f9f617568c746bbb759071f36ed6fc5f32a38504f7bebf615b5fa7bd36b2  rheo.zip" | sha256sum -c -
+            https://github.com/freecomputinglab/rheo/releases/download/v0.6.0/rheo-x86_64-unknown-linux-gnu.zip
+          echo "$sha256  rheo.zip" | sha256sum -c -
           unzip -q rheo.zip -d rheo-bin
           chmod +x rheo-bin/rheo
           echo "$PWD/rheo-bin" >> "$GITHUB_PATH"
-          rheo-bin/rheo --version   # must print: rheo 0.5.2
+          rheo-bin/rheo --version   # must print: rheo 0.6.0
 
       # First, because it is the cheapest failure in the repo and the one that
       # silently ships a broken release: a version directory cut by copying and
