@@ -664,20 +664,20 @@ no build step, `typst.toml` pointing straight at `src/`. Keeping search out
 keeps that true. Install it alongside rookery if you want it; nothing here
 depends on it, and nothing here changes if you never do.
 
-**A feed is another.** `@rheo/rssfeed` builds Atom feeds from sources — plain
+**A feed is another.** `@rheo/feeds` builds Atom, RSS and JSON feeds from sources — plain
 functions `cfg => (entries)` — and a rookery reaches it two ways.
 
 The direct way, and the one to reach for first: write a source that calls
-`ideas(tags:)` itself and maps its rows onto rssfeed's entry shape. Because
+`ideas(tags:)` itself and maps its rows onto that package's entry shape. Because
 `page` above (and `#note-path()`) is site-root-relative rather than
 depth-relative, this works from a feed config exactly as it would from a
 vertebra — there is no "current page" for a feed to measure a link from, and
-none is needed. `@rheo/rssfeed`'s own readme, "Sourcing from another
+none is needed. `@rheo/feeds`'s own readme, "Sourcing from another
 package", carries the worked recipe verbatim, run against this package's
 `ideas()`; the two packages import nothing from each other, in either
 direction.
 
-The other way is `@rheo/rssfeed`'s own `<rssfeed:item>` beacon protocol, for a
+The other way is `@rheo/feeds`'s own `<feeds:item>` beacon protocol, for a
 source with no accessor like `ideas()` to call at all — a hand-authored page
 syndicating itself, or a package that cannot import rookery's internals. For
 rookery's own notes this stays secondary: every note is already reachable
@@ -685,13 +685,12 @@ through `ideas()`, so a rookery-sourced feed should reach for the direct way
 above first. It exists as an opt-in, `#show: rookery.with(syndicate: true)`
 (default `false` — a package must not emit into another package's label
 namespace unasked). Turned on, each minted note page (`ideas/<slug>.html`)
-also carries a `#metadata((..)) <rssfeed:item>` beacon, so `@rheo/rssfeed`'s
+also carries a `#metadata((..)) <feeds:item>` beacon, so `@rheo/feeds`'s
 `items()` picks it up with no import in either direction — rookery never
-imports `@rheo/rssfeed`, and the beacon is inert (`#metadata` renders no HTML)
+imports `@rheo/feeds`, and the beacon is inert (`#metadata` renders no HTML)
 when nothing reads it. A note with neither `minted` nor `updated` never gets
 one: Atom requires `<updated>`, so an undated beacon would only be an entry
 `items()`/`resolve-entries` drops on the floor.
-
 ## The click budget
 
 Interaction is modelled on [Forester](https://www.forester-notes.org), and the

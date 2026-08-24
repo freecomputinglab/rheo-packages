@@ -4,6 +4,10 @@ Derive a blog index/feed from a [Rheo](https://rheo.ohrg.org) spine, with an
 optional client-side tag filter. Ships the Typst API, the post-list/filter CSS,
 and the filtering JS — all auto-injected into the HTML target.
 
+This renders an on-page index of posts; for Atom/RSS XML output, see
+`@rheo/feeds` instead. The two share no code and compose fine together on
+the same project.
+
 A "post" is any spine vertebra that declares a document `date`:
 
 ```typst

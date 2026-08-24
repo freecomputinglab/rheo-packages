@@ -1,0 +1,9 @@
+# Bead rheo-packages-parity-qrd, row 7: a project that imports @rheo/feeds
+# but never calls `configure(...)` (and mints no marrow of its own) must get a
+# COMPLETE no-op — no feed XML, no autodiscovery <link>. See ../run.sh.
+#
+# Needs an UNRELEASED rheo (>= 0.6.0, currently the feat/transclusion line) —
+# same requirement as ../../demo, see that project's rheo.toml/readme.md.
+version = "0.6.0"
+content_dir = "content"
+formats = ["html"]
