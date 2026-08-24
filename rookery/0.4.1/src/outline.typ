@@ -21,9 +21,35 @@
 //
 // This is the one thing in the package that cannot come from the registry.
 // The registry holds notes, and a link in a page's own prose belongs to no
-// note — so the document itself has to be asked. `query` returns elements in
-// DOCUMENT ORDER (measured), which is what makes a single left-to-right pass
-// with a depth counter sufficient; no tree, no ancestry API needed.
+// note — so the page itself has to be asked.
+//
+// ASKED AS A CONTENT QUESTION, and BEACONED, rather than swept out of the
+// document with `query`. This used to be one bundle-wide
+// `query(metadata|link|ref)` walked in document order with a depth counter, and
+// that shape is what put a rookery site over Typst's five-iteration relayout cap.
+// The sweep's result builds the backlink list on every page `.marrow.typ` mints,
+// and those minted pages replay note bodies — so they emit `link`, `ref` and
+// `metadata` elements that the same sweep then sees. The query fed the pages it
+// queried, and each round of that costs one iteration of a budget capped at
+// `MAX_ITERS = 5` (typst-library/src/introspection/convergence.rs).
+//
+// MEASURED on an 82-note site, warning counts with ANSI stripped: 4 with the
+// sweep, 2 with it stubbed out entirely. Past the cap `state("rheo-handle")`
+// reads stop converging, and a note's page-relative href degenerates to ONE
+// value shared by every page it is replayed onto — which is how 72 links came
+// out `../ideas/<slug>.html` from the site root and 404'd. A converging site
+// does not have that problem: verified on a small rookery site, where the same
+// stored body yielded `ideas/m.html` at depth 0 and `../ideas/m.html` at depth 1,
+// both correct, from unmodified code.
+//
+// So each vertebra now scans its OWN content — `_page-outbound` below, a plain
+// content walk with no introspection at all — and publishes the answer as one
+// labelled `metadata` beacon, exactly the shape rheo uses for its own per-vertebra
+// metadata. `_page-links` reads `query(<rookery-page-links>)`, a selector a
+// minted page never contributes to, so the loop is closed: the input no longer
+// grows when marrow mints. `#show: rookery` is what emits it (see `template.typ`),
+// which is also what scopes it to vertebrae — a minted page applies the project's
+// `idea-page-template`, not `rookery()`, so it publishes nothing here.
 //
 // Four shapes count, the same four `_outbound` counts inside a note:
 //
@@ -43,50 +69,73 @@
 //
 // A `ref` also renders INTO a link, so it can be seen twice; the result is a
 // set per page, so seeing it twice costs nothing.
-#let _page-links() = {
+// WHY A CONTENT WALK AND NOT A DEPTH COUNTER. The sweep this replaces got
+// "not inside an idea or window" from the `rookery-edge` open/close markers
+// `_bracket` emits, counted in document order. A content walk gets the same
+// answer structurally, by simply not descending: an `#idea` IS a
+// `figure(kind: IK)` in the body it was written into, and a `#window` announces
+// itself with a `rookery-window` marker before its own `figure(kind: WK)` exists
+// (that figure is built inside a `context`, so at content-walk time there is
+// nothing else of it to find — the same fact `_cite-scan` in `bib.typ` is built
+// around, and the reason it scans for the marker too).
+//
+// A page-level `#window` therefore both COUNTS as a page link and STOPS the walk,
+// which is right on both counts: the page links to those notes, and whatever the
+// transcluded bodies link to belongs to them, not to this page.
+#let _page-outbound(node) = {
+  let out = ()
+  if type(node) != content { return out }
+  let f = node.func()
+  if f == link { return if type(node.dest) == label { (str(node.dest),) } else { () } }
+  if f == ref { return (str(node.target),) }
+  if f == metadata {
+    let v = node.value
+    if type(v) != dictionary { return out }
+    if "rookery-window" in v { return v.rookery-window }
+    if "rookery-link" in v { return (v.rookery-link,) }
+    return out
+  }
+  // A note's own links belong to the note. Stop here.
+  if f == figure and node.at("kind", default: none) in (IK, WK) { return out }
+  if node.has("children") { for k in node.children { out += _page-outbound(k) } }
+  else if node.has("body") { out += _page-outbound(node.body) }
+  else if node.has("child") { out += _page-outbound(node.child) }
+  out
+}
+
+// The beacon `#show: rookery` publishes, one per vertebra. Must be called from a
+// `context`: it reads the prefix and this page's handle.
+//
+// A `rookery-window`/`rookery-link` marker carries a BARE name and a `link`/`ref`
+// a full id, which is why the prefix is applied to the first two only — the same
+// asymmetry the sweep had.
+#let _page-links-beacon(doc) = {
   let pfx = _pfx()
+  let handle = state("rheo-handle").get()
+  if type(handle) != str { return }
+  let targets = ()
+  for t in _page-outbound(doc) {
+    let full = if t.starts-with(pfx) { t } else { pfx + t }
+    if full not in targets { targets.push(full) }
+  }
+  [#metadata((handle: handle, targets: targets)) <rookery-page-links>]
+}
+
+#let _page-links() = {
   let out = (:)
-  let depth = 0
-
-  for el in query(selector(metadata).or(selector(link)).or(selector(ref))) {
-    let f = el.func()
-
-    if f == metadata {
-      let v = el.value
-      if type(v) != dictionary { continue }
-      let edge = v.at("rookery-edge", default: none)
-      if edge == "open" { depth += 1; continue }
-      if edge == "close" { depth -= 1; continue }
-      if depth != 0 { continue }
-      let names = if "rookery-window" in v {
-        v.rookery-window
-      } else if "rookery-link" in v {
-        (v.rookery-link,)
-      } else {
-        continue
-      }
-      let handle = state("rheo-handle").at(el.location())
-      if type(handle) != str or not _is-vertebra(handle) { continue }
-      for name in names {
-        let seen = out.at(handle, default: ())
-        if pfx + name not in seen { out.insert(handle, seen + (pfx + name,)) }
-      }
-      continue
-    }
-
-    if depth != 0 { continue }
-    let target = if f == link and type(el.dest) == label {
-      str(el.dest)
-    } else if f == ref {
-      str(el.target)
-    } else {
-      none
-    }
-    if target == none or not target.starts-with(pfx) { continue }
-    let handle = state("rheo-handle").at(el.location())
+  for el in query(<rookery-page-links>) {
+    let v = el.value
+    if type(v) != dictionary { continue }
+    let handle = v.at("handle", default: none)
+    // Vertebrae only, as before. A project whose minted-page template applies
+    // `#show: rookery` again would otherwise publish a beacon per minted page and
+    // list those pages as backlinks to the notes they render.
     if type(handle) != str or not _is-vertebra(handle) { continue }
     let seen = out.at(handle, default: ())
-    if target not in seen { out.insert(handle, seen + (target,)) }
+    for t in v.at("targets", default: ()) {
+      if t not in seen { seen.push(t) }
+    }
+    out.insert(handle, seen)
   }
   out
 }

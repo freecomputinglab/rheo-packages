@@ -221,6 +221,28 @@
       }
     }
   }
+  // THE PAGE-LEVEL LINK BEACON, one per vertebra: which notes THIS page links to
+  // in its own prose, for the page half of a minted page's backlink list. Read
+  // `_page-links`'s banner in outline.typ for why this is beaconed rather than
+  // swept out of the document with `query`, and for the 72 dead links the sweep
+  // was ultimately responsible for.
+  //
+  // HERE, in the template, because this is the only place holding the whole page:
+  // `doc` is the vertebra's entire content, and "what does this page link to
+  // outside any note" is answerable from that content tree alone, with no
+  // introspection. The same asymmetry the trailing-citations block below relies
+  // on, for the same reason — an idea never sees the prose around it.
+  //
+  // EXACTLY ONCE PER OUTPUT PAGE, on the same grounds as the `<style>` block
+  // above: `#show: rookery` is applied per FILE, and under rheo one file is one
+  // vertebra is one output page. A minted note page never calls `rookery()` again
+  // — it applies the project's `idea-page-template` — so it publishes no beacon,
+  // and that is what keeps `query(<rookery-page-links>)` a selector marrow's own
+  // output cannot grow.
+  //
+  // Not gated on target: the beacon renders nothing anywhere, and the paged build
+  // answers the same question about the same page.
+  context _page-links-beacon(doc)
   // The fallback for a rookery `#footnote` written OUTSIDE any idea: page-wide
   // numbering and a body in the page's own endnote section, exactly as Typst's
   // own footnote behaves. `#idea` installs a nested rule that wins over this
