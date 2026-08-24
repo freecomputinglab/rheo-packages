@@ -1,0 +1,14 @@
+# The rheo half of @rookery's in-repo coverage. `demo/pure/` next door proves
+# the package works as a plain Typst package with no rheo at all; this one
+# exercises everything that only exists under rheo — `.marrow.typ`'s minted
+# pages, the backlink maps, `idea-page-template`, and the depth arithmetic that
+# a root-only spine cannot catch.
+version = "0.5.2"
+content_dir = "content"
+formats = ["html"]
+
+# `lib.typ` is a library, not a page: it holds the named `idea-page` function
+# and the one `#show: rookery.with(..)` both vertebrae apply. Without this it
+# would compile to its own `lib.html`.
+[spine]
+exclude = ["lib.typ"]
