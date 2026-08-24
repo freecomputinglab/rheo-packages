@@ -67,11 +67,11 @@ jobs:
         run: just check-versions
 
       - name: rookery unit fixture
-        run: cd rookery/0.4.0 && just test
+        run: cd rookery/0.4.1 && just test
 
       # `@rheo` IS A CUSTOM NAMESPACE, NOT A TYPST-UNIVERSE ONE, so there is no
       # registry to download it from: it resolves only where the package cache
-      # already holds it. `rookery-search/0.4.0/src/lib.typ` imports
+      # already holds it. `rookery-search/0.4.1/src/lib.typ` imports
       # `@rheo/rookery:0.4.0` for `ideas` and `note-href`, and `just parity` compiles
       # that file through `typst eval` — so without this the next step dies with
       # `error: package not found (searched for @rheo/rookery:0.4.0)`. MEASURED by
@@ -94,14 +94,14 @@ jobs:
           mkdir -p "$cache"
           ln -s "$PWD" "$cache/rheo"
           # Fail HERE with something legible rather than inside a typst error later.
-          test -f "$cache/rheo/rookery-search/0.4.0/typst.toml"
+          test -f "$cache/rheo/rookery-search/0.4.1/typst.toml"
 
       # `just parity` is the only thing keeping the Typst and JavaScript copies
       # of the ranking rule from drifting — two leaf scorers and the tiering rule
       # above them. `just build` first: parity imports `src/`, but a build failure
       # is worth catching here too, since publish-packages.yml only builds on main.
       - name: rookery-search build and parity
-        run: cd rookery-search/0.4.0 && just build && just parity
+        run: cd rookery-search/0.4.1 && just build && just parity
 
       # This repo's definition of "lint" is that a package's demo compiles
       # (CLAUDE.md, "Build"). `demo/pure` is plain `typst compile`, so it runs
@@ -113,7 +113,7 @@ jobs:
       # new root added to the Justfile is gated in CI automatically instead of
       # needing this step updated in the same commit and possibly forgotten.
       - name: rookery pure demo compiles, HTML and PDF
-        run: cd rookery/0.4.0/demo/pure && just build
+        run: cd rookery/0.4.1/demo/pure && just build
 
       # The rheo half of rookery's coverage, and the only thing that proves
       # package-`.marrow.typ` still mints: `check.sh` asserts on the OUTPUT —
@@ -127,7 +127,7 @@ jobs:
       # released 2026-08-16). MEASURED at that release: `demo/rheo OK`, all eight
       # blocks.
       - name: rookery rheo demo compiles and asserts, under the declared floor
-        run: cd rookery/0.4.0/demo/rheo && just check
+        run: cd rookery/0.4.1/demo/rheo && just check
 
       # NO `@rheo/feeds` STEP, DELIBERATELY — not an oversight. That package
       # declares `[tool.rheo] min_version = "0.6.0"` and rides three surfaces
