@@ -1,11 +1,16 @@
-#import "@rheo/rookery:0.3.0": rookery, idea, note
+#import "@rheo/rookery:0.5.0": rookery, idea, tagged-idea
+
+// `#note` is a project-local two-liner as of rookery 0.5.0, not a package
+// export — `tagged-idea` is the factory it is built from.
+#let note = tagged-idea("note")
 #show: rookery
 #set document(date: datetime(year: 2026, month: 4, day: 1))
 
 = Notes
 
 #note("alpha", title: [Alpha])[
-  A note tagged `note` (via `#note`, which prepends that tag), syndicated
+  A note tagged `note` (via `#note`, built from `tagged-idea`, which prepends
+  that tag), syndicated
   into `notes.xml`.
 
   #note("alpha-inner", title: [Alpha Inner])[

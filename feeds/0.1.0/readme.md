@@ -307,7 +307,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 
 ```typst
 #import "@rheo/feeds:0.1.0": feed, configure, spine
-#import "@rheo/rookery:0.3.0": ideas
+#import "@rheo/rookery:0.5.0": ideas
 
 // rookery's `href` is depth-relative; this source runs at bundle root, where
 // the ambient handle is not the site root, so the leading `../` run has to go.
