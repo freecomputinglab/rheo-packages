@@ -640,6 +640,43 @@ figure:has(> .idea-window) + figure:has(> .idea-window),
   margin-top: 1rem;
 }
 
+/* A CARD AFTER ANY FIGURE, and the gap has to grow with the label, which is the
+   whole point of the `calc`.
+
+   The rule above covers window-after-window; card-after-card was covered by
+   NOTHING, so it rode the UA's own collapsed `figure { margin: 1em }` — 16px,
+   which this stylesheet never states and therefore never adjusted. Meanwhile a
+   card's id overhangs the top of its figure by half a label: the tab is lifted
+   by `label + 1px` and the figure pays back only `0.5 * label + 1px` (see
+   `figure:has(> .idea-box)` above), so the clearance a reader actually sees is
+   `16px - 0.5 * label`.
+
+   MEASURED across four label sizes, four cards each, clearance from the
+   preceding card's floor to the following card's id:
+
+     0.57rem (the default)  11.44px
+     0.85rem                 9.20px
+     1.4rem                  4.80px
+     2rem                    0.00px   <- the id touches the card above
+
+   Linear, exactly `16 - 0.5 * label`, and negative past 2rem. That is the
+   reported overlap. It was reported against an EMPTY-BODIED card, but the
+   measurement says otherwise: an empty card's clearance is identical to a full
+   one's at every size, so the body has nothing to do with it and a minimum
+   height on an empty box would have fixed nothing.
+
+   `1rem +` the overhang, so the visible clearance is a constant 1rem whatever
+   the project sets the label to — the same "express it against
+   `--idea-label-size`, not a pixel count" rule every other height here follows.
+
+   `figure + figure:has(> .idea-box)` rather than spelling out each pairing: the
+   overhang belongs to the FOLLOWING card, so what precedes it does not matter.
+   Window-after-window keeps its own flat `1rem` above; a window's summary tab
+   has a different lift and its rule was tuned against that. */
+figure + figure:has(> .idea-box) {
+  margin-top: calc(1rem + 0.5 * var(--idea-label-size, 0.57rem));
+}
+
 /* A PAGE LIST AFTER A CARD — the fourth shape a run of backlink rows arrives in,
    and the only one that is not a figure, so the rule above cannot reach it. A
    minted page's Backlinks lists notes as figure-wrapped windows and then pages as
