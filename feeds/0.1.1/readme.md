@@ -338,7 +338,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
     title: "Feeds Demo — Notes",
     base-url: "https://demo.example.org",
     author: "The Rookery",
-    content: none,
+    content: "html",
     sources: (from-ideas(tags: "note"),),
   ),
 ))
@@ -370,14 +370,23 @@ is for — but getting it wrong is not caught until build time, and the error
 than the one that exists. Read the accessor's own documented row shape rather
 than assuming it matches this table.
 
-**A minted page's content cannot be syndicated.** `content: none` on that feed
-is required, not a preference: a rookery note's page is an `#asset(...)`, and
-`<rheo-content>` only transcludes compiled *vertebrae*. Ask for content anyway
-and the build fails with `<rheo-content> references unknown page
-'ideas/alpha.html'; available output paths include: ...` listing only the real
-pages. So these entries carry a `summary` — rookery's plain-text `body` — and
-the feed is a list of pointers rather than a full-text feed. Anything else
-whose pages are minted rather than compiled has the same constraint.
+**A minted page's content CAN be syndicated, as of rheo 0.6.0.** This used to
+be the package's sharpest limitation and it no longer is. A rookery note's page
+is an `#asset(...)` rather than a compiled vertebra, and `<rheo-content>` once
+transcluded only vertebrae — asking for content anyway failed the build with
+`<rheo-content> references unknown page 'ideas/alpha.html'; available output
+paths include: ...`, listing only the real pages. On 0.6.0 the same
+`content: "html"` compiles clean and each entry carries the note's real body,
+with no literal placeholder anywhere in the output. The demo's `notes.xml` does
+exactly this.
+
+Give such a feed a `summary` as well and it carries both: a reader showing
+summaries gets rookery's plain-text `body`, one showing content gets the note.
+Atom permits the pair.
+
+On a rheo BELOW 0.6.0 none of this holds, and the failure is silent rather than
+loud — which is what this package's own floor guard refuses to let happen. See
+"Requirements".
 
 This generalises past rookery: anything with its own array-returning
 accessor — another package's registry, a hand-rolled list of dictionaries,

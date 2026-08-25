@@ -60,9 +60,9 @@
       page: root-relative(e.href),
       updated: e.updated,
       published: e.minted,
-      // rookery's `body` is the note as plain text. It becomes the entry's
-      // `summary` because this feed cannot carry real content — see the
-      // `content: none` note on the notes feed below.
+      // rookery's `body` is the note as plain text, carried as the entry's
+      // `summary` alongside the full content the feed below now also mints —
+      // see the `content: "html"` note there.
       summary: e.body,
       categories: e.tags,
     ))
@@ -87,21 +87,28 @@
     title: "Feeds Demo — Notes",
     base-url: "https://demo.example.org",
     author: "The Rookery",
-    // `content: none` is REQUIRED here, and not a preference. A rookery note's
-    // page is MINTED — it is an `#asset(..)`, not a compiled vertebra — and
-    // `<rheo-content>` can only transclude compiled PAGES: rheo's own
-    // transclusion pass builds its page map from the non-asset, `.html`
-    // entries of the bundle (`crates/core/src/build.rs`, the
-    // `assets.contains(&path_str) || !path_str.ends_with(".html")` filter).
-    // MEASURED, before this line existed: `asset 'notes.xml': <rheo-content>
-    // references unknown page '../ideas/alpha.html'; available output paths
-    // include: index.html, notes.html, posts/...` — the five vertebrae and
-    // none of the minted note pages.
+    // FULL CONTENT FROM A MINTED PAGE, new as of rheo 0.6.0, and the more
+    // interesting half of what this feed demonstrates.
     //
-    // So these entries carry a `summary` (rookery's plain-text `body`, mapped
-    // in `from-ideas` above) instead. Syndicating a minted page's full content
-    // needs a rheo-core change, not a package or project one.
-    content: none,
+    // It used to be impossible. A rookery note's page is MINTED — an
+    // `#asset(..)`, not a compiled vertebra — and rheo's transclusion pass
+    // built its page map from the non-asset `.html` entries of the bundle
+    // only, so `<rheo-content>` could not see one. MEASURED at the time:
+    // `asset 'notes.xml': <rheo-content> references unknown page
+    // '../ideas/alpha.html'; available output paths include: index.html,
+    // notes.html, posts/...` — the five vertebrae and none of the minted note
+    // pages. That is why this read `content: none` through 0.1.0, with a
+    // comment asserting the limitation as permanent.
+    //
+    // MEASURED on rheo 0.6.0: `content: "html"` compiles clean, writes
+    // notes.xml with ZERO literal `<rheo-content>` placeholders, and gives each
+    // of the three entries a `<content type="html">` carrying the real escaped
+    // note body. The limitation is gone and the justification with it.
+    //
+    // The entries keep their `summary` too — rookery's plain-text `body`,
+    // mapped in `from-ideas` above. A reader showing summaries gets the plain
+    // text; one showing content gets the note. Atom permits both.
+    content: "html",
     sources: (from-ideas(tags: "note"),),
   ),
 ))

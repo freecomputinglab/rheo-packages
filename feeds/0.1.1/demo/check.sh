@@ -123,6 +123,28 @@ if three is None:
 elif link(three) != "https://demo.example.org/posts/deep/three.html":
     fail(f"nested post's link is wrong: {link(three)!r}")
 
+# A MINTED PAGE'S FULL CONTENT REACHES THE FEED. This is the assertion that
+# pins rheo 0.6.0's transclusion of minted pages: through feeds 0.1.0 the same
+# config was impossible and notes.xml carried `content: none` with a comment
+# calling the limitation permanent.
+#
+# Three things, because two of them fail SILENTLY and would otherwise ship: a
+# `<content>` element per entry, no literal `<rheo-content` placeholder anywhere
+# in the file (on a below-floor rheo that string reaches real readers as
+# well-formed XML carrying garbage), and content that actually looks like the
+# note's rendered body rather than an empty element.
+for e in notes_entries:
+    body = field(e, "content")
+    title = field(e, "title")
+    if body is None:
+        fail(f"notes.xml entry {title!r} has no <content> — minted-page transclusion is not reaching the feed")
+    elif not body.strip():
+        fail(f"notes.xml entry {title!r} has an EMPTY <content>")
+    elif "idea-" not in body:
+        fail(f"notes.xml entry {title!r} has <content> that does not look like a rendered note body")
+if "<rheo-content" in notes_text:
+    fail("notes.xml ships a literal <rheo-content> placeholder — the transclusion did not resolve")
+
 # Row 6 (rookery exception, stated explicitly rather than papered over): a
 # notes.xml entry's <id> is rookery's OWN note id (e.g. "idea:beta"), NOT a
 # URL — the entry model's documented "id defaults to url, but a source may
