@@ -988,6 +988,34 @@ h6.idea {
   font-weight: bold;
 }
 
+/* A TITLELESS FOLDED WINDOW RESERVES THE LINE ITS TITLE WOULD HAVE OCCUPIED.
+
+   The summary is a wrapping flex row: the tab is the first item and the title
+   wraps onto a second line beneath it. `_window-content` emits
+   `.idea-window-title` only when the note HAS a title, so an untitled note's
+   summary has one flex line where a titled one has two — and a closed row beside
+   a titled closed row read as cramped rather than as a smaller variant of it.
+
+   MEASURED before this rule, two folded windows side by side: titled 26.02px,
+   untitled 8.02px. Less than a third the height, from nothing but a missing
+   line box.
+
+   `1lh`, not a pixel count and not `--idea-label-size`: what is missing here is
+   one line of ORDINARY TEXT, so the reservation should track the project's own
+   line-height the way the real title does. Tying it to the label variable would
+   track the wrong thing and stop matching the moment a project set either one.
+
+   `::after` on the summary rather than always emitting an empty title span:
+   this is presentation, and the Typst side has no reason to know about it.
+   `:not(:has(...))` so the reservation appears ONLY where the title is absent —
+   `:has()` is already load-bearing in this stylesheet (see `figure:has(>
+   .idea-box)`), so it is not a new dependency. */
+.idea-window-summary:not(:has(> .idea-window-title))::after {
+  content: "";
+  flex-basis: 100%;
+  min-block-size: 1lh;
+}
+
 /* The note's date, at the FAR RIGHT OF THE HAT — the same object in the same place
    on a card, in a `#window`'s summary, and on a minted note page, so it wears one
    class in one rule. It used to be two: `.idea-window-date` in a window's summary

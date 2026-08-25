@@ -44,5 +44,6 @@
 #include "windows.typ"
 #include "window-tags.typ"
 #include "card-gap.typ"
+#include "folded-height.typ"
 #include "cycles.typ"
 #include "idea-body.typ"
