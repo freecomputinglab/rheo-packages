@@ -2,7 +2,7 @@
 #import "@rheo/rookery:0.5.0": idea
 #import "@rheo/rookery-todos:0.5.0": (
   epic, todo, todo-graph-view, todos-blocked, todos-list, todos-ready,
-  todos-stale, todos-stats, todos-validate,
+  todos-search, todos-stale, todos-stats, todos-validate,
 )
 #import "@rheo/rookery-dates:0.5.0": dates
 
@@ -132,6 +132,15 @@ a tag of ours.
 == Everything open — `br list`
 
 #todos-list(closed: false)
+
+== Filter them
+
+Type to narrow the list; the pills refine it further. `ready` and `blocked` are
+derived from the graph and stamped in at build time, which is why no tag query
+could offer them. With JavaScript off the input and pills are hidden and this is
+simply a list.
+
+#todos-search(today: TODAY)
 
 == The dependency graph
 

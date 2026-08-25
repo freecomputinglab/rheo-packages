@@ -54,6 +54,77 @@
     font-size: 0.85em;
   }
 
+  /* ---- #todos-search ------------------------------------------------------
+   *
+   * The rows need no rules of their own: they are `.todo-row`s inside a
+   * `.todo-list`, so they already look like every other view's rows.
+   */
+  .todo-search {
+    margin: 1.2rem 0;
+  }
+
+  .todo-search-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 0.5rem;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--todo-search-border, var(--idea-border-color, currentColor));
+    border-radius: var(--todo-search-radius, 4px);
+  }
+
+  .todo-search-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.4rem 0;
+  }
+
+  .todo-search-pill {
+    font: inherit;
+    font-size: 0.8em;
+    cursor: pointer;
+    padding: 0.1rem 0.5rem;
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+    background: transparent;
+    border: 1px solid var(--todo-search-border, var(--idea-border-color, currentColor));
+    border-radius: 999px;
+  }
+
+  /* Pressed pills borrow the status palette the rows and the graph already use,
+   * rather than inventing one. */
+  .todo-search-pill[aria-pressed="true"] {
+    color: inherit;
+    border-color: currentColor;
+  }
+
+  .todo-search-pill[aria-pressed="true"][data-todo-value="ready"] {
+    color: var(--todo-ready-color, seagreen);
+    border-color: currentColor;
+  }
+
+  .todo-search-pill[aria-pressed="true"][data-todo-value="blocked"] {
+    color: var(--todo-blocked-color, indianred);
+    border-color: currentColor;
+  }
+
+  .todo-search-count {
+    margin: 0 0 0.3rem;
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+    font-size: 0.85em;
+  }
+
+  /* THE DEGRADATION, and the reason the container ships
+   * `data-todo-search-ready="false"`: with no JavaScript the input and the
+   * pills would do nothing, so they never appear and the widget is a plain
+   * list. The script flips the attribute once it has wired itself up. */
+  .todo-search[data-todo-search-ready="false"] .todo-search-input,
+  .todo-search[data-todo-search-ready="false"] .todo-search-pills {
+    display: none;
+  }
+
   /* A row rendered as a folded `#window` (`windows: true`). Spacing only: the
      frame, the summary and the fold are rookery's own chrome, styled by
      `rookery.css`, and restating any of it here would fight it. */

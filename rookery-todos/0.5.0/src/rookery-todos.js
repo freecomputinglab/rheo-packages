@@ -7,6 +7,9 @@
 // depend on which. That is why the fallback is markup rather than a spinner.
 
 import { GEOM, layer, place, rows } from "./layout.js";
+// Side-effect import: vite builds THIS file alone into one IIFE, so a module
+// nothing imports is simply not shipped. `#todos-search` wires itself up.
+import "./todo-search.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 

@@ -34,6 +34,7 @@ a shortcoming.
 | `br` | here | |
 | --- | --- | --- |
 | `br list` | `#todos-list(..)` | ✅ |
+| `br search` | `#todos-search(..)` | ✅ in-page filter |
 | `br ready` | `#todos-ready(today: ..)` | ✅ |
 | `br blocked` | `#todos-blocked()` | ✅ |
 | `br stale` | `#todos-stale(today: .., older-than: ..)` | ✅ |
@@ -134,6 +135,56 @@ announce itself to nobody. rookery now also emits a labelled beacon from inside
 A TAG-SELECTED window is still the exception: `#window(tags: ..)` produces no
 backlink for the notes its tag matched, only for ones named outright. That
 asymmetry is rookery's and is documented there.
+
+## Filtering todos in the page: `#todos-search`
+
+```typst
+#todos-search(today: TODAY)
+```
+
+A text input that fuzzy-filters the todos as you type, with the matches listed
+below it as **links to each todo's minted page**, and a row of toggleable pills
+that refine the set further.
+
+```typst
+#todos-search(
+  title: none,
+  placeholder: "Filter todos",
+  today: none,
+  closed: false,
+)
+```
+
+`closed: false` is the default here, unlike `#todos-list` where it is `true`: a
+filter box is for finding live work.
+
+**The pills** are `ready`, `blocked`, and one per todo *type* any listed todo
+actually has — no pill is emitted for a type nothing carries, since that filter
+could only ever return nothing. Within a facet the values **OR** (two status
+pills mean either); across facets they **AND** (`blocked` + `docs` leaves todos
+that are both).
+
+`ready` and `blocked` are stamped into each row at build time, computed against
+the whole dependency graph. That is also why this widget is here rather than in
+`@rheo/rookery-search`: both are derived from the graph and the calendar and
+deliberately never stored as tags, so no tag query can select them.
+
+**Searching covers the body, not just the title** — the haystack is the title,
+the name and the body, so typing a phrase from inside a todo finds it.
+
+### Without JavaScript
+
+The input and the pills are hidden and every todo is listed as an ordinary
+link. Nothing is fetched or built in the browser: Typst emits every row up
+front and the script only shows, hides and reorders them. A paged or EPUB
+target gets the plain list too.
+
+### When you want the whole rookery instead
+
+Use [`@rheo/rookery-search`](../../rookery-search). This filters *the todos on
+this page*; that searches every note in the rookery, with a proper ranking and
+a modal. The two are independent — this package does not depend on it, and a
+project may install either alone.
 
 ## Derived, never stored
 

@@ -21,3 +21,4 @@
 #import "todo.typ": *
 #import "graph.typ": *
 #import "views.typ": *
+#import "search.typ": *
