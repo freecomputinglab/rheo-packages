@@ -130,8 +130,8 @@
 // the reference date resolve nowhere else. A window emitted from here therefore
 // announced itself to nobody, and every note the view unfolded lost its
 // backlink from the page unfolding it. MEASURED, then fixed in rookery by
-// emitting a labelled `<rookery-page-links>` beacon from inside `#window`'s own
-// context, which `query()` finds wherever the window was written.
+// labelling `#window`'s announce marker and collecting those by `query()`,
+// which sees them wherever the window was written.
 //
 // So a `windows: true` view is a real reference and shows up as one. Documented
 // in the readme, because a busy index becomes a backlink on everything it

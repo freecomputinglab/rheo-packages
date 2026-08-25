@@ -39,9 +39,10 @@ The backlink walk reads a page's content at `#show: rookery` time and cannot
 enter a context block, so such a window announced itself to nobody and every
 note it transcluded lost its backlink from the page transcluding it. This is not
 a corner case: any package that computes which notes to window must do so inside
-a context block, because reading the registry needs one. `#window` now also
-emits a labelled beacon from inside its own context, which `query()` finds
-wherever the window was written. A tag-selected window remains the documented
+a context block, because reading the registry needs one. `#window`'s announce
+marker is now labelled, and the backlink walk picks those up by `query()` —
+which runs after layout — resolving each one's page with
+`state("rheo-handle").at(el.location())`. A tag-selected window remains the documented
 exception — see "Referencing a note".
 
 `@rheo/rookery-search` 0.5.0 ships in lockstep and is REQUIRED: the note

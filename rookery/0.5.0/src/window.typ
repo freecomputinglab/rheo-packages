@@ -123,7 +123,27 @@
   // That asymmetry is documented in the readme; do not "fix" it by announcing
   // the tags instead, which would have `_outbound` read the registry while it
   // is still being built.
-  metadata((rookery-window: ids))
+  // LABELLED, so `query()` can find it as well as the content walk.
+  //
+  // `_page-outbound` walks a vertebra's content at `#show: rookery` time to
+  // build its backlink beacon, and that walk CANNOT ENTER A CONTEXT BLOCK — the
+  // body does not exist until layout. So a `#window` emitted from inside one
+  // announced itself to nobody, and every note it transcluded lost its backlink
+  // from the page transcluding it. Not a corner case: any package that computes
+  // which notes to window must do so inside a context, since reading the
+  // registry needs one. MEASURED with `@rheo/rookery-todos`'s
+  // `#todos-ready(windows: true)`, which produced no backlinks at all while a
+  // hand-written window on the same page produced them.
+  //
+  // The label costs nothing here and lets `_page-links` pick these up by query
+  // instead. THE MARKER STAYS OUTSIDE THE CONTEXT BLOCK BELOW, which is the
+  // whole point: `_page-links` resolves which page it sits on with
+  // `state("rheo-handle").at(el.location())`, the positional read
+  // `_ideas-outline-data` already uses. Reading `.get()` from inside the
+  // context instead was tried and REVERTED — it made a document with minted
+  // pages fail to converge in five attempts, because the value observed
+  // depended on where the surrounding layout had got to.
+  [#metadata((rookery-window: ids)) <rookery-window-mark>]
 
   context {
   let reg = _registry.final()
@@ -155,43 +175,6 @@
   // tag matches; naming a sort orders the whole selection instead.
   let full-ids = if sort == auto { named + tagged } else {
     _sort-ids(named + tagged, reg, sort)
-  }
-
-  // A SECOND ANNOUNCEMENT, labelled, for a window this page's own doc-walk
-  // cannot see.
-  //
-  // The unlabelled `metadata((rookery-window: ids))` above is found by
-  // `_page-outbound`, which walks the vertebra's content at `#show: rookery`
-  // time. That walk cannot enter a `context` block — the body does not exist
-  // until layout — so a `#window` EMITTED FROM INSIDE ONE announces to nobody,
-  // and the notes it transcludes get no backlink from the page transcluding
-  // them.
-  //
-  // MEASURED, one note and one otherwise-empty page: a hand-written
-  // `#window("solo", folded: true)` put `board.html` in solo's backlinks; the
-  // identical call emitted by `@rheo/rookery-todos`'s `#todos-ready(windows:
-  // true)` — which must run inside `context`, since its rows come from the
-  // dependency graph — put nothing there.
-  //
-  // `query()` runs after layout, so a LABELLED beacon is visible wherever the
-  // window was written. It reuses `<rookery-page-links>`, the label and the
-  // exact `(handle, targets)` shape `_page-links` already merges by handle, so
-  // that function needs no change and dedupes this against the doc-walk's own
-  // beacon when both fire for the same window.
-  //
-  // NAMED IDS ONLY, matching the marker above rather than widening to
-  // `full-ids`. A tag-selected note still gets no backlink — that asymmetry is
-  // documented and deliberate, and closing it here would change behaviour this
-  // bead is not about. The mechanism would now support it if that is ever
-  // wanted.
-  //
-  // `_is-vertebra` in `_page-links` filters out a beacon emitted from a minted
-  // note page, so a window inside one does not turn that page into a backlink.
-  {
-    let handle = state("rheo-handle").get()
-    if type(handle) == str and named.len() > 0 {
-      [#metadata((handle: handle, targets: named)) <rookery-page-links>]
-    }
   }
 
   for id in full-ids {

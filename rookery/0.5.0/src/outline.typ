@@ -123,6 +123,35 @@
 
 #let _page-links() = {
   let out = (:)
+
+  // A `#window` announces its named ids in a `<rookery-window-mark>` metadata
+  // element, and those are collected HERE rather than by the content walk that
+  // builds the beacon above. The walk cannot see a window emitted from inside a
+  // `context` block — the body does not exist when it runs — which is the case
+  // for any package that computes which notes to window. `query()` runs after
+  // layout and sees all of them.
+  //
+  // `state("rheo-handle").at(el.location())`, NOT `.get()` inside the window:
+  // the positional read is the convergent one. Reading the state from inside
+  // `#window`'s own context was tried and REVERTED — MEASURED, it made a
+  // document with minted pages fail to converge in five attempts, cycling
+  // `none -> "rheo" -> "ideas:index" -> "ideas:author-cleanup"`.
+  //
+  // A hand-written window is found by BOTH this and the content walk; the
+  // dedupe below makes that harmless.
+  for el in query(<rookery-window-mark>) {
+    let v = el.value
+    if type(v) != dictionary { continue }
+    let handle = state("rheo-handle").at(el.location())
+    if type(handle) != str or not _is-vertebra(handle) { continue }
+    let seen = out.at(handle, default: ())
+    for n in v.at("rookery-window", default: ()) {
+      let full = _pfx() + n
+      if full not in seen { seen.push(full) }
+    }
+    out.insert(handle, seen)
+  }
+
   for el in query(<rookery-page-links>) {
     let v = el.value
     if type(v) != dictionary { continue }

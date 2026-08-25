@@ -129,8 +129,9 @@ backlink walk would make the walk lie.
 This needed a fix in `@rheo/rookery` 0.5.0 to work at all. The backlink walk
 reads a page's content at template time, which cannot enter a `context` block,
 and these views must run inside one; a window emitted from there used to
-announce itself to nobody. rookery now also emits a labelled beacon from inside
-`#window`'s own context, which `query()` finds wherever it was written.
+announce itself to nobody. rookery now labels `#window`'s announce marker and
+collects those by `query()` instead, which sees them wherever they were
+written.
 
 A TAG-SELECTED window is still the exception: `#window(tags: ..)` produces no
 backlink for the notes its tag matched, only for ones named outright. That
