@@ -11,5 +11,109 @@
  * Layer order is declared once, here, so a project reading this file can see
  * the whole cascade at a glance. An UNLAYERED project stylesheet still beats
  * every layer, which is what keeps a project in charge of its own look.
+ *
+ * Every colour is a custom property with a fallback, so a project restyles by
+ * setting the property rather than by out-specifying a selector.
  */
-@layer rookery-todos;
+@layer rookery-todos {
+  .todo-view {
+    margin: 1.2rem 0;
+  }
+
+  .todo-view-title {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+
+  .todo-view-empty {
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+    font-style: italic;
+    margin: 0;
+  }
+
+  .todo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .todo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: baseline;
+    padding: 0.15rem 0;
+    /* The marker doubles as the status channel: `border-left` rather than a
+     * background, so a row reads as a row and the colour reads as a state. */
+    border-left: 2px solid var(--todo-row-line, transparent);
+    padding-left: 0.5rem;
+  }
+
+  .todo-row-note {
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+    font-size: 0.85em;
+  }
+
+  /* Status, driven by the classes the rows already wear. `idea-tag-todo-closed`
+   * is rookery's own class for our valued `todo-closed` key — no separate
+   * status class is emitted for it, because the tag already says so. */
+  .todo-row.idea-tag-todo-closed .todo-row-title {
+    text-decoration: line-through;
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+  }
+
+  .todo-row-ready {
+    --todo-row-line: var(--todo-ready-color, seagreen);
+  }
+
+  .todo-row-blocked {
+    --todo-row-line: var(--todo-blocked-color, indianred);
+  }
+
+  .todo-row-stale {
+    --todo-row-line: var(--todo-stale-color, goldenrod);
+  }
+
+  /* Priority reads as weight, not colour: a p0 row should stand out in a list
+   * a reader is scanning, without competing with the status channel above. */
+  .todo-row.idea-tag-todo-p0 .todo-row-title {
+    font-weight: 700;
+  }
+
+  .todo-row.idea-tag-todo-p1 .todo-row-title {
+    font-weight: 600;
+  }
+
+  /* Stats */
+  .todo-stat-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+  }
+
+  .todo-stat {
+    display: flex;
+    gap: 0.3rem;
+    align-items: baseline;
+  }
+
+  .todo-stat-key {
+    color: var(--todo-muted-color, var(--idea-id-color, gray));
+    font-size: 0.85em;
+  }
+
+  .todo-stat-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* The validation report is emitted hidden — it exists so a build's output
+   * carries what Typst gives packages no `warn()` to say. A project wanting to
+   * see it can unhide it. */
+  .todo-validate-report {
+    display: none;
+  }
+}
