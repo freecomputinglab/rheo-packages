@@ -193,10 +193,26 @@ jobs:
       - name: rookery-todos rheo demo compiles
         run: cd rookery-todos/0.5.0 && rheo compile demo/rheo
 
-      # NO `@rheo/feeds` STEP, DELIBERATELY — not an oversight. That package
-      # declares `[tool.rheo] min_version = "0.6.0"` and rides three surfaces
-      # (the `<rheo-meta:>` beacon, `<rheo-content>` transclusion, `.rheo/`
-      # control assets) that no rheo RELEASE carries yet, so there is nothing
-      # for this workflow to install. Its `just test` unit fixture is plain
-      # typst and could run here; its `demo`/`verify` cannot until 0.6.0 ships.
-      # Add the step in the same commit that raises a floor CI can install.
+      # @rheo/feeds, gated at last. This step did not exist through 0.1.0 and the
+      # workflow carried a comment saying why: the package declares
+      # `[tool.rheo] min_version = "0.6.0"` and rides three surfaces (the
+      # `<rheo-meta:>` beacon, `<rheo-content>` transclusion, `.rheo/` control
+      # assets) that no rheo RELEASE carried, so there was nothing to install.
+      # v0.6.0 shipped on 2026-08-24 and the install step above now pins it, so
+      # the blocker is gone.
+      #
+      # THREE RECIPES, because each covers something the others cannot:
+      #   - `just test` is plain `typst compile` with no rheo at all, and proves
+      #     Pattern B — a project without rheo must be a clean no-op, not a
+      #     guard tripping.
+      #   - `just check` builds the demo and asserts on the OUTPUT: both feeds'
+      #     entry sets, the autodiscovery links in every page's head, the
+      #     minted-note content, and each entry's `xml:base`.
+      #   - `just verify` runs the fixture matrix `check` cannot host, including
+      #     the rows that are SUPPOSED to fail (a feed with no title) and a
+      #     project that imports the package but never configures a feed.
+      #
+      # AFTER the namespace-symlink step: the demo imports `@rheo/rookery:0.5.0`
+      # for `ideas()`, which is the whole point of its second feed.
+      - name: feeds unit fixture, demo assertions and verify matrix
+        run: cd feeds/0.1.1 && just test && just check && just verify
