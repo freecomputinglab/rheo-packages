@@ -239,3 +239,99 @@
     html.elem("div", attrs: (class: "todo-validate-report", hidden: "hidden"), msg)
   }
 }
+
+// ---- #todo-graph-view — the DAG, as a page element ------------------------
+//
+// Emits a container plus a `<script type="application/json">` payload holding
+// the graph, which `rookery-todos.js` lays out and draws client-side. Same
+// shape @rheo/rookery-search uses for its search index, and for the same
+// reason: Typst has no layout engine for a directed graph, and a JSON payload
+// beside the element it belongs to is the cheapest handoff there is.
+//
+// THE PAYLOAD IS JSON-SAFE BY CONSTRUCTION — strings, numbers, booleans and
+// arrays only, never a raw tag value. A value can be a `datetime` or content,
+// and MEASURED: `json.encode` of content does NOT error, it silently emits a
+// structural blob like `{"func":"text","text":"hi"}`. That would bloat the page
+// rather than fail loudly, so dates are stamped to `[year][month][day]` strings
+// here — the same convention rookery-search already uses — and the metadata bag
+// is left out entirely.
+//
+// DEGRADES WITHOUT JAVASCRIPT. The container ships the node list as ordinary
+// linked markup, which the script replaces once it runs. A reader with JS off,
+// and every paged or EPUB target, still gets the todos and their dependencies
+// as readable text rather than an empty box.
+#let todo-graph-view(title: none, today: none) = context {
+  let graph = todo-graph()
+  // A cyclic graph has no layered layout, and a cycle is already a build error
+  // — this is the view half of that guarantee.
+  assert-acyclic(graph)
+
+  let rows = todos()
+  let stamp(d) = if d == none { none } else { d.display("[year][month][day]") }
+
+  let nodes = rows.map(r => {
+    let n = (
+      name: r.name,
+      id: r.id,
+      title: if r.text == "" { r.name } else { r.text },
+      status: if r.closed { "closed" } else if is-blocked(r, graph) {
+        "blocked"
+      } else if is-ready(r, graph, today: today) { "ready" } else { r.status },
+    )
+    if r.href != none { n.insert("href", r.href) }
+    if r.priority != none { n.insert("priority", r.priority) }
+    if r.kind != none { n.insert("type", r.kind) }
+    let c = stamp(r.closed-on)
+    if c != none { n.insert("closed", c) }
+    n
+  })
+
+  let payload = (
+    nodes: nodes,
+    edges: graph.edges.map(e => (from: e.at(0), to: e.at(1))),
+    unresolved: graph.unresolved.map(e => (from: e.at(0), to: e.at(1))),
+  )
+
+  html.elem(
+    "div",
+    attrs: (class: "todo-graph"),
+    {
+      if title != none {
+        html.elem("div", attrs: (class: "todo-view-title"), title)
+      }
+      html.elem(
+        "script",
+        attrs: (type: "application/json", class: "todo-graph-data"),
+        json.encode(payload, pretty: false),
+      )
+      // The no-JS fallback, and the thing the script replaces.
+      html.elem(
+        "ul",
+        attrs: (class: "todo-graph-fallback"),
+        rows
+          .map(r => {
+            let label = if r.text == "" { r.name } else { r.text }
+            html.elem(
+              "li",
+              attrs: (class: (("todo-graph-node",) + r.tags-dict.keys().map(k => "idea-tag-" + k)).join(" ")),
+              {
+                if r.href == none {
+                  html.elem("span", attrs: (class: "todo-row-title"), label)
+                } else {
+                  html.elem("a", attrs: (class: "todo-row-title", href: r.href), label)
+                }
+                if r.deps.len() > 0 {
+                  html.elem(
+                    "span",
+                    attrs: (class: "todo-row-note"),
+                    "depends on " + r.deps.join(", "),
+                  )
+                }
+              },
+            )
+          })
+          .join(),
+      )
+    },
+  )
+}
