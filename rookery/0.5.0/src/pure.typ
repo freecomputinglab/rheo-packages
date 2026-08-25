@@ -117,19 +117,63 @@
   out
 }
 
-// Prepends `tag`, unless the caller already passed it — `#todo("x", tags:
-// ("todo",))` must yield `("todo",)`, not `("todo", "todo")`, or the heading
-// gets a duplicated CSS class. Defined before `note`/`todo` below: a `#let`
-// closure captures the scope visible AT DEFINITION time, so a forward
-// reference to a not-yet-defined name fails at call time.
+// ---- _norm-tags — every accepted `tags:` form, as ONE dictionary -----------
 //
-// `tags` is normalized here, not left to `#idea`'s own coercion: `#note`/
-// `#todo` call this BEFORE `tags` ever reaches `#idea`, so `tags: "draft"`
-// would hit `tag in tags` (a substring test, not a membership test) and then
-// `(tag,) + tags` (array + string) — the second one hard-errors.
-#let _dedup-tag(tag, tags) = {
-  let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
-  if tag in tags { tags } else { (tag,) + tags }
+// The tag store is a DICTIONARY as of 0.5.0: keys are tag names, values are
+// arbitrary Typst values, and a plain tag is one whose value is `none`. This is
+// what lets a tag carry metadata — `(depends-on: ("a", "b"))` — instead of only
+// naming itself, and it is the primitive `@rheo/rookery-todos` and
+// `@rheo/rookery-dates` build on.
+//
+// Four author-facing forms all land here and all normalize to that one shape,
+// so nothing downstream has to ask which was written:
+//
+//   none            -> (:)
+//   "draft"         -> (draft: none)
+//   ("a", "b")      -> (a: none, b: none)
+//   (a: 1, b: none) -> unchanged
+//
+// `("a", "b")` and `(a: none, b: none)` are therefore THE SAME registry record,
+// which matters at `idea.typ`'s duplicate-id check: two pins of one id written
+// in different forms must not read as a collision.
+//
+// Defined above `_dedup-tag` because that calls it, and a `#let` closure
+// captures the scope visible AT DEFINITION time.
+#let _norm-tags(v) = {
+  if v == none {
+    (:)
+  } else if type(v) == str {
+    ((v): none)
+  } else if type(v) == dictionary {
+    v
+  } else {
+    v.fold((:), (d, t) => { d.insert(t, none); d })
+  }
+}
+
+// Prepends `tag`, unless the caller already passed it — `#todo("x", tags:
+// ("todo",))` must yield `(todo: none)`, not the tag twice, or the heading gets
+// a duplicated CSS class. Defined before the `tagged-idea` factory that calls
+// it: a `#let` closure captures the scope visible AT DEFINITION time, so a
+// forward reference to a not-yet-defined name fails at call time.
+//
+// `tags` is normalized here, not left to `#idea`'s own coercion: a wrapper
+// calls this BEFORE `tags` ever reaches `#idea`, so a bare `tags: "draft"`
+// would otherwise hit `tag in tags` as a SUBSTRING test rather than a key test.
+//
+// THE ORDER OF THE TWO BRANCHES IS LOAD-BEARING. MEASURED: dictionary `+`
+// merges with the RIGHT side winning on a key collision, so an unconditional
+// `((tag): value) + tags` would clobber a caller's own value for this tag with
+// the default. The "already a key" guard therefore comes FIRST, and that guard
+// is exactly the mechanism by which a caller supplies a value for the wrapper's
+// own tag: `#todo("x", tags: (todo: (state: "open")))` keeps `(state: "open")`.
+// A caller's value wins OUTRIGHT — there is no deep merge.
+//
+// `value:` is the default a factory binds for the tag it prepends (see
+// `tagged-idea`). It only applies when the caller did not name the tag at all.
+#let _dedup-tag(tag, tags, value: none) = {
+  let tags = _norm-tags(tags)
+  if tag in tags { tags } else { ((tag): value) + tags }
 }
 
 // ---- _sort-ids — a total order over a window's selected ids ---------------
@@ -508,9 +552,10 @@
 #let _assert-tags(v, where) = assert(
   v == none
     or type(v) == str
+    or type(v) == dictionary
     or (type(v) == array and v.all(t => type(t) == str)),
-  message: "@rheo/rookery: " + where + " `tags` must be none, a string, or an "
-    + "array of strings — got " + repr(v),
+  message: "@rheo/rookery: " + where + " `tags` must be none, a string, an "
+    + "array of strings, or a dictionary — got " + repr(v),
 )
 
 #let _assert-match(v, where) = assert(

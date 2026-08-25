@@ -18,7 +18,7 @@
 
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
-  _is-inline, _join, _nest-outline, _norm, _note-file, _outbound,
+  _is-inline, _join, _nest-outline, _norm, _norm-tags, _note-file, _outbound,
   _own-cited-keys, _plain, _resolve-tags-color, _sort-ids, _tag-pred, _truncate,
   footnote, idea, note-href, note-path, window,
 )
@@ -31,12 +31,38 @@
 #assert.eq(_norm(<idea:etal>), "etal")
 #assert.eq(_norm("idea:a:b"), "a:b")
 
+// ---- _norm-tags — four author-facing forms, one dictionary -----------------
+// `("a", "b")` and `(a: none, b: none)` must be the SAME record, or two pins of
+// one id written in different forms read as a duplicate-id collision.
+#assert.eq(_norm-tags(none), (:))
+#assert.eq(_norm-tags("a"), (a: none))
+#assert.eq(_norm-tags(("a", "b")), (a: none, b: none))
+#assert.eq(_norm-tags((a: 1)), (a: 1))
+#assert.eq(_norm-tags(()), (:))
+// Insertion order survives the fold. MEASURED: typst dictionaries iterate in
+// insertion order, so `.keys()` here is authored order, not sorted order.
+#assert.eq(_norm-tags(("zeta", "alpha")).keys(), ("zeta", "alpha"))
+
 // ---- _dedup-tag — `#todo("x", tags: ("todo",))` must not double the tag ----
 // A duplicate here reaches the heading as a duplicated `idea-tag-todo` class.
-#assert.eq(_dedup-tag("todo", ("todo",)), ("todo",))
-#assert.eq(_dedup-tag("todo", ()), ("todo",))
-#assert.eq(_dedup-tag("note", ("draft",)), ("note", "draft"))
-#assert.eq(_dedup-tag("note", ("draft", "note")), ("draft", "note"))
+#assert.eq(_dedup-tag("todo", ("todo",)), (todo: none))
+#assert.eq(_dedup-tag("todo", ()), (todo: none))
+#assert.eq(_dedup-tag("note", ("draft",)), (note: none, draft: none))
+#assert.eq(_dedup-tag("note", ("draft", "note")), (draft: none, note: none))
+// The tag is PREPENDED, which is visible in key order.
+#assert.eq(_dedup-tag("note", ("draft",)).keys(), ("note", "draft"))
+// A caller's own value for the tag WINS OUTRIGHT over the factory default —
+// no deep merge. This is the mechanism by which `#todo("x", tags: (todo: ..))`
+// sets a value for the wrapper's own tag, and it is why the "already a key"
+// guard must run before the merge: dict `+` is right-wins (MEASURED), so an
+// unconditional merge would clobber the caller's value with the default.
+#assert.eq(_dedup-tag("todo", (todo: (p: 1))), (todo: (p: 1)))
+#assert.eq(_dedup-tag("todo", (todo: (p: 1)), value: "default"), (todo: (p: 1)))
+// `value:` applies only when the caller did not name the tag at all.
+#assert.eq(_dedup-tag("flag", ("draft",), value: "yes"), (flag: "yes", draft: none))
+// A bare string `tags:` is normalized, so `tag in tags` is a KEY test and never
+// a substring test — `_dedup-tag("raft", "draft")` must not think it is present.
+#assert.eq(_dedup-tag("raft", "draft"), (raft: none, draft: none))
 
 // ---- _join — `array.join()` returns none on an empty array -----------------
 // The crash this pins: an empty-bodied note (`#idea("x")[]`) walked to a
