@@ -4,7 +4,9 @@
 // (`match:` defaults to "any", already exercised by the second `#window`
 // call below), and `show-tags:` — tags rendered as pills in the hat
 // (`_permalink-tab`, lib.typ:550/1614), alongside `show-date:`.
-#import "../../src/lib.typ": idea, tagged-idea, tags-of, window
+#import "../../src/lib.typ": (
+  idea, ideas-outline, tag-data, tag-value, tagged-idea, tags-of, window,
+)
 
 // `#note`/`#todo` are no longer package exports — `tagged-idea` is the
 // factory, and these two lines are all a project needs to get them back.
@@ -61,3 +63,42 @@
 // not just #idea's own card: `show-tags` threads into `_window-content` the
 // same way `show-date` does (lib.typ:1904-1905).
 #window("n-hat", show-tags: true)
+
+// ---- 0.5.0: valued tags, the accessors, and a factory default -------------
+
+// A VALUED tag. `priority: 1` is metadata a package reads, not a label a
+// reader needs: both keys become `idea-tag-*` classes on the card and the
+// heading, but only the FLAT one (`draft`, value `none`) renders a pill.
+#idea(
+  "valued",
+  title: [A valued tag],
+  tags: (draft: none, priority: 1),
+  show-tags: true,
+)[Carries `priority: 1` as tag metadata; only `draft` shows as a pill.]
+
+// The three ways to read tags back. `tags-of` answers "what is this tagged"
+// and hands over every key, valued ones included; `tag-value` fetches ONE
+// value; `tag-data` hands over the whole store for every note at once, which
+// is the accessor a package builds on — one registry read for the corpus
+// rather than one per note.
+#context [
+  valued is tagged: #repr(tags-of("valued")) \
+  its priority is: #repr(tag-value("valued", "priority")) \
+  a key it lacks: #repr(tag-value("valued", "nope", default: 4)) \
+  its whole store: #repr(tag-data().at("idea:valued"))
+]
+
+// `tagged-idea` can bind a DEFAULT VALUE for the tag it prepends, not just
+// the tag. A caller naming that tag themselves wins outright — there is no
+// deep merge between the factory's value and the caller's.
+#let flagged = tagged-idea("flag", value: "yes")
+#flagged("f-default")[Takes the factory's `flag: "yes"`.]
+#flagged("f-override", tags: (flag: "no"))[Overrides it with `flag: "no"`.]
+#context [
+  f-default: #repr(tag-value("f-default", "flag")) \
+  f-override: #repr(tag-value("f-override", "flag"))
+]
+
+// `filter:` receives the tag DICTIONARY as of 0.5.0, so an outline can select
+// on a VALUE and not merely on a tag's presence.
+#ideas-outline(title: [Priority 1 only], filter: t => t.at("priority", default: 9) <= 1)

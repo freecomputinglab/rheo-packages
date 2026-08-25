@@ -21,6 +21,51 @@ updated: none, show-date: false, show-tags: false, ..args)`, where the sink acce
 alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
 Typst label, identically.
 
+## 0.5.0
+
+**A note's tags are a DICTIONARY.** Keys are tag names, values are arbitrary
+Typst values, and a plain tag's value is `none` — so a tag can carry metadata
+instead of only naming itself. `tags: none`, `tags: "draft"`, `tags: ("a", "b")`
+and `tags: (a: 1)` are all accepted and all normalize to that one shape. See
+"Tags".
+
+`note` and `todo` are GONE, replaced by `tagged-idea(tag, value: none)`, a
+factory you build your own constructors from. `tag-data()` and `tag-value()` are
+new, and `#ideas-outline`'s `filter:` now receives the tag dictionary. See
+"Migrating from 0.4.1" below for the four breaking changes in full.
+
+`@rheo/rookery-search` 0.5.0 ships in lockstep and is REQUIRED: the note
+registry's state key is not versioned, so an older search package sharing a
+document with this one reads these records and fails.
+
+### Migrating from 0.4.1
+
+1. **`note` and `todo` are no longer exported.** Two lines restore them
+   verbatim, and every existing call site then works unchanged:
+
+   ```typst
+   #import "@rheo/rookery:0.5.0": tagged-idea
+   #let note = tagged-idea("note")
+   #let todo = tagged-idea("todo")
+   ```
+
+2. **`#ideas-outline(filter:)` receives the tag DICTIONARY**, not an array of
+   names. `t => "phd" in t` is unaffected — `in` tests keys. A predicate using
+   an array method must be rewritten: `t.map(..)`, `t.any(..)`, `t.all(..)` and
+   `t.at(0)` no longer work, because a dictionary has no `.any`/`.all` and its
+   `.at` takes a key rather than an index.
+
+3. **Tag order is unspecified.** `#ideas().tags` and `#tags-of()` still hand
+   back an array of names, but nothing guarantees the sequence any more. Sort
+   it yourself if you depended on it.
+
+4. **`show-tags:` renders pills for flat tags only** — those whose value is
+   `none`. CSS classes are unaffected and still cover every key, so a stylesheet
+   needs no changes.
+
+Nothing else moved. `#idea`, `#window`, `#hyperlink`, `#ideas()`, dates,
+footnotes, bibliographies and minted pages all behave exactly as they did.
+
 ## 0.4.0
 
 `#note-path(id)` is new, and every `#ideas()` row now carries the matching
@@ -504,14 +549,26 @@ for none of the tags is not the same as asking for a tag no note has.
 #ideas-outline(title: [Open], filter: t => "todo" in t and "done" not in t)
 ```
 
-**`filter:`** is a predicate of your own over the note's TAG ARRAY, returning a
-boolean, ANDed with `tags:`/`match:` when both are given — both must hold, never
-either. It exists because `tags:`/`match:` can say "any of these" and "all of
-these" and nothing else: they cannot say `phd` but NOT `draft`, nor
+**`filter:`** is a predicate of your own over the note's TAG DICTIONARY,
+returning a boolean, ANDed with `tags:`/`match:` when both are given — both must
+hold, never either. It exists because `tags:`/`match:` can say "any of these"
+and "all of these" and nothing else: they cannot say `phd` but NOT `draft`, nor
 `(phd AND draft) OR todo`. Keyword parameters for those would be a filter
 language grown one special case at a time (`exclude:`, then `any-of:`, then
 nested groups), and a Typst function value already is that language. It sees the
-tag array and nothing else — no title, no id, no depth.
+tag dictionary and nothing else — no title, no id, no depth.
+
+Because it is the dictionary, a filter can select on a tag's VALUE and not
+merely on its presence:
+
+```typst
+#ideas-outline(title: [Urgent], filter: t => t.at("priority", default: 9) <= 1)
+```
+
+`t => "phd" in t` still works unchanged — `in` tests keys. What does NOT work is
+an array method: `t.map(..)`, `t.any(..)`, `t.all(..)` and `t.at(0)` are gone,
+because a dictionary has no `.any`/`.all` and its `.at` takes a key. See
+"Migrating from 0.4.1".
 
 **A filter prunes AND PROMOTES.** A matching note whose parent does NOT match is
 re-based to its nearest KEPT ancestor's level, so the tree never shows a hole
@@ -570,12 +627,14 @@ Each entry is:
 - `text` — that title flattened to a plain string, `""` when there is none.
   Useful for matching, sorting and anything else that wants a string rather
   than something to render.
-- `tags` — the note's tags as an array of strings, `()` when it has none. In
-  the author's own order, which is neither alphabetical nor quite the order
-  they were written: `#note` and `#todo` prepend their own tag, so
-  `#todo("b", tags: ("draft",))` arrives as `("todo", "draft")`. `#tags-of()`
-  below asks the same question about one note; this is the bulk form, and the
-  cheaper one when you are walking the whole rookery.
+- `tags` — the note's tag NAMES as an array of strings, `()` when it has none.
+  Every key, valued tags included; order is unspecified. `#tags-of()` below asks
+  the same question about one note; this is the bulk form, and the cheaper one
+  when you are walking the whole rookery.
+  The VALUES are deliberately NOT on this row, and that is load-bearing rather
+  than tidiness: `@rheo/rookery-search` serializes these rows into a JSON index,
+  and a value can be a `datetime` or content. Reach for `#tag-data()` when you
+  want them.
 - `body` — the note's body flattened to a plain string, `""` when there is
   none. Block boundaries (a paragraph break, a list item) collapse to a
   single space rather than gluing adjacent words together; a nested `#idea`'s
@@ -817,14 +876,15 @@ Override any of it; the classes are the contract: `.idea`, `.idea-box`,
 An outline ROW carries the note's tags too, built the same way `#idea` builds
 them for a note's heading and its card — one convention, three emission sites,
 so a site that styles a todo note in the body can style the same note's row in
-the index. MEASURED: a `#todo` row is
+the index. MEASURED: a `todo`-tagged row is
 `<li class="idea-outline-row idea-tag-todo">`, a two-tag note's row is
-`<li class="idea-outline-row idea-tag-phd idea-tag-draft">` in the author's own
-order, and an untagged note's row is exactly `<li class="idea-outline-row">`.
+`<li class="idea-outline-row idea-tag-phd idea-tag-draft">`, and an untagged
+note's row is exactly `<li class="idea-outline-row">`. Every key appears,
+valued tags included, and the order between them is unspecified.
 This is also the zero-API half of tag filtering: with the classes there, a site
 can grey, badge or hide rows in its own CSS with no Typst-side filter at all.
 The package ships NO default rule for any `.idea-tag-*` on the card or the note's
-heading — `#note`/`#todo` are sugar, not a recognised set, and styling one would
+heading — a tag is free-form, not a recognised set, and styling one would
 invent an opinion. A row's own marker is the exception, and only for a tag you
 themed by name: `theme: (tags-color: ...)` publishes `--idea-tag-line` on that
 tag's class, which the marker reads (see "Per-tag colour" below).
@@ -871,16 +931,52 @@ auto-injected — a leaky requirement, not worth the feature.
 
 ## Tags
 
-A free-form array of tag strings, nothing more — there is no fixed or
-recognised set and no `kind`/`type` parameter. Notes are flat; tags are
-tags, not a taxonomy, and NOT a task tracker.
+A free-form set of tags, nothing more — there is no fixed or recognised set and
+no `kind`/`type` parameter. Notes are flat; tags are tags, not a taxonomy, and
+NOT a task tracker.
 
 ```typst
 #idea("meeting-notes", tags: ("draft", "review"))[...]
 ```
 
-Each tag becomes its own `idea-tag-<tag>` CSS class on the note's
-heading, alongside the base `idea` class — style them in your own stylesheet.
+Underneath, a note's tags are a DICTIONARY: keys are the tag names, values are
+whatever you put there, and a plain tag's value is `none`. Four forms are
+accepted and all normalize to that one shape, so write whichever is closer to
+hand:
+
+| you write | it becomes |
+| --- | --- |
+| `tags: none` | `(:)` |
+| `tags: "draft"` | `(draft: none)` |
+| `tags: ("draft", "review")` | `(draft: none, review: none)` |
+| `tags: (draft: none, priority: 1)` | unchanged |
+
+`("draft", "review")` and `(draft: none, review: none)` are therefore the same
+record, and a pinned id written one way in one place and the other way in
+another is not a duplicate-id collision.
+
+A VALUED tag is how a tag carries metadata rather than only naming itself:
+
+```typst
+#idea("ship-it", tags: (draft: none, priority: 1, depends-on: ("fetch", "build")))[...]
+```
+
+That is the primitive `@rheo/rookery-todos` builds its dependency graph on, and
+`@rheo/rookery-dates` its `scheduled`/`deadline` dates. A value can be any
+Typst value at all — an integer, an array, a `datetime`, content.
+
+**Tags are UNORDERED.** Key order is unspecified as of 0.5.0 and nothing may
+depend on it; sort them yourself if you need a stable sequence.
+
+**Naming a key.** A tag key becomes a CSS class fragment (`.idea-tag-<key>`),
+so keep keys class-safe — alphanumerics and hyphens. A package contributing
+tags to notes it does not own should NAMESPACE its keys with a hyphen prefix
+(`todo-deps`, `date-deadline`) rather than claiming a bare generic name, since
+two packages both wanting `depends-on` would silently collide.
+
+Each tag becomes its own `idea-tag-<key>` CSS class on the note's heading and
+card, alongside the base `idea` class — EVERY key, valued tags included — so
+style them in your own stylesheet.
 
 **`show-tags: true`** on `#idea`/`#window` ALSO renders a note's tags as a row
 of visible pills in the hat — the same `.idea-tab` the id and (with
@@ -892,8 +988,13 @@ date. Off by default, the same mechanism as `show-date`:
 #window("meeting-notes", show-tags: true) // pills again here, independently
 ```
 
-An untagged note's tag list is empty either way, so `show-tags: true` renders
-no pill for it.
+An untagged note has no tags either way, so `show-tags: true` renders no pill
+for it.
+
+**Pills are FLAT TAGS ONLY** — those whose value is `none`. A valued tag keeps
+its `.idea-tag-<key>` class everywhere, but gets no pill: `depends-on` rendered
+as a pill would show its name and none of its dependencies, which is noise. A
+package holding metadata in tags renders it its own way instead.
 
 Each pill carries TWO classes: `.idea-tag`, the pill's own hook, and
 `.idea-tag-<tag>` — the SAME class the note's heading and card already wear.
@@ -953,28 +1054,79 @@ Like the rest of `theme:`, this is **one value for the whole document** — appl
 
 `@rheo/rookery-search`'s own result-row chips DO pick up `tags-color`. That package renders them client-side from JavaScript, so no style Typst writes can reach them — but each chip carries `idea-tag-<tag>`, and `tags-color` arrives as a rule on that class, which applies whenever the chip enters the DOM. A chip reads `--idea-tag-bg`/`--idea-tag-color` behind its own `--rookery-search-tag-bg`/`--rookery-search-tag-color`, so a project styling every chip in the modal still wins over a themed tag.
 
-`#note` and `#todo` are pure sugar over `tags`, prepending their own tag to
-whatever the caller passes:
+### `tagged-idea` — build your own constructors
+
+`tagged-idea(tag, value: none)` returns an `#idea` variant that prepends one
+tag to whatever the caller passes. Define whatever vocabulary your project
+wants:
 
 ```typst
-#note("x")[...]              // == #idea("x", tags: ("note",))[...]
-#todo("y", tags: ("draft",))[...]  // == #idea("y", tags: ("todo", "draft"))[...]
+#let note = tagged-idea("note")
+#let todo = tagged-idea("todo")
+#let claim = tagged-idea("claim")
+
+#note("x")[...]                    // == #idea("x", tags: (note: none))[...]
+#todo("y", tags: ("draft",))[...]  // == #idea("y", tags: (todo: none, draft: none))[...]
 ```
 
-Still no kind or type parameter, and still no recognised set of tags — these
-are two constructors for the two common cases, nothing more.
+The returned function forwards everything untouched, so all three `#idea` call
+forms still work — `#note[body]`, `#note("name")[body]`, `#note(<name>)[body]` —
+along with every named argument (`title`, `level`, `minted`, `updated`,
+`show-date`, `show-tags`).
+
+`value:` binds a DEFAULT VALUE for the tag, for a wrapper whose tag means more
+than its own presence. A caller naming that tag themselves wins outright, with
+no deep merge:
+
+```typst
+#let flagged = tagged-idea("flag", value: "yes")
+#flagged("a")[...]                       // flag: "yes"
+#flagged("b", tags: (flag: "no"))[...]   // flag: "no"
+```
+
+Do NOT write `#let note = idea.with(tags: (note: none))`. An explicit `tags:` at
+the call site OVERRIDES a value bound by `.with()`, so `#note("x", tags:
+("draft",))` would silently drop `note` — the tag you reached for `#note` to get.
+`tagged-idea` exists because `.with()` cannot express "merge, don't replace".
+
+`@rheo/rookery-todos` builds its whole `#todo`/`#epic` surface on this.
+
+### Reading tags back
 
 A tag is not only a styling hook: the note records the tags it was created
-with, and `#context tags-of(name)` reads them back, in the order you gave
-them.
+with, and three accessors read them back.
+
+`#context tags-of(name)` gives the note's tag NAMES — every key, valued tags
+included, in unspecified order:
 
 ```typst
 #context tags-of("y")   // -> ("todo", "draft")
 ```
 
-It takes the same forms as `#window` and `#hyperlink` — a bare name, a full
-id, or a label — and answers `()` for an untagged note and for an id that does
-not exist. An unknown id is deliberately not an error: a caller asking what
+`#context tag-value(name, key, default: none)` gives ONE tag's value:
+
+```typst
+#context tag-value("ship-it", "priority")           // -> 1
+#context tag-value("ship-it", "nope", default: 4)   // -> 4
+```
+
+A plain tag's value is `none`, which is indistinguishable from a `default:
+none` on an absent key — ask `tags-of` when the question is presence.
+
+`#context tag-data()` gives every note's whole tag store at once, keyed by full
+id:
+
+```typst
+#context tag-data()   // -> ("idea:ship-it": (draft: none, priority: 1), ..)
+```
+
+Use the bulk form when you are walking the corpus: `tags-of` and `tag-value`
+each resolve the registry for ONE note, so N notes cost N reads, where one
+`#ideas()` plus one `#tag-data()` covers everything and the two join on `id`.
+
+All three take the same name forms as `#window` and `#hyperlink` — a bare name,
+a full id, or a label — and answer emptily for an untagged note and for an id
+that does not exist. An unknown id is deliberately not an error: a caller asking what
 something is tagged is filtering, not dereferencing, and a filter that panics
 on the first miss is useless. That is what lets another package pick out a
 tagged subset of your notes without reaching into rookery's internals.
