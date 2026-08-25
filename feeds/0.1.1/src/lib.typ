@@ -610,33 +610,55 @@
 // too-old a rheo mints nothing and is visibly empty; a feed on too-old a rheo
 // is a live syndication endpoint serving markup nobody can read.
 //
-// THE PROBE IS A REMOVAL, WHICH IS ITS ONE WEAKNESS. `spine-flat` entries
-// carried a `metadata` key at v0.5.2 (`crates/core/src/reticulate/spine.rs:989`)
-// and carry only `handle`/`path`/`title` after it (same file, `:987-991`), so
-// the key's PRESENCE dates the engine. If a future rheo ever re-adds a
-// `metadata` key to those entries this misfires and refuses to build on a
-// perfectly good engine — so the `rheo-version` branch below is the intended
-// long-term answer and this branch is the stopgap. rheo's bead
-// `rheo-rheo-version-key-n5k` publishes `rheo-version` in `rheo-context`;
-// once that ships, delete the `spine-flat` branch and keep the check above it.
+// THE PROBE IS A POSITIVE SIGNAL, as of 0.1.1. rheo publishes `rheo-version`
+// in `rheo-context`, so the guard asks the engine what it is rather than
+// inferring its age from something it stopped emitting. MEASURED on rheo 0.6.0:
+// `rheo-context` carries `("spine", "spine-flat", "rheo-version", "target",
+// "ext", "reset-footnotes", "title-overrides")` and `rheo-version` reads
+// `"0.6.0"`.
+//
+// WHAT THIS REPLACES, and why it had to go: 0.1.0 dated the engine by a
+// REMOVAL — `spine-flat` entries carried a `metadata` key at v0.5.2
+// (`crates/core/src/reticulate/spine.rs:989`) and carry only
+// `handle`/`path`/`title` after it, so the key's PRESENCE meant "old". That was
+// accepted knowingly and flagged at the time as brittle in one specific way: a
+// future rheo re-adding a `metadata` key to those entries would make the guard
+// misfire and refuse to build on a perfectly good engine. An absence cannot
+// distinguish "new enough" from "changed in some unrelated way"; a version
+// string can.
 //
 // PATTERN B IS PRESERVED BY CONSTRUCTION: with no rheo at all `sys.inputs`
-// carries no `rheo-context`, `_rheo-ctx()` yields `(spine-flat: ())`, and this
-// returns `false` — so `test/units.typ` under bare `typst compile` never trips
-// it. Running without rheo stays a supported no-op; running under a rheo too
-// old to honour the output is what this refuses.
+// carries no `rheo-context` at all, so the raw read below is `none` and this
+// returns `false` — `test/units.typ` under bare `typst compile` never trips
+// it. Running without rheo stays a supported
+// no-op; running under a rheo too old to honour the output is what this
+// refuses.
 //
-// KNOWN HOLE: a 0.5.2 build whose spine is EMPTY is undetectable, because the
-// probe needs one entry to inspect. Harmless — an empty spine means no
-// vertebrae, so there is nothing to feed either way.
+// THE KNOWN HOLE FROM 0.1.0 IS GONE WITH THE OLD PROBE. That version needed one
+// spine entry to inspect and so could not detect a 0.5.2 build with an empty
+// spine; this one reads a top-level key and does not care how many vertebrae
+// there are.
+//
+// A rheo OLDER than the version key publishes no `rheo-version`, which is
+// exactly the case this returns `true` for — the absence of the key IS the
+// old-engine signal now, and it is an absence rheo can never accidentally
+// reintroduce, because publishing the key is the new behaviour rather than the
+// old one.
+// The decision, as a PURE FUNCTION of the raw `rheo-context` value — `none`
+// where there is no rheo at all. Split out from the `sys.inputs` read below so
+// it can be unit-tested: a below-floor rheo is otherwise untestable without
+// keeping a v0.5.2 binary around, and the one case this guard exists for is the
+// one that would go unexercised.
+#let _too-old-ctx(raw) = raw != none and "rheo-version" not in raw
+
 #let _rheo-too-old() = {
-  let ctx = _rheo-ctx()
-  if "rheo-version" in ctx {
-    false // rheo new enough to announce its own version
-  } else {
-    let flat = ctx.at("spine-flat", default: ())
-    flat.len() > 0 and "metadata" in flat.first()
-  }
+  // `sys.inputs` DIRECTLY, not `_rheo-ctx()`, and the difference matters: that
+  // helper substitutes `(spine-flat: ())` when there is no rheo, which is a
+  // dictionary like any other and cannot be told apart from a real context by
+  // inspection. Only the raw absence distinguishes "no rheo at all" — a
+  // supported no-op — from "a rheo that does not announce its version", which
+  // is the engine this refuses.
+  _too-old-ctx(sys.inputs.at("rheo-context", default: none))
 }
 
 // Applied at the two marrow entry points ONLY — `configure` and `emit` — and

@@ -57,7 +57,7 @@
 // `#asset(...)` directly and so is only exercisable under a real rheo build
 // (this fixture compiles to `--format pdf`, where `asset` bails if shown).
 
-#import "/src/lib.typ": _clean-page, _mint-plan, _plain-text, _rfc822, atom, feed, item, items, json-feed, resolve-entries, rss, spine
+#import "/src/lib.typ": _clean-page, _too-old-ctx, _mint-plan, _plain-text, _rfc822, atom, feed, item, items, json-feed, resolve-entries, rss, spine
 
 // ---- _clean-page — no double slash whichever way a source spells `page` ---
 #assert.eq(_clean-page("two.html"), "two.html")
@@ -1386,3 +1386,32 @@ Para two]), "Para one Para two")
   not plan-mixed.at(1).data.contains("empty-mint"),
   message: "a zero-entry feed must not contribute a link either",
 )
+
+// ---- _too-old-ctx — the rheo floor, as a pure decision ---------------------
+//
+// The guard's whole point is a rheo BELOW the floor, which cannot be exercised
+// by running this fixture: it would need a v0.5.2 binary kept around forever.
+// Splitting the decision out from the `sys.inputs` read makes it testable here
+// instead, which is why `_too-old-ctx` exists as its own function.
+
+// No rheo at all is NOT too old — running without rheo is a supported no-op,
+// and this is the case `just test` itself runs under.
+#assert.eq(_too-old-ctx(none), false)
+
+// A rheo that announces its version is fine, whatever the version says. The
+// guard dates the engine by the KEY's presence, not by parsing the number: the
+// key arrived with the three surfaces this package needs.
+#assert.eq(_too-old-ctx((rheo-version: "0.6.0", spine-flat: ())), false)
+#assert.eq(_too-old-ctx((rheo-version: "1.2.3")), false)
+
+// A rheo that does NOT announce its version predates the key, and therefore
+// predates the beacon, the transclusion and the `.rheo/` prefix. This is the
+// 0.5.2 case, and the one that would otherwise ship a literal
+// `<rheo-content .../>` to real feed readers.
+#assert.eq(_too-old-ctx((spine-flat: ((handle: "a", path: "b", title: "c"),))), true)
+#assert.eq(_too-old-ctx((:)), true)
+
+// An EMPTY SPINE on an old rheo is now caught too. The 0.1.0 probe inspected
+// the first spine-flat entry and so could not see this at all; reading a
+// top-level key does not care how many vertebrae there are.
+#assert.eq(_too-old-ctx((spine-flat: ())), true)
