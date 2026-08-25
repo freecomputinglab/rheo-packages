@@ -38,7 +38,7 @@ a shortcoming.
 | `br blocked` | `#todos-blocked()` | ✅ |
 | `br stale` | `#todos-stale(today: .., older-than: ..)` | ✅ |
 | `br stats` / `count` | `#todos-stats(today: ..)` | ✅ |
-| `br graph` | `#todo-graph-view(today: ..)` | ✅ |
+| `br graph` | `#todo-graph-view(today: .., closed: ..)` | ✅ |
 | `br epic` | `#epic(name)` | ✅ as a tag, not a tree |
 | `br create` | `#todo(..)` | ✅ |
 | `br update` / `close` / `dep add` | — | edit the `.typ` |
@@ -220,6 +220,25 @@ Rows and graph nodes also wear the note's own `.idea-tag-<key>` classes, so
 the graph alike.
 
 ## The graph view degrades
+
+**`closed: false` draws the open todos only.** An index page asking "what is
+left" wants exactly that; the finished half of a release otherwise fills the
+graph and the remaining work is hard to find. The default is `true`, so an
+existing call is unchanged.
+
+Edges go with the boxes: an edge into a closed todo is a *satisfied* dependency,
+and drawing it would point at a box that is not on the page. A dangling
+dependency — one naming a note that does not exist — is still named in the
+fallback list, because it never had a box in any slice.
+
+**Status is still computed against the whole graph**, never the slice. A todo
+whose only dependency is closed reads as `ready`, which is the truth; asking the
+filtered graph would report it unblocked *because invisible* rather than
+unblocked *because done* — the right answer for the wrong reason, and the wrong
+answer as soon as a deferred or dangling dep is involved.
+
+`graph-slice(graph, closed: ..)` is exported if you are building your own view
+and want the same rows and edges.
 
 `#todo-graph-view` emits an SVG drawn client-side from a JSON payload. With
 JavaScript off the payload's neighbouring linked list stays in place, so the

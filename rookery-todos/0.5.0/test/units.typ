@@ -163,3 +163,26 @@
 #assert.eq(epic-of((todo: none, "epic-launch": none)), "launch")
 #assert.eq(epic-of(todo-tags()), none)
 #assert.eq(epic-of((todo: none, "epic-q3-push": none)), "q3-push")
+
+// ---- graph-slice — what a view draws, closed included or not --------------
+//
+// The pure half of `#todo-graph-view(closed: ..)`, split out so the option is
+// testable without a DOM or a rookery registry.
+
+#let g-slice = todo-graph(rows: (
+  row("done", closed: true),
+  row("open-a", deps: ("done",)),
+  row("open-b", deps: ("open-a",)),
+))
+
+// `closed: true` is the default and changes nothing: every row, every edge.
+#assert.eq(graph-slice(g-slice).rows.len(), 3)
+#assert.eq(graph-slice(g-slice).edges.len(), 2)
+#assert.eq(graph-slice(g-slice, closed: true).edges, g-slice.edges)
+
+// `closed: false` drops the closed row.
+#assert.eq(graph-slice(g-slice, closed: false).rows.map(r => r.name), ("open-a", "open-b"))
+
+// ...and with it, the edge POINTING AT it — a satisfied dependency whose box is
+// no longer on the page — while the edge between two open rows survives.
+#assert.eq(graph-slice(g-slice, closed: false).edges, (("open-b", "open-a"),))

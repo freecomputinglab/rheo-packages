@@ -140,4 +140,11 @@ the linked list the payload sits beside, so the dependencies stay readable.
 
 #todo-graph-view(today: TODAY)
 
+The same graph with `closed: false` — the open todos only, and no edge pointing
+at a box that is no longer drawn. Status is still computed against the WHOLE
+graph, so `parse` still reads as ready: its one dependency is the closed
+`fetch`, which is done rather than merely hidden.
+
+#todo-graph-view(today: TODAY, closed: false)
+
 #todos-validate()

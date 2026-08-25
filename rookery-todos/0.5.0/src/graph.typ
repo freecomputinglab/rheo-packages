@@ -241,6 +241,26 @@
   }
 }
 
+// ---- graph-slice — what a view should actually draw ------------------------
+//
+// `closed: false` keeps only open rows, and only edges with BOTH ends open. An
+// edge into a closed todo is a SATISFIED dependency, and drawing it would point
+// at a box that is not on the page.
+//
+// A pure function of the graph, deliberately: it is what makes `closed:`
+// testable without a DOM or a rookery registry, and it is exported so a project
+// building its own view stands on the same footing this file's header claims to
+// offer.
+#let graph-slice(graph, closed: true) = {
+  if closed { return (rows: graph.nodes.values(), edges: graph.edges) }
+  let rows = graph.nodes.values().filter(r => not r.closed)
+  let open-names = rows.map(r => r.name)
+  (
+    rows: rows,
+    edges: graph.edges.filter(e => e.at(0) in open-names and e.at(1) in open-names),
+  )
+}
+
 // ---- #todo-graph-view — the DAG, as a page element ------------------------
 //
 // Emits a container plus a `<script type="application/json">` payload holding
@@ -261,13 +281,31 @@
 // linked markup, which the script replaces once it runs. A reader with JS off,
 // and every paged or EPUB target, still gets the todos and their dependencies
 // as readable text rather than an empty box.
-#let todo-graph-view(title: none, today: none) = context {
+#let todo-graph-view(title: none, today: none, closed: true) = context {
   let graph = todo-graph()
   // A cyclic graph has no layered layout, and a cycle is already a build error
   // — this is the view half of that guarantee.
   assert-acyclic(graph)
 
-  let rows = todos()
+  // ONE slice, feeding all three renderings — the paged branch, the JSON
+  // payload and the no-JS fallback — so they cannot disagree about what is on
+  // the page. Before this they each reached for their own source.
+  let (rows, edges) = graph-slice(graph, closed: closed)
+
+  // The dep names still on the page, for the "depends on ..." notes below.
+  // Naming a dependency whose box the SLICE removed is exactly what the edge
+  // filter exists to prevent, so the prose is filtered with it.
+  //
+  // A DANGLING DEP IS KEPT, and the distinction is the whole reason this reads
+  // `d not in graph.nodes` rather than just `d in shown-names`. A dep naming a
+  // note that does not exist never had a box to point at, in any slice — it was
+  // named here before `closed:` existed and it still is, so `closed: true`
+  // stays byte-identical to the output before this parameter. Filtering it too
+  // would silently drop the only place a dangling dep surfaces in this view.
+  // (`#todos-validate` reports it separately, and the graph payload still
+  // carries it under `unresolved`.)
+  let shown-names = rows.map(r => r.name)
+  let shown-deps(r) = r.deps.filter(d => d not in graph.nodes or d in shown-names)
 
   // PAGED TARGET: there is no layout engine for a directed graph Typst-side
   // and no JavaScript to draw one, so the paged rendering IS the fallback list
@@ -282,7 +320,8 @@
       list(..rows.map(r => {
         let label = if r.text == "" { raw(r.name) } else { r.title }
         if r.closed { strike(label) } else { label }
-        if r.deps.len() > 0 { [ #text(gray, "depends on " + r.deps.join(", "))] }
+        let d = shown-deps(r)
+        if d.len() > 0 { [ #text(gray, "depends on " + d.join(", "))] }
       }))
     })
   }
@@ -308,7 +347,7 @@
 
   let payload = (
     nodes: nodes,
-    edges: graph.edges.map(e => (from: e.at(0), to: e.at(1))),
+    edges: edges.map(e => (from: e.at(0), to: e.at(1))),
     unresolved: graph.unresolved.map(e => (from: e.at(0), to: e.at(1))),
   )
 
@@ -340,11 +379,12 @@
                 } else {
                   html.elem("a", attrs: (class: "todo-row-title", href: r.href), label)
                 }
-                if r.deps.len() > 0 {
+                let d = shown-deps(r)
+                if d.len() > 0 {
                   html.elem(
                     "span",
                     attrs: (class: "todo-row-note"),
-                    "depends on " + r.deps.join(", "),
+                    "depends on " + d.join(", "),
                   )
                 }
               },
