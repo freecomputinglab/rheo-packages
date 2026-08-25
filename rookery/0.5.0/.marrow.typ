@@ -78,15 +78,15 @@
 // SYNDICATION BEACON. Opt-in via `#show: rookery.with(syndicate: true)`
 // (default off — a package must not emit into another package's label
 // namespace unasked). When on, each minted note page also carries a
-// `#metadata((..)) <rssfeed:item>` beacon shaped to the contract
-// `@rheo/rssfeed`'s `items()` reads (see that package's readme and the
-// `<rssfeed:item>` label — `rssfeed:item` is `items()`'s own default
-// `label-name`). Emitted whether or not `@rheo/rssfeed` is installed at
+// `#metadata((..)) <feeds:item>` beacon shaped to the contract
+// `@rheo/feeds`'s `items()` reads (see that package's readme and the
+// `<feeds:item>` label — `feeds:item` is `items()`'s own default
+// `label-name`). Emitted whether or not `@rheo/feeds` is installed at
 // all: this file never imports it, and an unread `#metadata` beacon is
 // inert — `#metadata` renders nothing on any target, so a project with no
-// rssfeed in its dependency tree pays nothing for a beacon nobody queries.
+// feeds in its dependency tree pays nothing for a beacon nobody queries.
 // This is the SECONDARY syndication path — a project's own `.marrow.typ` (or
-// any package) sourcing `ideas(tags:, match:)` straight into rssfeed's
+// any package) sourcing `ideas(tags:, match:)` straight into feeds's
 // `items()` is the primary one; this exists for what that route cannot
 // reach, e.g. a hand-authored page syndicating itself.
 #import "@rheo/rookery:0.5.0": _registry, _note-page, _pfx, _IDEA-DIR, _index-page, ideas, _head, _permalink, _permalink-tab, _themed, _tags-color-rules, _handle-title, _page-links, _page-href, _body-at, _footnoted, _refs-block, _own-cited-keys, _window-depth, _idea-page-template, _syndicate, _plain, window
@@ -426,7 +426,7 @@
       }
       // The beacon itself. Skipped when `syndicate` is off (the default), and
       // skipped per-note when the note has neither `minted` nor `updated`:
-      // rssfeed drops an undated entry anyway (Atom's `<updated>` is
+      // feeds drops an undated entry anyway (Atom's `<updated>` is
       // required, and Typst cannot stat a file to invent one), so emitting
       // one here would only produce an entry the feed silently discards.
       // Skips the BEACON only — the page above is still minted regardless.
@@ -440,7 +440,7 @@
       //   - `title`: `slug` when the note has no title, matching the
       //     `rheo-document(title: ...)` call below, so a titleless note
       //     syndicates under the name its own page shows; otherwise the
-      //     title flattened to a string with `_plain` (rssfeed's `items()`
+      //     title flattened to a string with `_plain` (feeds's `items()`
       //     requires a `str`, not content).
       //   - `categories`: `rec.at("tags", ..).keys()` with a default, not
       //     `rec.tags`, so a stale record cannot hard-fail this. `.keys()`
@@ -454,7 +454,7 @@
           published: rec.minted,
           updated: rec.updated,
           categories: rec.at("tags", default: (:)).keys(),
-        ))#label("rssfeed:item")]
+        ))#label("feeds:item")]
       }
     ]
 

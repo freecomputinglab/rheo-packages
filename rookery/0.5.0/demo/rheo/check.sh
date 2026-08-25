@@ -136,7 +136,7 @@ if [ -f "$H/ideas/index.html" ]; then
 fi
 
 
-# 7. The `<rssfeed:item>` syndication beacons, opt-in via `syndicate: true` in
+# 7. The `<feeds:item>` syndication beacons, opt-in via `syndicate: true` in
 #    `content/lib.typ`. `.marrow.typ` emits one inside each MINTED page for every
 #    note that carries a date, and `content/index.typ` queries them back on a
 #    vertebra and renders their payloads — `#metadata` produces no HTML, so
@@ -145,12 +145,12 @@ fi
 #    That query is itself half the assertion: the beacons live inside documents
 #    this page is not, so a passing check proves rheo's introspection carries
 #    them across the bundle, which is the whole premise of the protocol. The
-#    OTHER half is the payload shape, which `@rheo/rssfeed`'s `items()` reads by
+#    OTHER half is the payload shape, which `@rheo/feeds`'s `items()` reads by
 #    key: id, title, page, categories.
 #
-#    This demo imports no rssfeed and rssfeed imports no rookery — neither
+#    This demo imports no feeds and feeds imports no rookery — neither
 #    package sees the other, by design. The consuming side is covered in
-#    rssfeed's own demo, which needs rheo >= 0.6.0 and so cannot run here.
+#    feeds's own demo, which needs rheo >= 0.6.0 and so cannot run here.
 #
 #    EXACTLY the dated notes, and only them: `.marrow.typ` skips a beacon for a
 #    note with neither `minted` nor `updated`, because Atom requires `<updated>`

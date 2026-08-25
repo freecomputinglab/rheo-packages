@@ -40,10 +40,10 @@ the only thing that produces a page backlink:
 // (1 with one dated note, 2 with two), so cross-document introspection is what
 // carries them, not a per-page accident.
 //
-// NOTHING HERE IMPORTS `@rheo/rssfeed`, which is the point of the beacon
+// NOTHING HERE IMPORTS `@rheo/feeds`, which is the point of the beacon
 // protocol: the emitting package and the reading package never see each other.
 #context {
-  let items = query(<rssfeed:item>).map(m => m.value).sorted(key: v => v.id)
+  let items = query(<feeds:item>).map(m => m.value).sorted(key: v => v.id)
   html.elem(
     "ul",
     attrs: (class: "demo-beacons"),

@@ -165,7 +165,7 @@
 // store the result. The wrapper is what makes the function a value.
 #let _idea-page-template = state("rheo-idea-page-template", none)
 
-// Whether `.marrow.typ` should emit an `<rssfeed:item>` beacon alongside each
+// Whether `.marrow.typ` should emit a `<feeds:item>` beacon alongside each
 // minted note page — see the "syndicate" comment in `.marrow.typ` for the
 // contract. A plain value, not a function, so this carries the same wrapper
 // discipline as `_idea-page-template` in reverse: `.update(syndicate)`, NOT
