@@ -42,5 +42,6 @@
 #include "outline.typ"
 #include "tags.typ"
 #include "windows.typ"
+#include "window-tags.typ"
 #include "cycles.typ"
 #include "idea-body.typ"
