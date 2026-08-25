@@ -214,5 +214,18 @@ jobs:
       #
       # AFTER the namespace-symlink step: the demo imports `@rheo/rookery:0.5.0`
       # for `ideas()`, which is the whole point of its second feed.
+      # @rheo/sidebar's rheo demo. It had no in-repo coverage of any kind until
+      # 0.1.1 — no demo, no tests, no readme — which mattered little while the
+      # nav was a hand-authored array the package merely rendered. It matters
+      # now: as of 0.1.1 the nav and the active page are DERIVED from the spine
+      # and the per-page handle, the demo's template passes neither, and a
+      # regression in either derivation compiles clean and ships a site whose
+      # navigation is empty or whose every link 404s one directory down.
+      #
+      # `just check` builds `dist/` first (gitignored) and then the demo.
+      # AFTER the namespace-symlink step, like every other demo here.
+      - name: sidebar builds and its rheo demo asserts
+        run: cd sidebar/0.1.1 && just check
+
       - name: feeds unit fixture, demo assertions and verify matrix
         run: cd feeds/0.1.1 && just test && just check && just verify
