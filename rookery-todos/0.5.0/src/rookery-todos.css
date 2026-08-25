@@ -247,12 +247,22 @@
   }
 
   .todo-graph-label {
-    font-size: var(--todo-graph-label-size, 0.72rem);
+    font-size: var(--todo-graph-label-size, 0.6rem);
     fill: currentColor;
   }
 
   .todo-graph-link .todo-graph-label {
     text-decoration: underline;
+  }
+
+  /* The whole box is the click target (the `<rect>` rides inside the `<a>`
+   * alongside the label), so the whole box gives the hover affordance too. */
+  .todo-graph-link {
+    cursor: pointer;
+  }
+
+  .todo-graph-link:hover .todo-graph-rect {
+    fill: var(--todo-graph-hover-fill, rgba(127, 127, 127, 0.15));
   }
 
   /* Status drives the box outline, matching the border-left channel the list

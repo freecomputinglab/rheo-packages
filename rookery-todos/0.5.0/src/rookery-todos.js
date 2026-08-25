@@ -23,22 +23,25 @@ function el(name, attrs, text) {
 // One node box. Status and priority ride as CLASSES, never as inline styles,
 // so a project restyles the graph from its own stylesheet without touching the
 // package — the same rule the list views follow.
+// Longest title that fits the box at the label's default font-size before
+// falling back to an ellipsis. Not derived from GEOM/font-size at runtime —
+// re-tune by hand if either changes.
+const MAX_TITLE_CHARS = 28;
+
 function drawNode(node, pt) {
   const classes = ["todo-graph-box", `todo-graph-${node.status}`];
   if (node.priority != null) classes.push(`idea-tag-todo-p${node.priority}`);
   if (node.type) classes.push(`idea-tag-todo-${node.type}`);
 
   const g = el("g", { class: classes.join(" ") });
-  g.appendChild(
-    el("rect", {
-      x: pt.x,
-      y: pt.y,
-      width: GEOM.w,
-      height: GEOM.h,
-      rx: 5,
-      class: "todo-graph-rect",
-    }),
-  );
+  const rect = el("rect", {
+    x: pt.x,
+    y: pt.y,
+    width: GEOM.w,
+    height: GEOM.h,
+    rx: 5,
+    class: "todo-graph-rect",
+  });
 
   const label = el("text", {
     x: pt.x + GEOM.w / 2,
@@ -50,14 +53,19 @@ function drawNode(node, pt) {
   // Truncated to fit the box rather than clipped by it, so a long title
   // degrades to an ellipsis instead of overflowing into its neighbour.
   const text = node.title || node.name;
-  label.textContent = text.length > 20 ? `${text.slice(0, 19)}…` : text;
+  label.textContent =
+    text.length > MAX_TITLE_CHARS ? `${text.slice(0, MAX_TITLE_CHARS - 1)}…` : text;
   label.appendChild(el("title", {}, text));
 
+  // The rect rides INSIDE the anchor alongside the label, so the whole box —
+  // not just the (often short) text — is the click target.
   if (node.href) {
     const a = el("a", { href: node.href, class: "todo-graph-link" });
+    a.appendChild(rect);
     a.appendChild(label);
     g.appendChild(a);
   } else {
+    g.appendChild(rect);
     g.appendChild(label);
   }
   return g;

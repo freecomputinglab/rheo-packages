@@ -67,7 +67,7 @@ export function rows(nodes, layerOf) {
 
 // Node centres on a simple grid. Coordinates only — the caller decides what to
 // draw with them, which is what keeps this file testable.
-export const GEOM = { w: 148, h: 34, gapX: 22, gapY: 58, pad: 12 };
+export const GEOM = { w: 160, h: 34, gapX: 22, gapY: 58, pad: 12 };
 
 export function place(rowsOfNodes) {
   const widest = rowsOfNodes.reduce((m, r) => Math.max(m, r.length), 0);
