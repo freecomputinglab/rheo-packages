@@ -301,21 +301,43 @@
   ])
 }
 
-// ---- #note / #todo / #tags-of — sugar over an idea's tags ---------------
+// ---- #tagged-idea / #tags-of / #tag-value — an idea's tags ----------------
 //
-// Pure sugar: each PREPENDS its own tag to whatever `tags` the caller
-// passed, so `#note("x")[...]` is exactly `#idea("x", tags: ("note",))[...]`
-// — no new parameter on `#idea`, no recognised set of tags, no subclassing.
-// Forwards every other argument (level, title, minted, updated) and the
-// positional sink untouched, so `#note[body]`, `#note("name")[body]` and
-// `#note(<name>)[body]` all work exactly as the `#idea` forms do.
+// `tagged-idea` is a FACTORY: it returns an `#idea` variant that prepends one
+// tag to whatever the caller passed. Define your own vocabulary with it —
 //
-// THE TRAP, do not reintroduce: `#let note = idea.with(tags: ("note",))`.
+//   #let note = tagged-idea("note")
+//   #let todo = tagged-idea("todo")
+//   #let claim = tagged-idea("claim")
+//
+// — and `#note("x")[...]` is exactly `#idea("x", tags: (note: none))[...]`.
+// No new parameter on `#idea`, no recognised set of tags, no subclassing.
+//
+// REPLACES the hardcoded `note`/`todo` this package exported through 0.4.1.
+// Two names could never be the right two, and a project or a package wanting a
+// third had to reimplement the forwarding below. `@rheo/rookery-todos` builds
+// its whole `#todo`/`#epic` surface on this.
+//
+// The returned function forwards every other argument (level, title, minted,
+// updated, show-date, show-tags) and the POSITIONAL SINK untouched, so
+// `#note[body]`, `#note("name")[body]` and `#note(<name>)[body]` all work
+// exactly as the `#idea` forms do.
+//
+// `value:` is the default this factory binds for its own tag, for a wrapper
+// whose tag means something richer than its own presence. A CALLER'S OWN VALUE
+// FOR THAT TAG WINS OUTRIGHT — `#todo("x", tags: (todo: (state: "open")))`
+// keeps `(state: "open")` — and there is no deep merge between the two.
+// `_dedup-tag`'s "already a key" guard is what implements that.
+//
+// THE TRAP, do not reintroduce: `#let note = idea.with(tags: (note: none))`.
 // An explicit `tags:` argument at the call site OVERRIDES a value bound by
 // `.with()`, so `#note("x", tags: ("draft",))` would silently drop "note" —
-// the tag the caller chose `#note` for in the first place.
-#let note(tags: (), ..args) = idea(tags: _dedup-tag("note", tags), ..args)
-#let todo(tags: (), ..args) = idea(tags: _dedup-tag("todo", tags), ..args)
+// the tag the caller chose `#note` for in the first place. The closure below
+// exists precisely because `.with()` cannot express "merge, don't replace".
+#let tagged-idea(tag, value: none) = (tags: none, ..args) => idea(
+  tags: _dedup-tag(tag, tags, value: value),
+  ..args,
+)
 
 //
 //   #context tags-of("etal")   // -> ("note", "draft")

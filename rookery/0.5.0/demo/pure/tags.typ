@@ -1,9 +1,15 @@
-// tags.typ — #note/#todo (pure sugar over `tags`, lib.typ:1591-1592),
-// `#tags-of` (lib.typ:1609), `#window(tags: .., match: "all")`
+// tags.typ — #tagged-idea (the factory `#note`/`#todo` are now built from,
+// src/idea.typ),
+// `#tags-of` (src/idea.typ), `#window(tags: .., match: "all")`
 // (`match:` defaults to "any", already exercised by the second `#window`
 // call below), and `show-tags:` — tags rendered as pills in the hat
 // (`_permalink-tab`, lib.typ:550/1614), alongside `show-date:`.
-#import "../../src/lib.typ": idea, note, todo, tags-of, window
+#import "../../src/lib.typ": idea, tagged-idea, tags-of, window
+
+// `#note`/`#todo` are no longer package exports — `tagged-idea` is the
+// factory, and these two lines are all a project needs to get them back.
+#let note = tagged-idea("note")
+#let todo = tagged-idea("todo")
 
 #note("n-plain")[A plain sugar note — `#note` prepends the "note" tag.]
 #todo("t-plain")[A plain sugar todo — `#todo` prepends the "todo" tag.]
