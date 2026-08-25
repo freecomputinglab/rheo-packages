@@ -677,7 +677,7 @@ Para two]), "Para one Para two")
 #let xml-select = atom(cfg-atom-select)
 #assert(
   xml-select.contains(
-    "<content type=\"html\"><rheo-content page=\"a.html\" select=\"main\" as=\"escaped\"/></content>",
+    "<content type=\"html\" xml:base=\"https://example.com/a.html\"><rheo-content page=\"a.html\" select=\"main\" as=\"escaped\"/></content>",
   ),
   message: "select must appear on <rheo-content> when the entry has one",
 )
@@ -698,7 +698,7 @@ Para two]), "Para one Para two")
 #let xml-noselect = atom(cfg-atom-noselect)
 #assert(
   xml-noselect.contains(
-    "<content type=\"html\"><rheo-content page=\"a.html\" as=\"escaped\"/></content>",
+    "<content type=\"html\" xml:base=\"https://example.com/a.html\"><rheo-content page=\"a.html\" as=\"escaped\"/></content>",
   ),
   message: "select must be OMITTED entirely (not select=\"\") when the entry has none",
 )
@@ -755,7 +755,7 @@ Para two]), "Para one Para two")
 #let xml-xhtml = atom(cfg-atom-xhtml)
 #assert(
   xml-xhtml.contains(
-    "<content type=\"xhtml\"><div xmlns=\"http://www.w3.org/1999/xhtml\"><rheo-content page=\"a.html\" as=\"raw\"/></div></content>",
+    "<content type=\"xhtml\" xml:base=\"https://example.com/a.html\"><div xmlns=\"http://www.w3.org/1999/xhtml\"><rheo-content page=\"a.html\" as=\"raw\"/></div></content>",
   ),
   message: "xhtml content must wrap an as=\"raw\" placeholder in the XHTML div",
 )
@@ -927,7 +927,7 @@ Para two]), "Para one Para two")
   message: "an entry with a page must STILL emit its own summary",
 )
 #assert(
-  xml-both.contains("<content type=\"html\"><rheo-content page=\"both.html\" as=\"escaped\"/></content>"),
+  xml-both.contains("<content type=\"html\" xml:base=\"https://example.com/both.html\"><rheo-content page=\"both.html\" as=\"escaped\"/></content>"),
   message: "the content element is unaffected by the summary beside it",
 )
 

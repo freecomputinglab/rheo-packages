@@ -1012,14 +1012,40 @@
       " select=\"" + _esc-attr(e.select) + "\""
     } else { "" }
     let page-attr = "page=\"" + _esc-attr(e.page) + "\""
+    // `xml:base` ON THE CONTENT ELEMENT, and it closes two whole classes of
+    // defect at once.
+    //
+    // A full-text feed transcludes a page's body verbatim, and that body is
+    // full of URLs written to resolve against the page's own host. A reader
+    // resolves them against ITS host instead, so every one lands somewhere
+    // else. MEASURED on ohrg.org, 43 posts with `content: "html"`: 78 distinct
+    // relative `href`s inside `<content>` — `./devonthink-part-ii.html`,
+    // `ideas/<slug>.html` from rookery's own permalink tab — every one dead in
+    // a reader, plus 13 root-relative `<img src="/static/img/...">`, a broken
+    // image for every subscriber and invisible to the author, who only ever
+    // sees the page.
+    //
+    // Atom permits `xml:base` on any element (RFC 4287 §2, XML Base). Because
+    // it supplies scheme and authority as well as a directory, it fixes the
+    // root-relative `src` too — one attribute for both classes. A site that
+    // worked around this by absolutizing the URLs it controls no longer needs
+    // to, and could never have reached the ones rookery generates anyway.
+    //
+    // THE ENTRY'S OWN `url`, NOT `cfg.base-url`: a relative link in a page
+    // written at `posts/deep/three.html` is relative to THAT directory, and
+    // basing it on the site root would send it to `posts/...` from the wrong
+    // level. The entry url is the only base that is correct at every depth.
+    let base-attr = if e.url != none {
+      " xml:base=\"" + _esc-attr(e.url) + "\""
+    } else { "" }
     parts += (if cfg.content == "html" {
-      "<content type=\"html\"><rheo-content " + page-attr + select-attr + " as=\"escaped\"/></content>"
+      "<content type=\"html\"" + base-attr + "><rheo-content " + page-attr + select-attr + " as=\"escaped\"/></content>"
     } else {
       // "xhtml": the placeholder's own `as="raw"` is unescaped because the
       // wrapping `<div xmlns="...">` is itself the XHTML content model Atom
       // requires for `type="xhtml"` (RFC 4287 §4.1.3.3) — escaping again
       // here would double-escape what rheo splices in.
-      "<content type=\"xhtml\"><div xmlns=\"http://www.w3.org/1999/xhtml\">" + "<rheo-content " + page-attr + select-attr + " as=\"raw\"/></div></content>"
+      "<content type=\"xhtml\"" + base-attr + "><div xmlns=\"http://www.w3.org/1999/xhtml\">" + "<rheo-content " + page-attr + select-attr + " as=\"raw\"/></div></content>"
     },)
   }
   // Still `""` when there is neither — `_entry-elem` tests for that.

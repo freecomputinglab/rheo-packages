@@ -123,6 +123,44 @@ if three is None:
 elif link(three) != "https://demo.example.org/posts/deep/three.html":
     fail(f"nested post's link is wrong: {link(three)!r}")
 
+# EVERY <content> CARRIES AN xml:base EQUAL TO ITS OWN ENTRY'S URL.
+#
+# A full-text feed transcludes a page's body verbatim, and that body's relative
+# URLs were written to resolve against the page's own host. A reader resolves
+# them against ITS host instead, so without a base every one of them lands
+# somewhere else — silently, and invisibly to the author, who only ever sees the
+# page. `xml:base` also supplies scheme and authority, so a root-relative
+# `<img src="/static/...">` resolves correctly too.
+#
+# THE ENTRY URL, NOT THE SITE ROOT, and `posts/deep/three.typ` is in this demo
+# to pin exactly that: it sits one directory down and its body carries a
+# `./../two.html` link, which resolves correctly against
+# `https://demo.example.org/posts/deep/three.html` and WRONGLY against the site
+# root. A base taken from `cfg.base-url` would pass a root-only fixture and fail
+# every nested page in a real site.
+import re as _re
+for e in feed_entries + notes_entries:
+    title = field(e, "title")
+    m = _re.search(r'<content type="[a-z]+"([^>]*)>', e)
+    if not m:
+        continue
+    b = _re.search(r'xml:base="([^"]+)"', m.group(1))
+    if not b:
+        fail(f"entry {title!r} has <content> with no xml:base — its relative URLs will break in a reader")
+    elif b.group(1) != link(e):
+        fail(f"entry {title!r} has xml:base {b.group(1)!r}, expected its own link href {link(e)!r}")
+
+# The nested post specifically: a relative link in the body, and a base one
+# directory deep for it to resolve against.
+three_entry = next((e for e in feed_entries if field(e, "title") == "Three"), None)
+if three_entry is not None:
+    body = field(three_entry, "content") or ""
+    if "./../two.html" not in body:
+        fail("the nested post's <content> lost its relative link — the xml:base assertion below tests nothing without it")
+    b = _re.search(r'xml:base="([^"]+)"', three_entry)
+    if b and b.group(1) == "https://demo.example.org":
+        fail("the nested post's xml:base is the SITE ROOT; ./../two.html cannot resolve against it")
+
 # A MINTED PAGE'S FULL CONTENT REACHES THE FEED. This is the assertion that
 # pins rheo 0.6.0's transclusion of minted pages: through feeds 0.1.0 the same
 # config was impossible and notes.xml carried `content: none` with a comment

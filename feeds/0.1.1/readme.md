@@ -265,6 +265,24 @@ differences are mappings rather than omissions:
   `format: "json"` therefore requires `content: none`, so the constraint is
   something you acknowledge rather than something that silently drops your
   content. Tracked in the rheo repo as bead `rheo-rheo-content-json-vxv`.
+- **Only Atom keeps a full-text entry's relative URLs working.** A transcluded
+  body is full of URLs written to resolve against the page's own host — a
+  `./sibling.html` link, a `/static/img/x.png` image, the `ideas/<slug>.html`
+  permalinks `@rheo/rookery` generates. A reader resolves those against ITS
+  host, so without a base every one of them lands somewhere else, silently, and
+  invisibly to the author who only ever sees the page. Atom's `<content>`
+  therefore carries `xml:base` set to the ENTRY'S OWN url — not `base-url`,
+  because a relative link in a page at `posts/deep/three.html` is relative to
+  that directory. Since `xml:base` supplies scheme and authority too, the
+  root-relative image resolves as well.
+
+  **RSS gets nothing here, and cannot.** RSS 2.0 has no base mechanism, and
+  `<description>` holds escaped HTML with no XML infoset to attach one to.
+  Fixing it would mean parsing and rewriting the transcluded HTML, which this
+  package does not do. A full-text RSS feed's relative URLs are broken in a
+  reader; use Atom if that matters. JSON Feed carries no content at all today,
+  so the question does not arise there.
+
 - **A `guid`'s `isPermaLink` is `false` when an entry's `id` is not a URL** —
   rookery-sourced ids like `idea:beta` are the common case. This is why an `id`
   need not be a URL at all; a reader would otherwise try to follow it.
