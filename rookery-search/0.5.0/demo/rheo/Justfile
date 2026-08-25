@@ -1,0 +1,19 @@
+# rheo is NOT in this repo's devShell — locally it is the sibling `rheo/` crate,
+# or whatever `rheo` is on PATH. CI installs a pinned release and runs
+# `just check` below, so this recipe is both the local check and the CI one.
+#
+# `just build` IN THE PACKAGE ROOT FIRST. This package is a BUILT one: its
+# `typst.toml` points at `dist/`, which is gitignored, so a fresh checkout has
+# no package for rheo to resolve until vite has run. That is the one way this
+# fixture differs from @rheo/rookery's, which is buildless.
+build:
+    rheo compile .
+
+watch:
+    rheo watch .
+
+# Asserts on the OUTPUT, not merely that the build succeeded — the asset
+# plumbing and the JSON island only exist after a real rheo build, and neither
+# the `node --test` suite nor the parity harness can see them.
+check: build
+    ./check.sh
