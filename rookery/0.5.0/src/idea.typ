@@ -322,18 +322,43 @@
 //
 // Takes a bare name, a full id or a Typst label — whatever `_norm` accepts,
 // which is the same set of forms `#window` and `#hyperlink` take. Returns the
-// tags the note was registered with, in the order the author gave them
-// (`#note`/`#todo` prepend theirs, so `#todo("b", tags: ("draft",))` reads
-// `("todo", "draft")`), and `()` both for an untagged note and for an id that
-// does not exist — a missing note is not an error here, because a caller
-// asking "what is this tagged" is filtering, not dereferencing.
+// note's tag NAMES as a flat array, and `()` both for an untagged note and for
+// an id that does not exist — a missing note is not an error here, because a
+// caller asking "what is this tagged" is filtering, not dereferencing.
+//
+// EVERY key, valued tags included: a tag that carries metadata is still a tag,
+// and this is the "what is this tagged" question. KEY ORDER IS UNSPECIFIED as
+// of 0.5.0 — tags are unordered, and nothing may depend on the sequence.
+//
+// The VALUES are deliberately not here. `tag-value` below fetches one, and
+// `tag-data` (data.typ) fetches the whole store in bulk.
 //
 // Must be called INSIDE a `#context` block: it reads `_registry.final()`. It
 // is not itself a context function, because a context function may only
 // return content and the whole point here is to return data.
 #let tags-of(name) = {
   let id = _pfx() + _norm(name)
-  _registry.final().at(id, default: (:)).at("tags", default: (:))
+  _registry.final().at(id, default: (:)).at("tags", default: (:)).keys()
+}
+
+// One tag's VALUE on one note:
+//
+//   #context tag-value("etal", "priority")            // -> 1
+//   #context tag-value("etal", "nope", default: 4)    // -> 4
+//
+// Takes the same name forms `tags-of` takes. Returns `default` when the note
+// does not exist, or exists without that key — a missing note is not an error,
+// for the same reason it is not one in `tags-of`.
+//
+// A PLAIN TAG'S VALUE IS `none`, which is indistinguishable from `default:
+// none` on a key that is absent. Ask `tags-of` (or `tag-data`) when the
+// question is presence rather than value; this function answers "what is it
+// set to", and a plain tag is set to nothing.
+//
+// Must be called INSIDE a `#context` block, same as `tags-of`.
+#let tag-value(name, key, default: none) = {
+  let id = _pfx() + _norm(name)
+  _registry.final().at(id, default: (:)).at("tags", default: (:)).at(key, default: default)
 }
 
 // ---- #footnote — shadows Typst's, scoped to the enclosing idea ------------

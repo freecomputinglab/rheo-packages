@@ -96,7 +96,16 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
-        tags: rec.at("tags", default: (:)),
+        // TAG NAMES ONLY, as a flat array of every key — valued tags included.
+        // The VALUES are deliberately kept off this row, and that is load-
+        // bearing rather than tidiness: `@rheo/rookery-search` puts this field
+        // straight into a JSON index (`corpus.typ`, `row.tags`) and calls
+        // `.map` on it (`rank.typ`). A dictionary breaks both, and a value can
+        // be a datetime or content — MEASURED, `json.encode` of content does
+        // not error, it silently emits a structural blob and bloats every page.
+        // Keeping values off the row makes that failure impossible rather than
+        // merely unlikely. Reach for `tag-data()` below when you want them.
+        tags: rec.at("tags", default: (:)).keys(),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         page: _note-path(id),
@@ -105,6 +114,36 @@
       )
     })
 }
+
+// ---- tag-data — every note's tag store, in bulk ---------------------------
+//
+//   #context tag-data()   // -> ("idea:etal": (phd: none, priority: 1), ..)
+//
+// The whole tag dictionary of every registered note, keyed by full note id.
+// This is the accessor a package builds on when it needs tag VALUES across the
+// corpus — `@rheo/rookery-todos` reads its dependency edges out of it.
+//
+// BULK, and that is the point. `tags-of`/`tag-value` each resolve
+// `_registry.final()` for ONE note, so walking N notes through them pays N
+// registry reads; the same cost is already noted against `tags-of` further up.
+// One `ideas()` plus one `tag-data()` covers the whole corpus, and the two join
+// cleanly on `id`.
+//
+// Values are arbitrary Typst values — datetimes, arrays, content, anything a
+// package put there. DO NOT serialize this wholesale into a page: that is
+// exactly what `ideas().tags` publishing keys only is there to prevent.
+//
+// Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
+// is not itself a context function, because a context function can only return
+// content and the whole point here is to return data.
+#let tag-data() = {
+  _registry
+    .final()
+    .pairs()
+    .map(p => (p.at(0), p.at(1).at("tags", default: (:))))
+    .to-dict()
+}
+
 // The 17 knobs `#show: rookery` accepts, checked before anything is published.
 //
 // Extracted from `rookery` below rather than inlined in it: the function was 158
