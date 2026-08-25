@@ -87,6 +87,13 @@ jobs:
       - name: rookery unit fixture
         run: cd rookery/0.5.0 && just test
 
+      # BEFORE the namespace-symlink step, and that is not an accident:
+      # @rheo/rookery-dates imports no other package by spec — it builds tag
+      # fragments, which are plain dictionaries — so it needs neither the cache
+      # nor a build. It is also buildless, like rookery itself.
+      - name: rookery-dates unit fixture
+        run: cd rookery-dates/0.5.0 && just test
+
       # `@rheo` IS A CUSTOM NAMESPACE, NOT A TYPST-UNIVERSE ONE, so there is no
       # registry to download it from: it resolves only where the package cache
       # already holds it. `rookery-search/0.5.0/src/lib.typ` imports
@@ -164,6 +171,27 @@ jobs:
       # and rheo cannot resolve the package until vite has written it.
       - name: rookery-search rheo demo compiles and asserts
         run: cd rookery-search/0.5.0/demo/rheo && just check
+
+      # @rheo/rookery-todos needs three things in this order, which is why it
+      # sits here rather than beside the unit fixtures above:
+      #   - it is a BUILT package (`typst.toml` points at `dist/`, gitignored),
+      #     so vite has to run before rheo can resolve it at all;
+      #   - it hard-imports BOTH `@rheo/rookery:0.5.0` and
+      #     `@rheo/rookery-dates:0.5.0`, so it must follow the namespace symlink;
+      #   - `just test-js` covers the graph layout, which is the half of this
+      #     package the Typst fixture cannot reach.
+      - name: rookery-todos build, unit fixture and graph tests
+        run: cd rookery-todos/0.5.0 && just build && just test && just test-js
+
+      # A COMPILE CHECK ONLY, deliberately, and stated so a reader does not go
+      # looking for assertions that are not there: rookery-todos has no
+      # `check.sh` yet. Its demo exercises every view, an eight-node two-branch
+      # DAG and `#todos-validate()`, so a compile failure catches a great deal —
+      # but nothing here greps the output the way rookery's and rookery-search's
+      # fixtures do. The shape to copy when that is written is
+      # `rookery-search/0.5.0/demo/rheo/check.sh`.
+      - name: rookery-todos rheo demo compiles
+        run: cd rookery-todos/0.5.0 && rheo compile demo/rheo
 
       # NO `@rheo/feeds` STEP, DELIBERATELY — not an oversight. That package
       # declares `[tool.rheo] min_version = "0.6.0"` and rides three surfaces
