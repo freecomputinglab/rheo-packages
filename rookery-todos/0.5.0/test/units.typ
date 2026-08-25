@@ -77,3 +77,84 @@
 #assert.eq(status-of(todo-tags(status: "draft")), "draft")
 #assert.eq(status-of(todo-tags(closed: true)), "closed")
 #assert.eq(status-of(todo-tags(status: "draft", closed: true)), "closed")
+
+// ---- the graph, cycles, and derived state ---------------------------------
+//
+// Hand-built rows rather than a rookery registry: `todo-graph(rows: ..)` takes
+// an injected corpus precisely so the graph logic can be tested without a
+// document. The fields it reads are `name`, `deps`, `closed` and `tags-dict`.
+
+#let row(name, deps: (), closed: false, tags: (:)) = (
+  name: name,
+  deps: deps,
+  closed: closed,
+  tags-dict: tags,
+)
+
+#let g(..rows) = todo-graph(rows: rows.pos())
+
+// Edges run FROM a todo TO what it depends on.
+#let simple = g(row("a"), row("b", deps: ("a",)))
+#assert.eq(simple.edges, (("b", "a"),))
+#assert.eq(simple.unresolved, ())
+#assert.eq(simple.nodes.keys().sorted(), ("a", "b"))
+
+// A DANGLING dep is collected, not fatal — a description of a graph that dies
+// on the first typo is useless.
+#let dangling = g(row("a", deps: ("nope",)))
+#assert.eq(dangling.edges, ())
+#assert.eq(dangling.unresolved, (("a", "nope"),))
+
+// ---- find-cycle ------------------------------------------------------------
+#assert.eq(find-cycle(simple), ())
+// A three-node chain is still acyclic.
+#assert.eq(find-cycle(g(row("a"), row("b", deps: ("a",)), row("c", deps: ("b",)))), ())
+// A diamond is acyclic too — this is the case a naive visited-set walk calls a
+// cycle, which is why the walk colours grey/black rather than just "seen".
+#assert.eq(
+  find-cycle(g(
+    row("a"),
+    row("b", deps: ("a",)),
+    row("c", deps: ("a",)),
+    row("d", deps: ("b", "c")),
+  )),
+  (),
+)
+// A two-node loop, and the path names the actual loop.
+#let two = find-cycle(g(row("c", deps: ("d",)), row("d", deps: ("c",))))
+#assert(two.len() == 3, message: "expected a 3-element cycle path, got " + repr(two))
+#assert.eq(two.first(), two.last())
+// A self-dependency is a cycle.
+#assert.eq(find-cycle(g(row("s", deps: ("s",)))), ("s", "s"))
+
+// ---- is-blocked / blockers-of ---------------------------------------------
+#let chain = g(row("a"), row("b", deps: ("a",)))
+#assert.eq(is-blocked(chain.nodes.at("b"), chain), true)
+#assert.eq(is-blocked(chain.nodes.at("a"), chain), false)
+#assert.eq(blockers-of(chain.nodes.at("b"), chain), ("a",))
+
+// Closing the dependency unblocks the dependent.
+#let done = g(row("a", closed: true), row("b", deps: ("a",)))
+#assert.eq(is-blocked(done.nodes.at("b"), done), false)
+#assert.eq(blockers-of(done.nodes.at("b"), done), ())
+
+// An UNRESOLVED dep does not block: it names nothing, so it can never close,
+// and treating it as a blocker would wedge a todo forever on a typo.
+#let ghost = g(row("a", deps: ("nope",)))
+#assert.eq(is-blocked(ghost.nodes.at("a"), ghost), false)
+
+// ---- is-ready --------------------------------------------------------------
+#let NOW = d(2026, 8, 25)
+#assert.eq(is-ready(chain.nodes.at("a"), chain, today: NOW), true)
+#assert.eq(is-ready(chain.nodes.at("b"), chain, today: NOW), false)
+#assert.eq(is-ready(done.nodes.at("b"), done, today: NOW), true)
+// A closed todo is never ready.
+#assert.eq(is-ready(done.nodes.at("a"), done, today: NOW), false)
+
+// Deferral is what makes this br's `ready` and not merely "not blocked".
+#let deferred = g(row("x", tags: ("date-scheduled": d(2026, 12, 1))))
+#assert.eq(is-ready(deferred.nodes.at("x"), deferred, today: NOW), false)
+#let arrived = g(row("x", tags: ("date-scheduled": d(2026, 8, 1))))
+#assert.eq(is-ready(arrived.nodes.at("x"), arrived, today: NOW), true)
+// No schedule at all is not deferral — absence of a plan is not a plan to wait.
+#assert.eq(is-ready(g(row("x")).nodes.at("x"), g(row("x")), today: NOW), true)
