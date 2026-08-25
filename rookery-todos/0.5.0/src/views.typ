@@ -19,6 +19,7 @@
 
 #import "@rheo/rookery:0.5.0": ideas
 #import "@rheo/rookery-dates:0.5.0": deadline-of, is-overdue, scheduled-of
+#import "target.typ": *
 #import "tags.typ": *
 #import "todo.typ": *
 #import "graph.typ": *
@@ -31,16 +32,21 @@
   ("todo-row",) + extra + row.tags-dict.keys().map(k => "idea-tag-" + k)
 ).join(" ")
 
-// One row: a link to the note, its title (or its name when untitled), and
-// whatever trailing note the view wants to add.
+// A row's label: its title, or its name when untitled.
+#let _label(row) = if row.title == none { raw(row.name) } else { row.title }
+
+// One row: a link to the note, its label, and whatever trailing note the view
+// wants to add.
+//
+// `href` is `none` where nothing mints pages (a plain `typst compile`, or rheo
+// with minting off), so a row degrades to unlinked text rather than emitting a
+// dead anchor. A PAGED target has no minted pages to link to at all, which is
+// why its branch never builds one.
 #let _row(row, extra: (), trailing: none) = html.elem(
   "li",
   attrs: (class: _row-classes(row, extra: extra)),
   {
-    let label = if row.title == none { raw(row.name) } else { row.title }
-    // `href` is `none` where nothing mints pages (a plain `typst compile`, or
-    // rheo with minting off), so the row degrades to unlinked text rather than
-    // emitting a dead anchor.
+    let label = _label(row)
     if row.href == none {
       html.elem("span", attrs: (class: "todo-row-title"), label)
     } else {
@@ -56,27 +62,50 @@
   },
 )
 
+// The same row on a paged target, as plain Typst content.
+#let _row-paged(row, trailing: none) = {
+  let label = _label(row)
+  if row.closed { strike(label) } else { label }
+  if trailing != none { [ #text(gray, trailing)] }
+}
+
 // The shared frame: an optional title, then the rows, then an empty-state line
 // rather than a bare empty list — "nothing is blocked" is a useful answer and a
 // silent gap is not.
-#let _list(title, rows, empty, extra: (), trailing: r => none) = html.elem(
-  "div",
-  attrs: (class: "todo-view"),
-  {
-    if title != none {
-      html.elem("div", attrs: (class: "todo-view-title"), title)
-    }
+#let _list(title, rows, empty, extra: (), trailing: r => none) = {
+  if _is-markup() {
+    return html.elem(
+      "div",
+      attrs: (class: "todo-view"),
+      {
+        if title != none {
+          html.elem("div", attrs: (class: "todo-view-title"), title)
+        }
+        if rows.len() == 0 {
+          html.elem("p", attrs: (class: "todo-view-empty"), empty)
+        } else {
+          html.elem(
+            "ul",
+            attrs: (class: "todo-list"),
+            rows.map(r => _row(r, extra: extra, trailing: trailing(r))).join(),
+          )
+        }
+      },
+    )
+  }
+  // PAGED. `align(start)` is load-bearing, and it is the same trap rookery
+  // documents at `idea.typ`'s paged branch: this content can sit inside a
+  // Typst `figure`, and a figure CENTRES its body — which on a paged target
+  // centred every row rather than leaving it at the text margin.
+  align(start, {
+    if title != none { strong(title); linebreak() }
     if rows.len() == 0 {
-      html.elem("p", attrs: (class: "todo-view-empty"), empty)
+      text(gray, emph(empty))
     } else {
-      html.elem(
-        "ul",
-        attrs: (class: "todo-list"),
-        rows.map(r => _row(r, extra: extra, trailing: trailing(r))).join(),
-      )
+      list(..rows.map(r => _row-paged(r, trailing: trailing(r))))
     }
-  },
-)
+  })
+}
 
 // Newest-looking order first: by priority (0 is critical), then by name so the
 // order is stable across builds and a diff of generated output means something.
@@ -200,6 +229,32 @@
   let rows = todos()
   let count(pred) = rows.filter(pred).len()
 
+  // Built once as (key, value) pairs, rendered twice — so the two targets
+  // cannot report different numbers.
+  let pairs = (
+    ("total", rows.len()),
+    ("open", count(r => not r.closed)),
+    ("closed", count(r => r.closed)),
+    ("blocked", count(r => not r.closed and is-blocked(r, graph))),
+    ("ready", count(r => is-ready(r, graph, today: today))),
+  )
+  for n in range(5) {
+    let c = count(r => r.priority == n)
+    if c > 0 { pairs.push(("p" + str(n), c)) }
+  }
+  for t in TYPES {
+    let c = count(r => r.kind == t)
+    if c > 0 { pairs.push((t, c)) }
+  }
+
+  if not _is-markup() {
+    // `align(start)` for the same figure-centring reason as `_list` above.
+    return align(start, {
+      if title != none { strong(title); linebreak() }
+      pairs.map(pr => text(gray, pr.at(0)) + " " + str(pr.at(1))).join(", ")
+    })
+  }
+
   let cell(k, v) = html.elem(
     "li",
     attrs: (class: "todo-stat"),
@@ -217,21 +272,7 @@
       html.elem(
         "ul",
         attrs: (class: "todo-stat-list"),
-        {
-          cell("total", rows.len())
-          cell("open", count(r => not r.closed))
-          cell("closed", count(r => r.closed))
-          cell("blocked", count(r => not r.closed and is-blocked(r, graph)))
-          cell("ready", count(r => is-ready(r, graph, today: today)))
-          for n in range(5) {
-            let c = count(r => r.priority == n)
-            if c > 0 { cell("p" + str(n), c) }
-          }
-          for t in TYPES {
-            let c = count(r => r.kind == t)
-            if c > 0 { cell(t, c) }
-          }
-        },
+        pairs.map(pr => cell(pr.at(0), pr.at(1))).join(),
       )
     },
   )

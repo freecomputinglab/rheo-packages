@@ -16,6 +16,7 @@
 // module can only use names from a module imported before it. A wrong order is
 // an unknown-variable error, which is how this order was arrived at.
 
+#import "target.typ": *
 #import "tags.typ": *
 #import "todo.typ": *
 #import "graph.typ": *

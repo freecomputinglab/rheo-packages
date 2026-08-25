@@ -6,6 +6,7 @@
 
 #import "@rheo/rookery:0.5.0": ideas, tag-data
 #import "@rheo/rookery-dates:0.5.0": is-scheduled-now, scheduled-of
+#import "target.typ": *
 #import "tags.typ": *
 
 // ---- todos() — every todo in the rookery, joined with its tag values ------
@@ -267,6 +268,25 @@
   assert-acyclic(graph)
 
   let rows = todos()
+
+  // PAGED TARGET: there is no layout engine for a directed graph Typst-side
+  // and no JavaScript to draw one, so the paged rendering IS the fallback list
+  // the HTML branch already builds for readers with JS off. Same content, and
+  // the only honest thing a PDF can show.
+  //
+  // `align(start)` for the reason rookery documents at `idea.typ`'s own paged
+  // branch: a Typst figure centres its body, and this can sit inside one.
+  if not _is-markup() {
+    return align(start, {
+      if title != none { strong(title); linebreak() }
+      list(..rows.map(r => {
+        let label = if r.text == "" { raw(r.name) } else { r.title }
+        if r.closed { strike(label) } else { label }
+        if r.deps.len() > 0 { [ #text(gray, "depends on " + r.deps.join(", "))] }
+      }))
+    })
+  }
+
   let stamp(d) = if d == none { none } else { d.display("[year][month][day]") }
 
   let nodes = rows.map(r => {

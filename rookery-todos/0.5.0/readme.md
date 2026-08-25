@@ -178,9 +178,16 @@ the graph alike.
 ## The graph view degrades
 
 `#todo-graph-view` emits an SVG drawn client-side from a JSON payload. With
-JavaScript off — and on every paged or EPUB target — the payload's neighbouring
-linked list stays in place, so the todos and their dependencies are still
-readable. The script removes the fallback only once it has drawn something.
+JavaScript off the payload's neighbouring linked list stays in place, so the
+todos and their dependencies are still readable; the script removes the
+fallback only once it has drawn something.
+
+**On a paged target that same list is the whole rendering.** Every view here
+branches on the target: HTML and EPUB get `html.elem` markup, and a PDF gets
+plain Typst content — a `list()` of rows for the lists, a comma-joined line for
+the stats, and the graph's fallback list for the graph, since there is no
+layout engine for a directed graph Typst-side. Counts are computed once and
+rendered twice, so the two targets cannot disagree.
 
 The payload is JSON-safe by construction: strings, numbers, booleans and arrays
 only, never a raw tag value. A value can be a `datetime` or content, and
