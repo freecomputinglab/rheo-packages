@@ -438,7 +438,7 @@
   assert(
     filter == none or type(filter) == function,
     message: "@rheo/rookery: #ideas-outline's `filter` must be none or a "
-      + "function taking the note's tag array — got " + repr(filter),
+      + "function taking the note's tag dictionary — got " + repr(filter),
   )
   let title-content = if title == auto { [Contents] } else { title }
   let entries = _ideas-outline-data(rookery-wide: rookery-wide)

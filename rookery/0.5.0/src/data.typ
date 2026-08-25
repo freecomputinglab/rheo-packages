@@ -34,10 +34,10 @@
 //    minted:  datetime or none,
 //    updated: datetime or none)
 //
-// `tags` is in the AUTHOR'S OWN ORDER, which is not alphabetical and not the
-// order they were written either: `#note`/`#todo` PREPEND their own tag through
-// `_dedup-tag`, so `#todo("b", tags: ("draft",))` reads `("todo", "draft")`.
-// A consumer sorting them is welcome to; this hands them over as given.
+// `tags` is the note's tag NAMES, every key including the valued ones, and
+// TAGS ARE UNORDERED as of 0.5.0: key order is unspecified and nothing may
+// depend on it. A consumer wanting a stable sequence sorts them itself.
+// The VALUES are not here — `tag-data()` below hands over the whole store.
 //
 // `#tags-of(name)` exposes ONE note's tags too, and still does. This field is
 // the bulk form and the cheap one: `tags-of` resolves `_registry.final()` once

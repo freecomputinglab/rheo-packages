@@ -39,15 +39,51 @@
   if i == none { s } else { s.slice(i + 1) }
 }
 
+// ---- _norm-tags — every accepted `tags:` form, as ONE dictionary -----------
+//
+// The tag store is a DICTIONARY as of 0.5.0: keys are tag names, values are
+// arbitrary Typst values, and a plain tag is one whose value is `none`. This is
+// what lets a tag carry metadata — `(depends-on: ("a", "b"))` — instead of only
+// naming itself, and it is the primitive `@rheo/rookery-todos` and
+// `@rheo/rookery-dates` build on.
+//
+// Four author-facing forms all land here and all normalize to that one shape,
+// so nothing downstream has to ask which was written:
+//
+//   none            -> (:)
+//   "draft"         -> (draft: none)
+//   ("a", "b")      -> (a: none, b: none)
+//   (a: 1, b: none) -> unchanged
+//
+// `("a", "b")` and `(a: none, b: none)` are therefore THE SAME registry record,
+// which matters at `idea.typ`'s duplicate-id check: two pins of one id written
+// in different forms must not read as a collision.
+//
+// Defined above BOTH its callers — `_tag-pred` just below and `_dedup-tag`
+// further down — because a `#let` closure captures the scope visible AT
+// DEFINITION time, so a helper defined after a caller is invisible to it.
+#let _norm-tags(v) = {
+  if v == none {
+    (:)
+  } else if type(v) == str {
+    ((v): none)
+  } else if type(v) == dictionary {
+    v
+  } else {
+    v.fold((:), (d, t) => { d.insert(t, none); d })
+  }
+}
+
 // ---- _tag-pred — the shared tag filter -----------------------------------
 //
-// `tags` is `none`, a single string, or an array of strings; `match` is "any"
-// (the default) or "all". Returns a predicate over a note's own tag array, or
-// `none` when there is nothing to filter by. An EMPTY `tags` array is no
-// filter at all rather than a filter matching nothing — asking for none of the
-// tags is not the same as asking for a tag no note has.
+// `tags` is `none`, a single string, an array of strings, or a dictionary —
+// the same four forms `#idea` takes; `match` is "any" (the default) or "all".
+// Returns a predicate over a note's own tag DICTIONARY, or `none` when there is
+// nothing to filter by. An EMPTY `tags` is no filter at all rather than a
+// filter matching nothing — asking for none of the tags is not the same as
+// asking for a tag no note has.
 //
-// `filter` is a caller's OWN predicate over the same tag array, ANDed with the
+// `filter` is a caller's OWN predicate over the same tag dict, ANDed with the
 // `tags`/`match` one — both must hold, never either. NAMED and defaulting to
 // `none` so the callers with no use for it (`#window`, `ideas()`) keep their
 // arity; `#ideas-outline` is the one that offers it, because `tags:`/`match:`
@@ -57,9 +93,19 @@
 // `exclude:`, then `any-of:`/`all-of:`, then nested-array groups — and a Typst
 // function value already IS that language, in the caller's hands.
 //
-// The predicate sees the TAG ARRAY and nothing else: no title, no id, no depth.
-// Those are not tag filtering, and handing over a whole outline entry would make
-// the entry's shape a public contract this package then has to keep.
+// The predicate sees the TAG DICTIONARY and nothing else: no title, no id, no
+// depth. Those are not tag filtering, and handing over a whole outline entry
+// would make the entry's shape a public contract this package then has to keep.
+//
+// THE DICT, not an array of names, as of 0.5.0 — that is what lets a project
+// filter on a tag's VALUE rather than only on its presence:
+//
+//   filter: t => t.at("priority", default: 4) <= 1
+//
+// BREAKING for a 0.4.1 predicate written against the array. `t => "phd" in t`
+// keeps working unchanged (MEASURED: `in` tests dictionary KEYS), but
+// `t.map(..)`, `t.any(..)`, `t.all(..)` and `t.at(0)` do not — a dictionary has
+// no `.any`/`.all` at all, and its `.at` takes a key, not an index.
 //
 // Still `none` when neither is set, and that matters — it is what lets
 // `_prune-outline` skip its walk entirely for an unfiltered outline. Do not
@@ -72,7 +118,13 @@
 // do not define a second copy next to it.
 #let _tag-pred(tags, match, filter: none) = {
   let by-tags = if tags == none { none } else {
-    let want = if type(tags) == str { (tags,) } else { tags }
+    // `.keys()`, and it is load-bearing rather than cosmetic. `_assert-tags`
+    // now also accepts a dictionary, so `#window(tags: (draft: none))` reaches
+    // here with `want` a dict — and MEASURED, a typst dictionary has no `.any`
+    // and no `.all`, so the two branches below would hard-error with
+    // "type dictionary has no method any". `_norm-tags` folds str, array and
+    // dict onto one shape and `.keys()` takes the names off it.
+    let want = _norm-tags(tags).keys()
     if want.len() == 0 { none } else if match == "all" {
       t => want.all(x => x in t)
     } else {
@@ -115,40 +167,6 @@
   else if node.has("body") { out += _cite-walk(node.body) }
   else if node.has("child") { out += _cite-walk(node.child) }
   out
-}
-
-// ---- _norm-tags — every accepted `tags:` form, as ONE dictionary -----------
-//
-// The tag store is a DICTIONARY as of 0.5.0: keys are tag names, values are
-// arbitrary Typst values, and a plain tag is one whose value is `none`. This is
-// what lets a tag carry metadata — `(depends-on: ("a", "b"))` — instead of only
-// naming itself, and it is the primitive `@rheo/rookery-todos` and
-// `@rheo/rookery-dates` build on.
-//
-// Four author-facing forms all land here and all normalize to that one shape,
-// so nothing downstream has to ask which was written:
-//
-//   none            -> (:)
-//   "draft"         -> (draft: none)
-//   ("a", "b")      -> (a: none, b: none)
-//   (a: 1, b: none) -> unchanged
-//
-// `("a", "b")` and `(a: none, b: none)` are therefore THE SAME registry record,
-// which matters at `idea.typ`'s duplicate-id check: two pins of one id written
-// in different forms must not read as a collision.
-//
-// Defined above `_dedup-tag` because that calls it, and a `#let` closure
-// captures the scope visible AT DEFINITION time.
-#let _norm-tags(v) = {
-  if v == none {
-    (:)
-  } else if type(v) == str {
-    ((v): none)
-  } else if type(v) == dictionary {
-    v
-  } else {
-    v.fold((:), (d, t) => { d.insert(t, none); d })
-  }
 }
 
 // Prepends `tag`, unless the caller already passed it — `#todo("x", tags:

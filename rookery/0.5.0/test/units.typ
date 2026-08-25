@@ -191,6 +191,19 @@
 #assert.eq(_body-plain(_truncate(_three-paras, 2)), "One. Two. …")
 #assert.eq(_blocks(_truncate(_three-paras, 2)).len(), 2)
 
+// A dictionary `tags:` argument must work on the QUERY side too, now that
+// `_assert-tags` accepts one: MEASURED, a typst dictionary has no `.any`/`.all`,
+// so `_tag-pred` normalizes `want` to keys or hard-errors.
+#assert.eq(_tag-pred((draft: none), "any")((draft: none, phd: 1)), true)
+#assert.eq(_tag-pred((draft: none), "any")((phd: 1)), false)
+#assert.eq(_tag-pred("draft", "any")((draft: none)), true)
+#assert.eq(_tag-pred(("a", "b"), "all")((a: none, b: 2, c: none)), true)
+#assert.eq(_tag-pred(("a", "b"), "all")((a: none,)), false)
+// An empty dict is no filter at all, same as an empty array.
+#assert.eq(_tag-pred((:), "any"), none)
+// `in` tests KEYS, so a VALUED tag is presence-filterable by name.
+#assert.eq(_tag-pred("priority", "any")((priority: 1)), true)
+
 // ---- _tag-pred — an EMPTY tags array is no filter, not match-nothing ------
 #assert.eq(_tag-pred(none, "any"), none)
 #assert.eq(_tag-pred((), "any"), none)
