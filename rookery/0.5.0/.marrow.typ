@@ -234,9 +234,17 @@
           // ALWAYS SHOWN, for the same reason the date is always shown here
           // (see above): a minted page has no call site to carry a
           // `show-tags:` argument, and a note's OWN page is the one place
-          // its tags are not clutter. An untagged note's `rec.tags` is `()`,
+          // its tags are not clutter. An untagged note's `rec.tags` is `(:)`,
           // which `_permalink-tab` already renders as nothing.
-          tags: rec.at("tags", default: ()),
+          //
+          // FLAT TAGS ONLY — those whose value is `none` — matching what
+          // `#idea` and `_window-content` put in their own hats. A valued tag
+          // still earns its `idea-tag-<key>` class on the page below; what it
+          // does not earn is a pill showing its name and none of its value.
+          // Passing the whole dictionary here is what broke this page when the
+          // store became a dictionary: `_permalink-tab` maps over an ARRAY OF
+          // STRINGS and hard-errors on anything else.
+          tags: rec.at("tags", default: (:)).pairs().filter(p => p.at(1) == none).map(p => p.at(0)),
           date: if rec.updated == none { none } else {
             rec.updated.display("[year]-[month]-[day]")
           },
@@ -434,8 +442,10 @@
       //     syndicates under the name its own page shows; otherwise the
       //     title flattened to a string with `_plain` (rssfeed's `items()`
       //     requires a `str`, not content).
-      //   - `categories`: `rec.at("tags", ..)` with a default, not `rec.tags`,
-      //     so a stale record cannot hard-fail this.
+      //   - `categories`: `rec.at("tags", ..).keys()` with a default, not
+      //     `rec.tags`, so a stale record cannot hard-fail this. `.keys()`
+      //     because the store is a DICTIONARY as of 0.5.0 and a feed category
+      //     is a tag NAME — every key, valued tags included.
       #if syndicate and (rec.minted != none or rec.updated != none) {
         [#metadata((
           id: id,
@@ -443,7 +453,7 @@
           page: page-at.file,
           published: rec.minted,
           updated: rec.updated,
-          categories: rec.at("tags", default: ()),
+          categories: rec.at("tags", default: (:)).keys(),
         ))#label("rssfeed:item")]
       }
     ]
@@ -542,6 +552,9 @@
             let when = if e.updated != none { e.updated } else { e.at("minted", default: none) }
             html.elem(
               "li",
+              // `e.tags` is an `ideas()` row's field, which is ALREADY a flat
+              // array of names as of 0.5.0 — no `.keys()` here, and do not add
+              // one. The dictionary lives on the registry record, not the row.
               attrs: (class: (("idea-outline-row",) + e.tags.map(t => "idea-tag-" + t)).join(" ")),
               // The BASENAME, not `e.href`: a sibling under `_IDEA-DIR`, so no
               // depth arithmetic and no `state("rheo-handle")` read — which at
