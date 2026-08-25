@@ -110,6 +110,26 @@
     border-color: currentColor;
   }
 
+  /* HIDING A ROW NEEDS THIS RULE, and it is not redundant with the `hidden`
+   * attribute the script sets.
+   *
+   * A search row carries `todo-row` (see `_search-row`, which calls
+   * `_row-classes` so these rows look like every other view's), and
+   * `.todo-row` above sets `display: flex`. The UA stylesheet's
+   * `[hidden] { display: none }` loses to ANY author rule that sets `display`,
+   * so without this the script hid every non-matching row and the stylesheet
+   * un-hid all of them — MEASURED on a live site: `hidden=true` and
+   * `display: flex` on the same element, so typing reordered the list and
+   * removed nothing from it.
+   *
+   * `.todo-search-row[hidden]` is (0,2,0) against `.todo-row`'s (0,1,0), in the
+   * same layer, so it wins. Scoped to the search row rather than
+   * `.todo-row[hidden]`: no other view hides rows, and the narrow selector
+   * cannot surprise one that later does. */
+  .todo-search-row[hidden] {
+    display: none;
+  }
+
   .todo-search-count {
     margin: 0 0 0.3rem;
     color: var(--todo-muted-color, var(--idea-id-color, gray));

@@ -20,3 +20,10 @@ test:
 # The browser-only half: the graph layout and rendering in `src/*.js`.
 test-js:
     node --test test/*.test.mjs
+
+# Asserts on the OUTPUT. The one thing it exists for is the
+# `.todo-search-row[hidden]` rule: without it `#todos-search` hides nothing and
+# the filter merely reorders, which compiles clean and looks fine in the markup.
+check: build
+    rheo compile demo/rheo
+    ./demo/rheo/check.sh

@@ -183,15 +183,14 @@ jobs:
       - name: rookery-todos build, unit fixture and graph tests
         run: cd rookery-todos/0.5.0 && just build && just test && just test-js
 
-      # A COMPILE CHECK ONLY, deliberately, and stated so a reader does not go
-      # looking for assertions that are not there: rookery-todos has no
-      # `check.sh` yet. Its demo exercises every view, an eight-node two-branch
-      # DAG and `#todos-validate()`, so a compile failure catches a great deal —
-      # but nothing here greps the output the way rookery's and rookery-search's
-      # fixtures do. The shape to copy when that is written is
-      # `rookery-search/0.5.0/demo/rheo/check.sh`.
-      - name: rookery-todos rheo demo compiles
-        run: cd rookery-todos/0.5.0 && rheo compile demo/rheo
+      # `just check` builds the demo and then asserts on its OUTPUT. The one
+      # assertion it exists for is the `.todo-search-row[hidden]` CSS rule:
+      # without it `#todos-search` sets `hidden` on every non-matching row and
+      # the stylesheet un-hides all of them, so the filter reorders the list and
+      # removes nothing. That compiles clean, passes the unit and JS suites, and
+      # looks correct in the markup — it is only wrong on screen.
+      - name: rookery-todos rheo demo compiles and asserts
+        run: cd rookery-todos/0.5.0 && just check
 
       # @rheo/feeds, gated at last. This step did not exist through 0.1.0 and the
       # workflow carried a comment saying why: the package declares

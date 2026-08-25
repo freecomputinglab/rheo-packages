@@ -94,6 +94,16 @@ function wire(container) {
     for (const row of rows) {
       const s = passes(row, facets) ? score(row.text, q) : -1;
       if (s < 0) {
+        // THE `hidden` ATTRIBUTE NEEDS `.todo-search-row[hidden]` IN THE
+        // STYLESHEET to do anything here, and the two must move together. A
+        // search row carries `todo-row`, which is `display: flex`, and the UA's
+        // `[hidden] { display: none }` loses to any author rule setting
+        // `display` — so on its own this hid nothing and the filter merely
+        // reordered the list. MEASURED on a live site before the rule existed.
+        //
+        // Still the attribute rather than a class: `hidden` is what tells
+        // assistive technology the row is gone, where a class would hide it
+        // visually and leave it in the accessibility tree.
         row.el.hidden = true;
       } else {
         row.el.hidden = false;
