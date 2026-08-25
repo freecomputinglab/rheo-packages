@@ -1,0 +1,20 @@
+[package]
+name = "rookery-dates"
+version = "0.5.0"
+compiler = "0.15.0"
+entrypoint = "src/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "Scheduled and deadline dates for @rheo/rookery notes, contributed as tag metadata"
+repository = "https://github.com/freecomputinglab/rheo-packages"
+
+# The floor @rheo/rookery 0.5.0 declares, matched rather than guessed: this
+# package contributes tag metadata to rookery notes, so a project using it is
+# already on a rheo that can build rookery. Nothing here reads rheo context
+# directly — see `src/lib.typ`'s header — so the floor is inherited, not owned.
+#
+# THIS TABLE MUST STAY LAST. A `[tool.rheo.<format>]` subtable added after it
+# would capture `min_version` into the subtable instead. This package has none:
+# it emits no HTML and ships no CSS or JS.
+[tool.rheo]
+min_version = "0.6.0"
