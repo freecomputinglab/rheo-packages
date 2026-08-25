@@ -219,8 +219,11 @@ Two things about `br` in this repo that cost time to find out:
 - **`br list -a` silently caps at 50 rows.** Pass `--limit` before trusting any
   count or diff taken from it.
 
-The prefix is `rp`. Beads for this repo previously lived in the machine-global
+The prefix is `rheo-packages` (`br config list` reports `issue_prefix:
+rheo-packages`). Beads for this repo previously lived in the machine-global
 `~/.beads/` db — there was no `.beads/` here, so `br` fell back to it — which
 is why the CLOSED history of the rookery/rookery-search work carries
 `br-vio-core-*` ids and is absent from this repo's db. Source comments citing
-bead ids like `rookery-bib-minted-m6h` refer to that history.
+bead ids like `rookery-bib-minted-m6h` refer to that history. One further
+legacy id, `rp-ci-check-workflow-cqn`, predates the prefix settling on
+`rheo-packages`.
