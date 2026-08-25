@@ -1,0 +1,15 @@
+/* @rheo/rookery-todos — todo rows, status styling and the dependency graph.
+ *
+ * EVERYTHING GOES IN `@layer rookery-todos`, and that is load-bearing rather
+ * than tidiness. Package stylesheet order is NOT controllable: rheo collects
+ * `css_stylesheet` assets in package RESOLUTION order (see
+ * `rheo/crates/core/src/build.rs`, `asset_paths("css_stylesheet")`), so this
+ * file cannot rely on landing after `@rheo/rookery`'s. A layer settles it
+ * regardless of source order, the same device rookery itself uses for its
+ * generated per-tag rules in `@layer rookery-tags`.
+ *
+ * Layer order is declared once, here, so a project reading this file can see
+ * the whole cascade at a glance. An UNLAYERED project stylesheet still beats
+ * every layer, which is what keeps a project in charge of its own look.
+ */
+@layer rookery-todos;
