@@ -88,7 +88,7 @@
   reg
     .pairs()
     .sorted(key: p => p.at(0))
-    .filter(p => keep == none or keep(p.at(1).at("tags", default: ())))
+    .filter(p => keep == none or keep(p.at(1).at("tags", default: (:))))
     .map(p => {
       let (id, rec) = p
       (
@@ -96,7 +96,7 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
-        tags: rec.at("tags", default: ()),
+        tags: rec.at("tags", default: (:)),
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         page: _note-path(id),

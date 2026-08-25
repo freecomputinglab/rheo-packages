@@ -292,7 +292,7 @@
       title: v.title,
       loc: el.location(),
       handle: handle,
-      tags: v.at("tags", default: ()),
+      tags: v.at("tags", default: (:)),
     ))
   }
 
@@ -520,7 +520,7 @@
       // recognised set, and styling one here would invent an opinion.
       (e, sub) => html.elem(
         "li",
-        attrs: (class: (("idea-outline-row",) + e.tags.map(l => "idea-tag-" + l)).join(" ")),
+        attrs: (class: (("idea-outline-row",) + e.tags.keys().map(l => "idea-tag-" + l)).join(" ")),
         link(e.loc, e.title) + if sub == none { [] } else { sub },
       ),
     )

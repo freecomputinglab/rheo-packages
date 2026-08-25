@@ -33,8 +33,13 @@
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
   // surfaced as an opaque method-not-found far from the actual mistake.
+  //
+  // As of 0.5.0 the normalized shape is a DICTIONARY: keys are tag names,
+  // values are arbitrary Typst values, and a plain tag's value is `none`.
+  // `_norm-tags` maps all four accepted forms onto it, so everything below
+  // reads `.keys()` for the names and touches values only where it means to.
   _assert-tags(tags, "#idea's")
-  let tags = if tags == none { () } else if type(tags) == str { (tags,) } else { tags }
+  let tags = _norm-tags(tags)
   let pos = args.pos()
   let (name, body) = if pos.len() == 1 {
     (none, pos.at(0))
@@ -52,6 +57,9 @@
     // this note's own heading+box when it is shown nested inside a
     // transcluded/minted parent, without re-running the context block below
     // (which would re-register and, for an auto id, re-step the counter).
+    //
+    // `tags` here is the DICTIONARY, as of 0.5.0 — `_flatten`'s IK rule and
+    // `#ideas-outline` both read it back and must take `.keys()` for names.
     #metadata((body: body, title: title, named: named, base: base, level: level, tags: tags))
     // counter.step() RETURNS CONTENT: emit it here, never inside a code block
     // whose value is used, or it silently turns the id into content.
@@ -144,11 +152,17 @@
       // wrong: its WK markers have already been reduced to permalinks by the
       // depth-0 rule baked into it, so there would be nothing left to expand.
       //
-      // `tags` is stored exactly as `#idea` received it — already deduped and
-      // in the author's order, because `#note`/`#todo` prepend theirs via
-      // `_dedup-tag` before calling in. It therefore takes part in the identity
-      // comparison below: two notes pinned to one id whose tags differ now
-      // collide, exactly as they already did when `raw` or `origin` differed.
+      // `tags` is the normalized DICTIONARY, stored as `#idea` received it —
+      // already deduped, because a `tagged-idea` wrapper prepends its own tag
+      // via `_dedup-tag` before calling in. TAGS ARE UNORDERED as of 0.5.0:
+      // key order is unspecified and nothing may depend on it.
+      //
+      // It takes part in the identity comparison below, and the dictionary
+      // changes what that catches. MEASURED: typst dictionary `==` is
+      // ORDER-INSENSITIVE, so two pins of one id whose tags differ only in
+      // order no longer collide — which is correct now that order carries no
+      // meaning. Two whose tag VALUES differ do collide, exactly as they
+      // already did when `raw` or `origin` differed.
       let rec = (
         title: title,
         raw: body,
@@ -184,7 +198,15 @@
       }
 
       let ttl = if title == none { none } else { title }
-      let cls = ("idea",) + tags.map(l => "idea-tag-" + l)
+      // CLASSES COVER EVERY KEY, valued tags included: `.idea-tag-<key>` is the
+      // hook a project styles a tag by, and a tag that carries metadata is no
+      // less a tag for it. Only the PILLS below are restricted to flat tags.
+      let cls = ("idea",) + tags.keys().map(l => "idea-tag-" + l)
+      // The flat tags — those whose value is `none`. This is what `show-tags:`
+      // renders as pills: a valued tag's name alone says nothing useful in a
+      // pill (`depends-on` with no dependencies shown), so a package carrying
+      // metadata in tags renders it it own way instead of polluting the hat.
+      let flat-tags = tags.pairs().filter(p => p.at(1) == none).map(p => p.at(0))
       if _target() == "html" or _target() == "epub" {
         // The permalink is the ONLY way to discover an auto-generated id —
         // there is no `show heading` rule and no template to hook into, so
@@ -211,7 +233,7 @@
         // `h*.idea:empty` in the stylesheet is what keeps it from taking any space,
         // and it now applies to a dated titleless note as well.
         let header = _head(
-          _permalink-tab(id, tags: if show-tags { tags } else { () }, date: date),
+          _permalink-tab(id, tags: if show-tags { flat-tags } else { () }, date: date),
           html.elem(
             "h" + str(level + 1),
             attrs: (id: id, class: cls.join(" ")),
@@ -225,7 +247,7 @@
         // so a tag can style the whole card, not just the heading; the
         // heading's own class list (above) is untouched for existing
         // stylesheets.
-        let box-cls = ("idea-box",) + tags.map(l => "idea-tag-" + l)
+        let box-cls = ("idea-box",) + tags.keys().map(l => "idea-tag-" + l)
         _sweep-block()
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.
@@ -311,7 +333,7 @@
 // return content and the whole point here is to return data.
 #let tags-of(name) = {
   let id = _pfx() + _norm(name)
-  _registry.final().at(id, default: (:)).at("tags", default: ())
+  _registry.final().at(id, default: (:)).at("tags", default: (:))
 }
 
 // ---- #footnote — shadows Typst's, scoped to the enclosing idea ------------

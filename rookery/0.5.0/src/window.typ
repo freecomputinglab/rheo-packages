@@ -144,7 +144,7 @@
     if pred == none { () } else {
       reg
         .pairs()
-        .filter(p => pred(p.at(1).at("tags", default: ())))
+        .filter(p => pred(p.at(1).at("tags", default: (:))))
         .map(p => p.at(0))
         .filter(id => id not in named)
         .sorted()

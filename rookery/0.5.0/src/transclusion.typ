@@ -125,7 +125,11 @@
       attrs: (class: "idea-window-summary"),
       _permalink-tab(
         id,
-        tags: if show-tags { rec.at("tags", default: ()) } else { () },
+        // Flat tags only, matching `#idea`'s own hat: a valued tag's name alone
+        // says nothing useful in a pill, so `show-tags:` shows the plain ones.
+        tags: if show-tags {
+          rec.at("tags", default: (:)).pairs().filter(p => p.at(1) == none).map(p => p.at(0))
+        } else { () },
         date: date,
       ) + title-span,
     )
@@ -235,7 +239,7 @@
     // counter's value at THIS (later, transcluded) position instead, so it
     // is left without an id/permalink rather than shown wrong.
     let id = if v.named { _pfx() + v.base } else { none }
-    let cls = ("idea",) + v.tags.map(l => "idea-tag-" + l)
+    let cls = ("idea",) + v.tags.keys().map(l => "idea-tag-" + l)
     if _target() == "html" or _target() == "epub" {
       let attrs = (class: cls.join(" "))
       if id != none { attrs = attrs + (id: id) }
@@ -252,7 +256,7 @@
           }),
         ),
       )
-      let box-cls = ("idea-box",) + v.tags.map(l => "idea-tag-" + l)
+      let box-cls = ("idea-box",) + v.tags.keys().map(l => "idea-tag-" + l)
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
       // prose citations written before this note. The references block goes
       // inside the bracket, so the back-references Typst puts in its entries
