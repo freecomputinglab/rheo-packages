@@ -51,7 +51,24 @@ export const renderRow = (hit, terms, atoms = []) => {
   id.className = "rookery-search-id";
   const idText = `[${hit.id}]`;
   appendMarked(id, idText, matchRanges(idText, terms));
-  a.append(title, id);
+  // A `<wbr>` BETWEEN THE TWO SPANS, and it is load-bearing rather than
+  // cosmetic. `.rookery-search-id` is `white-space: nowrap`, and appending the
+  // spans adjacently gives the line breaker no opportunity between them — so
+  // it treats the title's last word plus the whole `[idea:<slug>]` id as one
+  // unbreakable run. A bracketed slug is long, that run never fits, and the
+  // breaker falls back to the last opportunity it does have: the space before
+  // the title's final word, which then drops onto line two under the id.
+  //
+  // MEASURED in headless Chromium at 1280px, before the fix: the row `Amanda
+  // Holmes and Adrian Johnston` broke after "Adrian" at every pane width, in
+  // both the dropdown and the modal. `<wbr>` adds no advance width, so the
+  // id's x position is unchanged (196.1px either way) and the gap still comes
+  // from `.rookery-search-id`'s own `margin-left: 0.4em`.
+  //
+  // REJECTED alternatives, both measured: a space text node fixes it but
+  // widens the gap by a word space; `.rookery-search-title { display: block }`
+  // fixes it but forces the id onto its own line in EVERY row.
+  a.append(title, document.createElement("wbr"), id);
   // `hit.tags ?? []` for the same reason `search` reads it that way: a note
   // with no tags, or a row from an older island, simply has no key —
   // `#search-index` omits the field rather than shipping `[]` per row.
