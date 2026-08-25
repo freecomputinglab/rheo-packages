@@ -158,3 +158,8 @@
 #assert.eq(is-ready(arrived.nodes.at("x"), arrived, today: NOW), true)
 // No schedule at all is not deferral — absence of a plan is not a plan to wait.
 #assert.eq(is-ready(g(row("x")).nodes.at("x"), g(row("x")), today: NOW), true)
+
+// ---- epic-of ---------------------------------------------------------------
+#assert.eq(epic-of((todo: none, "epic-launch": none)), "launch")
+#assert.eq(epic-of(todo-tags()), none)
+#assert.eq(epic-of((todo: none, "epic-q3-push": none)), "q3-push")

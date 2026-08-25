@@ -67,3 +67,51 @@
   ),
   ..args,
 )
+
+// ---- #epic — a factory grouping todos by a shared tag ---------------------
+//
+//   #let launch = epic("launch")
+//   #launch("a")[Do a.]
+//   #launch("b", deps: ("a",))[Do b.]
+//
+// `epic(name)` returns a `#todo` VARIANT with the tag `epic-<name>` bound, so
+// membership in an epic is one more tag on the note and nothing else.
+//
+// A FACTORY, not a function taking a list of todo specifications. The factory
+// is one more application of rookery's `tagged-idea` composition, so it keeps
+// `#todo`'s entire call surface — content bodies, all three id forms, every
+// named argument — with no argument forwarding to reimplement. The rejected
+// alternative, `#epic("launch", (name: "a", body: [..]), ..)`, forces note
+// bodies into dictionary values and reads worse for it.
+//
+// AN EPIC IS A TAG, NOT A CONTAINMENT EDGE. It creates no parent/child
+// relationship and implies no dependency: todos are networked purely through
+// `deps:`, and two todos in one epic are unrelated until one names the other.
+// This is also why there is no `todo-parent` key anywhere in this package.
+//
+// The tag is namespaced `epic-<name>` per rookery's key convention, so it
+// cannot collide with a free author tag and `tags:epic-launch` works in
+// @rheo/rookery-search. It is FLAT (value `none`), so it renders as a pill and
+// wears an `.idea-tag-epic-launch` class like any other plain tag.
+#let epic(name) = {
+  assert(
+    std.type(name) == str and name.len() > 0,
+    message: "@rheo/rookery-todos: `epic` takes a name string — got " + repr(name),
+  )
+  // A tag key becomes a CSS class fragment, so the name has to survive as one.
+  assert(
+    name.match(regex("^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$")) != none,
+    message: "@rheo/rookery-todos: epic name \"" + name + "\" is not usable as a "
+      + "CSS class fragment — it becomes `.idea-tag-epic-" + name + "`. Use "
+      + "alphanumerics and interior hyphens only.",
+  )
+  let key = "epic-" + name
+  (tags: none, ..args) => todo(tags: _norm-tags-local(tags) + ((key): none), ..args)
+}
+
+// The epic a todo belongs to, or `none`. Takes the tag DICTIONARY, like every
+// other reader here.
+#let epic-of(tags) = {
+  let hit = tags.keys().find(k => k.starts-with("epic-"))
+  if hit == none { none } else { hit.slice("epic-".len()) }
+}
