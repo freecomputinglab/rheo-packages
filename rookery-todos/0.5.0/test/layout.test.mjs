@@ -53,12 +53,20 @@ test("rows order by priority then name, unprioritised last", () => {
   ]);
 });
 
-test("deepest layer is drawn at the bottom", () => {
+test("layer 0 is drawn at the top", () => {
   const nodes = [n("a"), n("b")];
   const L = layer(nodes, [e("b", "a")]);
   const { pos } = place(rows(nodes, L));
-  // `a` is what `b` depends on, so `a` sits lower on the page.
-  assert.ok(pos.get("a").y > pos.get("b").y);
+  // `a` depends on nothing, so it is the unblocked work and sits ABOVE `b`,
+  // which waits on it. The arrow between them then reads "a unblocks b".
+  assert.ok(pos.get("a").y < pos.get("b").y);
+});
+
+test("the top row sits at the padding", () => {
+  const nodes = [n("a"), n("b")];
+  const L = layer(nodes, [e("b", "a")]);
+  const { pos } = place(rows(nodes, L));
+  assert.equal(pos.get("a").y, GEOM.pad);
 });
 
 test("a row is centred on the widest row", () => {

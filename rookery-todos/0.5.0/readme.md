@@ -240,6 +240,14 @@ answer as soon as a deferred or dangling dep is involved.
 `graph-slice(graph, closed: ..)` is exported if you are building your own view
 and want the same rows and edges.
 
+**The drawing reads top-down: unblocked work on the top row, arrows running
+down to what it unblocks.** So an arrow means *"unblocks"*, not *"depends on"* —
+the reverse of how the `deps:` you write points. That is a drawing decision
+only: `deps:` in the Typst API and `from`/`to` in the JSON payload both still
+describe the dependency, unchanged.
+
+Pair it with `closed: false` and the top row is exactly the ready work.
+
 `#todo-graph-view` emits an SVG drawn client-side from a JSON payload. With
 JavaScript off the payload's neighbouring linked list stays in place, so the
 todos and their dependencies are still readable; the script removes the

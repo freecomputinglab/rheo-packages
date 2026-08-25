@@ -60,13 +60,17 @@ function drawNode(node, pt) {
   return g;
 }
 
-// An edge runs FROM a dependent DOWN to what it depends on, so it leaves the
-// bottom of one box and arrives at the top of the other.
-function drawEdge(from, to, unresolved) {
-  const x1 = from.x + GEOM.w / 2;
-  const y1 = from.y + GEOM.h;
-  const x2 = to.x + GEOM.w / 2;
-  const y2 = to.y;
+// An edge leaves the bottom of the box that UNBLOCKS and arrives at the top of
+// the box waiting on it, so the arrow reads "upper unblocks lower".
+//
+// The geometry is unchanged from when the drawing ran the other way: bottom of
+// the first argument, top of the second, cubic control points at the midpoint.
+// Only which position is passed as which argument moved — see the call site.
+function drawEdge(upper, lower, unresolved) {
+  const x1 = upper.x + GEOM.w / 2;
+  const y1 = upper.y + GEOM.h;
+  const x2 = lower.x + GEOM.w / 2;
+  const y2 = lower.y;
   const mid = (y1 + y2) / 2;
   return el("path", {
     d: `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`,
@@ -122,10 +126,14 @@ export function render(container) {
   svg.appendChild(arrowDefs());
 
   // Edges first, so a box always paints over a line rather than under it.
+  //
+  // An edge is stored as (from: dependent, to: dependency) — a fact about the
+  // todos, and unchanged by any of this. The DEPENDENCY is what sits above, so
+  // the arrow leaves it and lands on the dependent below: "A unblocks B".
   for (const e of edges) {
-    const a = pos.get(e.from);
-    const b = pos.get(e.to);
-    if (a && b) svg.appendChild(drawEdge(a, b, false));
+    const upper = pos.get(e.to);
+    const lower = pos.get(e.from);
+    if (upper && lower) svg.appendChild(drawEdge(upper, lower, false));
   }
   for (const n of nodes) {
     const pt = pos.get(n.name);

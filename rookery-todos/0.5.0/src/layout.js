@@ -5,9 +5,9 @@
 // browser or a DOM shim.
 
 // Longest-path layering. A node's layer is one more than the deepest layer
-// among the things it depends on, so every edge points from a higher layer to
-// a lower one and the drawing reads bottom-up: prerequisites underneath, the
-// work that waits on them above.
+// among the things it depends on, so layer 0 is a node that depends on nothing
+// — work that is unblocked — and the drawing reads TOP-DOWN: what you can pick
+// up on the top row, and what it releases hanging below it.
 //
 // LONGEST path rather than shortest, deliberately. With shortest-path layering
 // an edge can span several layers and cross unrelated nodes; with longest-path
@@ -73,12 +73,17 @@ export function place(rowsOfNodes) {
   const widest = rowsOfNodes.reduce((m, r) => Math.max(m, r.length), 0);
   const boardW = widest * GEOM.w + Math.max(0, widest - 1) * GEOM.gapX;
   const pos = new Map();
-  // Deepest layer at the BOTTOM: prerequisites underneath what waits on them.
+  // LAYER 0 AT THE TOP — the todos that depend on nothing, i.e. the work that
+  // is unblocked — with whatever waits on them hanging below. An index page
+  // reads "here is what you can pick up, and here is what it releases".
+  //
+  // `depth` is still needed for `height` below, which is why it survives the
+  // formula no longer using it.
   const depth = rowsOfNodes.length;
   rowsOfNodes.forEach((row, i) => {
     const rowW = row.length * GEOM.w + Math.max(0, row.length - 1) * GEOM.gapX;
     const x0 = GEOM.pad + (boardW - rowW) / 2;
-    const y = GEOM.pad + (depth - 1 - i) * (GEOM.h + GEOM.gapY);
+    const y = GEOM.pad + i * (GEOM.h + GEOM.gapY);
     row.forEach((n, j) => {
       pos.set(n.name, { x: x0 + j * (GEOM.w + GEOM.gapX), y });
     });
