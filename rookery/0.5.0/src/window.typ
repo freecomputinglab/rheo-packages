@@ -157,6 +157,43 @@
     _sort-ids(named + tagged, reg, sort)
   }
 
+  // A SECOND ANNOUNCEMENT, labelled, for a window this page's own doc-walk
+  // cannot see.
+  //
+  // The unlabelled `metadata((rookery-window: ids))` above is found by
+  // `_page-outbound`, which walks the vertebra's content at `#show: rookery`
+  // time. That walk cannot enter a `context` block — the body does not exist
+  // until layout — so a `#window` EMITTED FROM INSIDE ONE announces to nobody,
+  // and the notes it transcludes get no backlink from the page transcluding
+  // them.
+  //
+  // MEASURED, one note and one otherwise-empty page: a hand-written
+  // `#window("solo", folded: true)` put `board.html` in solo's backlinks; the
+  // identical call emitted by `@rheo/rookery-todos`'s `#todos-ready(windows:
+  // true)` — which must run inside `context`, since its rows come from the
+  // dependency graph — put nothing there.
+  //
+  // `query()` runs after layout, so a LABELLED beacon is visible wherever the
+  // window was written. It reuses `<rookery-page-links>`, the label and the
+  // exact `(handle, targets)` shape `_page-links` already merges by handle, so
+  // that function needs no change and dedupes this against the doc-walk's own
+  // beacon when both fire for the same window.
+  //
+  // NAMED IDS ONLY, matching the marker above rather than widening to
+  // `full-ids`. A tag-selected note still gets no backlink — that asymmetry is
+  // documented and deliberate, and closing it here would change behaviour this
+  // bead is not about. The mechanism would now support it if that is ever
+  // wanted.
+  //
+  // `_is-vertebra` in `_page-links` filters out a beacon emitted from a minted
+  // note page, so a window inside one does not turn that page into a backlink.
+  {
+    let handle = state("rheo-handle").get()
+    if type(handle) == str and named.len() > 0 {
+      [#metadata((handle: handle, targets: named)) <rookery-page-links>]
+    }
+  }
+
   for id in full-ids {
     let rec = reg.at(id)
 

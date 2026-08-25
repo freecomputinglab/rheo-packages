@@ -124,17 +124,18 @@
 // but it cannot interleave the per-row `trailing` note, and that note is the
 // entire value of `#todos-blocked` ("blocked by X, Y"). The per-row cost is
 // what `#window` already costs everywhere else it is used.
-// NO BACKLINKS FROM THESE WINDOWS, and it is not a choice made here. MEASURED
-// with one note and one otherwise-empty page: a `#window("solo", folded: true)`
-// written by hand in a vertebra puts that vertebra in the note's "Context"
-// list, and a `#todos-ready(windows: true)` on the same page puts nothing
-// there. The difference is that these views run inside a `context` block —
-// they must, since the graph and the reference date resolve nowhere else — and
-// rookery's backlink walk does not see a window announced from inside one.
+// THESE WINDOWS DO PRODUCE BACKLINKS, and that took a rookery fix. The backlink
+// walk reads a page's content at `#show: rookery` time, which cannot enter a
+// `context` block — and these views must run inside one, since the graph and
+// the reference date resolve nowhere else. A window emitted from here therefore
+// announced itself to nobody, and every note the view unfolded lost its
+// backlink from the page unfolding it. MEASURED, then fixed in rookery by
+// emitting a labelled `<rookery-page-links>` beacon from inside `#window`'s own
+// context, which `query()` finds wherever the window was written.
 //
-// Left as it is rather than worked around: there is no package-side lever for
-// it, and the walk is rookery's to change. Tracked as a bead against
-// @rheo/rookery. Do not document either behaviour as guaranteed.
+// So a `windows: true` view is a real reference and shows up as one. Documented
+// in the readme, because a busy index becomes a backlink on everything it
+// lists.
 #let _windows(title, rows, empty, trailing: r => none) = {
   // PAGED FIRST. A PDF or EPUB page has no fold to click, so those targets keep
   // the link list they already render. Deliberate, not a stub — see `_list`.

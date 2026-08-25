@@ -20,3 +20,14 @@ back to #link(label("index"))[the root vertebra].
 
   #window(<root-note>)
 ]
+
+A window emitted from INSIDE a `#context` block, which is what any package
+computing its own rows must do — `@rheo/rookery-todos`'s views are the real
+case. The backlink walk reads a page's content at `#show: rookery` time and
+cannot enter a context block, so a window written like this used to announce
+itself to nobody and the note it transcludes lost its backlink from this page.
+`check.sh` asserts that `plain-note` now lists this vertebra.
+
+#context {
+  window("plain-note", folded: true)
+}

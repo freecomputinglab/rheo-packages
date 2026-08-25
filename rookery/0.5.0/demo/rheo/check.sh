@@ -44,6 +44,24 @@ done
 grep -q '>Backlinks</h2>' "$H/ideas/root-note.html" ||
   note "ideas/root-note.html has no Backlinks section — sub-note windows it"
 
+# A WINDOW EMITTED FROM INSIDE A `#context` BLOCK STILL PRODUCES A BACKLINK.
+#
+# `_page-links-beacon` walks the vertebra's content at `#show: rookery` time,
+# and that walk cannot enter a context block — the body does not exist until
+# layout. So the unlabelled `metadata((rookery-window: ..))` a `#window`
+# announces itself with is invisible there, and every note such a window
+# transcludes used to lose its backlink from the page transcluding it.
+#
+# NOT A HYPOTHETICAL: any package that computes its rows must emit its windows
+# from inside a context block, because a registry read needs one.
+# `@rheo/rookery-todos`'s `#todos-ready(windows: true)` is the real case, and
+# MEASURED before the fix it produced no backlink at all while a hand-written
+# window on the same page produced one.
+#
+# `content/sub/page.typ` holds the fixture: a `#context { window("plain-note") }`.
+grep -q 'href="../sub/page.html"' "$H/ideas/plain-note.html" ||
+  note "plain-note has no backlink from sub/page.html — a window inside #context announced to nobody"
+
 # 4. No minted page appears in another note's PAGE backlinks. `_is-vertebra`
 #    filters them out, and its own comment records six wrong backlinks from the
 #    build where that filter was missing: a minted page links to the notes it

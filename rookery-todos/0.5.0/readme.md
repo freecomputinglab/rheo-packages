@@ -114,29 +114,26 @@ are derived from the dependency graph and the calendar, never stored as tags, so
 no `#window(tags: ..)` selection can express them. Only code that has already
 computed the rows can hand `#window` the names.
 
-### Backlinks: these transclusions do not produce them
+### Backlinks
 
-A `#window` written by hand in a vertebra announces the ids it transcludes, and
-the target note's page then lists that vertebra under "Context". **A window
-emitted by one of these views does not.**
+A `windows: true` view gives every todo it lists a backlink from the page
+holding the view — the note's own page lists that page under "Context", exactly
+as it would for a `#window` you wrote by hand.
 
-MEASURED, one note and one otherwise-empty page holding only a view:
+That is worth knowing before putting one on a busy index: a page listing twenty
+ready todos becomes a backlink on all twenty. It is not suppressible, and should
+not be — the view really does reference those notes, and hiding that from the
+backlink walk would make the walk lie.
 
-| the page holds | backlink on the note |
-| --- | --- |
-| `#window("solo", folded: true)`, written by hand | `board.html` appears |
-| `#todos-ready(windows: true)` | nothing |
+This needed a fix in `@rheo/rookery` 0.5.0 to work at all. The backlink walk
+reads a page's content at template time, which cannot enter a `context` block,
+and these views must run inside one; a window emitted from there used to
+announce itself to nobody. rookery now also emits a labelled beacon from inside
+`#window`'s own context, which `query()` finds wherever it was written.
 
-The difference is where the window is emitted from. These views run inside a
-`context` block — they must, since the graph and the reference date are only
-resolvable there — and rookery's backlink walk does not see a window announced
-from inside one.
-
-So a `windows: true` view is invisible to the backlink graph. Whether that is
-right is arguable: the view genuinely does reference every note it unfolds, and
-a reader of one of those notes is arguably owed the pointer back. It is tracked
-rather than settled — see the note in `src/views.typ`. Do not rely on either
-behaviour staying as it is.
+A TAG-SELECTED window is still the exception: `#window(tags: ..)` produces no
+backlink for the notes its tag matched, only for ones named outright. That
+asymmetry is rookery's and is documented there.
 
 ## Derived, never stored
 
