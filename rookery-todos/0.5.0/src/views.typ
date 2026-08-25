@@ -17,7 +17,7 @@
 //     the whole project. @rheo/rookery-dates resolves `today:` against the
 //     document date and panics when neither is available.
 
-#import "@rheo/rookery:0.5.0": ideas
+#import "@rheo/rookery:0.5.0": ideas, window
 #import "@rheo/rookery-dates:0.5.0": deadline-of, is-overdue, scheduled-of
 #import "target.typ": *
 #import "tags.typ": *
@@ -107,6 +107,73 @@
   })
 }
 
+// ---- _windows — the same rows, as folded transclusions --------------------
+//
+// `#todos-*(windows: true)` renders each row as a folded `#window` instead of a
+// link, so a reader unfolds a todo's body in place rather than clicking through
+// to its minted page.
+//
+// WHY THIS LIVES IN THE PACKAGE and not in a caller: `ready` and `blocked` are
+// DERIVED from the dependency graph and the calendar (`is-ready`, `is-blocked`
+// in `graph.typ`), never stored as tags — so no `#window(tags: ..)` selection
+// can express them. Only code that has already computed the rows can hand
+// `#window` the names, and that code is here.
+//
+// ONE `#window` CALL PER ROW, not one array call. `#window` does accept an
+// array of names, and that form would cost one registry read instead of N —
+// but it cannot interleave the per-row `trailing` note, and that note is the
+// entire value of `#todos-blocked` ("blocked by X, Y"). The per-row cost is
+// what `#window` already costs everywhere else it is used.
+// NO BACKLINKS FROM THESE WINDOWS, and it is not a choice made here. MEASURED
+// with one note and one otherwise-empty page: a `#window("solo", folded: true)`
+// written by hand in a vertebra puts that vertebra in the note's "Context"
+// list, and a `#todos-ready(windows: true)` on the same page puts nothing
+// there. The difference is that these views run inside a `context` block —
+// they must, since the graph and the reference date resolve nowhere else — and
+// rookery's backlink walk does not see a window announced from inside one.
+//
+// Left as it is rather than worked around: there is no package-side lever for
+// it, and the walk is rookery's to change. Tracked as a bead against
+// @rheo/rookery. Do not document either behaviour as guaranteed.
+#let _windows(title, rows, empty, trailing: r => none) = {
+  // PAGED FIRST. A PDF or EPUB page has no fold to click, so those targets keep
+  // the link list they already render. Deliberate, not a stub — see `_list`.
+  if not _is-markup() { return _list(title, rows, empty, trailing: trailing) }
+
+  html.elem(
+    "div",
+    attrs: (class: "todo-view todo-windows"),
+    {
+      if title != none {
+        html.elem("div", attrs: (class: "todo-view-title"), title)
+      }
+      if rows.len() == 0 {
+        html.elem("p", attrs: (class: "todo-view-empty"), empty)
+      } else {
+        rows
+          .map(r => html.elem(
+            "div",
+            // NOT `_row-classes`, and this is the reason: that prepends
+            // `todo-row`, which the stylesheet makes a baseline-aligned flex
+            // row — and a `<details>` inside one lays out wrongly. A window row
+            // is a block; it only wants the note's own tag classes.
+            attrs: (
+              class: (("todo-window-row",) + r.tags-dict.keys().map(k => "idea-tag-" + k)).join(" "),
+            ),
+            {
+              window(r.name, folded: true)
+              let note = trailing(r)
+              if note != none {
+                html.elem("span", attrs: (class: "todo-row-note"), note)
+              }
+            },
+          ))
+          .join()
+      }
+    },
+  )
+}
+
 // Newest-looking order first: by priority (0 is critical), then by name so the
 // order is stable across builds and a diff of generated output means something.
 // An unprioritised todo sorts last, not first — no priority is not urgency.
@@ -131,6 +198,7 @@
   filter: none,
   limit: none,
   closed: true,
+  windows: false,
 ) = context {
   let graph = todo-graph()
   assert-acyclic(graph)
@@ -147,19 +215,25 @@
   if filter != none { rows = rows.filter(r => filter(r.tags-dict)) }
   rows = _by-priority(rows)
   if limit != none { rows = rows.slice(0, calc.min(limit, rows.len())) }
-  _list(title, rows, [No todos.])
+  if windows { _windows(title, rows, [No todos.]) } else { _list(title, rows, [No todos.]) }
 }
 
 // ---- #todos-ready — br `ready` ---------------------------------------------
 //
 // Open, unblocked, and not deferred past `today`. The deferral clause is what
 // makes this br's `ready` rather than merely "not blocked" — see `is-ready`.
-#let todos-ready(title: none, today: none, limit: none) = context {
+#let todos-ready(title: none, today: none, limit: none, windows: false) = context {
   let graph = todo-graph()
   assert-acyclic(graph)
   let rows = _by-priority(todos().filter(r => is-ready(r, graph, today: today)))
   if limit != none { rows = rows.slice(0, calc.min(limit, rows.len())) }
-  _list(title, rows, [Nothing is ready.], extra: ("todo-row-ready",))
+  // `extra:` is dropped on the windows path: `todo-row-ready` styles the
+  // border-left of a flex row, and a window row is neither.
+  if windows {
+    _windows(title, rows, [Nothing is ready.])
+  } else {
+    _list(title, rows, [Nothing is ready.], extra: ("todo-row-ready",))
+  }
 }
 
 // ---- #todos-blocked — br `blocked` -----------------------------------------
@@ -167,19 +241,24 @@
 // Open todos with at least one unclosed dependency, EACH NAMING WHAT BLOCKS IT.
 // The naming is the whole value of the view: a list of blocked things without
 // their blockers tells you nothing you could act on.
-#let todos-blocked(title: none) = context {
+#let todos-blocked(title: none, windows: false) = context {
   let graph = todo-graph()
   assert-acyclic(graph)
   let rows = _by-priority(
     todos().filter(r => not r.closed and is-blocked(r, graph)),
   )
-  _list(
-    title,
-    rows,
-    [Nothing is blocked.],
-    extra: ("todo-row-blocked",),
-    trailing: r => [blocked by #blockers-of(r, graph).join(", ")],
-  )
+  let why = r => [blocked by #blockers-of(r, graph).join(", ")]
+  if windows {
+    _windows(title, rows, [Nothing is blocked.], trailing: why)
+  } else {
+    _list(
+      title,
+      rows,
+      [Nothing is blocked.],
+      extra: ("todo-row-blocked",),
+      trailing: why,
+    )
+  }
 }
 
 // ---- #todos-stale — br `stale` ---------------------------------------------
@@ -191,7 +270,7 @@
 // A todo with NO date at all is not stale: nothing is known about when it was
 // touched, and reporting silence as staleness would flag every undated project
 // wholesale.
-#let todos-stale(title: none, today: none, older-than: 30) = context {
+#let todos-stale(title: none, today: none, older-than: 30, windows: false) = context {
   let graph = todo-graph()
   assert-acyclic(graph)
   assert(
@@ -211,13 +290,18 @@
     if r.updated == none { return false }
     stale(r.updated)
   })
-  _list(
-    title,
-    _by-priority(rows),
-    [Nothing is stale.],
-    extra: ("todo-row-stale",),
-    trailing: r => [last touched #r.updated.display("[year]-[month]-[day]")],
-  )
+  let when = r => [last touched #r.updated.display("[year]-[month]-[day]")]
+  if windows {
+    _windows(title, _by-priority(rows), [Nothing is stale.], trailing: when)
+  } else {
+    _list(
+      title,
+      _by-priority(rows),
+      [Nothing is stale.],
+      extra: ("todo-row-stale",),
+      trailing: when,
+    )
+  }
 }
 
 // ---- #todos-stats — br `stats` / `count` -----------------------------------

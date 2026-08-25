@@ -91,6 +91,53 @@ the key.
 - **Created and updated are rookery core's own** `minted`/`updated`, forwarded
   straight through `#todo`.
 
+## Rows as windows: `windows:`
+
+`todos-list`, `todos-ready`, `todos-blocked` and `todos-stale` each take
+`windows: false`. Set it and every row renders as a folded
+[`#window`](../../rookery) — the todo's own body, one click away, in place —
+instead of a link to its minted page.
+
+```typst
+#todos-ready(today: TODAY, windows: true)
+```
+
+**It defaults to `false`**, so nothing changes for an existing project: with the
+flag unset the views emit exactly the markup they did before.
+
+**Paged and EPUB targets fall back to the link list.** A PDF has no fold to
+click, so a window row there would be a heading with a body under it and no way
+to tell it from the surrounding prose. That is a deliberate branch, not a gap.
+
+**Why the flag lives here rather than in your project:** `ready` and `blocked`
+are derived from the dependency graph and the calendar, never stored as tags, so
+no `#window(tags: ..)` selection can express them. Only code that has already
+computed the rows can hand `#window` the names.
+
+### Backlinks: these transclusions do not produce them
+
+A `#window` written by hand in a vertebra announces the ids it transcludes, and
+the target note's page then lists that vertebra under "Context". **A window
+emitted by one of these views does not.**
+
+MEASURED, one note and one otherwise-empty page holding only a view:
+
+| the page holds | backlink on the note |
+| --- | --- |
+| `#window("solo", folded: true)`, written by hand | `board.html` appears |
+| `#todos-ready(windows: true)` | nothing |
+
+The difference is where the window is emitted from. These views run inside a
+`context` block — they must, since the graph and the reference date are only
+resolvable there — and rookery's backlink walk does not see a window announced
+from inside one.
+
+So a `windows: true` view is invisible to the backlink graph. Whether that is
+right is arguable: the view genuinely does reference every note it unfolds, and
+a reader of one of those notes is arguably owed the pointer back. It is tracked
+rather than settled — see the note in `src/views.typ`. Do not rely on either
+behaviour staying as it is.
+
 ## Derived, never stored
 
 `blocked`, `ready` and `stale` are questions about the graph and the calendar as

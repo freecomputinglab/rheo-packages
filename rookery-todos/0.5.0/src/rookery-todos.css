@@ -54,6 +54,13 @@
     font-size: 0.85em;
   }
 
+  /* A row rendered as a folded `#window` (`windows: true`). Spacing only: the
+     frame, the summary and the fold are rookery's own chrome, styled by
+     `rookery.css`, and restating any of it here would fight it. */
+  .todo-window-row {
+    margin: 0.5rem 0;
+  }
+
   /* Status, driven by the classes the rows already wear. `idea-tag-todo-closed`
    * is rookery's own class for our valued `todo-closed` key — no separate
    * status class is emitted for it, because the tag already says so. */

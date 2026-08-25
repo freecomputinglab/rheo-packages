@@ -105,6 +105,12 @@ this `br`'s ready and not merely "not blocked".
 
 #todos-ready(today: TODAY)
 
+The same rows again with `windows: true`, each an unfoldable transclusion of
+the todo's own body rather than a link to its minted page. Paged and EPUB
+targets fall back to the link list above, since there is no fold to click.
+
+#todos-ready(today: TODAY, windows: true)
+
 == Blocked — `br blocked`
 
 Each row names what blocks it. A list of blocked things without their blockers
