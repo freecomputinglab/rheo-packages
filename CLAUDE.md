@@ -60,7 +60,7 @@ vertebra itself) has `rheo-context` in scope:
 
 ```typ
 #import "@rheo/<pkg>:x.y.z": template
-#show: template.with(ctx: rheo-context)
+#show: template.with(ctx: rheo-context())
 ```
 
 **Guard requirement (do this in every package using this pattern):** assert
@@ -72,7 +72,7 @@ Put the assert at the top of the template, before any use of `ctx`:
   assert(
     type(ctx) == dictionary and "handle" in ctx,
     message: "@rheo/<pkg>: the template needs the per-file `rheo-context` "
-      + "injected by Rheo. Apply it as `#show: template.with(ctx: rheo-context)` "
+      + "injected by Rheo. Apply it as `#show: template.with(ctx: rheo-context())` "
       + "and compile the project with Rheo (https://rheo.ohrg.org), not native Typst.",
   )
   // ...
@@ -82,23 +82,25 @@ Put the assert at the top of the template, before any use of `ctx`:
 This catches the common misuses: `ctx` omitted, passed as `none`, or not
 rheo-context-shaped.
 
-**Known limitation** (tested 2026-07-11, rheo 0.4.0): the assert does NOT
-catch pure native `typst compile`, where `rheo-context` is an unbound
-variable and Typst hard-errors (`unknown variable: rheo-context`) before the
-template runs. This cannot be fixed package-side: **any in-file fallback
-binding of `rheo-context` clobbers rheo's real injection.** Verified —
+**Detect a rheo build before calling `rheo-context()`** rather than letting
+pure native `typst compile` hard-error on an unbound variable:
 
-- `#import "@rheo/<pkg>": rheo-context` (a sentinel) shadows the injected
-  value (import comes after the prepended injection, so the sentinel wins
-  even under rheo).
-- A top-level `#let rheo-context = "..."` also wins over injection under
-  rheo; a non-string `#let rheo-context = (...)` trips rheo's `rheo-*`
-  harvester (`rheo-context must be a string or boolean`).
+```typ
+#let ctx = if "rheo-context" in sys.inputs { rheo-context() } else {
+  panic("@rheo/<pkg>: compile this project with Rheo (https://rheo.ohrg.org), not native Typst.")
+}
+```
 
-So do NOT ship a package-level `rheo-context` fallback binding — it breaks
-the rheo build. The friendlier native-Typst error is deferred to a rheo-core
-change (shadow-proof injection or a `require-rheo-context()` hook); track it
-in the rheo repo (bead `rheo-d1h`).
+`sys.inputs` is global to the bundle compile, so it is readable even where
+the per-vertebra `rheo-context()` binding is not — this gives a native-Typst
+build the friendly panic message instead of Typst's own
+`unknown variable: rheo-context`. Still true, and still worth the warning:
+**any in-file fallback binding of `rheo-context` clobbers rheo's real
+injection.** An `#import "@rheo/<pkg>": rheo-context` sentinel, or a
+top-level `#let rheo-context = ...`, both shadow the injected value under
+rheo (the injection is prepended, so a later import/let wins). So do NOT
+ship a package-level `rheo-context` fallback binding — it breaks the rheo
+build; use the `sys.inputs` guard above instead.
 
 ### Pattern B — packages that work without rheo: feature-detect
 
@@ -117,7 +119,13 @@ rheo present at all.
 
   (`blogfeed/0.1.1/src/lib.typ:32`.) Falls back to an empty/absent spine when
   built without rheo — no assert, no error, because running without rheo is
-  the primary supported mode for this kind of package.
+  the primary supported mode for this kind of package. For the exact keys
+  `sys.inputs.rheo-context` carries and their stability, see rheo core's
+  `docs/contract.md` rather than re-deriving the field list here — this
+  repo doesn't own that inventory, and it has already gone stale here once.
+  **`sys.inputs.rheo-context` carries no `handle`** (it is bundle-global,
+  not per-file) — a package needing the CURRENT file's own handle still
+  needs Pattern A's `rheo-context()` or `state("rheo-handle")` below.
 - The CURRENT OUTPUT PAGE's own handle (if needed) is `state("rheo-handle")`,
   which rheo publishes per page in `rheo-page-init`
   (`/home/lox/code/_rheo/rheo/crates/core/src/typ/rheo.typ:70-75`) — readable
@@ -211,8 +219,11 @@ Two things about `br` in this repo that cost time to find out:
 - **`br list -a` silently caps at 50 rows.** Pass `--limit` before trusting any
   count or diff taken from it.
 
-The prefix is `rp`. Beads for this repo previously lived in the machine-global
+The prefix is `rheo-packages` (`br config list` reports `issue_prefix:
+rheo-packages`). Beads for this repo previously lived in the machine-global
 `~/.beads/` db — there was no `.beads/` here, so `br` fell back to it — which
 is why the CLOSED history of the rookery/rookery-search work carries
 `br-vio-core-*` ids and is absent from this repo's db. Source comments citing
-bead ids like `rookery-bib-minted-m6h` refer to that history.
+bead ids like `rookery-bib-minted-m6h` refer to that history. One further
+legacy id, `rp-ci-check-workflow-cqn`, predates the prefix settling on
+`rheo-packages`.

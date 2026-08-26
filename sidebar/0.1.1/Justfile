@@ -1,0 +1,19 @@
+# Bundles `src/` into `dist/`, which `typst.toml` points at. `dist/` is
+# gitignored, so this must run before a project compiling against the package
+# sees an edit.
+build:
+    pnpm install
+    pnpm run build
+
+# The rheo half of this package's coverage, and as of 0.1.1 the only thing that
+# proves the nav is built from the spine at all: the demo's template passes no
+# `nav:` and no `current:`, so a regression in either derivation compiles clean
+# and ships a broken site.
+demo:
+    rheo compile demo/rheo
+
+# Asserts on the OUTPUT — that every nav link resolves from the page it appears
+# on, that a handle's `:` segments became directories, and that the active page
+# and document title follow the current handle.
+check: build demo
+    ./demo/rheo/check.sh

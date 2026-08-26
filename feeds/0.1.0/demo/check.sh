@@ -2,7 +2,7 @@
 # Asserts on this demo's OUTPUT: two Atom feeds built from disjoint subsets
 # of one small site, the second sourced from @rheo/rookery's `ideas(tags:)`
 # rather than @rheo/feeds's own `<feeds:item>` beacon protocol. Modelled on
-# rookery/0.3.0/demo/rheo/check.sh — greps rather than a test framework,
+# rookery/0.5.0/demo/rheo/check.sh — greps rather than a test framework,
 # deliberately: the package ships no runner and adding one for a handful of
 # assertions would be more machinery than the thing it checks. Run through
 # `just check`, which builds first. The Atom-parsing helpers it uses are shared

@@ -307,7 +307,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 
 ```typst
 #import "@rheo/feeds:0.1.0": feed, configure, spine
-#import "@rheo/rookery:0.3.0": ideas
+#import "@rheo/rookery:0.5.0": ideas
 
 // rookery's `href` is depth-relative; this source runs at bundle root, where
 // the ambient handle is not the site root, so the leading `../` run has to go.
@@ -436,10 +436,16 @@ that isn't a dictionary, or a dictionary with no non-empty `title`, fails the
 build naming the label and what was found, rather than being silently
 dropped.
 
-Nothing in this repo emits this beacon today. `@rheo/rookery` does not, and
-the demo's `notes.xml` goes through `ideas(tags:)` directly (above), not
-through this protocol — the beacon exists for the case that recipe cannot
-reach, not as a mechanism rookery itself uses.
+`@rheo/rookery` is the first emitter in this repo, and an OPT-IN one: with
+`#show: rookery.with(syndicate: true)` its `.marrow.typ` attaches a
+`<feeds:item>` beacon to each minted note page, carrying that note's id, title,
+page, dates and tags. It costs a project that never asks for it nothing.
+
+That does not make the beacon the recommended path to a rookery feed. The
+demo's `notes.xml` still goes through `ideas(tags:)` directly (above), because
+rookery HAS an accessor and calling it beats querying for what it emitted. The
+beacon earns its place where no such accessor exists — which is exactly why
+rookery offers both and defaults to neither.
 
 ## The subscribe modal
 

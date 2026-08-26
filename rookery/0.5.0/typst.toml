@@ -1,0 +1,20 @@
+[package]
+name = "rookery"
+version = "0.5.0"
+compiler = "0.15.0"
+entrypoint = "src/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "Atomic, interlinked, transcludable notes for Typst - Zettelkasten-style, rheo-aware"
+repository = "https://github.com/freecomputinglab/rheo-packages"
+
+[tool.rheo]
+# 0.6.0 is where rheo rewrites the reserved `rheo-page:<handle>` link dest that
+# `_resolve-dest` (src/urls.typ) now emits for every note link. An older rheo
+# passes that dest through untouched and the page ships a literal
+# `href="rheo-page:ideas:<slug>"` — a silent, site-wide dead-link failure, which is
+# precisely what a floor exists to turn into a build error.
+min_version = "0.6.0"
+
+[tool.rheo.html]
+css_stylesheet = "src/rookery.css"

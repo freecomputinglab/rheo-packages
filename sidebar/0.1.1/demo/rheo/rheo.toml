@@ -1,0 +1,6 @@
+version = "0.6.0"
+title = "@rheo/sidebar demo"
+
+# `_template.typ` is a library, not a page.
+[spine]
+exclude = ["_template.typ"]

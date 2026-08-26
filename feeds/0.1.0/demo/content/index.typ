@@ -1,5 +1,5 @@
 #import "@rheo/feeds:0.1.0": feed, configure, feeds-modal, mail-icon, spine
-#import "@rheo/rookery:0.3.0": ideas
+#import "@rheo/rookery:0.5.0": ideas
 
 // A project-level feeds SOURCE built on rookery's `ideas(tags:)` — with NO
 // import coupling between the two packages. A source is just a plain
