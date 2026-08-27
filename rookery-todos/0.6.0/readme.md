@@ -47,6 +47,43 @@ a shortcoming.
 | `br dep --type parent-child` | — | see "No parent edges" |
 | `pinned`, `ephemeral`, `compaction_*`, `source_*`, `agent_context` | — | beads infrastructure |
 
+## 0.6.0 — a todo's dates are one log
+
+**Breaking.** `closed:` requires a `datetime`; `closed: true` is refused.
+
+A todo already had a lifecycle — filed, scheduled, activated, closed — and it was
+spread across three owners: rookery core's `minted`/`updated`,
+`@rheo/rookery-dates`' two date keys, and this package's own valued `todo-closed`.
+That last one was a dated event wearing a tag's clothes. As of 0.6.0 every date a
+todo carries lives in one log:
+
+```typst
+#todo("ship", deadline: d, log: (activated: d2, closed: d3))[...]
+```
+
+- **`#todo` takes `scheduled:`, `deadline:` and `log:` as named arguments**, being
+  built on rookery-dates' `dated(..)` decorator. The old `tags: dates(deadline: d)`
+  form still works and is still supported.
+- **`closed:` is a date, and it writes a log entry.** `closed: true` used to mean
+  "closed, when unknown"; a log entry needs a date, and this package has no clock
+  to stamp one from, so an undated close is simply a caller who did not say when.
+  The message says so.
+- **`todo-closed` survives as a FLAT marker** carrying no date. See surface 2
+  below for why that is not a second copy.
+- **`activated` joins the vocabulary** — the moment a todo went from ready to
+  being worked on. rookery-dates reserves `scheduled`/`deadline`/`closed` and
+  leaves the rest to its consumers; a status transition is this package's to name.
+- **`#todos-stale` now measures activity rather than document age.** It read
+  core's `updated`, which fell back to the DOCUMENT's date — so on any project
+  that did not hand-write an `updated:` per todo, "stale" reported how old the
+  document was. It reads the log's last entry now.
+- **`updated:` is gone from `#idea`**, so passing it to `#todo` does nothing.
+  Rookery 0.6.0 removed the field.
+
+Migrating: change every `closed: true` to the date it closed, and every
+`closed: <datetime>` keeps working. If you read `closed-on`, it now comes from the
+log; if you filtered on `tags:todo-closed`, that still works.
+
 ## The three tag surfaces
 
 This is the whole design of the package. Read it before adding an attribute.
@@ -73,14 +110,21 @@ dependencies.
 
 | key | value |
 | --- | --- |
-| `todo-closed` | `datetime` or `none`. **Presence means closed**; the value says when. |
 | `todo-deps` | array of note names |
 | `todo-metadata` | dictionary — estimate, assignee, close-reason, external-ref, … |
 
-`todo-closed` doing double duty is why there is no separate flat `closed`
-status key: one fact, one place. `closed: false` therefore emits **no key at
-all** — a key valued `false` would read as closed to everything that tests for
-the key.
+**`todo-closed` moved to surface 1 in 0.6.0**, and it is worth saying why it did
+not simply disappear. The DATE a todo closed lives in the log, with every other
+dated event in its life — that is the whole point of 0.6.0. But rookery's tag
+predicate and rookery-search's `tags:` query both test KEYS, so a fact living only
+inside a tag's VALUE is invisible to them, and `tags:todo&!todo-closed` — the
+payoff named at the top of surface 1 — would have been lost to buy tidiness.
+
+So `todo-closed` is now a FLAT presence marker valued `none`, carrying no date and
+duplicating nothing. `is-closed` reads either it or a `closed` entry in the log, so
+a note written straight through `dates(log: (closed: d))` without `#todo` still
+reads as closed; `closed-on` reads only the log, the one place the date is stored.
+`closed: false` still emits no key at all.
 
 **3. Not tags of ours at all.**
 
@@ -88,9 +132,12 @@ the key.
   A todo's labels *are* rookery tags, and namespacing them would break exactly
   the filtering and theming that is the point.
 - **Dates come from [`@rheo/rookery-dates`](../../rookery-dates)** —
-  `#todo("x", tags: dates(deadline: d))`. One concept, one package.
-- **Created and updated are rookery core's own** `minted`/`updated`, forwarded
-  straight through `#todo`.
+  `#todo("x", deadline: d, log: (activated: d2))`, or the older
+  `#todo("x", tags: dates(deadline: d))`. One concept, one package, and as of
+  0.6.0 one log.
+- **`created` is rookery core's own**, forwarded straight through `#todo`. There
+  is no `updated` beside it any more; `updated-of(row, tags)` in rookery-dates
+  derives last-touched from the log instead.
 
 ## Rows as windows: `windows:`
 
@@ -197,6 +244,13 @@ the drift.
 `is-ready` is open **and** unblocked **and** not deferred past the reference
 date. The deferral clause is what makes it br's `ready` rather than merely "not
 blocked" — a todo scheduled for next week is not work you can pick up now.
+
+`stale` changed meaning in 0.6.0 and is now worth the name. It used to read
+rookery core's `updated`, which resolved from the DOCUMENT's date when a todo did
+not carry one of its own — so on most projects it measured how old the document
+was rather than whether anything had happened. It reads the todo's own log now:
+touching a todo puts an entry in it, and that is what "untouched" is measured
+against.
 
 ## No parent edges
 

@@ -18,11 +18,57 @@ is how you discover a generated id in order to paste it into a `#window`.
 ```
 
 Full signature: `idea(level: 1, title: none, tags: (), exclude-tags: (),
-minted: none, updated: none, show-date: false, show-tags: false, ..args)`, where
+created: none, show-date: false, show-tags: false, ..args)`, where
 the sink accepts the body alone, `(name, body)`, or `(<name>, body)` — the name
 may be a string or a Typst label, identically.
 
 ## 0.6.0
+
+**0.6.0 IS A BREAKING RELEASE.** It was additive over 0.5.0 when it was first cut
+— exclude-tags, invisible-tags and the derived label, all below — and then took
+the lifecycle work, which removes one note field and renames another. If you read
+a 0.6.0 that only described the three additive features, these two are new to you:
+
+**`minted` is now `created`.** The `#idea(minted:)` parameter, the registry
+record's field and every `#ideas()` row's field. Nothing else about it changed:
+same resolution order (the explicit argument, then the document's own
+`#set document(date:)`, then nothing), same date-descending sort behind
+`#ideas-outline(sort: "date")`. The word `minted` still means a minted PAGE
+throughout this package, which is most of its uses, and none of those moved.
+
+`@rheo/rookery-dates` carried a one-line shim for exactly this gap and said so:
+"'created' is the word a reader of a todo list wants and `minted` is the word
+rookery uses". The rename resolves that comment.
+
+**`updated` is REMOVED.** No parameter, no record field, no `#ideas()` row field.
+A note's card hat, a `#window` summary's hat and a minted page's hat all show
+`created` now.
+
+Every one of those three hats had a comment arguing that "the date a reader wants
+off the top of a card is when the note was last touched". That argument is right
+and this package was the wrong place to answer it: a hand-maintained `updated:` is
+a second date the author has to remember, and it can contradict what actually
+happened to the note. A note's LIFECYCLE belongs to `@rheo/rookery-dates`, which
+as of 0.6.0 stores a dated LOG and derives last-touched from it:
+
+```typ
+#import "@rheo/rookery-dates:0.6.0": updated-of
+#context updated-of(row, tag-data().at(row.id))   // last log entry, else `created`
+```
+
+Migrating: drop `updated:` from every call site — it is not accepted, and a note
+passing it silently loses the argument to `#idea`'s positional sink rather than
+erroring. If you were relying on it to show a last-touched date, put the dates in
+a log instead; that package's readme has the shape.
+
+**Tag values can be projected onto a row: `tag-index`.** A declared projection,
+flattened to scalars, merged onto every `#ideas()` row in one walk — the supported
+way to filter or sort by a tag VALUE without walking `tag-data()` per view. See
+"Projecting tag values".
+
+**The whole tag dictionary, on request: `ideas(values: true)`.** A `tags-dict`
+field carrying every value, for Typst-side rendering that a scalar projection
+cannot serve. See "Three tiers of tag data".
 
 **Notes can be excluded from a build by tag.** `exclude-tags:` on `#idea` and
 `#tagged-idea`, composed with the `rookery-exclude` / `rookery-include`
@@ -710,7 +756,8 @@ Each entry is:
 - `page` — the same minted page, as a site-root-relative path instead — the
   same string `#note-path()` returns, for a consumer with no page of its own
   to measure depth from (a feed, a sitemap). See `#note-path()` below.
-- `minted`, `updated` — the note's dates, or `none`. See "Dates".
+- `created` — the note's date, or `none`. Was `minted` before 0.6.0, and there
+  is no `updated` beside it any more — see "Dates".
 
 `#ideas()` also takes `tags:` and `match:` — the same pair `#window` takes, with
 the same meanings and the same shared predicate behind them. `tags:` is a single
@@ -740,6 +787,108 @@ Handing out every note's content in bulk would turn every consumer into a
 second transclusion engine — one that does not agree with `#window` about
 folding, depth or dates. If you want a note rendered, render it with
 `#window`, or — for the body alone, no chrome — with `#idea-body`, next.
+
+### Three tiers of tag data
+
+A row carries tag NAMES and no values, for the measured reason above. That is the
+free tier and the default. Two more are available, and the narrow one is the
+default so nobody pays for what they did not ask for:
+
+| call | the row carries | cost |
+|---|---|---|
+| `ideas()` | tag names only | free |
+| `ideas(index: SPEC)` | declared fields, asserted scalar | one walk, only what is named |
+| `ideas(values: true)` | the whole tag dictionary, as `tags-dict` | the full value store |
+
+The third is not new capability — it is exactly what `#tag-data()` returns. What
+changes is that it arrives ATTACHED TO THE ROW instead of needing a keyed lookup
+per row, and it is paid for only when asked:
+
+```typst
+#context for r in ideas(tags: "submission", values: true) {
+  // arbitrary values: a datetime to format, a path to render as `raw`, the full
+  // key list to emit one CSS class per tag
+  [#r.label — #r.tags-dict.at("date-deadline").display("[year]") \ ]
+}
+```
+
+It composes with `tags:`, which is what keeps it from being a cliff: the filter
+narrows FIRST and values are attached only to the survivors, so the cost is
+proportional to what you asked for rather than to the corpus.
+
+`tags-dict` is a SEPARATE field and never a widening of `tags`, which stays a flat
+array of names. That is not tidiness either: `@rheo/rookery-search` puts `row.tags`
+straight into a JSON index and maps over it, so replacing the array with a
+dictionary in place would reintroduce the content-blob failure the names-only rule
+exists to prevent. And it is ABSENT rather than empty when you did not ask for it,
+so you cannot read an empty dictionary off a row and conclude the note is
+untagged.
+
+### Projecting tag values: `#tag-index`
+
+The middle tier. A projection DECLARES its fields up front and flattens each to a
+SCALAR, which is what makes it safe to put values back on a row at all — the ban
+exists because a value is *arbitrary*, and a projection makes them narrow and
+checked:
+
+```typst
+#import "@rheo/rookery:0.6.0": ideas, tag-index
+
+#let INDEX = tag-index((
+  cycle:    (family: "cycle-"),                     // flat-tag family -> "26-27"
+  kind:     (family: "venue-", one-of: KINDS),      // -> "postdoc"
+  deadline: (key: "date-deadline", stamp: true),    // -> "20261101"
+  stage:    (from: stage-of),                       // derived: a function of the tags
+))
+
+#context ideas(index: INDEX)   // rows carry .cycle .kind .deadline .stage
+```
+
+Three extractor forms, and no more:
+
+- `(key: "<tag key>")` — that tag's value, or `none`.
+- `(family: "<prefix>")` — the first flat tag whose key starts with the prefix,
+  with the prefix stripped. `one-of: (..)` both restricts AND orders the
+  candidates, so a note carrying two members of a family resolves to the earliest
+  LISTED rather than to whichever key order happens to yield first. Tags are
+  unordered, so without `one-of:` a two-member note is not deterministic.
+- `(from: <function>)` — called with the note's whole tag dictionary, returns the
+  scalar. This form is not a convenience. A derived value — "the current stage of
+  a dated log", "how far this got" — is a COMPUTATION rather than a tag value, and
+  the structure it reads can never ride on a row under the names-only rule. It is
+  the only way such a value becomes filterable or sortable at all.
+
+Any form may carry `stamp: true`, which turns a `datetime` into a zero-padded
+`[year][month][day]` STRING. Two reasons, and the second is the useful one: a
+`datetime` is not a scalar the assert accepts, and a fixed-width numeric string
+sorts lexically in date order — so a projected date is a free sort key.
+
+NOT `as:`. MEASURED on typst 0.15.1: `as` is a reserved keyword and
+`(key: "x", as: "date")` fails to parse with "expected named or keyed pair, found
+string", so the flag cannot wear the name that reads best.
+
+**The scalar assert is the contract**, not a nicety, and it names the field that
+broke it:
+
+```
+tag-index field `stage` produced content; a projected value must be a scalar
+(str, int, float, bool, none) so it is safe to encode as JSON or as an HTML
+attribute. A datetime wants `stamp: true`; content and arrays want a `from:`
+that reduces them.
+```
+
+A field name colliding with a row field (`href`, `label`, `created`, …) is refused
+too, rather than silently shadowing it and breaking every link on the page; so is
+a spec naming two extractors at once.
+
+**Build ONE index per page and pass it around.** Nothing here caches, because a
+self-caching accessor would put back the very cost this exists to remove: a
+project with four views on one page was opening each with its own `#tag-data()`
+walk to read a handful of fields.
+
+`@rheo/rookery-dates` ships extractors for its own keys — `as-stage`, `as-date`,
+`as-rung` — so a spec names a package's key once, in that package, rather than
+hardcoding the string here.
 
 ### `#idea-body` — one note's body, rendered
 
@@ -1426,7 +1575,7 @@ The details, all of which have a reason:
 
 Resolution order, most specific first:
 
-1. The `minted:` / `updated:` arguments passed to `#idea`, when given.
+1. The `created:` argument passed to `#idea`, when given.
 2. The containing document's own `#set document(date: ...)`.
 3. Otherwise: no date is recorded. A date is never invented (no
    `datetime.today()`, no file mtimes, no VCS).
@@ -1435,7 +1584,7 @@ Resolution order, most specific first:
 #set document(date: datetime(year: 2026, month: 1, day: 10))
 
 #idea("a")[Inherits the document date.]
-#idea("b", minted: datetime(year: 2025, month: 5, day: 1))[Overridden, this note only.]
+#idea("b", created: datetime(year: 2025, month: 5, day: 1))[Overridden, this note only.]
 ```
 
 A date is always RESOLVED and stored on the note's registry record, but
@@ -1455,10 +1604,21 @@ piece of information wear two classes in two places. Now it is `.idea-date`
 inside `.idea-tab`, wherever it appears. The top rule does not resume on the
 date's far side — the hat draws one stub, to the left, and stops at the id.
 
-**Which date is `updated`**, not `minted`: the date a reader wants off the top of
-a card is when the note was last touched. `updated` falls back to `minted`, which
-falls back to the document's own date, so a note that never says `updated:` looks
-exactly as it did.
+**There is ONE date, and it is `created`.** Until 0.6.0 there were two — `minted`
+and an `updated` beside it — and every hat showed `updated`, on the argument that
+the date a reader wants off the top of a card is when the note was last touched.
+
+That argument is right, and this package was the wrong place to answer it. A
+hand-maintained `updated:` is a second date the author has to remember, and one
+that can contradict what actually happened to the note. So core keeps only the
+date it can resolve without being told anything, and a note's LIFECYCLE belongs to
+`@rheo/rookery-dates`: it stores a dated log and derives last-touched from it.
+
+```typst
+#import "@rheo/rookery-dates:0.6.0": updated-of
+// the log's last entry where there is one, else this note's `created`
+#context updated-of(row, tag-data().at(row.id))
+```
 
 A note's own minted page is the exception: there the date shows **always**, with
 no `show-date:` to gate it — and its tags render as pills too, same hat, same

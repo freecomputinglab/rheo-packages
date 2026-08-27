@@ -1,4 +1,4 @@
-// @rheo/rookery-dates — scheduled and deadline dates for rookery notes.
+// @rheo/rookery-dates — a dated log for rookery notes.
 //
 // A note's temporal planning, contributed through @rheo/rookery 0.6.0's TAG
 // DICTIONARY rather than through a wrapper around `#idea`. The whole interface
@@ -16,17 +16,27 @@
 // the foot of this file is the one line that imports rookery, and it exists only
 // so the common case reads as one name rather than two.
 //
-// WHAT IT OWNS: dates that are PLANS — `scheduled` (when you mean to work on
-// it) and `deadline` (a hard date), the org-mode pair.
+// WHAT IT OWNS: a note's DATED EVENTS, as one ordered log. Until 0.6.0 it owned
+// two independent slots and both were plans — `scheduled` (when you mean to work
+// on it) and `deadline` (a hard date), the org-mode pair. A log is the third
+// thing, org-mode's LOGBOOK to those two: what happened, and when. Both of the
+// old slots are RESERVED STAGE NAMES inside it now, so one mechanism carries
+// arbitrarily complex lifecycles without this package naming any of their states.
 //
 // WHAT IT DOES NOT OWN, deliberately:
 //
-//   - `created`/`updated`. Rookery core already resolves and stores these as
-//     `minted`/`updated` and ships them on every `ideas()` row. This package
-//     READS them (`created-of`/`updated-of` below) rather than storing a
-//     second copy that could disagree.
-//   - status transitions. A closed-at timestamp belongs to whoever owns the
-//     status — @rheo/rookery-todos and its `todo-closed` tag.
+//   - `created`. Rookery core resolves and stores it and ships it on every
+//     `ideas()` row. This package READS it (`created-of` below) rather than
+//     keeping a second copy that could disagree — and core keeping it a ROW field
+//     rather than a tag value is what makes filtering by date free, since a tag
+//     value costs a `tag-data()` walk to reach.
+//   - a STAGE VOCABULARY beyond the three reserved names. Whether `accepted` ends
+//     a process or is the middle of it depends on words a consumer owns, so
+//     `is-settled`/`rung`/`next-stage` take a ladder as a parameter. Status
+//     transitions likewise: @rheo/rookery-todos owns `activated`.
+//
+//   `updated` is neither owned nor read — core removed that field in 0.6.0.
+//   `updated-of` DERIVES it: the log's last entry, else `created`.
 //
 // THERE IS NO WALL CLOCK, and this constrains the whole package. Typst has no
 // time of day at all (MEASURED: `datetime.today().hour()` is `none`), and in a

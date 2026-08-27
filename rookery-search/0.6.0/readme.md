@@ -1,8 +1,9 @@
 # @rheo/rookery-search
 
-Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.4.0) — by
+Fuzzy search over the notes in a [`@rheo/rookery`](../../rookery/0.6.0) — by
 id and title, and by full text — a Typst primitive that ranks them, a JSON
-index of the corpus, an inline search bar, and a site-wide overlay modal.
+index of the corpus, an inline search bar, a site-wide overlay modal, and a
+faceted filter panel.
 
 It is a separate package rather than part of rookery because search is only
 worth having with JavaScript, and rookery is deliberately the one package here
@@ -22,6 +23,23 @@ spelled out below.
 
 #search-bar()
 ```
+
+## 0.6.0
+
+**`#panel` — a faceted filter over a `tag-index` projection.** A different surface
+from the bar and the modal, and the difference is the point: those two rank the
+whole corpus against a query and pop a dropdown, while a panel filters a list that
+is ALREADY ON THE PAGE, by facets you declare. See "#panel" below.
+
+**The browse ordering reads `created`.** Rookery 0.6.0 removed its `updated` field,
+and the empty-query listing sorted on it. Left alone that branch would have found
+`none` on every row, dropped every note into the undated bucket, and silently
+reverted the default listing to id order — no error, just the wrong answer.
+
+**The JSON island's date key renamed with it**, `updated` → `created`. A key named
+`updated` carrying a creation date is exactly the drift the rest of this package's
+comments exist to prevent, and `just parity` keeps the Typst and JS halves reading
+the same one. If you built your own UI on `readIndex`, read `row.created`.
 
 ## 0.4.0
 
@@ -157,8 +175,8 @@ itself, because a context function can only return content, and this returns
 data you can filter and count.
 
 Each entry is everything rookery's `#ideas()` gives you — `id`, `name`,
-`title`, `text`, `tags`, `body`, `href`, `minted`, `updated` — plus `score` and
-`kind`. Sorted TWO TIERS deep: every `kind: "name"` row (matched on id or title)
+`title`, `text`, `label`, `tags`, `body`, `href`, `page`, `created` — plus `score`
+and `kind`. Sorted TWO TIERS deep: every `kind: "name"` row (matched on id or title)
 before every `kind: "body"` row (matched only on body text), best score first
 within each tier, ties falling back to id order, so a build is reproducible.
 `href` is `none` without rheo, since nothing mints note pages there; link to
@@ -1076,6 +1094,101 @@ The shape is not this package's invention.
 [hacker-archives](https://ficarelli.github.io/hacker-archives/) shipped these
 chips in its own stylesheet before the package had any, and its `.listing-tag`
 is where the defaults above were taken from (its two pinks stayed its own).
+
+## `#panel` — a faceted filter over a projection
+
+The bar and the modal rank the whole corpus against a query and pop a dropdown.
+A panel does something else: it filters a list that is **already on the page**, by
+facets you DECLARE as a `tag-index` projection, and it reorders that list as you
+type.
+
+```typst
+#import "@rheo/rookery:0.6.0": ideas, tag-index
+#import "@rheo/rookery-search:0.6.0": panel
+
+#let INDEX = tag-index((
+  sort:  (family: "sort-"),
+  state: (from: state-of),
+))
+
+#context panel(
+  rows: ideas(tags: "submission", index: INDEX),
+  facets: ("sort", "state"),
+  sort: "deadline",
+  visible: 5,
+  noun: "submissions",
+  render: r => [#r.label],
+)
+```
+
+**PANELS TAKE AN INDEX, THEY NEVER BUILD ONE.** Build one projection per page and
+pass the projected rows to everything on it. A self-building panel would put back
+the very cost `tag-index` exists to remove — a project with four widgets on one
+page was opening each with its own `#tag-data()` walk to read a handful of fields.
+
+**NO JSON ISLAND.** Every faceted field rides as a `data-<field>` attribute on the
+row carrying it, so the payload and the markup cannot disagree — and with no
+JavaScript the rendering is a complete readable list rather than an empty container
+waiting to be filled. The projection's scalar guarantee is exactly what makes that
+generic instead of hand-written per widget.
+
+That guarantee is enforced HERE, at the attribute boundary, and the message names
+the field:
+
+```
+panel field `stage` holds content, which cannot become an HTML attribute. A
+faceted or sorted field must be a scalar — project it through `tag-index(..)`
+first, and note that `ideas(values: true)`'s `tags-dict` is for Typst-side
+rendering only.
+```
+
+That is the division: `ideas(values: true)` may carry arbitrary values for
+Typst-side rendering, and this is where such a value would otherwise be
+stringified into an attribute and read back as nonsense.
+
+### The rules it follows
+
+- **Pills are one per value a listed row actually has**, never one per value the
+  vocabulary permits. A pill for a value nothing carries is a filter that could
+  only ever return nothing.
+- **Within a facet the values OR; across facets they AND.** An empty set is
+  unconstrained, which is what makes "no pills pressed" show everything rather
+  than nothing.
+- **`visible:` is a SCROLL CAP, not a data cap.** Every row stays in the markup and
+  the count rides as a CSS custom property. A consuming site had capped its list
+  and hidden the rest; its own comment records why that was abandoned — it "made
+  the box a preview of the corpus rather than the corpus", and you could not reach
+  the thirty-third row without narrowing the query enough to lift it into the top
+  five, which you could not do if you did not know its name.
+- **A hidden row uses the `hidden` ATTRIBUTE, not a class**, which is what tells
+  assistive technology the row is gone rather than merely invisible.
+- **`sort:` orders by a projected field, unset LAST.** A missing date is not an
+  early one, and an undated row floating to the top of a list sorted by deadline
+  reads as urgent when it is merely unset. A date projected with `stamp: true` is a
+  zero-padded `[year][month][day]` string, so this is a plain string sort in date
+  order.
+- **Ids are generated at runtime**, so two panels on one page both work. Markup
+  carrying a hardcoded id cannot be placed twice.
+
+### Without JavaScript
+
+The container is emitted with `data-panel-ready="false"` and the stylesheet hides
+the input, the pills and the scroll cap while it says so. What is left is an
+ordinary complete list of every row — the chrome that would do nothing never
+appears. On a paged or EPUB target the same rows render as a Typst list.
+
+### What it replaced
+
+One fuzzy subsequence scorer was being written three times across two packages and
+a consuming site: `src/score.js` here, `todo-search.js` in `@rheo/rookery-todos`,
+and a site's own copy whose comment said outright that it was "Ported from
+`todo-search.js`". Above them sat three near-identical Typst halves, each existing
+because `#todos-search` renders its pill row internally with no hook to add a facet
+to it.
+
+`#panel` closes both gaps: facets are declared rather than baked in, and a DERIVED
+value reaches a facet through a projection. `panel.js` imports `score` rather than
+porting it a fourth time.
 
 ## Working on it locally
 
