@@ -399,16 +399,18 @@ stylesheet at all.
 ```
 
 ```
-●  28 Oct 2026   submitted
-│  Sent the 500-word abstract, not the full paper.
-│
-●  15 Nov 2026   under-review
-│
-●  20 Jan 2027   revise-resubmit
-├───────────────────────────────  today
-│
-○  03 Mar 2027   resubmitted
+28.10.26  ●  submitted
+             Sent the 500-word abstract, not the full paper.
+15.11.26  ●  under-review
+20.1.27   ●  revise-resubmit
+──────────┼──────────────────  today
+ 3.3.27   ○  resubmitted
 ```
+
+The dates are a COLUMN in a left gutter, the line runs between the columns, and the
+dots sit on it. Short form (`27.8.26`, with `HH:MM` appended where an entry carries
+a time) because a run of them is meant to be scanned down — "27 Aug 2026" is three
+words per row and reads as prose, not as a column.
 
 **A dot per event, FILLED for what has happened and HOLLOW for what is booked**,
 with a `today` divider between them. That split is the main thing a log knows and
@@ -475,7 +477,8 @@ per row plus exactly one of `.timeline-past` / `.timeline-future` /
 `.timeline-expected`, `.timeline-stage`, `.timeline-when` and `.timeline-note` inside, and
 `.timeline-today` on the divider. Six custom properties theme it without
 overriding a rule — `--timeline-line`, `--timeline-fg`, `--timeline-muted`,
-`--timeline-dot`, `--timeline-gap`, `--timeline-note`.
+`--timeline-dot`, `--timeline-gap`, `--timeline-note`, `--timeline-gutter` (the
+width of the date column, and what the line's position is measured from).
 
 ### What it deliberately is not
 

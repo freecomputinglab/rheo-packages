@@ -23,35 +23,55 @@
      --timeline-muted    a booked or expected row
      --timeline-dot      the filled dot
      --timeline-gap      vertical space between events
+     --timeline-gutter   width of the date column, left of the line
      --timeline-note     an entry's own prose (defaults to --timeline-muted)
 */
 @layer rookery-timeline {
-  /* THE RAIL IS A BORDER ON THE LIST, not a pseudo-element per row: one line that
-     cannot develop gaps between items however they wrap. The dots sit on it via
-     each row's own ::before, pulled left by half their width. */
+  /* THE RAIL IS ONE ABSOLUTELY-POSITIONED LINE, spanning the list top to bottom.
+     It was the list's own `border-left` until the dates moved into a left gutter —
+     a border can only sit outside the content box, and the line now has to fall
+     BETWEEN two columns. Still one element rather than one per row, which is what
+     keeps it from developing gaps between items however they wrap. */
   .timeline {
+    position: relative;
     list-style: none;
     margin: 0.6rem 0 0;
-    padding: 0 0 0 1.1rem;
+    padding: 0;
+  }
+
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--timeline-gutter, 7.5em);
     border-left: 1px solid var(--timeline-line, currentColor);
   }
 
+  /* TWO COLUMNS with the line between them: the date in the gutter, the stage and
+     its note to the right of it. A grid rather than a flex line, for the reason
+     measured elsewhere in this family — a flex item's basis is only a HYPOTHETICAL
+     size, so a long date would push the stage and no two rows would agree on where
+     it starts. */
   .timeline-event {
     position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.6rem;
+    display: grid;
+    grid-template-columns: var(--timeline-gutter, 7.5em) 1fr;
+    column-gap: 0.9rem;
     align-items: baseline;
-    padding: var(--timeline-gap, 0.3rem) 0;
+    padding: var(--timeline-gap, 0.2rem) 0;
   }
 
-  /* The dot. `left` is half the border-box width plus the list's own border, so it
-     straddles the rule rather than sitting beside it. */
+  /* The dot, ON the line. `left` is the gutter's edge pulled back half the dot's
+     width, so it straddles the rule rather than sitting beside it — and the
+     `translateX` does that in the dot's own units, so changing its size does not
+     require recomputing the offset. */
   .timeline-event::before {
     content: "";
     position: absolute;
-    left: calc(-1.1rem - 4.5px);
-    top: calc(var(--timeline-gap, 0.3rem) + 0.42em);
+    left: var(--timeline-gutter, 7.5em);
+    transform: translateX(-50%);
+    top: calc(var(--timeline-gap, 0.2rem) + 0.42em);
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -84,17 +104,26 @@
      under the stage and the date rather than competing with them for the row — the
      row is `flex-wrap: wrap`, so this is what wraps it. Not uppercased, unlike
      `.timeline-stage`: a stage is a label and this is a sentence. */
+  /* THE SECOND COLUMN ONLY, so a note aligns under the stage it belongs to rather
+     than under the date. `grid-column: 2` where the old flex layout used
+     `flex-basis: 100%` to claim its own line. */
   .timeline-note {
-    flex-basis: 100%;
+    grid-column: 2;
     margin: 0.15rem 0 0;
     color: var(--timeline-note, var(--timeline-muted, gray));
     font-size: 0.9em;
   }
 
+  /* RIGHT-ALIGNED against the line, which is what makes the gutter read as a column:
+     the line is the anchor, so the dates should end at it rather than start at the
+     page edge and leave a ragged inner margin. `tabular-nums` keeps the digits an
+     even width so the alignment survives a 1 next to an 11. */
   .timeline-when {
+    text-align: right;
     color: var(--timeline-muted, gray);
     font-size: 0.85em;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   .timeline-future .timeline-stage,
@@ -106,8 +135,11 @@
      marks a position between two events, so it should read as a line crossing the
      track and not as a third kind of event. Emitted only where there is something
      on both sides of it. */
+  /* BOTH COLUMNS, so the divider crosses the line rather than starting at it. */
   .timeline-today {
     position: relative;
+    display: grid;
+    grid-column: 1 / -1;
     margin: 0.15rem 0;
     border-top: 1px dashed var(--timeline-line, currentColor);
   }
@@ -115,6 +147,7 @@
   .timeline-today-label {
     position: relative;
     top: -0.6em;
+    margin-left: calc(var(--timeline-gutter, 7.5em) + 0.9rem);
     padding-right: 0.4em;
     background: var(--timeline-bg, transparent);
     color: var(--timeline-muted, gray);

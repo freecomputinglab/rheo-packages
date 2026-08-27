@@ -35,7 +35,11 @@
 // datetime (insufficient information)", and `.hour()` on one is `none`.
 #let _has-time(d) = d.hour() != none
 
-#let _fmt-day(d) = d.display("[day padding:none] [month repr:short] [year]")
+// SHORT FORM, because the dates are a COLUMN now rather than text beside a stage:
+// `27.8.26` is unpadded and numeric, so a run of them reads as a column at a
+// glance where "27 Aug 2026" would be three words per row. The same form the
+// consuming project already uses for its own dated lists.
+#let _fmt-day(d) = d.display("[day padding:none].[month padding:none].[year repr:last_two]")
 #let _fmt-time(d) = d.display("[hour]:[minute]")
 
 // A CONTEXT FUNCTION, because it branches on `target()` — the same shape every
@@ -124,11 +128,14 @@
   // `timed` is decided by the CALLER, from the event's index, rather than looked
   // up in here from its date — two events could share a timestamp, and a lookup by
   // value would then answer for whichever came first.
+  // THE DATE COMES FIRST IN THE MARKUP, and that is not a style choice: the row is
+  // a two-column grid with the rail's line between the columns, so the source
+  // order has to match the column order or the date lands to the right of the line
+  // it is meant to sit left of.
   let row(cls, stage, when, timed: false, note: none) = html.elem(
     "li",
     attrs: (class: "timeline-event " + cls),
     {
-      html.elem("span", attrs: (class: "timeline-stage"), stage.replace("-", " "))
       if when == none {
         html.elem("span", attrs: (class: "timeline-when"), [—])
       } else {
@@ -138,6 +145,7 @@
           if timed { _fmt-day(when) + " " + _fmt-time(when) } else { _fmt-day(when) },
         )
       }
+      html.elem("span", attrs: (class: "timeline-stage"), stage.replace("-", " "))
       // THE NOTE, if this event has one: the prose that is about THIS event rather
       // than about the note as a whole. Inside the same `<li>`, not as a sibling
       // row, so the rail's dot stays aligned to the event the prose belongs to —
