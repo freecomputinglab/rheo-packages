@@ -140,3 +140,65 @@
 // rewritten rather than left standing: the CORE is still import-free, because
 // `dated(mint)` takes the constructor as an argument.
 #assert.eq(type(dated-idea), function)
+
+// ---- the log readers -------------------------------------------------------
+// The worked case from the design: submitted, longlisted, and a first interview
+// BOOKED but not yet held, read against a `today:` that falls between the last
+// two. Future-dated entries are the ordinary shape of a plan, not an edge case.
+#let _flight = dates(log: (
+  submitted: d(2026, 10, 28),
+  longlisted: d(2026, 12, 15),
+  "first-interview": d(2027, 1, 20),
+))
+#let _JAN5 = d(2027, 1, 5)
+
+#assert.eq(log-of(_flight).len(), 3)
+#assert.eq(log-of((:)), ())
+#assert.eq(entered-of(_flight), d(2026, 10, 28))
+#assert.eq(entered-of((:)), none)
+#assert.eq(stage-date(_flight, "longlisted"), d(2026, 12, 15))
+#assert.eq(stage-date(_flight, "nope"), none)
+#assert.eq(has-stage(_flight, "submitted"), true)
+#assert.eq(has-stage(_flight, "offered"), false)
+
+// The current stage is the last thing that HAS HAPPENED, not the last entry.
+#assert.eq(stage-of(_flight, today: _JAN5), "longlisted")
+#assert.eq(stage-on(_flight, today: _JAN5), d(2026, 12, 15))
+// ...and the booked interview is the NEXT appointment.
+#assert.eq(next-of(_flight, today: _JAN5), (stage: "first-interview", on: d(2027, 1, 20)))
+#assert.eq(next-of(_flight, today: d(2027, 2, 1)), none)
+// A log whose every entry is still future: nothing has happened yet.
+#assert.eq(stage-of(_flight, today: d(2026, 1, 1)), none)
+#assert.eq(stage-of((:), today: _JAN5), none)
+
+#assert.eq(days-at-stage(_flight, today: _JAN5), 21)
+#assert.eq(days-in-flight(_flight, today: _JAN5), 69)
+#assert.eq(days-in-flight((:), today: _JAN5), none)
+// Measured from the first entry even when that entry is future, so a not-yet-sent
+// submission reports a negative number rather than none.
+#assert.eq(days-in-flight(dates(deadline: d(2027, 1, 20)), today: _JAN5), -15)
+
+// ---- deadline-of over the log — is-overdue and friends unchanged -----------
+// The four-line payoff: these readers kept their signatures, so the predicates
+// built on them needed no edit at all when the storage changed underneath.
+#assert.eq(deadline-of(dates(deadline: d(2026, 9, 1))), d(2026, 9, 1))
+#assert.eq(deadline-of(_flight), none)
+
+// ---- updated-of — derived, no longer a core field --------------------------
+// The last log entry where there is one, else `created` off the row. Core removed
+// its `updated` field in 0.6.0.
+#assert.eq(updated-of((created: d(2026, 1, 1)), _flight), d(2027, 1, 20))
+#assert.eq(updated-of((created: d(2026, 1, 1)), (:)), d(2026, 1, 1))
+#assert.eq(updated-of((:), (:)), none)
+#assert.eq(created-of((created: d(2026, 1, 1))), d(2026, 1, 1))
+#assert.eq(created-of((:)), none)
+
+// ---- timeline — one view over two stores -----------------------------------
+// `created` LEADS and is not written into the log: one store per fact.
+#assert.eq(
+  timeline((created: d(2026, 10, 1)), _flight).map(e => e.stage),
+  ("created", "submitted", "longlisted", "first-interview"),
+)
+// A row with no `created` contributes no leading entry rather than a none-dated one.
+#assert.eq(timeline((:), _flight).map(e => e.stage), ("submitted", "longlisted", "first-interview"))
+#assert.eq(timeline((created: d(2026, 10, 1)), (:)).map(e => e.stage), ("created",))

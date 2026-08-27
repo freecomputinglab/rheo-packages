@@ -92,3 +92,73 @@
   if d == none { return false }
   _stamp(d) <= _stamp(_today(today))
 }
+
+// ---- The log's own reference-date questions -------------------------------
+//
+// THESE NEED A `today:` BECAUSE LOG ENTRIES MAY BE FUTURE-DATED, and that is not
+// an edge case — it is the ordinary shape of a plan. A `deadline` is by definition
+// a date that has not arrived; an interview is booked before it is held; a
+// decision is promised before it comes. So the log doubles as a calendar, and
+// "what stage is this at" means "the last thing that has actually happened",
+// which is a question about a reference date and cannot be answered from the tag
+// dictionary alone. The readers in `read.typ` that need no `today:` live there.
+
+// The name of the last entry dated ON OR BEFORE the reference date, or none.
+//
+// `none` covers two different situations and deliberately does not distinguish
+// them, because no consumer has yet needed to: an empty log, and a log whose every
+// entry is still in the future (an open call nothing has been sent to). A consumer
+// that does need the difference asks `log-of(tags).len()`.
+#let stage-of(tags, today: none) = {
+  let now = _stamp(_today(today))
+  let past = log-of(tags).filter(e => _stamp(e.on) <= now)
+  if past.len() == 0 { none } else { past.last().stage }
+}
+
+// That same entry's date, for "how long has it been at this stage".
+#let stage-on(tags, today: none) = {
+  let now = _stamp(_today(today))
+  let past = log-of(tags).filter(e => _stamp(e.on) <= now)
+  if past.len() == 0 { none } else { past.last().on }
+}
+
+// The first entry dated AFTER the reference date, as `(stage:, on:)`, or none.
+//
+// This is what gives a view a real "next appointment" column: a booked interview
+// or a promised decision is an ordinary log entry rather than a special slot, and
+// this is the reader that finds it.
+#let next-of(tags, today: none) = {
+  let now = _stamp(_today(today))
+  let future = log-of(tags).filter(e => _stamp(e.on) > now)
+  if future.len() == 0 { none } else { future.first() }
+}
+
+// Whole days from the current stage's date to the reference date. `none` when
+// nothing has happened yet.
+//
+// `datetime - datetime` yields a `duration`, whose `.days()` is a float; rounded
+// to an int here because every consumer wants "how many days", not 3.0.
+#let days-at-stage(tags, today: none) = {
+  let on = stage-on(tags, today: today)
+  if on == none { return none }
+  int(calc.round((_today(today) - on).days()))
+}
+
+// Whole days since the FIRST entry — "in flight for". `none` for an empty log.
+//
+// Measured from `entered-of` rather than from the first PAST entry, so a note
+// whose log opens with a future deadline reports a negative number rather than
+// none. That reads correctly: it is not in flight yet, and by how much.
+#let days-in-flight(tags, today: none) = {
+  let on = entered-of(tags)
+  if on == none { return none }
+  int(calc.round((_today(today) - on).days()))
+}
+
+// ---- Ladder-free by design ------------------------------------------------
+//
+// There is no `is-settled` here, and no `next-stage`. Whether `accepted` ENDS a
+// process or is the middle of it depends on a vocabulary this package must not
+// own: `accepted` ends a conference submission and is a transit rung for a
+// journal, and `offered` ends a job application. Those functions take a ladder
+// as a parameter and live alongside these — see `ladder.typ`.
