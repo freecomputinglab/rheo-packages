@@ -148,7 +148,10 @@
     },
   )
 
-  html.elem("ol", attrs: (class: "timeline-log"), {
+  // `.timeline` on the list, NOT `.timeline-log`: that is the tag KEY, and a class
+  // named after the storage would be one more thing to keep in step. The stylesheet
+  // and the documented class contract both say `.timeline`.
+  html.elem("ol", attrs: (class: "timeline"), {
     for (i, e) in past.enumerate() {
       row("timeline-past", e.stage, e.timestamp, timed: shares-day(i), note: e.at("note", default: none))
     }

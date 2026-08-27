@@ -87,7 +87,7 @@ arguments is `(:)`, which merges into anything and changes nothing.
 
 ## The key, and the log inside it
 
-One key: `timeline-log`, holding an array of `(stage: <str>, on: <datetime>)`,
+One key: `timeline-log`, holding an array of `(stage: <str>, timestamp: <datetime>, ..)`,
 **sorted by date**.
 
 It is namespaced with a `date-` prefix per rookery's key convention: a tag key

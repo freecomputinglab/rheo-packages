@@ -13,7 +13,7 @@ note() { echo "FAIL: $*"; fail=1; }
 python3 - "$H" <<'PY' || fail=1
 import re, sys
 h = open(sys.argv[1]).read()
-rails = re.findall(r'<ol class="timeline-log">(.*?)</ol>', h, re.S)
+rails = re.findall(r'<ol class="timeline">(.*?)</ol>', h, re.S)
 if len(rails) != 6:
     print(f"FAIL: expected 6 rails, found {len(rails)}"); sys.exit(1)
 
