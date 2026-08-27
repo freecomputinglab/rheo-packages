@@ -90,7 +90,16 @@
     let reached = events.map(e => e.stage)
     let r = rung(tags, ladder: ladder, today: today)
     if r == none or r >= ladder.transit.len() { () } else {
-      ladder.transit.slice(r + 1).filter(n => n not in reached)
+      // THROUGH `rung-name`, so a family rung draws as `review` rather than
+      // `review *`. And a family rung is dropped from what is "ahead" once ANY of
+      // its occurrences has been reached: having done review-1, more reviews are
+      // possible but no longer expected, and listing `review` as still-to-come
+      // after two of them would be wrong.
+      ladder
+        .transit
+        .slice(r + 1)
+        .filter(p => not reached.any(st => _matches(p, st)))
+        .map(rung-name)
     }
   }
 

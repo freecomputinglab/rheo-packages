@@ -393,3 +393,47 @@
 #assert.eq(type(tagged-idea("venue")), function)
 // `dated-idea` is now an alias of `idea` rather than the only way to get one.
 #assert.eq(dated-idea, idea)
+
+// ---- family rungs — a stage that repeats -----------------------------------
+// A dict cannot carry `review` twice (MEASURED: "duplicate key: review"), so a
+// repeated stage is written numbered and the ladder says "any review".
+#let JRN = (
+  transit: ("submitted", "review-*", "accepted", "revision-*"),
+  terminal: ("published", "rejected", "withdrawn"),
+)
+#let _T2 = d(2027, 6, 1)
+#let _at2(stage) = entries(timeline: ((stage): d(2026, 6, 1)))
+
+#assert.eq(rung-name("review-*"), "review")
+#assert.eq(rung-name("submitted"), "submitted")
+
+// Any occurrence lands on the family's own rung, whichever number it carries.
+#assert.eq(rung(_at2("review-1"), ladder: JRN, today: _T2), 1)
+#assert.eq(rung(_at2("review-3"), ladder: JRN, today: _T2), 1)
+#assert.eq(rung(_at2("review-12"), ladder: JRN, today: _T2), 1)
+#assert.eq(rung(_at2("accepted"), ladder: JRN, today: _T2), 2)
+#assert.eq(rung(_at2("revision-2"), ladder: JRN, today: _T2), 3)
+
+// THE HYPHEN IS PART OF THE PREFIX, so a longer word is not a family member.
+#assert.eq(rung(_at2("reviewer"), ladder: JRN, today: _T2), none)
+// ...and neither is a bare `review`: the family form asks which occurrence.
+#assert.eq(rung(_at2("review"), ladder: JRN, today: _T2), none)
+
+// `next-stage` returns something RENDERABLE, never the pattern.
+#assert.eq(next-stage(_at2("submitted"), ladder: JRN, today: _T2), "review")
+#assert.eq(next-stage(_at2("review-2"), ladder: JRN, today: _T2), "accepted")
+#assert.eq(next-stage(_at2("accepted"), ladder: JRN, today: _T2), "revision")
+#assert.eq(next-stage(_at2("revision-1"), ladder: JRN, today: _T2), none)
+
+// Terminal from any rung, which is what makes "reviews then rejected OR accepted
+// then revisions then published" expressible without branching machinery.
+#assert.eq(is-settled(_at2("rejected"), ladder: JRN, today: _T2), true)
+#assert.eq(is-settled(_at2("published"), ladder: JRN, today: _T2), true)
+#assert.eq(is-settled(_at2("review-9"), ladder: JRN, today: _T2), false)
+#assert.eq(rung(_at2("rejected"), ladder: JRN, today: _T2), 4)
+
+// A terminal rung may be a family too.
+#assert.eq(
+  is-settled(_at2("withdrawn-late"), ladder: (transit: ("submitted",), terminal: ("withdrawn-*",)), today: _T2),
+  true,
+)

@@ -366,7 +366,55 @@ next-stage(t, ladder: JOB, today: NOW)   // the next transit rung, or none
 ```
 
 `transit` is ordered by progress; `terminal` is unordered and its MEMBERSHIP is
-what settles a note. `rung` returns `transit.len()` for anything terminal, so
+what settles a note.
+
+### A rung may name a FAMILY, so a stage can repeat
+
+A rung ending in `-*` matches any stage sharing that prefix:
+
+```typst
+#let JOURNAL = (
+  transit: ("submitted", "review-*", "accepted", "revision-*"),
+  terminal: ("published", "rejected", "withdrawn"),
+)
+```
+
+```typst
+timeline: (
+  submitted:   d1,
+  "review-1":  d2,
+  "review-2":  d3,   // as many as it takes
+  accepted:    d4,
+  "revision-1": d5,
+  published:   d6,
+)
+```
+
+**Why numbered names rather than a repeated key.** A Typst dict rejects a repeated
+key outright — MEASURED, `(review: 1, review: 2)` fails to parse with *"duplicate
+key: review"* — so a stage that can happen more than once has to be written with
+distinct names, and the ladder has to be able to say "any review".
+
+`review-*` matches `review-1` and `review-12`. It does **not** match `reviewer` —
+the hyphen is part of the prefix — and does not match a bare `review` either, since
+that names no occurrence and a lifecycle using the family form should say which one.
+
+**One form, at one position.** A pattern is a prefix: no `*` in the middle, no bare
+`*`, no character classes. Each addition would be another way for two rungs to
+overlap, and a ladder whose rungs overlap is refused — including the non-obvious
+case where a family in one array matches a name in the other.
+
+`rung-name(pattern)` strips the `-*`, and everything that renders a rung goes
+through it, so `#timeline-view` draws `review` and never `review *`. A family rung
+also drops out of what is drawn as still-ahead once **any** of its occurrences has
+happened: after two reviews, more are possible but no longer expected.
+
+**No branching machinery is needed** for a lifecycle that forks. `submitted` → any
+number of reviews → either `rejected`, or `accepted` → any number of revisions →
+`published` is a linear ladder plus terminal membership, because a terminal stage
+settles a note from any rung. The only cost is that `next-stage` after a review says
+`accepted` when `rejected` is equally possible — and that reader is documented as an
+expectation rather than a promise. `rung` returns `transit.len()` for anything terminal, so
 finished work sorts past everything still moving, and it is an INTEGER so it drops
 straight into a sort key or a projection.
 

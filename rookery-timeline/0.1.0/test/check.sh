@@ -14,8 +14,8 @@ python3 - "$H" <<'PY' || fail=1
 import re, sys
 h = open(sys.argv[1]).read()
 rails = re.findall(r'<ol class="timeline">(.*?)</ol>', h, re.S)
-if len(rails) != 6:
-    print(f"FAIL: expected 6 rails, found {len(rails)}"); sys.exit(1)
+if len(rails) != 7:
+    print(f"FAIL: expected 7 rails, found {len(rails)}"); sys.exit(1)
 
 def rows(rail):
     # `[a-z- ]` and not `[a-z-]`: the current row carries TWO classes
@@ -103,7 +103,26 @@ for i, rail in enumerate(rails):
         print(f"FAIL: rail {i+1} marks {marked} current, wanted just the last past row {past[-1:]}")
         sys.exit(1)
 
-print(f"  timeline-view: 6 rails, one current row each, divider only where both sides exist, same-day times "
+# 7. A FAMILY RUNG renders by its name, never as a pattern, and is not listed as
+# still-to-come once an occurrence has happened.
+seven = rows(rails[6])
+if len(seven) != 5:
+    print(f"FAIL: rail 7 has {len(seven)} rows, expected 3 events + 2 expected rungs")
+    sys.exit(1)
+exp7 = [txt(b) for c, b in seven if c == "timeline-expected"]
+# The row's DATE comes first and an expected rung has none, so each reads
+# "— accepted". Strip the dash rather than assuming a column order.
+names7 = [e.replace("—", "").split()[0] for e in exp7]
+if names7 != ["accepted", "revision"]:
+    print(f"FAIL: expected rungs render as {exp7}, wanted accepted then revision")
+    sys.exit(1)
+if any("*" in e for e in exp7):
+    print(f"FAIL: a pattern leaked into the rendering: {exp7}"); sys.exit(1)
+if "review" in names7:
+    print("FAIL: `review` listed as still-to-come after two reviews happened")
+    sys.exit(1)
+
+print(f"  timeline-view: 7 rails, one current row each, divider only where both sides exist, same-day times "
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 

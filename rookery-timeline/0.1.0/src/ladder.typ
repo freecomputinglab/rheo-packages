@@ -27,6 +27,42 @@
 // plain dictionary a caller writes inline and there is no constructor to hang the
 // check on. The checks are cheap and each catches something that fails SILENTLY
 // otherwise.
+// ---- A rung may name a FAMILY of stages ----------------------------------
+//
+// A rung ending in `-*` matches any stage sharing that prefix:
+//
+//   transit: ("submitted", "review-*", "accepted", "revision-*")
+//
+// `review-*` matches `review-1` and `review-12`, and NOT `reviewer` — the hyphen
+// is part of the prefix — and not a bare `review` either, since that carries no
+// occurrence and a lifecycle using the family form should say which one.
+//
+// WHY IT EXISTS. A lifecycle with "a flexible number of reviews" cannot be written
+// as a dict of stage names: MEASURED, a Typst dict rejects `(review: 1, review: 2)`
+// outright with "duplicate key: review". So a repeated stage is written with
+// numbered names, and a ladder has to be able to say "any review" rather than
+// listing every occurrence anyone might reach.
+//
+// ONE FORM, AT ONE POSITION. A pattern is a prefix and nothing else: no `*` in the
+// middle, no bare `*`, no character classes. Anything more is a glob implementation
+// nobody asked for, and each addition is a new way for two rungs to overlap.
+#let _is-family(pattern) = pattern.ends-with("-*")
+
+// The prefix a family rung matches on, hyphen included, so `reviewer` cannot match
+// `review-*`.
+#let _family-prefix(pattern) = pattern.slice(0, pattern.len() - 1)
+
+// What to CALL a rung — the pattern with its `-*` stripped, so a view drawing an
+// expected rung shows `review` rather than `review *`. Exported because
+// `#timeline-view` needs it and should not reimplement it.
+#let rung-name(pattern) = {
+  if _is-family(pattern) { pattern.slice(0, pattern.len() - 2) } else { pattern }
+}
+
+#let _matches(pattern, stage) = {
+  if _is-family(pattern) { stage.starts-with(_family-prefix(pattern)) } else { stage == pattern }
+}
+
 #let _assert-ladder(ladder) = {
   assert(
     ladder != none and type(ladder) == dictionary and "transit" in ladder and "terminal" in ladder,
@@ -40,16 +76,24 @@
       message: "@rheo/rookery-timeline: a ladder's `" + k + ":` must be an array of strings — got " + repr(ladder.at(k)),
     )
   }
-  // A name in BOTH arrays makes `is-settled` and `rung` disagree about the same
-  // note, and nothing else would report it.
-  let both = ladder.transit.filter(n => n in ladder.terminal)
+  // A rung that is in BOTH arrays makes `is-settled` and `rung` disagree about the
+  // same note, and nothing else would report it.
+  //
+  // OVERLAP, NOT JUST EQUALITY, now that a rung can be a family: `review-*` in
+  // transit and `review-1` in terminal is the same mistake as `review` in both, and
+  // reads even less obviously. So each pair is tested both ways round — a family
+  // pattern against the other array's names, and its own name against the other
+  // array's families.
+  let both = ladder
+    .transit
+    .filter(a => ladder.terminal.any(b => a == b or _matches(a, rung-name(b)) or _matches(b, rung-name(a))))
   assert(
     both.len() == 0,
-    message: "@rheo/rookery-timeline: the stage name(s) "
+    message: "@rheo/rookery-timeline: the rung(s) "
       + both.join(", ")
-      + " appear in BOTH a ladder's `transit:` and `terminal:`. A stage cannot be "
-      + "mid-process and final at once — `is-settled` and `rung` would disagree "
-      + "about the same note.",
+      + " in a ladder's `transit:` also match something in its `terminal:`. A stage "
+      + "cannot be mid-process and final at once — `is-settled` and `rung` would "
+      + "disagree about the same note.",
   )
 }
 
@@ -61,7 +105,7 @@
 #let is-settled(tags, ladder: none, today: none) = {
   _assert-ladder(ladder)
   let s = stage-of(tags, today: today)
-  s != none and s in ladder.terminal
+  s != none and ladder.terminal.any(p => _matches(p, s))
 }
 
 // HOW FAR IT GOT, as an integer, so it drops straight into a sort key or a
@@ -80,9 +124,8 @@
   _assert-ladder(ladder)
   let s = stage-of(tags, today: today)
   if s == none { return none }
-  if s in ladder.terminal { return ladder.transit.len() }
-  let i = ladder.transit.position(n => n == s)
-  i
+  if ladder.terminal.any(p => _matches(p, s)) { return ladder.transit.len() }
+  ladder.transit.position(p => _matches(p, s))
 }
 
 // The next rung of `transit` after the current stage, or none.
@@ -95,7 +138,9 @@
 #let next-stage(tags, ladder: none, today: none) = {
   _assert-ladder(ladder)
   let s = stage-of(tags, today: today)
-  if s == none or s in ladder.terminal { return none }
-  let i = ladder.transit.position(n => n == s)
-  if i == none or i + 1 >= ladder.transit.len() { none } else { ladder.transit.at(i + 1) }
+  if s == none or ladder.terminal.any(p => _matches(p, s)) { return none }
+  let i = ladder.transit.position(p => _matches(p, s))
+  // THROUGH `rung-name`, so this returns something renderable: the rung after
+  // `submitted` reads `review`, not `review-*`.
+  if i == none or i + 1 >= ladder.transit.len() { none } else { rung-name(ladder.transit.at(i + 1)) }
 }

@@ -71,3 +71,19 @@
   ),
   rejected: d(2026, 7, 1),
 )), today: NOW)
+
+= 7. A ladder with a family rung
+
+// Two reviews, written numbered because a dict cannot carry `review` twice, and a
+// ladder that says "any review". The expected rungs ahead must render as `accepted`
+// and `revision` — never as `revision-*` — and `review` must NOT be listed as still
+// to come, since one has already happened.
+#let JOURNAL2 = (
+  transit: ("submitted", "review-*", "accepted", "revision-*"),
+  terminal: ("published", "rejected", "withdrawn"),
+)
+#timeline-view((:), entries(timeline: (
+  submitted: d(2026, 10, 1),
+  "review-1": d(2026, 11, 1),
+  "review-2": d(2026, 12, 1),
+)), today: NOW, ladder: JOURNAL2)
