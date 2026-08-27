@@ -42,18 +42,18 @@
   tags: ("draft", "phd", "review"),
   show-tags: true,
   show-date: true,
-  minted: datetime(year: 2025, month: 2, day: 1),
+  created: datetime(year: 2025, month: 2, day: 1),
 )[A note with tag pills AND a date in the same hat.]
 
-// `updated:` distinct from `minted:` — the hat shows `resolved-updated`, not
-// `resolved-minted` (lib.typ:1478-1492), so this hat reads 2026-03-15 despite
-// having been minted in 2024. Combined with show-tags: true since both are
+// `updated:` distinct from `created:` — the hat shows `resolved-updated`, not
+// `resolved-created` (lib.typ:1478-1492), so this hat reads 2026-03-15 despite
+// having been created in 2024. Combined with show-tags: true since both are
 // the same hat-rendering feature.
 #idea(
   "n-updated",
-  title: [Updated vs minted],
+  title: [Updated vs created],
   tags: ("phd",),
-  minted: datetime(year: 2024, month: 1, day: 1),
+  created: datetime(year: 2024, month: 1, day: 1),
   updated: datetime(year: 2026, month: 3, day: 15),
   show-date: true,
   show-tags: true,

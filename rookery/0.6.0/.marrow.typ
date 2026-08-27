@@ -450,7 +450,7 @@
       //     `rec.tags`, so a stale record cannot hard-fail this. `.keys()`
       //     because the store is a DICTIONARY as of 0.5.0 and a feed category
       //     is a tag NAME — every key, valued tags included.
-      #if syndicate and (rec.minted != none or rec.updated != none) {
+      #if syndicate and (rec.created != none or rec.updated != none) {
         [#metadata((
           id: id,
           // A LABEL again, for the same reason as `rheo-document(title:)` below: a
@@ -462,7 +462,7 @@
             if l == none { slug } else { l }
           },
           page: page-at.file,
-          published: rec.minted,
+          published: rec.created,
           updated: rec.updated,
           categories: rec.at("tags", default: (:)).keys(),
         ))#label("feeds:item")]
@@ -565,11 +565,11 @@
         attrs: (class: "idea-outline"),
         rows
           .map(e => {
-            // `updated` first and `minted` behind it, the same fallback the
+            // `updated` first and `created` behind it, the same fallback the
             // minted page's own date uses, so one note does not date itself two
             // ways on two pages. A note with neither shows none, rather than a
             // blank element the stylesheet would still space.
-            let when = if e.updated != none { e.updated } else { e.at("minted", default: none) }
+            let when = if e.updated != none { e.updated } else { e.at("created", default: none) }
             html.elem(
               "li",
               // `e.tags` is an `ideas()` row's field, which is ALREADY a flat

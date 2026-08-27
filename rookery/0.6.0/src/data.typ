@@ -32,7 +32,7 @@
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
 //    page:    "ideas/etal.html", // site-root-relative, or none — see `note-path`
-//    minted:  datetime or none,
+//    created:  datetime or none,
 //    updated: datetime or none)
 //
 // `tags` is the note's tag NAMES, every key including the valued ones, and
@@ -132,7 +132,7 @@
         body: _body-plain(rec.at("raw", default: none)),
         href: _note-href(id),
         page: _note-path(id),
-        minted: rec.at("minted", default: none),
+        created: rec.at("created", default: none),
         updated: rec.at("updated", default: none),
       )
     })

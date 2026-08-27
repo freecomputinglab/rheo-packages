@@ -4,11 +4,11 @@
 // runs, not just `#window`'s own top-level rendering.
 #import "../../src/lib.typ": idea, window
 
-#idea("w-inner", title: [Inner], minted: datetime(year: 2024, month: 1, day: 5))[
+#idea("w-inner", title: [Inner], created: datetime(year: 2024, month: 1, day: 5))[
   The innermost note, unfurled only when a window's depth budget reaches it.
 ]
 
-#idea("w-outer", title: [Outer], minted: datetime(year: 2024, month: 6, day: 1))[
+#idea("w-outer", title: [Outer], created: datetime(year: 2024, month: 6, day: 1))[
   First block of Outer's body.
 
   Second block, with #window("w-inner") transcluded one level down.
@@ -20,7 +20,7 @@
   Fourth block, so `limit:` below has something to truncate.
 ]
 
-#idea("w-early", title: [Early], minted: datetime(year: 2023, month: 3, day: 1))[
+#idea("w-early", title: [Early], created: datetime(year: 2023, month: 3, day: 1))[
   An early note, for `sort: "date"` to place ahead of Outer/Inner.
 ]
 
@@ -42,7 +42,7 @@
 // (inert on the paged target — nothing to click there).
 #window("w-outer", folded: true)
 
-// show-date: true — the resolved `updated` date (falling back to `minted`)
+// show-date: true — the resolved `updated` date (falling back to `created`)
 // appears at the right-hand end of the hat, inside the window's summary,
 // regardless of whether `#idea` itself was told to show one.
 #window("w-outer", show-date: true)

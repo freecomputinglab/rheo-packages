@@ -96,8 +96,8 @@
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
 #let _window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: false) = {
-  // `updated`, not `minted`, matching `#idea`'s own hat. The registry record
-  // carries both, and `updated` already falls back to `minted` (which falls back
+  // `updated`, not `created`, matching `#idea`'s own hat. The registry record
+  // carries both, and `updated` already falls back to `created` (which falls back
   // to the document's date) when the note never named one — so a note that says
   // nothing looks exactly as it did, and a note that does shows when it was last
   // touched, which is what a reader of a rookery wants off the top of a window.

@@ -221,7 +221,7 @@
 // ---- _sort-ids — a total order over a window's selected ids ---------------
 //
 // "lexicographic" is by full id, the same order `ideas()` publishes. "date" is
-// newest `minted` first, undated notes last, ties broken by ASCENDING id.
+// newest `created` first, undated notes last, ties broken by ASCENDING id.
 //
 // Built by grouping rather than by sorting twice: typst does not document
 // `array.sorted` as stable, so a sort-by-id-then-sort-by-date pipeline cannot
@@ -232,7 +232,7 @@
   let by-id = ids.sorted()
   if sort != "date" { return by-id }
   let stamp-of(id) = {
-    let m = reg.at(id).at("minted", default: none)
+    let m = reg.at(id).at("created", default: none)
     if m == none { none } else { m.display("[year][month][day]") }
   }
   let dated = by-id.filter(id => stamp-of(id) != none)

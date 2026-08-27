@@ -217,9 +217,9 @@
 // ---- _sort-ids — date-descending, undated last, ties ASCENDING by id ------
 // The tie rule is why the function groups by stamp instead of sorting twice.
 #let _reg = (
-  "idea:a": (minted: datetime(year: 2026, month: 1, day: 2)),
-  "idea:b": (minted: datetime(year: 2026, month: 3, day: 4)),
-  "idea:c": (minted: datetime(year: 2026, month: 1, day: 2)),
+  "idea:a": (created: datetime(year: 2026, month: 1, day: 2)),
+  "idea:b": (created: datetime(year: 2026, month: 3, day: 4)),
+  "idea:c": (created: datetime(year: 2026, month: 1, day: 2)),
   "idea:d": (:),
 )
 #assert.eq(
