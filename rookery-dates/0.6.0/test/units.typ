@@ -277,3 +277,28 @@
 #assert(_scalar((as-rung(ladder: JOB, today: _JAN5))(_flight)))
 #assert(_scalar((as-settled(ladder: JOB, today: _JAN5))(_flight)))
 #assert(_scalar((as-days-in-flight(today: _JAN5))(_flight)))
+
+// ---- log order honours the clock, where there is one ----------------------
+// Two events on ONE DAY, written closed-first. Sorted by time they come back in
+// the order they happened, which is the case a date-only key could not answer: it
+// tied them and fell back to the written sequence.
+#let _t15 = datetime(year: 2026, month: 8, day: 27, hour: 15, minute: 0, second: 0)
+#let _t16 = datetime(year: 2026, month: 8, day: 27, hour: 16, minute: 0, second: 0)
+#assert.eq(
+  dates(log: (closed: _t16, activated: _t15)).at("date-log").map(e => e.stage),
+  ("activated", "closed"),
+)
+// A DATE-ONLY entry sorts as the start of its day, so a bare `deadline` precedes a
+// timed event on the same date rather than landing after it.
+#assert.eq(
+  dates(deadline: d(2026, 8, 27), log: (activated: _t15)).at("date-log").map(e => e.stage),
+  ("deadline", "activated"),
+)
+// Two DATE-ONLY entries on one day still tie, and still resolve by written order —
+// the existing behaviour, unchanged, because neither carries a time to compare.
+#assert.eq(
+  dates(log: (b: d(2026, 5, 1), a: d(2026, 5, 1))).at("date-log").map(e => e.stage),
+  ("b", "a"),
+)
+// The stored value keeps its time; only the sort key reads it.
+#assert.eq(dates(log: (activated: _t15)).at("date-log").first().on.hour(), 15)

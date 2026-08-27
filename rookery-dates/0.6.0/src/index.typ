@@ -44,13 +44,13 @@
 // "filter and sort by deadline" projection, and the sort is free.
 #let as-date(stage) = tags => {
   let d = stage-date(tags, stage)
-  if d == none { none } else { _stamp-of(d) }
+  if d == none { none } else { _day-of(d) }
 }
 
 // The FIRST entry's date, same stamp — "in flight since", as a sort key.
 #let as-entered(today: none) = tags => {
   let d = entered-of(tags)
-  if d == none { none } else { _stamp-of(d) }
+  if d == none { none } else { _day-of(d) }
 }
 
 // How far it got, as an integer, so a view can sort by progress rather than by
