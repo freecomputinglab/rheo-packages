@@ -294,7 +294,31 @@
 #let _plain(c) = {
   if c == none { "" } else if type(c) == str { c } else if type(c) != content {
     ""
-  } else if c.has("text") { c.text } else if c.func() == [ ].func() {
+  } else if c.has("text") { c.text
+  } else if c.func() == smartquote {
+    // A SMART QUOTE IS ITS OWN ELEMENT, and it used to contribute nothing —
+    // every apostrophe and quotation mark simply vanished from a note's plain
+    // text. VERIFIED tree shape for `[Read Anil's "quoted"]` on typst 0.15.1:
+    //
+    //   sequence -> text="Read Anil", smartquote, text="s", smartquote,
+    //               text="quoted", smartquote
+    //
+    // `smartquote` has no `text`, no `children` and no `body`, so it fell through
+    // to the final `else { "" }`. MEASURED consequence on a real rookery:
+    // `ideas().text` for a note titled `Read Anil's 'Rumour is the exploit'` was
+    // `"Read Anils Rumour is the exploit"`, so no search could ever match an
+    // apostrophe.
+    //
+    // ASCII, NOT THE CURLY GLYPH, and this is a decision rather than laziness:
+    // which curly form a smart quote renders as (opening or closing) depends on
+    // its POSITION in the paragraph, and the element does not carry that —
+    // `double: bool` is its ONLY field (VERIFIED: `fields()` is exactly
+    // `(double: false)` for `'` and `(double: true)` for `"`). The straight form
+    // is one deterministic answer, it is what the author typed in the source, and
+    // it is what a reader searching for `Anil's` will type. A plain-text
+    // projection is not the place to reproduce typography.
+    if c.at("double", default: true) { "\"" } else { "'" }
+  } else if c.func() == [ ].func() {
     " "
   } else if c.has("children") { c.children.map(_plain).join() } else if c.has("body") {
     _plain(c.body)
@@ -333,7 +357,12 @@
         "body",
       ) { _body-text(c.body) } else { "" }
       " " + inner + " "
-    } else if c.has("text") { c.text } else if c.func() == [ ].func() { " " } else if c.has(
+    } else if c.has("text") { c.text } else if c.func() == smartquote {
+      // The same branch `_plain` above carries, for the same reason and with the
+      // same ASCII decision — read its banner. A quote inside a note's BODY has to
+      // survive too, or the search index drops it exactly as the title did.
+      if c.at("double", default: true) { "\"" } else { "'" }
+    } else if c.func() == [ ].func() { " " } else if c.has(
       "children",
     ) { _join(c.children.map(_body-text)) } else if c.has("body") { _body-text(c.body) } else { "" }
   }

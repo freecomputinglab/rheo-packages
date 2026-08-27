@@ -411,3 +411,17 @@
 #assert.eq(_derived-title([#("é" * 61)]), "é" * 60 + "...")
 // The limit is a parameter for these tests only — `#idea` never passes one.
 #assert.eq(_derived-title([abcdef], limit: 3), "abc...")
+
+// ---- _plain / _body-text — a smart quote is its own element ----------------
+// It used to contribute NOTHING, so every apostrophe and quotation mark vanished
+// from a note's plain text and no search could match one. MEASURED on a real
+// rookery: a note titled `Read Anil's 'Rumour is the exploit'` indexed as
+// `"Read Anils Rumour is the exploit"`. ASCII rather than the curly glyph, because
+// open-vs-close depends on position and the element carries only `double`.
+#assert.eq(_plain([Anil's]), "Anil's")
+#assert.eq(_plain([Read "this"]), "Read \"this\"")
+#assert.eq(_plain([Read Anil's 'Rumour is the exploit']), "Read Anil's 'Rumour is the exploit'")
+#assert.eq(_body-plain([He said "no" and Anil's reply]), "He said \"no\" and Anil's reply")
+// Mixed with markup the walk already handled, so the new branch composes rather
+// than short-circuiting the others.
+#assert.eq(_body-plain([A #raw("x") isn't B]), "A x isn't B")
