@@ -120,22 +120,38 @@
 // of `body-search: false`, read as `""` on both sides.
 #let tier-rows = (
   // Matches on TITLE only: "aaa" has no w-i-n-d-o-w subsequence.
-  (id: "idea:aaa", name: "aaa", text: "Window handling", body: "prose about nothing in particular"),
-  // Matches on BODY only, and carries `text: ""` — the branch that skips the
+  (id: "idea:aaa", name: "aaa", text: "Window handling", label: "Window handling", body: "prose about nothing in particular"),
+  // Matches on BODY only. It carries `text: ""` — no authored title — and a
+  // `label` whose words do NOT include the query, which is what keeps this case
+  // constructible at all now that the name tier scores `label`: rookery derives a
+  // titleless note's label from its body's FIRST 60 characters, so a body-only
+  // match is one whose match falls later than that. The old fixture relied on
+  // `text: ""` skipping the
   // title score entirely rather than scoring an empty haystack.
-  (id: "idea:bbb", name: "bbb", text: "", body: "win window windows, mentioned early and often"),
+  (
+    id: "idea:bbb",
+    name: "bbb",
+    text: "",
+    // NO LETTER `w` ANYWHERE IN THE LABEL, which is what makes this a body-only
+    // row for both queries the tier cases use ("win" and "wnd"): a subsequence
+    // match needs its first letter, so neither can touch the name tier here.
+    label: "opening clause, mentions the query only later on",
+    body: "opening clause, mentions the query only later on, then win window windows",
+  ),
   // NO `body` KEY AT ALL. Must never reach the body tier, and must not error.
-  (id: "idea:ccc", name: "ccc", text: ""),
+  // `label` falls back to the NAME, which is what rookery does for a titleless
+  // note with no body either.
+  (id: "idea:ccc", name: "ccc", text: "", label: "ccc"),
   // Two rows tying on score. For a REAL query ("wnd" below) the tie still
   // breaks by id: ddd before eee. DATED, so the empty-residual case ("", none
   // below) breaks the same tie by date instead — newest first, eee (Mar 2026)
   // before ddd (Jan 2026) — and sorts both ahead of every undated row.
-  (id: "idea:ddd", name: "wnd", text: "Wnd", created: datetime(year: 2026, month: 1, day: 5)),
-  (id: "idea:eee", name: "wnd", text: "Wnd", created: datetime(year: 2026, month: 3, day: 1)),
+  (id: "idea:ddd", name: "wnd", text: "Wnd", label: "Wnd", created: datetime(year: 2026, month: 1, day: 5)),
+  (id: "idea:eee", name: "wnd", text: "Wnd", label: "Wnd", created: datetime(year: 2026, month: 3, day: 1)),
   // A WEAK name match: the query's letters appear scattered through a long
   // haystack, so its score lands BELOW a strong body-tier score. It must still
   // sort above every body row — that is the tiering rule, not a score contest.
-  (id: "idea:scatter", name: "wqqiqqnqqqqqqqqqqqqqqqqqqqqqqqq", text: ""),
+  (id: "idea:scatter", name: "wqqiqqnqqqqqqqqqqqqqqqqqqqqqqqq", text: "", label: "wqqiqqnqqqqqqqqqqqqqqqqqqqqqqqq"),
   // TAG-CARRYING ROWS, placed HERE and not appended: `idea:tg*` sorts between
   // `idea:scatter` and `idea:window-depth`, and this array MUST stay in id order
   // (see the comment above it) or the empty-query case diverges — MEASURED, an
@@ -146,12 +162,12 @@
   // nine cases that predate them. Every OTHER row here has no `tags` key at
   // all, which is the shape `#search-index` emits for an untagged note and the
   // one both sides must read as "no tags" rather than erroring.
-  (id: "idea:tg1", name: "tg1", text: "Alpha", body: "alpha prose", tags: ("phd", "draft")),
-  (id: "idea:tg2", name: "tg2", text: "Beta", body: "beta prose", tags: ("phd",)),
+  (id: "idea:tg1", name: "tg1", text: "Alpha", label: "Alpha", body: "alpha prose", tags: ("phd", "draft")),
+  (id: "idea:tg2", name: "tg2", text: "Beta", label: "Beta", body: "beta prose", tags: ("phd",)),
   // Two strong name matches that the length term separates (35 vs 40 for
   // "window") — the pair the scorer's own comment cites.
-  (id: "idea:window-depth", name: "window-depth", text: "Controlling window depth"),
-  (id: "idea:windows", name: "windows", text: "Windows"),
+  (id: "idea:window-depth", name: "window-depth", text: "Controlling window depth", label: "Controlling window depth"),
+  (id: "idea:windows", name: "windows", text: "Windows", label: "Windows"),
 )
 // Emitted for the runner too, so the JavaScript side ranks THE SAME rows rather
 // than a hand-copied second corpus that could drift from this one.
@@ -166,6 +182,17 @@
 // `eee`, exactly as `ideas()` would hand it — only the metadata dump for the
 // JS runner is restamped, matching what a real island row actually carries.
 #metadata(tier-rows.map(e => {
+  // TWO CONVERSIONS, both of them what `#search-index`'s row-builder does when it
+  // ships an `ideas()` row to the browser as JSON. `_rank` below still sees the
+  // RAW row, exactly as `ideas()` would hand it; only the metadata dump for the JS
+  // runner is restamped, so both halves see what they see in production.
+  //
+  // `text` <- `label`: the island's `text` field means WHAT TO CALL THE NOTE, and
+  // `label` is rookery's answer — the authored title flattened, else the body's
+  // first 60 characters, else the name, never empty. Without this the JS scored an
+  // empty title for every titleless row while Typst scored its label, and the two
+  // disagreed on exactly the rows this fixture exists to pin down.
+  let e = (..e, text: e.at("label", default: e.at("text", default: "")))
   let u = e.at("created", default: none)
   if u == none { e } else { (..e, created: u.display("[year][month][day]")) }
 })) <tier-rows>

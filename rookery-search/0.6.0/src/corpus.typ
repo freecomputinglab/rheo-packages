@@ -323,7 +323,19 @@
   // would silently multiply build time by the page count.
   let rows = selected.enumerate().map(pair => {
     let (i, e) = pair
-    let row = (id: e.id, name: e.name, text: e.text)
+    // `label`, NOT `text`, and the island's field name stays `text` regardless.
+    //
+    // `text` here means WHAT TO CALL THIS NOTE, and rookery's `label` is that
+    // question's answer: the authored title flattened, else the note's first 60
+    // characters of body, else its name — never empty. `e.text` is the AUTHORED
+    // title alone and is `""` for a titleless note, so a note written as
+    // `#idea[body]` shipped an empty title and `row.js` fell back to printing its
+    // slug or its sequence number.
+    //
+    // THE ISLAND'S KEY IS UNCHANGED on purpose. It is a published contract a site
+    // may build its own UI on, and what the field MEANS has not changed — only
+    // which of rookery's two fields answers it best.
+    let row = (id: e.id, name: e.name, text: e.label)
     if e.tags.len() > 0 { row.insert("tags", e.tags) }
     if body-search { row.insert("body", bodies.at(i)) }
     // Same `"[year][month][day]"` stamp `_rank`'s `stamp-of` computes from

@@ -45,7 +45,10 @@ export const renderRow = (hit, terms, atoms = []) => {
   a.href = hit.href;
   const title = document.createElement("span");
   title.className = "rookery-search-title";
-  const titleText = hit.text === "" ? hit.name : hit.text;
+  // NO `|| hit.name` FALLBACK, and do not restore one as defensive: `text` is
+  // rookery's derived `label` as of 0.6.0 and is never empty, so a fallback would
+  // be dead code that also hid a real bug if the island ever shipped `""`.
+  const titleText = hit.text;
   appendMarked(title, titleText, matchRanges(titleText, terms));
   const id = document.createElement("span");
   id.className = "rookery-search-id";

@@ -89,7 +89,15 @@
       continue
     }
     let s-name = fuzzy-score(e.name, q)
-    let s-text = if e.text == "" { none } else { fuzzy-score(e.text, q) }
+    // SCORED AGAINST `label`, not `text`, which is a behaviour change and a
+    // deliberate one: a titleless note used to be matchable by its ID ALONE, so
+    // typing its opening words found nothing even though those words were on the
+    // row. `label` is the authored title flattened, else the body's first 60
+    // characters, else the name — so the note is now findable by what it says.
+    //
+    // The `== ""` guard went with it. `label` is never empty, so the branch was
+    // dead and keeping it would suggest otherwise.
+    let s-text = fuzzy-score(e.label, q)
     let name-score = if s-name == none {
       s-text
     } else if s-text == none { s-name } else { calc.max(s-name, s-text) }

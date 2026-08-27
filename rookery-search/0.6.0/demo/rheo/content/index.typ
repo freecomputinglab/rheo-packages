@@ -53,6 +53,17 @@ the only thing that produces a page backlink:
   )
 }
 
+// A TITLELESS NOTE, which is what the search index used to lose. Written as the
+// bare `#idea[body]` form, so it has no authored title at all and rookery derives
+// its `label` from these opening words. Until 0.6.0 the island shipped an empty
+// title for it and the row printed its sequence number; `check.sh` asserts both
+// halves of the fix below — that the island carries the words, and that searching
+// for one of them finds the note.
+#idea[
+  Marginalia accumulate faster than anyone reads them, which is the whole problem
+  a rookery exists to have.
+]
+
 #ideas-outline(rookery-wide: true)
 
 // ---- @rheo/rookery-search — the three public entry points -----------------
@@ -62,11 +73,25 @@ the only thing that produces a page backlink:
 // `#search-modal` is the overlay. All three read the corpus through
 // `@rheo/rookery`'s own `ideas()`, so a passing build here proves the two
 // packages agree about the registry as well as proving this one compiles.
-#import "@rheo/rookery-search:0.6.0": panel, search-bar, search-index, search-modal
+#import "@rheo/rookery-search:0.6.0": panel, search-bar, search-ideas, search-index, search-modal
 
 #search-index()
 #search-bar()
 #search-modal()
+
+// THE RANKING HALF of the derived-label fix. A titleless note used to be matchable
+// by its ID ALONE, so a word from its own opening line found nothing. `_rank`
+// scores `label` now, so this returns the note in the NAME tier — and `check.sh`
+// asserts the tier, not just the count, because a body-tier hit would mean the
+// title score is still being skipped.
+#context {
+  let hits = search-ideas("marginalia")
+  html.elem(
+    "p",
+    attrs: (class: "demo-label-hits"),
+    hits.map(h => h.id + "|" + h.kind).join(","),
+  )
+}
 
 // ---- #panel — the projection-driven filter --------------------------------
 //

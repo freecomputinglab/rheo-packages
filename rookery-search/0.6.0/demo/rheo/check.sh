@@ -149,4 +149,45 @@ if n_rows <= 2:
 print(f"  panels: 2, no island of their own, {n_rows} rows behind a 2-row box, kinds {sorted(kinds - {chr(39)+chr(39)})}")
 PANEL
 
+# 8. A TITLELESS NOTE IS NAMED BY ITS OPENING WORDS, in the island and in the
+#    ranking. Rookery derives `label` for a note written as bare `#idea[body]`;
+#    until this package read it, such a note shipped an empty title and the row
+#    printed its sequence number instead.
+python3 - "$H" <<'LABEL' || fail=1
+import json, os, re, sys
+H = sys.argv[1]
+h = open(os.path.join(H, "index.html")).read()
+rows = json.loads(re.search(r'<script type="application/json"[^>]*>(.*?)</script>', h, re.S).group(1))
+
+# The demo's one titleless note. Found by its ABSENCE of an authored title, not
+# by id: its id is an auto-assigned sequence number and pinning it here would
+# break the moment a note is inserted earlier in the document.
+derived = [r for r in rows if r["text"].startswith("Marginalia accumulate")]
+if len(derived) != 1:
+    got = [r["text"][:30] for r in rows]
+    print(f"FAIL: no island row named by the titleless note's opening words; got {got}")
+    sys.exit(1)
+
+# Never the bare id or an empty string, which is what the old fallback produced.
+title = derived[0]["text"]
+if title == "" or title == derived[0]["name"]:
+    print(f"FAIL: titleless row shipped its id or an empty title: {derived[0]}")
+    sys.exit(1)
+print(f'  label: titleless note ships as "{title[:34]}..."')
+
+# THE RANKING HALF. `#search-ideas("marginalia")` renders its hits into
+# `.demo-label-hits` as `id|kind` pairs. The note must come back in the NAME tier:
+# a body-tier hit would mean the title score is still being skipped for a titleless
+# note, which is the actual bug rather than a detail of it.
+m = re.search(r'<p class="demo-label-hits">([^<]*)</p>', h)
+if m is None:
+    print("FAIL: index.html carries no .demo-label-hits probe"); sys.exit(1)
+hits = [x for x in m.group(1).split(",") if x]
+if not hits:
+    print("FAIL: searching a titleless note's opening word found nothing"); sys.exit(1)
+if not any(x.endswith("|name") for x in hits):
+    print(f"FAIL: titleless note matched only in the body tier: {hits}"); sys.exit(1)
+print(f"  label: 'marginalia' ranks {hits}")
+LABEL
+
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi
