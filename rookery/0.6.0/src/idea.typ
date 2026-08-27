@@ -209,7 +209,7 @@
       // right and this package was the wrong place to answer it: a hand-maintained
       // `updated:` is a second date the author has to remember, and it can
       // contradict what actually happened to the note. A note's LIFECYCLE is
-      // @rheo/rookery-dates' business as of 0.6.0 — it stores a dated log and
+      // @rheo/rookery-timeline' business as of 0.6.0 — it stores a dated log and
       // derives last-touched from it, so a project wanting that reads
       // `updated-of(entry, tags)` there rather than a field here. Core keeps the
       // one date it can resolve without being told anything: when the note was

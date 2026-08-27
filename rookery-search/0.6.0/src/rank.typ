@@ -54,7 +54,7 @@
   // same dedup-and-walk-descending — over the SAME field, `e.created`.
   //
   // IT READ `e.updated` UNTIL 0.6.0, and that field no longer exists: rookery
-  // removed it, leaving a note's lifecycle to @rheo/rookery-dates' log. Left
+  // removed it, leaving a note's lifecycle to @rheo/rookery-timeline' log. Left
   // alone, this branch would have found `none` on every row, dropped every note
   // into the undated bucket, and silently reverted the browse listing to id
   // order — no error, just the wrong answer, which is why this is filed as a bug

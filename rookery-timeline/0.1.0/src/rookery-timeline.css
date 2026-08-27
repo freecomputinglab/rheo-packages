@@ -1,0 +1,113 @@
+/* rookery-timeline — the rail `#timeline-view` draws.
+
+   Thin on purpose, like rookery's own stylesheet: enough that a log reads
+   correctly out of the box, and nothing that presumes a page design. No fonts, no
+   page colours, and no absolute font size — the sizes here are factors of whatever
+   the page already sets.
+
+   THE LAYER, and it is not optional. rheo links a PACKAGE's stylesheet AFTER the
+   project's own, so on equal specificity this file would win every tie and a
+   project could not fix it by writing its rule "later" — there is no later.
+   Wrapping everything in a cascade layer inverts that: any UNLAYERED rule in the
+   project's CSS beats any layered rule here, whatever its specificity or position.
+   A plain `.timeline-stage { color: red }` in a site's stylesheet just works — no
+   importance flags, no specificity race. That is the guarantee, and it is why
+   nothing in this file sits outside the layer.
+
+   THE PROPERTIES. Every colour and size is `var(--x, <default>)`, the default
+   being the literal in the var() call. Set one on `.timeline` (or anywhere it
+   inherits from) and the rail is themed without overriding a rule at all:
+
+     --timeline-line     the vertical rule and the dot outlines
+     --timeline-fg       a stage name and a date that has happened
+     --timeline-muted    a booked or expected row
+     --timeline-dot      the filled dot
+     --timeline-gap      vertical space between events
+*/
+@layer rookery-timeline {
+  /* THE RAIL IS A BORDER ON THE LIST, not a pseudo-element per row: one line that
+     cannot develop gaps between items however they wrap. The dots sit on it via
+     each row's own ::before, pulled left by half their width. */
+  .timeline {
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0 0 0 1.1rem;
+    border-left: 1px solid var(--timeline-line, currentColor);
+  }
+
+  .timeline-event {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.6rem;
+    align-items: baseline;
+    padding: var(--timeline-gap, 0.3rem) 0;
+  }
+
+  /* The dot. `left` is half the border-box width plus the list's own border, so it
+     straddles the rule rather than sitting beside it. */
+  .timeline-event::before {
+    content: "";
+    position: absolute;
+    left: calc(-1.1rem - 4.5px);
+    top: calc(var(--timeline-gap, 0.3rem) + 0.42em);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: 1px solid var(--timeline-line, currentColor);
+    background: var(--timeline-dot, currentColor);
+  }
+
+  /* HOLLOW FOR WHAT HAS NOT HAPPENED, which is the whole distinction the rail
+     exists to draw: a booked event is on the calendar, not in the record. */
+  .timeline-future::before,
+  .timeline-expected::before {
+    background: transparent;
+  }
+
+  /* An expected rung has no date at all, so its dot is fainter again than a booked
+     one's — it is the ladder's guess, not an appointment. */
+  .timeline-expected::before {
+    border-style: dotted;
+  }
+
+  .timeline-stage {
+    color: var(--timeline-fg, inherit);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.85em;
+  }
+
+  .timeline-when {
+    color: var(--timeline-muted, gray);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeline-future .timeline-stage,
+  .timeline-expected .timeline-stage {
+    color: var(--timeline-muted, gray);
+  }
+
+  /* THE DIVIDER. A rule across the rail rather than a row of its own height: it
+     marks a position between two events, so it should read as a line crossing the
+     track and not as a third kind of event. Emitted only where there is something
+     on both sides of it. */
+  .timeline-today {
+    position: relative;
+    margin: 0.15rem 0;
+    border-top: 1px dashed var(--timeline-line, currentColor);
+  }
+
+  .timeline-today-label {
+    position: relative;
+    top: -0.6em;
+    padding-right: 0.4em;
+    background: var(--timeline-bg, transparent);
+    color: var(--timeline-muted, gray);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.7em;
+  }
+}

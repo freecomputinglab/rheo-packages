@@ -36,7 +36,7 @@ same resolution order (the explicit argument, then the document's own
 `#ideas-outline(sort: "date")`. The word `minted` still means a minted PAGE
 throughout this package, which is most of its uses, and none of those moved.
 
-`@rheo/rookery-dates` carried a one-line shim for exactly this gap and said so:
+`@rheo/rookery-timeline` carried a one-line shim for exactly this gap and said so:
 "'created' is the word a reader of a todo list wants and `minted` is the word
 rookery uses". The rename resolves that comment.
 
@@ -48,11 +48,11 @@ Every one of those three hats had a comment arguing that "the date a reader want
 off the top of a card is when the note was last touched". That argument is right
 and this package was the wrong place to answer it: a hand-maintained `updated:` is
 a second date the author has to remember, and it can contradict what actually
-happened to the note. A note's LIFECYCLE belongs to `@rheo/rookery-dates`, which
+happened to the note. A note's LIFECYCLE belongs to `@rheo/rookery-timeline`, which
 as of 0.6.0 stores a dated LOG and derives last-touched from it:
 
 ```typ
-#import "@rheo/rookery-dates:0.6.0": updated-of
+#import "@rheo/rookery-timeline:0.1.0": updated-of
 #context updated-of(row, tag-data().at(row.id))   // last log entry, else `created`
 ```
 
@@ -886,7 +886,7 @@ self-caching accessor would put back the very cost this exists to remove: a
 project with four views on one page was opening each with its own `#tag-data()`
 walk to read a handful of fields.
 
-`@rheo/rookery-dates` ships extractors for its own keys — `as-stage`, `as-date`,
+`@rheo/rookery-timeline` ships extractors for its own keys — `as-stage`, `as-date`,
 `as-rung` — so a spec names a package's key once, in that package, rather than
 hardcoding the string here.
 
@@ -1171,7 +1171,7 @@ A VALUED tag is how a tag carries metadata rather than only naming itself:
 ```
 
 That is the primitive `@rheo/rookery-todos` builds its dependency graph on, and
-`@rheo/rookery-dates` its `scheduled`/`deadline` dates. A value can be any
+`@rheo/rookery-timeline` its `scheduled`/`deadline` dates. A value can be any
 Typst value at all — an integer, an array, a `datetime`, content.
 
 **Tags are UNORDERED.** Key order is unspecified as of 0.5.0 and nothing may
@@ -1612,10 +1612,10 @@ That argument is right, and this package was the wrong place to answer it. A
 hand-maintained `updated:` is a second date the author has to remember, and one
 that can contradict what actually happened to the note. So core keeps only the
 date it can resolve without being told anything, and a note's LIFECYCLE belongs to
-`@rheo/rookery-dates`: it stores a dated log and derives last-touched from it.
+`@rheo/rookery-timeline`: it stores a dated log and derives last-touched from it.
 
 ```typst
-#import "@rheo/rookery-dates:0.6.0": updated-of
+#import "@rheo/rookery-timeline:0.1.0": updated-of
 // the log's last entry where there is one, else this note's `created`
 #context updated-of(row, tag-data().at(row.id))
 ```

@@ -100,7 +100,7 @@
   // until 0.6.0 and this hat showed it, on the argument that a reader wants to
   // know when a note was last touched. Core no longer answers that: a
   // hand-maintained `updated:` is a second date that can contradict the note's
-  // actual history, and @rheo/rookery-dates now stores a dated log and derives
+  // actual history, and @rheo/rookery-timeline now stores a dated log and derives
   // last-touched from it. A project wanting that in a window hat passes it, or
   // reads `updated-of(entry, tags)` there.
   let date = if show-date and rec.created != none {

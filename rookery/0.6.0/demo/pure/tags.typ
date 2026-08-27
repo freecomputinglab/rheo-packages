@@ -47,7 +47,7 @@
 
 // There was an `updated:`-versus-`created:` case here until 0.6.0, covering a hat
 // that showed the later of the two. `updated:` is gone: a note's lifecycle is
-// @rheo/rookery-dates' dated log now, and core keeps only the date it can resolve
+// @rheo/rookery-timeline' dated log now, and core keeps only the date it can resolve
 // without being told — `created`. The note above already covers a date in the hat
 // alongside tag pills, so there is nothing left for a second one to show.
 

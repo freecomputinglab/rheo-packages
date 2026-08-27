@@ -227,7 +227,7 @@
       // else's prose. `created`, the one date core resolves as of 0.6.0 — it
       // falls back to the document's own date, so a note that names none still
       // shows something rather than nothing. There was an `updated` beside it
-      // until 0.6.0; a note's lifecycle is @rheo/rookery-dates' dated log now,
+      // until 0.6.0; a note's lifecycle is @rheo/rookery-timeline' dated log now,
       // and a project wanting last-touched on this page reads it from there
       // through its own `idea-page-template`.
       #_head(
@@ -468,7 +468,7 @@
           published: rec.created,
           // BOTH from `created`, because a note has one date in core as of
           // 0.6.0 and Atom requires `<updated>`. A project tracking a real
-          // lifecycle through @rheo/rookery-dates' log emits its own beacon
+          // lifecycle through @rheo/rookery-timeline' log emits its own beacon
           // with the derived date rather than relying on this default.
           updated: rec.created,
           categories: rec.at("tags", default: (:)).keys(),

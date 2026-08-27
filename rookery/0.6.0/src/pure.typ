@@ -45,7 +45,7 @@
 // arbitrary Typst values, and a plain tag is one whose value is `none`. This is
 // what lets a tag carry metadata — `(depends-on: ("a", "b"))` — instead of only
 // naming itself, and it is the primitive `@rheo/rookery-todos` and
-// `@rheo/rookery-dates` build on.
+// `@rheo/rookery-timeline` build on.
 //
 // Four author-facing forms all land here and all normalize to that one shape,
 // so nothing downstream has to ask which was written:
