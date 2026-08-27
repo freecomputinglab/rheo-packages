@@ -1,0 +1,50 @@
+// The RENDERED half of the fixture, and the only file here that produces output.
+//
+// `units.typ` asserts values; `#log-view` returns content and branches on
+// `target()`, so nothing about its markup can be asserted there. This compiles to
+// HTML and `check.sh` greps what came out — the same division `@rheo/rookery`'s
+// demo/pure and demo/rheo make between compiling and inspecting.
+//
+// Four cases, each the one the design turns on:
+//   1. a log straddling `today` — the divider belongs, both sides exist
+//   2. every event past — NO divider, because it would mark nothing
+//   3. two events on ONE DAY — times shown rather than a date twice
+//   4. the same log with and without `ladder:` — record vs progress
+#import "/src/lib.typ": *
+
+#let d(y, m, dd) = datetime(year: y, month: m, day: dd)
+#let t(y, m, dd, h) = datetime(year: y, month: m, day: dd, hour: h, minute: 0, second: 0)
+#let NOW = d(2027, 1, 5)
+
+#let JOURNAL = (
+  transit: ("submitted", "under-review", "revise-resubmit", "resubmitted", "accepted"),
+  terminal: ("published", "rejected", "withdrawn"),
+)
+
+= 1. Straddling today
+
+#let straddling = dates(log: (
+  submitted: d(2026, 10, 28),
+  "under-review": d(2026, 11, 15),
+  "revise-resubmit": d(2026, 12, 20),
+  resubmitted: d(2027, 3, 3),
+))
+#log-view((created: d(2026, 10, 1)), straddling, today: NOW)
+
+= 2. Every event past
+
+#log-view((created: d(2026, 1, 1)), dates(log: (
+  submitted: d(2026, 2, 1),
+  rejected: d(2026, 3, 1),
+)), today: NOW)
+
+= 3. Two events on one day
+
+#log-view((:), dates(log: (
+  activated: t(2026, 8, 27, 15),
+  closed: t(2026, 8, 27, 16),
+)), today: NOW)
+
+= 4. The same log, with a ladder
+
+#log-view((created: d(2026, 10, 1)), straddling, today: NOW, ladder: JOURNAL)

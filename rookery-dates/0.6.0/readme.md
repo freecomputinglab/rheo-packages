@@ -314,6 +314,89 @@ Dates are compared as zero-padded `[year][month][day]` strings, which sidesteps
 the question of how `datetime` orders as a sort key — the same technique rookery
 uses in its own id sorting.
 
+## `#log-view` — the log as a vertical rail
+
+The one function here that draws something, and the reason this package ships a
+stylesheet at all.
+
+```typst
+#import "@rheo/rookery-dates:0.6.0": log-view
+
+#context log-view(row, tag-data().at(row.id), today: NOW)
+```
+
+```
+●  28 Oct 2026   submitted
+│
+●  15 Nov 2026   under-review
+│
+●  20 Jan 2027   revise-resubmit
+├───────────────────────────────  today
+│
+○  03 Mar 2027   resubmitted
+```
+
+**A dot per event, FILLED for what has happened and HOLLOW for what is booked**,
+with a `today` divider between them. That split is the main thing a log knows and
+the reason the view exists: entries may be future-dated by design — a deadline has
+not arrived, an interview is booked before it is held — so a view that treats
+every entry alike throws the distinction away.
+
+The divider is emitted **only where there is something on both sides of it**. A
+rail whose every event is past does not need a line saying where now is.
+
+`created` leads the rail, from rookery's own field via `timeline` — so the record
+starts when the note was written and the log is what happened to it since.
+
+### With a ladder it becomes a progress indicator
+
+`ladder:` defaults to `none` and the two registers are visibly different:
+
+| call | what you get |
+| --- | --- |
+| `log-view(row, tags, today: NOW)` | a RECORD — the log's own events, nothing more |
+| `log-view(row, tags, today: NOW, ladder: JOURNAL)` | a PROGRESS indicator — the events, then the unreached rungs, undated and greyed |
+
+An unreached rung is an **expectation, never a promise**: nothing here knows a
+process will advance, only what the ladder says would come next if it did. The
+class is `date-log-expected` and the stylesheet dots its outline for that reason.
+
+### Same-day events show their times
+
+Two events on one day would otherwise render the same date twice with a rule
+between them, saying nothing. Where an event shares its date with another, both
+show `HH:MM` beside it:
+
+```
+●  27 Aug 2026 15:00   activated
+●  27 Aug 2026 16:00   closed
+```
+
+Guarded on `.hour() != none`, because a date-only entry cannot be asked for its
+time — MEASURED, `.display("[hour]")` on one panics with *"failed to format
+datetime (insufficient information)"*.
+
+### Styling it
+
+Every class is a published contract: `.date-log` on the list, `.date-log-event`
+per row plus exactly one of `.date-log-past` / `.date-log-future` /
+`.date-log-expected`, `.date-log-stage` and `.date-log-when` inside, and
+`.date-log-today` on the divider. Five custom properties theme it without
+overriding a rule — `--date-log-line`, `--date-log-fg`, `--date-log-muted`,
+`--date-log-dot`, `--date-log-gap`.
+
+### What it deliberately is not
+
+A horizontal track (crowds past four events, and gives a long stage name nowhere
+to go), a definition list (says nothing about order, or about whether an event has
+happened), an inline sparkline (a different component, for a table of many notes),
+and **no durations of any kind** — no "126 days in flight", no per-event gaps. The
+reader can subtract, and a computed interval resting on a stand-in date looks more
+precise than it is.
+
+On a paged or EPUB target there is no rail to draw, so the same events render as
+an ordinary list.
+
 ## Every date is author-supplied, and here is why
 
 **Typst has no wall clock, and this package will not pretend otherwise.**
@@ -344,8 +427,11 @@ its own environment and write the resulting literal into the `.typ`.
   The CORE of this package imports it not at all — a tag fragment is a plain
   dictionary, and `dated(mint)` takes its constructor as an argument — but the
   one-line `dated-idea` binding does.
-- Pure Typst: no build step, no JavaScript, no CSS. `typst.toml`'s `entrypoint`
-  points straight at `src/`, so an edit takes effect immediately.
+- No build step and no JavaScript. `typst.toml`'s `entrypoint` points straight at
+  `src/`, so an edit takes effect immediately. It DOES ship one CSS file now —
+  `src/rookery-dates.css`, for `#log-view` below — inside
+  `@layer rookery-dates`, so an unlayered rule in your own stylesheet beats it
+  whatever the specificity.
 
 ## Development
 

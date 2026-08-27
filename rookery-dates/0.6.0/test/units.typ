@@ -302,3 +302,40 @@
 )
 // The stored value keeps its time; only the sort key reads it.
 #assert.eq(dates(log: (activated: _t15)).at("date-log").first().on.hour(), 15)
+
+// ---- log-view — the past/booked/expected split -----------------------------
+// The rendering is HTML and this fixture is a paged compile, so what is asserted
+// here is the SPLIT the view computes, through the same readers it uses. The
+// markup itself is covered by the demo.
+#let _straddle = dates(log: (
+  submitted: d(2026, 10, 28),
+  longlisted: d(2026, 12, 15),
+  "first-interview": d(2027, 1, 20),
+))
+#let _JAN5b = d(2027, 1, 5)
+#assert.eq(stage-of(_straddle, today: _JAN5b), "longlisted")
+#assert.eq(next-of(_straddle, today: _JAN5b).stage, "first-interview")
+// Two past, one booked -> the divider belongs, because both sides exist.
+#assert.eq(log-of(_straddle).filter(e => e.on <= _JAN5b).len(), 2)
+#assert.eq(log-of(_straddle).filter(e => e.on > _JAN5b).len(), 1)
+// Every event past -> nothing booked, so no divider.
+#assert.eq(log-of(_straddle).filter(e => e.on > d(2027, 6, 1)).len(), 0)
+
+// The expected rungs, which is what `ladder:` adds. `rung` is 1 at longlisted, so
+// what remains ahead is everything after index 1 that the log has not reached.
+#let _LAD = (
+  transit: ("submitted", "longlisted", "first-interview", "finalist"),
+  terminal: ("offered", "rejected"),
+)
+#assert.eq(rung(_straddle, ladder: _LAD, today: _JAN5b), 1)
+#assert.eq(
+  _LAD.transit.slice(2).filter(n => n not in log-of(_straddle).map(e => e.stage)),
+  ("finalist",),
+)
+// Settled -> `rung` is past the transit list, so nothing is expected ahead.
+#assert.eq(rung(dates(log: (offered: d(2026, 12, 1))), ladder: _LAD, today: _JAN5b), 4)
+
+// `#log-view` ITSELF IS NOT ASSERTED HERE. It is a context function — it branches
+// on `target()` — so it returns content rather than a value, and a context block's
+// result cannot be compared. Its markup is covered by the demo instead, which is
+// where a rendered rail can actually be inspected.

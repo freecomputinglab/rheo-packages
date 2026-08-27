@@ -14,3 +14,10 @@ default:
 test:
     typst compile --features html --root . --format pdf test/units.typ /dev/null
     @echo "units OK"
+    # `mkdir` first: unlike `rheo`, `typst compile` does not create its output
+    # directory and fails with "No such file or directory" on a fresh checkout,
+    # since `test/build/` is gitignored and never committed. The same note is in
+    # @rheo/rookery's demo/pure Justfile, for the same reason.
+    mkdir -p test/build
+    typst compile --features html --format html --root . test/view.typ test/build/view.html
+    ./test/check.sh

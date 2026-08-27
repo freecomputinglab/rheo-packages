@@ -50,14 +50,18 @@
 //   - a predicate needing a "now" takes an explicit `today:`, falling back to
 //     the document's own `#set document(date:)`, and panics rather than guess
 //
-// This package reads no rheo context, no `sys.inputs`, no state and no
-// registry. Every function is a function of its arguments.
+// This package reads no rheo context, no `sys.inputs`, no state and no registry.
+// Every function is a function of its arguments — with ONE exception, and it is
+// the reason this package now ships a stylesheet: `#log-view` (`view.typ`) draws
+// the log as a vertical rail, so it emits HTML and needs CSS to be usable. There
+// is still no JavaScript, and nothing here reads rheo context even now.
 
 #import "fragment.typ": *
 #import "read.typ": *
 #import "when.typ": *
 #import "ladder.typ": *
 #import "index.typ": *
+#import "view.typ": *
 
 // THE ONE PLACE THIS PACKAGE IMPORTS @rheo/rookery, and it buys exactly one
 // convenience: `#dated-idea` — a plain rookery note that also takes this

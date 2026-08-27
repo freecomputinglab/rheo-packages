@@ -13,8 +13,17 @@ repository = "https://github.com/freecomputinglab/rheo-packages"
 # already on a rheo that can build rookery. Nothing here reads rheo context
 # directly — see `src/lib.typ`'s header — so the floor is inherited, not owned.
 #
-# THIS TABLE MUST STAY LAST. A `[tool.rheo.<format>]` subtable added after it
-# would capture `min_version` into the subtable instead. This package has none:
-# it emits no HTML and ships no CSS or JS.
+# THIS TABLE MUST STAY LAST, and `[tool.rheo.html]` below is exactly the hazard the
+# rule guards: a `[tool.rheo.<format>]` subtable placed AFTER `min_version` would
+# capture that key into the subtable instead. So `min_version` sits directly under
+# `[tool.rheo]` and every subtable follows it.
+#
+# THIS PACKAGE SHIPS A STYLESHEET as of the `#log-view` work. It used to say here
+# that it emits no HTML and ships no CSS or JS; that was true of every function it
+# had, and `#log-view` is the one that draws something — a vertical rail of a
+# note's dated log, which is not usable unstyled. There is still no JavaScript.
 [tool.rheo]
 min_version = "0.6.0"
+
+[tool.rheo.html]
+css_stylesheet = "src/rookery-dates.css"
