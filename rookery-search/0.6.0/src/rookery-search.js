@@ -29,13 +29,20 @@
 
 import { readIndex } from "./island.js";
 import { wire, wireModal } from "./wire.js";
+import { initPanels, wirePanel } from "./panel.js";
 
 export { fold, clusters } from "./text.js";
 export { parseTagQuery, evalTagQuery, positiveAtoms } from "./tagquery.js";
 export { splitQuery, score, bodyScore, search } from "./score.js";
 export { readIndex } from "./island.js";
+export { initPanels, wirePanel } from "./panel.js";
 
 export const init = () => {
+  // Panels are wired FIRST and unconditionally, because they are independent of
+  // the search bar: a page may carry panels and no bar at all, and the early
+  // return below would otherwise skip them.
+  initPanels();
+
   // The dialog ALSO carries `data-rookery-search` (it shares the bar's
   // island-lookup attribute), so the bar query must exclude it — otherwise a
   // page with both a bar and a modal would wire the dialog as a second,

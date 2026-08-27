@@ -92,4 +92,61 @@ grep -q 'class="rookery-search"' "$H/index.html" ||
 grep -q 'class="rookery-search-modal"' "$H/index.html" ||
   note "index.html does not carry the #search-modal element"
 
+# 7. #panel — the projection-driven filter. A DIFFERENT surface again, and the
+#    assertions below are the ones the widget's own design rules turn on rather
+#    than "it rendered".
+python3 - "$H" <<'PANEL' || fail=1
+import os, re, sys
+H = sys.argv[1]
+h = open(os.path.join(H, "index.html")).read()
+
+panels = re.findall(r'<div class="panel"[^>]*>', h)
+if len(panels) != 2:
+    print(f"FAIL: expected 2 panels on index.html, found {len(panels)}"); sys.exit(1)
+
+# NO JSON ISLAND OF ITS OWN. A panel's facts ride as `data-` attributes on the
+# rows, so the markup IS the payload and the two cannot disagree. Asserted as
+# "every island on the page is the SEARCH index" rather than as a count: the bar
+# and the modal each emit one by default, so this page legitimately carries three,
+# all with the same id (MEASURED). A count would only have recorded that number.
+ids = set(re.findall(r'<script type="application/json" id="([^"]*)"', h))
+if ids != {"rookery-search-index"}:
+    print(f"FAIL: a panel emitted a JSON island of its own; island ids are {ids}")
+    sys.exit(1)
+
+# Every panel starts NOT READY, which is what the stylesheet hangs the no-JS
+# degradation on: no input, no pills, no scroll cap until the script says so.
+if not all('data-panel-ready="false"' in p for p in panels):
+    print("FAIL: a panel is not emitted with data-panel-ready=false"); sys.exit(1)
+
+# The projected facet values reach the rows as `data-<field>`, and the pills are
+# one per value A ROW ACTUALLY HAS — never per value the vocabulary permits.
+kinds = set(re.findall(r'<li class="panel-row"[^>]*data-kind="([^"]*)"', h))
+if not {"prose", "cited"} <= kinds:
+    print(f"FAIL: panel rows do not carry projected data-kind values, got {kinds}"); sys.exit(1)
+pill_vals = set(re.findall(r'data-panel-facet="kind" data-panel-value="([^"]*)"', h))
+if not pill_vals or not pill_vals <= (kinds - {""}):
+    print(f"FAIL: kind pills {pill_vals} are not drawn from the row values {kinds}")
+    sys.exit(1)
+
+# A `from:` extractor projecting a BOOL comes through as a scalar attribute,
+# which is the whole point of the projection's scalar contract.
+flags = set(re.findall(r'<li class="panel-row"[^>]*data-flag="([^"]*)"', h))
+if not flags <= {"true", "false"}:
+    print(f"FAIL: bool facet did not stringify to true/false, got {flags}"); sys.exit(1)
+
+# NO ROW IS CAPPED AWAY. `visible:` is a scroll cap, not a data cap: the first
+# panel declares 2 and the corpus is 4, so anything at or below 2 would mean rows
+# had been dropped from the markup rather than merely scrolled out of view.
+first = h[h.index(panels[0]):]
+first = first[:first.index("</ul>")]
+n_rows = len(re.findall(r'<li class="panel-row"', first))
+if 'style="--panel-rows: 2"' not in panels[0]:
+    print(f"FAIL: first panel does not carry --panel-rows: 2; got {panels[0]}"); sys.exit(1)
+if n_rows <= 2:
+    print(f"FAIL: first panel emitted only {n_rows} rows behind a 2-row box; visible: is a scroll cap, not a data cap")
+    sys.exit(1)
+print(f"  panels: 2, no island of their own, {n_rows} rows behind a 2-row box, kinds {sorted(kinds - {chr(39)+chr(39)})}")
+PANEL
+
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

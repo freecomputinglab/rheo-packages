@@ -11,10 +11,10 @@ A page-level link, written in ordinary prose OUTSIDE any note, because that is
 the only thing that produces a page backlink:
 #link(label("sub:page"))[the nested vertebra].
 
-#idea("root-note", title: [Root note])[
+#idea("root-note", title: [Root note], tags: ("demo-kind-prose": none))[
   A note written on the ROOT vertebra, citing @knuth1984 from inside a note.
 
-  #idea("inner-note", title: [Inner note])[
+  #idea("inner-note", title: [Inner note], tags: ("demo-kind-prose": none))[
     A note nested inside another note's body — the containment `#ideas-outline`
     nests by, and the case `_flatten` has to keep out of the parent's own body.
   ]
@@ -23,7 +23,7 @@ the only thing that produces a page backlink:
   #window(<sub-note>)
 ]
 
-#note("plain-note", title: [Plain note], updated: datetime(year: 2026, month: 5, day: 2))[
+#note("plain-note", title: [Plain note], tags: ("demo-kind-cited": none), created: datetime(year: 2026, month: 5, day: 2))[
   A `#note`, so the registry carries a prepended `note` tag and the heading a
   `idea-tag-note` class.
 
@@ -62,8 +62,51 @@ the only thing that produces a page backlink:
 // `#search-modal` is the overlay. All three read the corpus through
 // `@rheo/rookery`'s own `ideas()`, so a passing build here proves the two
 // packages agree about the registry as well as proving this one compiles.
-#import "@rheo/rookery-search:0.6.0": search-bar, search-index, search-modal
+#import "@rheo/rookery-search:0.6.0": panel, search-bar, search-index, search-modal
 
 #search-index()
 #search-bar()
 #search-modal()
+
+// ---- #panel — the projection-driven filter --------------------------------
+//
+// A DIFFERENT widget from the three above, and the difference is the point: the
+// bar and the modal rank the whole corpus against a query and pop a dropdown; a
+// panel filters a list that is already on the page, by facets DECLARED as a
+// `tag-index` projection.
+//
+// TWO PANELS ON ONE PAGE, deliberately. Each gets its own generated listbox id at
+// runtime, which is what a hardcoded id in the markup could not do — and it is
+// the case `check.sh` asserts on below.
+#import "@rheo/rookery:0.6.0": ideas, tag-index
+
+// ONE index for the page, passed to both panels. Panels take an index; they never
+// build one, or the per-view walk of the value store comes straight back.
+#let INDEX = tag-index((
+  kind: (family: "demo-kind-"),
+  flag: (from: t => "note" in t),
+))
+
+#context {
+  let rows = ideas(index: INDEX)
+  [
+    #panel(
+      rows: rows,
+      facets: ("kind", "flag"),
+      sort: "label",
+      // Deliberately SMALLER than the corpus, which is what lets check.sh tell a
+      // scroll cap from a data cap: four rows in the markup behind a 2-row box.
+      visible: 2,
+      noun: "notes",
+      placeholder: "Filter notes",
+      render: r => [#r.label #text(gray, [(#r.at("kind", default: "—"))])],
+    )
+    #panel(
+      rows: rows.filter(r => r.kind != none),
+      facets: ("kind",),
+      visible: 2,
+      noun: "kinded notes",
+      render: r => [#r.label],
+    )
+  ]
+}

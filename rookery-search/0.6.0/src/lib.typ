@@ -39,3 +39,4 @@
 #import "lookup.typ": *
 #import "corpus.typ": *
 #import "ui.typ": *
+#import "panel.typ": *

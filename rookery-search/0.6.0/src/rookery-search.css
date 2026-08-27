@@ -717,4 +717,124 @@
       display: none;
     }
   }
+
+  /* ---- #panel ------------------------------------------------------------
+     A filter-and-sort widget over a `tag-index` projection. Thin, like
+     everything else here: enough that the input, the pills and the scroll box
+     read correctly out of the box, and nothing that presumes a page design.
+
+     Every colour and size reuses the bar's own custom properties above rather
+     than introducing a second palette, so theming the bar themes the panel and
+     a page cannot end up with two widgets from one package that disagree. */
+  .panel {
+    margin: 1rem 0;
+  }
+
+  /* DEGRADATION, and the whole reason the attribute exists. Until `panel.js`
+     sets `data-panel-ready="true"`, the chrome that would do nothing is not
+     drawn: no input to type into, no pill to press, and no scroll cap cutting
+     a list nothing can scroll. What is left is an ordinary complete list. */
+  .panel[data-panel-ready="false"] .panel-input,
+  .panel[data-panel-ready="false"] .panel-pills,
+  .panel[data-panel-ready="false"] .panel-count {
+    display: none;
+  }
+
+  .panel-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4em 0.6em;
+    font: inherit;
+    color: var(--rookery-search-fg, inherit);
+    background: var(--rookery-search-bg, transparent);
+    border: 1px solid var(--rookery-search-border, currentColor);
+    border-radius: var(--rookery-search-radius, 3px);
+  }
+
+  .panel-input::placeholder {
+    color: var(--rookery-search-muted, gray);
+  }
+
+  .panel-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.5rem 0 0;
+  }
+
+  /* Each declared facet is its own group, so two facets read as two sets of
+     choices rather than as one undifferentiated row of pills. */
+  .panel-pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .panel-pill-group + .panel-pill-group {
+    margin-left: 0.9rem;
+  }
+
+  .panel-pill {
+    font: inherit;
+    font-size: 0.85em;
+    line-height: 1.4;
+    padding: 0.1em 0.6em;
+    cursor: pointer;
+    color: var(--rookery-search-muted, gray);
+    background: transparent;
+    border: 1px solid var(--rookery-search-border, currentColor);
+    border-radius: 999px;
+  }
+
+  .panel-pill:hover {
+    color: var(--rookery-search-fg, inherit);
+  }
+
+  /* PRESSED IS THE STATE, and it is read off `aria-pressed` rather than a class
+     the script would have to keep in step with it. One source of truth for
+     "this filter is on", and it is the one assistive technology reads. */
+  .panel-pill[aria-pressed="true"] {
+    color: var(--rookery-search-fg, inherit);
+    border-color: currentColor;
+    background: var(--rookery-search-hover, rgba(127, 127, 127, 0.15));
+  }
+
+  .panel-count {
+    margin: 0.5rem 0 0;
+    font-size: 0.85em;
+    color: var(--rookery-search-muted, gray);
+  }
+
+  /* A SCROLL BOX, not a truncated list: every row is in the markup and
+     `--panel-rows` (set by the Typst call's `visible:`) is only how many show
+     before the rest is a scroll away. 2.5em is one row's line box plus its
+     padding and rule, so the row past the cap is cut mid-height and the list
+     reads as continuing rather than as ending. */
+  .panel-results {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    max-height: calc(var(--panel-rows, 8) * 2.5em);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .panel-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.35em 0;
+    border-bottom: 1px solid var(--rookery-search-hover, rgba(127, 127, 127, 0.15));
+  }
+
+  .panel-row:last-child {
+    border-bottom: none;
+  }
+
+  /* NEEDED, and not redundant with the UA's own `[hidden]` rule: `.panel-row`
+     sets its own `display`, and an author rule beats the UA's whatever the
+     specificity. Without this, hiding a row would do nothing visible. */
+  .panel-row[hidden] {
+    display: none;
+  }
 }
