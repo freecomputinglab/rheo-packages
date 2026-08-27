@@ -87,4 +87,19 @@ the only thing that produces a page backlink:
   three.
 ]
 
+// ---- A DERIVED TITLE ON A MINTED PAGE, which no `demo/pure` root can show ---
+//
+// A note with no `title:` takes the first 60 characters of its body as plain text
+// (`_derived-title`, src/pure.typ). `demo/pure` asserts that on a CARD; what needs
+// rheo is the minted page, whose `<title>` and `<h1>` used to fall back to the
+// note's SLUG — so an auto-numbered note's own page was called `1`.
+//
+// Named rather than auto-numbered, so `check.sh` has a stable path to grep. The
+// slug is what the fallback WOULD have produced, which is exactly what makes the
+// assertion meaningful: `derived-note` vs. the body's opening words.
+#idea("derived-note")[
+  DERIVEDBODY and this text is what the note's own page must be titled by, rather
+  than by its slug, and it runs past sixty characters so the ellipsis shows too.
+]
+
 #ideas-outline(rookery-wide: true)

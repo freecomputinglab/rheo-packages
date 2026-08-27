@@ -138,12 +138,12 @@ if [ -f "$H/ideas/index.html" ]; then
   if grep -q 'idea-outline-row"><a href="[^"]*#loc-' "$idx"; then
     note "ideas/index.html links a row at a vertebra anchor, not at a minted page"
   fi
-  # FIVE, not four: `secret-note` was added for the invisible-tag assertions and
-  # `private-note` was added for the exclusion ones — the second is EXCLUDED, so it
-  # never registers and never gets a row. This count is therefore also the
-  # assertion that exclusion reaches the index page.
-  grep -q 'idea-index-count">5 ideas<' "$idx" ||
-    note "ideas/index.html does not count its 5 ideas"
+  # SIX. `secret-note` was added for the invisible-tag assertions, `private-note`
+  # for the exclusion ones (EXCLUDED, so it never registers and never gets a row —
+  # which makes this count also the assertion that exclusion reaches the index
+  # page), and `derived-note` for the derived-title ones.
+  grep -q 'idea-index-count">6 ideas<' "$idx" ||
+    note "ideas/index.html does not count its 6 ideas"
   # A dated note carries its date; sub-note is the demo's only dated one.
   grep -q 'idea-date">2026-03-14<' "$idx" ||
     note "ideas/index.html does not show the dated note's date"
@@ -275,6 +275,26 @@ grep -q 'SECRETBODY' "$H/ideas/secret-note.html" ||
 #     `--input` apart), and rheo beads `rheo-cli-input-flag-q12` /
 #     `rheo-toml-inputs-table-rih` are what will make it reachable from a rheo
 #     build. Nothing in this package changes when they land.
+
+# 12. A DERIVED TITLE ON A MINTED PAGE. `demo/pure` asserts the derivation on a
+#     card; only here is there a minted page, whose `<title>` and `<h1>` used to
+#     fall back to the note's SLUG — so an untitled note's own page was named `1`.
+#     The note is called `derived-note`, so the slug and the derived title are
+#     plainly different strings and the assertion cannot pass by accident.
+dp="$H/ideas/derived-note.html"
+[ -f "$dp" ] || note "no minted page at ideas/derived-note.html"
+if [ -f "$dp" ]; then
+  grep -q '<title>DERIVEDBODY' "$dp" ||
+    note "ideas/derived-note.html <title> is not the derived title: $(grep -oE '<title>[^<]*' "$dp")"
+  grep -q '<span class="idea-title">DERIVEDBODY' "$dp" ||
+    note "ideas/derived-note.html <h1> carries no derived title"
+  #   Cut to sixty characters with an ellipsis, on the minted page as on a card.
+  grep -qE '<title>DERIVEDBODY[^<]{40,50}\.\.\.</title>' "$dp" ||
+    note "the minted page's derived title was not truncated with an ellipsis"
+fi
+#     And the index row uses it rather than the bare id.
+grep -q 'derived-note.html">DERIVEDBODY' "$H/ideas/index.html" ||
+  note "ideas/index.html row for derived-note does not use its derived title"
 
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"

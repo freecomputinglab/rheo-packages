@@ -47,3 +47,4 @@
 #include "folded-height.typ"
 #include "cycles.typ"
 #include "idea-body.typ"
+#include "titles.typ"
