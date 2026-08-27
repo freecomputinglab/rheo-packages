@@ -202,3 +202,48 @@
 // A row with no `created` contributes no leading entry rather than a none-dated one.
 #assert.eq(timeline((:), _flight).map(e => e.stage), ("submitted", "longlisted", "first-interview"))
 #assert.eq(timeline((created: d(2026, 10, 1)), (:)).map(e => e.stage), ("created",))
+
+// ---- ladders — the derivations, with the vocabulary passed in --------------
+// `accepted` is TRANSIT for a journal and TERMINAL for a conference. That single
+// difference is why this package takes a ladder rather than owning the words.
+#let JOB = (
+  transit: ("submitted", "longlisted", "first-interview", "second-interview", "campus-visit", "finalist"),
+  terminal: ("offered", "rejected", "declined", "dropped", "missed"),
+)
+#let JOURNAL = (
+  transit: ("submitted", "under-review", "revise-resubmit", "resubmitted", "accepted", "in-production"),
+  terminal: ("published", "rejected", "desk-rejected", "withdrawn"),
+)
+
+#let _at(stage) = dates(log: ((stage): d(2026, 6, 1)))
+#let _T = d(2026, 12, 1)
+
+#assert.eq(is-settled(_at("first-interview"), ladder: JOB, today: _T), false)
+#assert.eq(rung(_at("first-interview"), ladder: JOB, today: _T), 2)
+#assert.eq(next-stage(_at("first-interview"), ladder: JOB, today: _T), "second-interview")
+
+// Terminal: settled, sorts past everything still moving, and expects nothing.
+#assert.eq(is-settled(_at("offered"), ladder: JOB, today: _T), true)
+#assert.eq(rung(_at("offered"), ladder: JOB, today: _T), 6)
+#assert.eq(next-stage(_at("offered"), ladder: JOB, today: _T), none)
+
+// The last transit rung expects nothing either, without being settled.
+#assert.eq(next-stage(_at("finalist"), ladder: JOB, today: _T), none)
+#assert.eq(is-settled(_at("finalist"), ladder: JOB, today: _T), false)
+
+// The same stage against two ladders, which is the point of the parameter.
+#assert.eq(is-settled(_at("accepted"), ladder: JOURNAL, today: _T), false)
+#assert.eq(rung(_at("accepted"), ladder: JOURNAL, today: _T), 4)
+#assert.eq(next-stage(_at("accepted"), ladder: JOURNAL, today: _T), "in-production")
+
+// An UNKNOWN stage degrades rather than failing: a consumer's vocabulary grows,
+// and a note written against tomorrow's ladder must not break another page.
+#assert.eq(rung(_at("under-review"), ladder: JOB, today: _T), none)
+#assert.eq(is-settled(_at("under-review"), ladder: JOB, today: _T), false)
+#assert.eq(next-stage(_at("under-review"), ladder: JOB, today: _T), none)
+
+// Nothing has happened yet — an empty log, and a log entirely in the future.
+#assert.eq(is-settled((:), ladder: JOB, today: _T), false)
+#assert.eq(rung((:), ladder: JOB, today: _T), none)
+#assert.eq(is-settled(dates(deadline: d(2027, 1, 1)), ladder: JOB, today: _T), false)
+#assert.eq(rung(dates(deadline: d(2027, 1, 1)), ladder: JOB, today: _T), none)
