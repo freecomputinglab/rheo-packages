@@ -81,7 +81,31 @@
 == Without an index, no projected fields appear
 
 // `ideas()` unchanged is the default tier, and it must stay free: no walk of the
-// value store, and no projected keys on the row to read by accident.
+// value store, no projected keys on the row to read by accident, and no
+// `tags-dict` either.
 #context [
-  keys=#raw(repr("kind" in ideas().first()))
+  kind=#raw(repr("kind" in ideas().first())),
+  tags-dict=#raw(repr("tags-dict" in ideas().first()))
 ]
+
+== values: true — the unrestricted tier
+
+// The escape hatch that keeps the narrow default a default rather than a
+// restriction. Typst-side rendering wants arbitrary values: a datetime to format,
+// a path to render as `raw`, the full key list to emit one CSS class per tag. None
+// of that is projectable, and requiring a projection first would make the
+// accessor hostile.
+//
+// A SEPARATE FIELD from `tags`, which stays a flat array of names — widening that
+// in place is what would break rookery-search's JSON index.
+#context {
+  let r = ideas(tags: "venue-postdoc", values: true).first()
+  list(
+    [names still flat: #raw(repr(r.tags.sorted()))],
+    [values reach the row: #raw(repr(type(r.tags-dict.at("date-deadline"))))],
+    [one class per tag: #raw(r.tags-dict.keys().sorted().map(k => "idea-tag-" + k).join(" "))],
+  )
+}
+
+// Composes with `tags:`, so the cost is proportional to what was asked for.
+#context [narrowed=#raw(repr(ideas(tags: "venue-postdoc", values: true).len()))]

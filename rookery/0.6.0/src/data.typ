@@ -261,10 +261,40 @@
 // onto every row — the supported way to filter or sort on a tag VALUE without
 // walking `tag-data()`. See that function above for the scalar contract.
 //
+// `values: true` adds a `tags-dict` field holding the note's WHOLE tag
+// dictionary, values included. THREE TIERS, and the narrow one is the default so
+// nobody pays for what they did not ask for:
+//
+//   default          tag NAMES only               free
+//   index: SPEC      declared fields, scalar      one walk, only what is named
+//   values: true     the whole tag dictionary     the full value store
+//
+// This tier is not new capability — it is exactly what `tag-data()` already
+// returns. What changes is that it arrives ATTACHED TO THE ROW instead of
+// needing a keyed lookup per row, and it is paid for only when asked.
+//
+// IT EXISTS SO THE NARROW DEFAULT IS A DEFAULT AND NOT A RESTRICTION. A
+// projection is asserted-scalar, which is what makes it safe for a browser
+// panel; but requiring one before a view can render a list would make this
+// accessor hostile. Typst-side rendering legitimately wants arbitrary values: a
+// datetime to format, a back-pointer id to follow, a path to render as `raw`, and
+// the full key list to emit one CSS class per tag.
+//
+// THE SCALAR RULE IS ENFORCED AT THE PANEL, NOT HERE. A value from this tier
+// cannot cross into an HTML `data-` attribute or a JSON island without going
+// through `tag-index` first, and the consumer emitting attributes is what says so
+// — see `@rheo/rookery-search`'s panel. Nothing here polices it, because
+// Typst-side use is legitimate and unrestricted.
+//
+// IT COMPOSES WITH `tags:`, which is what keeps it from being a cliff:
+// `ideas(tags: "submission", values: true)` narrows FIRST and attaches values
+// only to the survivors, so the cost is proportional to what was asked for rather
+// than to the corpus.
+//
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
 // content and the whole point here is to return data.
-#let ideas(tags: none, match: "any", index: none) = {
+#let ideas(tags: none, match: "any", index: none, values: false) = {
   _assert-tags(tags, "#ideas'")
   _assert-match(match, "#ideas'")
   let reg = _registry.final()
@@ -321,6 +351,17 @@
         // merging here rather than earlier keeps that refusal the only defence
         // needed. `(:)` when no index was given, which merges into nothing.
         .._project(index, rec.at("tags", default: (:))),
+        // A SEPARATE FIELD, never a widening of `tags` above, and that is the one
+        // thing in this tier that would break silently if got wrong:
+        // `@rheo/rookery-search` puts `row.tags` straight into a JSON index and
+        // calls `.map` on it (`corpus.typ`, `rank.typ`), so replacing that flat
+        // array with a dictionary would reintroduce the measured content-blob
+        // failure the `tags:` comment above exists to prevent. A new field leaves
+        // search's index untouched by construction.
+        //
+        // ABSENT rather than `(:)` when not asked for, so a consumer cannot read
+        // an empty dictionary off a row and conclude the note has no tags.
+        ..if values { (tags-dict: rec.at("tags", default: (:))) } else { (:) },
       )
     })
 }
