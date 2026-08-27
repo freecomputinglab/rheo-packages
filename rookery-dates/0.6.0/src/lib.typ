@@ -7,10 +7,14 @@
 //   #import "@rheo/rookery-dates:0.6.0": dates
 //   #idea("ship", tags: dates(deadline: datetime(year: 2026, month: 9, day: 1)))[..]
 //
-// THAT SHAPE IS THE POINT. This package imports @rheo/rookery not at all, and
-// @rheo/rookery knows nothing of it — a tag fragment is a plain dictionary, so
-// composition needs no import relationship in either direction. Any package,
-// and any hand-written `#idea`, can use it.
+// THAT SHAPE IS THE POINT, and it survives 0.6.0's `#dated-idea` intact. The
+// CORE of this package imports @rheo/rookery not at all, and @rheo/rookery knows
+// nothing of it — a tag fragment is a plain dictionary, so composition needs no
+// import relationship in either direction. Any package, and any hand-written
+// `#idea`, can use it. `dated(mint)` keeps that true for the decorator too, by
+// taking the minting function as an ARGUMENT; the single `dated-idea` binding at
+// the foot of this file is the one line that imports rookery, and it exists only
+// so the common case reads as one name rather than two.
 //
 // WHAT IT OWNS: dates that are PLANS — `scheduled` (when you mean to work on
 // it) and `deadline` (a hard date), the org-mode pair.
@@ -42,3 +46,11 @@
 #import "fragment.typ": *
 #import "read.typ": *
 #import "when.typ": *
+
+// THE ONE PLACE THIS PACKAGE IMPORTS @rheo/rookery, and it buys exactly one
+// convenience: `#dated-idea` — a plain rookery note that also takes this
+// package's `log:`/`scheduled:`/`deadline:` arguments. Everything else here is
+// import-free, because `dated` (fragment.typ) receives its constructor as an
+// ARGUMENT rather than reaching for one. See the header note above.
+#import "@rheo/rookery:0.6.0": idea
+#let dated-idea = dated(idea)
