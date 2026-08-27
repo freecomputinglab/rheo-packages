@@ -18,7 +18,11 @@ if len(rails) != 6:
     print(f"FAIL: expected 6 rails, found {len(rails)}"); sys.exit(1)
 
 def rows(rail):
-    return re.findall(r'<li class="timeline-event ([a-z-]+)">(.*?)</li>', rail, re.S)
+    # `[a-z- ]` and not `[a-z-]`: the current row carries TWO classes
+    # ("timeline-past timeline-current"), and a regex that stopped at the space
+    # silently dropped that row from every count below.
+    return [(c.split()[0], b)
+            for c, b in re.findall(r'<li class="timeline-event ([a-z- ]+)">(.*?)</li>', rail, re.S)]
 
 def txt(s):
     return " ".join(re.sub(r"<[^>]+>", " ", s).split())
@@ -71,7 +75,7 @@ if 'class="timeline-today"' in rails[4]:
 # 6. AN ENTRY'S NOTE lands inside that event's own <li>, so the rail's dot stays
 # aligned to the prose it belongs to — and an event without one gets no empty
 # element, which would be worse than none.
-six = re.findall(r'<li class="timeline-event ([a-z-]+)">(.*?)</li>', rails[5], re.S)
+six = rows(rails[5])
 if len(six) != 2:
     print(f"FAIL: rail 6 has {len(six)} rows, expected 2"); sys.exit(1)
 if 'class="timeline-note"' not in six[0][1]:
@@ -84,7 +88,22 @@ if 'timeline-note' in six[1][1]:
 if 'timeline-note' in "".join(b for c, b in rows(rails[3]) if c == "timeline-expected"):
     print("FAIL: an expected rung drew a note"); sys.exit(1)
 
-print(f"  timeline-view: 6 rails, divider only where both sides exist, same-day times "
+# THE CURRENT STAGE is marked on exactly one row per rail, and it is the last PAST
+# row rather than the last row — which is the whole distinction, since a rail
+# straddling today has booked rows after it.
+for i, rail in enumerate(rails):
+    cur = re.findall(r'<li class="timeline-event ([a-z- ]+)">', rail)
+    marked = [j for j, c in enumerate(cur) if "timeline-current" in c]
+    past = [j for j, c in enumerate(cur) if c.split()[0] == "timeline-past"]
+    if not past:
+        if marked:
+            print(f"FAIL: rail {i+1} has no past rows but marked one current"); sys.exit(1)
+        continue
+    if marked != [past[-1]]:
+        print(f"FAIL: rail {i+1} marks {marked} current, wanted just the last past row {past[-1:]}")
+        sys.exit(1)
+
+print(f"  timeline-view: 6 rails, one current row each, divider only where both sides exist, same-day times "
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 

@@ -160,8 +160,13 @@
   // named after the storage would be one more thing to keep in step. The stylesheet
   // and the documented class contract both say `.timeline`.
   html.elem("ol", attrs: (class: "timeline"), {
+    // THE LAST PAST ROW IS THE CURRENT STAGE, and it gets a class of its own so the
+    // stylesheet can say so — bold, against every other stage greyed. Computed here
+    // rather than derived again in CSS, which cannot ask which row is last of a
+    // class.
     for (i, e) in past.enumerate() {
-      row("timeline-past", e.stage, e.timestamp, timed: shares-day(i), note: e.at("note", default: none))
+      let cls = if i == past.len() - 1 { "timeline-past timeline-current" } else { "timeline-past" }
+      row(cls, e.stage, e.timestamp, timed: shares-day(i), note: e.at("note", default: none))
     }
     // ONLY WHERE BOTH SIDES EXIST. A rail whose every event is past needs no line
     // saying where now is — it would be a divider at the bottom, marking nothing.

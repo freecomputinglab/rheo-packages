@@ -400,12 +400,21 @@ stylesheet at all.
 
 ```
 28.10.26  ●  submitted
-             Sent the 500-word abstract, not the full paper.
+          │  Sent the 500-word abstract, not the full paper.
 15.11.26  ●  under-review
-20.1.27   ●  revise-resubmit
+20.1.27   ●  revise-resubmit          <- current: bold
 ──────────┼──────────────────  today
  3.3.27   ○  resubmitted
 ```
+
+**The line ends at the last filled dot.** A track running on past the last thing
+that happened implies a record that continues where it stops. It is drawn as a
+segment per past row, abutting to form one rule, with the last one cut short at its
+own dot — CSS cannot ask a single element where the last past row is.
+
+**The current stage is bold and every other is greyed.** Which matters most on a
+laddered rail: with six reached rungs drawn, nothing otherwise says which one the
+note is at.
 
 The dates are a COLUMN in a left gutter, the line runs between the columns, and the
 dots sit on it. Short form (`27.8.26`, with `HH:MM` appended where an entry carries
@@ -474,7 +483,8 @@ timed event during that day.
 
 Every class is a published contract: `.timeline` on the list, `.timeline-event`
 per row plus exactly one of `.timeline-past` / `.timeline-future` /
-`.timeline-expected`, `.timeline-stage`, `.timeline-when` and `.timeline-note` inside, and
+`.timeline-expected`, `.timeline-stage`, `.timeline-when` and `.timeline-note` inside, `.timeline-current`
+alongside `.timeline-past` on the one row that is the current stage, and
 `.timeline-today` on the divider. Six custom properties theme it without
 overriding a rule — `--timeline-line`, `--timeline-fg`, `--timeline-muted`,
 `--timeline-dot`, `--timeline-gap`, `--timeline-note`, `--timeline-gutter` (the

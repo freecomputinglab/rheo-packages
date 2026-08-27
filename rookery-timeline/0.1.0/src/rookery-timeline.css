@@ -39,13 +39,37 @@
     padding: 0;
   }
 
-  .timeline::before {
+  /* THE LINE IS A SEGMENT PER PAST ROW, abutting to form one continuous rule — and
+     that is why it is not one element spanning the list. The line has to END AT THE
+     LAST FILLED DOT: a track that runs on past the last thing that happened implies
+     a record that continues where it stops. CSS cannot ask a single element where
+     the last `.timeline-past` row is, so each past row draws its own span and the
+     last one is cut short.
+
+     Only PAST rows draw one, so nothing is drawn beside a booked or expected row.
+     Consecutive segments meet exactly, because each spans its row's full height and
+     the rows have no vertical gap between them. */
+  .timeline-past::after {
     content: "";
     position: absolute;
     top: 0;
     bottom: 0;
     left: var(--timeline-gutter, 7.5em);
     border-left: 1px solid var(--timeline-line, currentColor);
+  }
+
+  /* THE TERMINUS: the last past row's segment stops at its own dot rather than
+     running to the row's bottom edge. `bottom` is measured from the row's foot, so
+     it is the row's height less the dot's centre — the dot is 8px at
+     `gap + 0.42em`, so its centre is 4px further down.
+
+     TWO SELECTORS, and both are needed. `:has(+ :not(.timeline-past))` catches a
+     past row followed by anything else — a booked row, an expected rung, or the
+     today divider, which carries `.timeline-today` and is deliberately not a past
+     row. `:last-child` catches the all-past rail, where nothing follows at all. */
+  .timeline-past:last-child::after,
+  .timeline-past:has(+ :not(.timeline-past))::after {
+    bottom: calc(100% - var(--timeline-gap, 0.2rem) - 0.42em - 4px);
   }
 
   /* TWO COLUMNS with the line between them: the date in the gutter, the stage and
@@ -93,11 +117,20 @@
     border-style: dotted;
   }
 
+  /* EVERY STAGE IS MUTED, and the CURRENT one is not. This inverts what the rail
+     used to do — every past stage took the foreground colour, so a laddered rail
+     with six reached rungs shouted six times and said nothing about which one the
+     note is actually at. */
   .timeline-stage {
-    color: var(--timeline-fg, inherit);
+    color: var(--timeline-muted, gray);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-size: 0.85em;
+  }
+
+  .timeline-current .timeline-stage {
+    color: var(--timeline-fg, inherit);
+    font-weight: 600;
   }
 
   /* THE NOTE: prose about THIS event. `flex-basis: 100%` gives it its own line
@@ -114,21 +147,17 @@
     font-size: 0.9em;
   }
 
-  /* RIGHT-ALIGNED against the line, which is what makes the gutter read as a column:
-     the line is the anchor, so the dates should end at it rather than start at the
-     page edge and leave a ragged inner margin. `tabular-nums` keeps the digits an
-     even width so the alignment survives a 1 next to an 11. */
+  /* LEFT-ALIGNED, flush with the page's own left edge — the list has no padding, so
+     the dates start where the surrounding text does rather than being indented into
+     a column of their own. `tabular-nums` still earns its place: it keeps the digits
+     an even width, so a 1 and an 11 occupy the same space and the stages to the
+     right of the line stay put. */
   .timeline-when {
-    text-align: right;
+    text-align: left;
     color: var(--timeline-muted, gray);
     font-size: 0.85em;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-  }
-
-  .timeline-future .timeline-stage,
-  .timeline-expected .timeline-stage {
-    color: var(--timeline-muted, gray);
   }
 
   /* THE DIVIDER. A rule across the rail rather than a row of its own height: it
