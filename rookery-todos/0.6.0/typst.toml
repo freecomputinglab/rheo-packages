@@ -1,0 +1,24 @@
+[package]
+name = "rookery-todos"
+version = "0.6.0"
+compiler = "0.15.0"
+entrypoint = "dist/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "Todos, epics and a dependency DAG over @rheo/rookery notes"
+repository = "https://github.com/freecomputinglab/rheo-packages"
+
+# Matches the floor @rheo/rookery 0.6.0 declares. This package hard-imports
+# rookery (and @rheo/rookery-dates), so a project using it is already on a rheo
+# that can build rookery — the floor is inherited rather than independently
+# owned.
+[tool.rheo]
+min_version = "0.6.0"
+
+# BUILT, not buildless: this package ships JavaScript for the dependency graph
+# view, so `entrypoint`, `js_scripts` and `css_stylesheet` all point into
+# `dist/` rather than `src/`. `@rheo/rookery` and `@rheo/rookery-dates` are the
+# buildless ones, and only because they ship no JS at all.
+[tool.rheo.html]
+js_scripts = "dist/lib.js"
+css_stylesheet = "dist/rookery-todos.css"

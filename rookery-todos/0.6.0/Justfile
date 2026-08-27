@@ -1,0 +1,29 @@
+default:
+    @just --list
+
+# Bundles `src/` into `dist/`: one IIFE for the graph view, plus a static copy
+# of every `.typ` and the stylesheet. `typst.toml` points at `dist/`, so this
+# must run before a project compiling against this package sees an edit —
+# unlike `@rheo/rookery`, which is buildless and takes effect immediately.
+build:
+    pnpm install
+    pnpm run build
+
+# Unit fixture for the pure Typst helpers — the tag mapping, the graph builder,
+# cycle detection and the derived predicates. No runner: an `assert` that fails
+# fails the compile with a line number, and a passing compile is the green
+# light, the same shape @rheo/rookery uses.
+test:
+    typst compile --features html --root . --format pdf test/units.typ /dev/null
+    @echo "units OK"
+
+# The browser-only half: the graph layout and rendering in `src/*.js`.
+test-js:
+    node --test test/*.test.mjs
+
+# Asserts on the OUTPUT. The one thing it exists for is the
+# `.todo-search-row[hidden]` rule: without it `#todos-search` hides nothing and
+# the filter merely reorders, which compiles clean and looks fine in the markup.
+check: build
+    rheo compile demo/rheo
+    ./demo/rheo/check.sh
