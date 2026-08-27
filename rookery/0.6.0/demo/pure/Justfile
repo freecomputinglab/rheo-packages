@@ -39,6 +39,8 @@ build:
     typst compile --features html --root ../.. paged.typ build/paged.pdf
     typst compile --features html --format html --root ../.. root-prefix.typ build/root-prefix.html
     typst compile --features html --root ../.. root-prefix.typ build/root-prefix.pdf
+    typst compile --features html --format html --root ../.. tag-index.typ build/tag-index.html
+    typst compile --features html --root ../.. tag-index.typ build/tag-index.pdf
     typst compile --features html --format html --root ../.. invisible.typ build/invisible.html
     typst compile --features html --format html --root ../.. excluded.typ build/excluded.html
     typst compile --features html --format html --root ../.. --input rookery-include=private excluded.typ build/excluded-dev.html

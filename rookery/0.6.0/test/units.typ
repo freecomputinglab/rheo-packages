@@ -20,8 +20,8 @@
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
   _is-inline, _join, _nest-outline, _norm, _norm-tags, _note-file, _outbound,
   _derived-title, _own-cited-keys, _plain, _resolve-excluded, _resolve-tags-color, _sort-ids,
-  _split-tag-list, _tag-pred, _truncate, footnote, idea, note-href, note-path,
-  window,
+  _project, _split-tag-list, _tag-pred, _truncate, footnote, idea, note-href, note-path,
+  tag-index, window,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -425,3 +425,51 @@
 // Mixed with markup the walk already handled, so the new branch composes rather
 // than short-circuiting the others.
 #assert.eq(_body-plain([A #raw("x") isn't B]), "A x isn't B")
+
+// ---- tag-index — a declared projection, flattened to SCALARS --------------
+// The scalar rule is the contract, so it is tested by its refusals as much as by
+// its results: a projected value must be safe to encode as JSON or as an HTML
+// attribute, and the only thing that guarantees that is the assert.
+#let _tags-a = (
+  "cycle-26-27": none,
+  "venue-postdoc": none,
+  "date-deadline": datetime(year: 2026, month: 11, day: 1),
+)
+#let _spec = (
+  cycle: (family: "cycle-"),
+  kind: (family: "venue-", one-of: ("postdoc", "tenuretrack")),
+  deadline: (key: "date-deadline", stamp: true),
+)
+#assert.eq(
+  _project(tag-index(_spec), _tags-a),
+  (cycle: "26-27", kind: "postdoc", deadline: "20261101"),
+)
+// A note carrying none of the tags projects `none` per field — an ABSENT fact,
+// not a missing key, so a consumer reads `r.cycle == none` rather than probing.
+#assert.eq(
+  _project(tag-index(_spec), (:)),
+  (cycle: none, kind: none, deadline: none),
+)
+// `one-of:` ORDERS the family, which is what makes two members of one family
+// resolve deterministically — tags are unordered as of 0.5.0.
+#assert.eq(
+  _project(
+    tag-index((kind: (family: "venue-", one-of: ("tenuretrack", "postdoc")))),
+    ("venue-postdoc": none, "venue-tenuretrack": none),
+  ),
+  (kind: "tenuretrack"),
+)
+// `from:` — a COMPUTATION over the tag dictionary, the only way a value that
+// cannot ride on a row (an array, a log) becomes filterable.
+#assert.eq(
+  _project(
+    tag-index((n: (from: t => t.keys().len()))),
+    _tags-a,
+  ),
+  (n: 3),
+)
+// A dateless field with `stamp: true` stays none rather than panicking: absence
+// is not a type error.
+#assert.eq(_project(tag-index((d: (key: "nope", stamp: true))), _tags-a), (d: none))
+// `_project(none, ..)` is the no-index case and merges into nothing.
+#assert.eq(_project(none, _tags-a), (:))

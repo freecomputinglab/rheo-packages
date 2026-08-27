@@ -11,6 +11,186 @@
 #import "idea.typ": *
 #import "transclusion.typ": *
 
+// ---- tag-index — a DECLARED projection of tag values onto a row -----------
+//
+//   #let INDEX = tag-index((
+//     cycle:    (family: "cycle-"),                 // flat-tag family -> "26-27"
+//     kind:     (family: "venue-", one-of: KINDS),  // -> "postdoc"
+//     deadline: (key: "date-deadline", stamp: true), // -> "20261101"
+//     stage:    (from: stage-of),                   // derived from a tag's VALUE
+//   ))
+//
+//   #context ideas(index: INDEX)   // rows carry .cycle .kind .deadline .stage
+//
+// WHY THIS EXISTS. Until now there were two accessors and nothing between them:
+// `ideas()` strips tag VALUES and publishes only names (see the `tags:` field
+// above for the measured reason), and `tag-data()` hands back every value of
+// every note. So a view needing three tag values per row had to walk the entire
+// value store. MEASURED in a consuming project: four separate views on one page
+// each opened with `let store = tag-data()` and then looked up per row — four
+// full walks of the corpus to read a handful of fields.
+//
+// SCALARS ONLY, AND ASSERTED. That assert is the whole contract, not a
+// nicety. The ban on values riding a row exists because a value is ARBITRARY —
+// content in a row is a silent `json.encode` blob. A projection makes values
+// NARROW and CHECKED instead, which is what lets them back on safely: a
+// projected field is guaranteed encodable as JSON and as an HTML attribute.
+//
+// ONE WALK. The index is resolved once for the whole `ideas()` call, not per
+// row and not per view. Callers are expected to build ONE index per page and
+// pass it to everything on it; nothing here caches, because a self-caching
+// accessor would put the four-walk problem straight back behind a nicer name.
+
+// The reserved row fields a projection may not shadow. Naming a field `href`
+// and silently replacing every link on the page is the failure this prevents.
+#let _ROW-FIELDS = (
+  "id",
+  "name",
+  "title",
+  "text",
+  "label",
+  "tags",
+  "body",
+  "href",
+  "page",
+  "created",
+  "tags-dict",
+)
+
+// Three extractor forms and no more. Each may carry `stamp: true`.
+//
+// NOT `as:`. MEASURED on typst 0.15.1: `as` is a reserved keyword and
+// `(key: "x", as: "date")` fails to parse with "expected named or keyed pair,
+// found string" — so the conversion flag cannot wear the name that reads best.
+//
+//   (key: "<tag key>")      that tag's value, or none
+//   (family: "<prefix>")    the first flat tag whose key starts with the prefix,
+//                           prefix stripped; `one-of:` restricts AND orders the
+//                           candidates, so a note carrying two of a family
+//                           resolves to the earliest LISTED rather than to
+//                           whichever `.keys()` happens to yield first — tags
+//                           are unordered as of 0.5.0 and nothing may depend on
+//                           their order
+//   (from: <function>)      called with the note's whole tag dictionary
+//
+// `from:` is not a convenience. A derived value — "the current stage of a dated
+// log", "how far this got" — is a COMPUTATION, not a tag value, and the log it
+// reads can never ride on a row under the rule above. This form is the only way
+// such a value becomes filterable or sortable at all.
+#let _project-one(field, spec, tags) = {
+  let value = if "from" in spec {
+    assert(
+      type(spec.from) == function,
+      message: "@rheo/rookery: tag-index field `" + field + "` has a `from:` that is not a function — got " + repr(
+        spec.from,
+      ),
+    )
+    (spec.from)(tags)
+  } else if "key" in spec {
+    tags.at(spec.key, default: none)
+  } else if "family" in spec {
+    let prefix = spec.family
+    let names = if "one-of" in spec {
+      // ORDERED by the caller's own list, which is what makes the answer
+      // deterministic rather than dependent on key order.
+      spec.at("one-of").filter(n => prefix + n in tags)
+    } else {
+      tags.keys().filter(k => k.starts-with(prefix)).map(k => k.slice(prefix.len()))
+    }
+    if names.len() == 0 { none } else { names.first() }
+  } else {
+    panic(
+      "@rheo/rookery: tag-index field `"
+        + field
+        + "` names no extractor. Give it exactly one of `key:` (a tag key), "
+        + "`family:` (a flat-tag prefix) or `from:` (a function of the tag "
+        + "dictionary).",
+    )
+  }
+
+  // `stamp: true` -> a zero-padded [year][month][day] STRING, never a datetime.
+  // Two reasons, and the second is the useful one: a datetime is not a scalar
+  // the assert below would pass, and a fixed-width numeric string sorts
+  // lexically in date order — the same device `_sort-ids` above already uses to
+  // sidestep how `datetime` orders as a sort key at all. So a projected date is
+  // a free sort key.
+  let value = if spec.at("stamp", default: false) and value != none {
+    assert(
+      type(value) == datetime,
+      message: "@rheo/rookery: tag-index field `"
+        + field
+        + "` says `stamp: true` but produced "
+        + repr(value)
+        + ", which is not a datetime.",
+    )
+    value.display("[year][month][day]")
+  } else { value }
+
+  assert(
+    value == none or type(value) in (str, int, float, bool),
+    message: "@rheo/rookery: tag-index field `"
+      + field
+      + "` produced "
+      + repr(type(value))
+      + "; a projected value must be a scalar (str, int, float, bool, none) so it "
+      + "is safe to encode as JSON or as an HTML attribute. A datetime wants "
+      + "`stamp: true`; content and arrays want a `from:` that reduces them.",
+  )
+  value
+}
+
+// Builds the projection. Validated HERE, once, rather than per note: a spec
+// naming `href` or carrying no extractor is a mistake about the SPEC, and
+// finding it on the first note that happens to match reports it as a mistake
+// about that note.
+#let tag-index(spec) = {
+  assert(
+    type(spec) == dictionary,
+    message: "@rheo/rookery: tag-index takes a dictionary of field-name -> extractor spec — got " + repr(spec),
+  )
+  for (field, s) in spec.pairs() {
+    assert(
+      type(s) == dictionary,
+      message: "@rheo/rookery: tag-index field `" + field + "` must be a dictionary — got " + repr(s),
+    )
+    assert(
+      field not in _ROW-FIELDS,
+      message: "@rheo/rookery: tag-index field `"
+        + field
+        + "` collides with an `ideas()` row field. Reserved: "
+        + _ROW-FIELDS.join(", ")
+        + ".",
+    )
+    let forms = ("key", "family", "from").filter(k => k in s)
+    assert(
+      forms.len() == 1,
+      message: "@rheo/rookery: tag-index field `"
+        + field
+        + "` names "
+        + str(forms.len())
+        + " extractors ("
+        + forms.join(", ")
+        + "); give it exactly one of `key:`, `family:` or `from:`.",
+    )
+  }
+  (rookery-tag-index: spec)
+}
+
+// Applied per row by `#ideas`. Not exported: a caller projects through
+// `ideas(index: ..)` rather than reaching for this.
+#let _project(index, tags) = {
+  if index == none { return (:) }
+  assert(
+    type(index) == dictionary and "rookery-tag-index" in index,
+    message: "@rheo/rookery: `index:` must be a value built by `tag-index(..)` — got " + repr(index),
+  )
+  index
+    .rookery-tag-index
+    .pairs()
+    .map(p => (p.at(0), _project-one(p.at(0), p.at(1), tags)))
+    .to-dict()
+}
+
 // ---- #ideas — every registered note, as data ------------------------------
 //
 //   #context ideas()                 // -> ((id: "idea:etal", name: "etal", ..), ..)
@@ -77,10 +257,14 @@
 // `_body-plain`/`_note-href`/`_plain` conversions. That is the whole reason the
 // parameter is here rather than left to a caller's own `.filter`.
 //
+// `index:` takes a `tag-index(..)` projection and merges its declared fields
+// onto every row — the supported way to filter or sort on a tag VALUE without
+// walking `tag-data()`. See that function above for the scalar contract.
+//
 // Must be called INSIDE a `#context` block (it reads `_registry.final()`); it
 // is not itself a context function, because a context function can only return
 // content and the whole point here is to return data.
-#let ideas(tags: none, match: "any") = {
+#let ideas(tags: none, match: "any", index: none) = {
   _assert-tags(tags, "#ideas'")
   _assert-match(match, "#ideas'")
   let reg = _registry.final()
@@ -132,6 +316,11 @@
         href: _note-href(id),
         page: _note-path(id),
         created: rec.at("created", default: none),
+        // The projection's own fields, merged LAST so a spec cannot silently
+        // shadow a row field — `tag-index` refuses those names outright, and
+        // merging here rather than earlier keeps that refusal the only defence
+        // needed. `(:)` when no index was given, which merges into nothing.
+        .._project(index, rec.at("tags", default: (:))),
       )
     })
 }
