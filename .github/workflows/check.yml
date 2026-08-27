@@ -45,11 +45,11 @@ jobs:
       # THE FLOOR MOVED to 0.6.0, and this is not the "bump it to whatever just
       # shipped" that the previous version of this comment forbade. rookery 0.5.0
       # declares `[tool.rheo] min_version = "0.6.0"` because it REQUIRES a 0.6.0
-      # surface: `_resolve-dest` (rookery/0.5.0/src/urls.typ) emits a reserved
+      # surface: `_resolve-dest` (rookery/0.6.0/src/urls.typ) emits a reserved
       # `rheo-page:<handle>` link dest, and only rheo 0.6.0 rewrites it into a
       # depth-correct href. Under 0.5.2 the dest passes straight through and every
       # page ships a literal `href="rheo-page:ideas:<slug>"`, which is what
-      # `rookery/0.5.0/demo/rheo/check.sh` catches. Following a floor that moved is
+      # `rookery/0.6.0/demo/rheo/check.sh` catches. Following a floor that moved is
       # still testing the floor; head-of-line coverage would be a second matrix
       # entry, and still is not a replacement for this.
       #
@@ -85,7 +85,7 @@ jobs:
         run: just check-versions
 
       - name: rookery unit fixture
-        run: cd rookery/0.5.0 && just test
+        run: cd rookery/0.6.0 && just test
 
       # BEFORE the namespace-symlink step, and that is not an accident:
       # @rheo/rookery-dates imports no other package by spec — it builds tag
@@ -138,7 +138,7 @@ jobs:
       # new root added to the Justfile is gated in CI automatically instead of
       # needing this step updated in the same commit and possibly forgotten.
       - name: rookery pure demo compiles, HTML and PDF
-        run: cd rookery/0.5.0/demo/pure && just build
+        run: cd rookery/0.6.0/demo/pure && just build
 
       # The rheo half of rookery's coverage, and the only thing that proves
       # package-`.marrow.typ` still mints: `check.sh` asserts on the OUTPUT —
@@ -152,7 +152,7 @@ jobs:
       # released 2026-08-16). MEASURED at that release: `demo/rheo OK`, all eight
       # blocks.
       - name: rookery rheo demo compiles and asserts, under the declared floor
-        run: cd rookery/0.5.0/demo/rheo && just check
+        run: cd rookery/0.6.0/demo/rheo && just check
 
       # rookery-search's own rheo fixture, and the reason it exists: until it did,
       # this was the one package here whose rheo path had NO demo — it shipped
