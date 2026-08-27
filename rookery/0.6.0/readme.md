@@ -16,10 +16,29 @@ next to the note, since with no name there's no other way to know it.
 #idea("etal")[A pinned note — its id is always `idea:etal`.]
 ```
 
-Full signature: `idea(level: 1, title: none, tags: (), minted: none,
-updated: none, show-date: false, show-tags: false, ..args)`, where the sink accepts the body
-alone, `(name, body)`, or `(<name>, body)` — the name may be a string or a
-Typst label, identically.
+Full signature: `idea(level: 1, title: none, tags: (), exclude-tags: (),
+minted: none, updated: none, show-date: false, show-tags: false, ..args)`, where
+the sink accepts the body alone, `(name, body)`, or `(<name>, body)` — the name
+may be a string or a Typst label, identically.
+
+## 0.6.0
+
+**Notes can be excluded from a build by tag.** `exclude-tags:` on `#idea` and
+`#tagged-idea`, composed with the `rookery-exclude` / `rookery-include`
+`sys.inputs` keys, drops a note from a build entirely — no output, no registry
+entry, no minted page, no search index entry, no feed item, no backlink. This is
+for a build script producing different subsections of one rookery: a public site
+without the `protected` notes, a dev build that keeps them. It is an ARGUMENT
+rather than a `rookery.with()` knob, and it has to be — see "Excluding notes from
+a build" for why, and for the one hazard (`@`-references) it cannot rescue.
+
+**A tag can be made invisible.** `rookery.with(invisible-tags: (..))` suppresses a
+tag's pill, its `idea-tag-<tag>` class and its generated `tags-color` rule
+everywhere, while leaving it fully filterable. For a tag used at the build level
+that should leave no visual trace. See "Invisible tags".
+
+NOT BREAKING. Both parameters default to `()`, and a project that sets neither
+gets exactly 0.5.0's behaviour.
 
 ## 0.5.0
 
@@ -1153,6 +1172,160 @@ either, though it is the feature that most invites the opposite reading.
 string, no tag is recognised or reserved, a note carrying `todo` means only that
 you wrote `todo` on it, and a filter is a question asked at one call site rather
 than a schema the rookery holds you to. Free-form array of strings, still.
+
+## Excluding notes from a build
+
+`exclude-tags:` drops a note from a build entirely, by tag. This is for a build
+script producing DIFFERENT SUBSECTIONS of one rookery from one source tree — a
+public static site with the `protected` notes removed, and a dev build that keeps
+them.
+
+An excluded note does not exist. Not hidden, not collapsed, not `display: none`:
+
+- nothing is rendered where it was written;
+- it is not in the registry, so it is absent from `#ideas()`, `#tag-data()` and
+  `#ideas-outline`;
+- no standalone page is minted for it, and it takes no row on `ideas/index.html`;
+- it is not in `@rheo/rookery-search`'s index, so it cannot be found by search;
+- it emits no `<feeds:item>` beacon, so it is not syndicated;
+- it appears in no backlink list.
+
+It also costs nothing. The gate runs before the note's marker is built, so an
+excluded note is never flattened, never walked for links or footnotes or
+citations, and never converted to plain text.
+
+### Two channels, and how they compose
+
+```
+excluded = (declared UNION --input rookery-exclude) MINUS --input rookery-include
+```
+
+The DECLARED list is the baseline, which is what makes the published build correct
+by default with no environment set at all. `rookery-include` is how a dev build
+puts those notes back. `rookery-exclude` is how a build script carves a further
+subsection without touching the project source. Both `--input` values are lists
+of tag names separated by commas, whitespace, or both.
+
+```typst
+// content/lib.typ — the one place a project configures the package
+#import "@rheo/rookery:0.6.0": idea as _idea, tagged-idea as _tagged-idea
+
+#let EX = ("protected", "private")
+#let idea = _idea.with(exclude-tags: EX)
+#let note = _tagged-idea("note", exclude-tags: EX)
+```
+
+```sh
+# the published build — nothing to pass, the declared list is the baseline
+typst compile content/index.typ site/index.html
+
+# the dev build — put them back
+typst compile --input rookery-include=protected,private content/index.typ site/index.html
+```
+
+### Why it takes TWO bindings
+
+`tagged-idea` returns a closure that calls the `idea` captured in PACKAGE scope,
+so binding `idea` alone does NOT reach a wrapper you built with `tagged-idea` —
+`#note` would go on hatching the very notes you asked to exclude. That is a
+silently incomplete exclusion in a published build, which is the worst failure
+this feature can have, so `tagged-idea` takes `exclude-tags:` too and both get
+the same list.
+
+### Why it is not `rookery.with(exclude-tags: ..)`
+
+Because it cannot be. A `rookery.with()` argument becomes document-wide state,
+state is read with `.final()`, and `.final()` requires a `#context` block — and
+the gate has to run OUTSIDE one. Five separate things in this package find notes
+by walking for `#idea`'s marker structurally, before realization, and a
+`#context`-wrapped note is invisible to all five. So the exclusion list has to be
+readable with no context, which means a function argument and `sys.inputs`.
+
+`invisible-tags` below IS a `rookery.with()` argument, and the asymmetry is
+deliberate rather than an inconsistency: that one is pure presentation, and every
+site it touches already runs inside a `#context`.
+
+### Under rheo
+
+`rheo compile` forwards no `--input` today, so the two `sys.inputs` keys
+currently reach a plain `typst compile` only. The DECLARED list works everywhere,
+including under rheo, which is why it is the baseline rather than the override. A
+`--input` flag and a `rheo.toml [inputs]` table are specced in rheo; nothing in
+this package changes when they land.
+
+### The one hazard: `@`-references
+
+An `@idea:x` reference to an excluded note is a HARD TYPST ERROR — `label
+<idea:x> does not exist in the document` — and this package cannot intercept it.
+The label is minted by the very `#idea` that got removed, so by the time the
+reference is resolved there is nothing there and no rookery code involved.
+
+Everything else degrades gracefully instead:
+
+| you wrote | excluded note | note that never existed |
+| --- | --- | --- |
+| `#window("x")` | renders nothing | panics `#window unknown note` |
+| `#window(tags: ..)` | not selected | — |
+| `#idea-body("x")` | renders nothing | panics `#idea-body unknown note` |
+| `#hyperlink("x")[text]` | renders `text`, unlinked | panics `#hyperlink unknown note` |
+
+`#hyperlink` keeps its body because it sits inline in a sentence you wrote, and
+deleting it would break the grammar around it. A genuine typo still fails loudly
+in every case — telling "deliberately excluded from this build" apart from
+"misspelt" is the whole point.
+
+So: link to an excludable note with `#window`, `#hyperlink` or `#note-href`,
+never with `@`.
+
+## Invisible tags
+
+`invisible-tags:` suppresses a tag's visible traces without affecting anything
+else about it:
+
+```typst
+#show: rookery.with(invisible-tags: ("private",))
+```
+
+It removes, everywhere:
+
+- the PILL in a note's hat — on a card, in a `#window` summary, and on a minted
+  note page (which shows its tags unconditionally, since nothing writes a
+  `show-tags:` argument for a page the package mints);
+- the `idea-tag-<tag>` CSS CLASS — on the heading, the card, a transcluded card,
+  and an `ideas/index.html` or `#ideas-outline` row;
+- the generated `.idea-tag-<tag>` rule that a `theme: (tags-color: ..)` entry
+  would otherwise emit for it.
+
+The tag's name is then absent from the HTML altogether, which is the point: a
+class alone is enough to tell a reader the tag is there.
+
+It does NOT touch filtering. `#tags-of`, `#tag-value`, `#tag-data`,
+`#ideas(tags:, match:)`, `#window(tags: ..)`, `#ideas-outline(tags: ..)` and
+`@rheo/rookery-search`'s index and tag query all still see an invisible tag. That
+is what makes it usable as an `exclude-tags` key, and it is why the two features
+compose.
+
+### The pair they exist for
+
+A `protected` tag keeps its pill: in a dev build it tells you something useful
+about the note you are reading. A `private` tag is also kept out of the public
+build, but it is authorial — you do not want private notes distinguishable from
+protected ones anywhere — so it goes on `invisible-tags` as well.
+
+```typst
+#show: rookery.with(invisible-tags: ("private",))
+```
+
+```typst
+// content/lib.typ
+#let EX = ("protected", "private")
+#let idea = _idea.with(exclude-tags: EX)
+#let note = _tagged-idea("note", exclude-tags: EX)
+```
+
+`protected` and `private` are both gone from the published build; in the dev
+build both notes are present, `protected` wears its pill, and nothing anywhere
+says `private`.
 
 ## Dates
 
