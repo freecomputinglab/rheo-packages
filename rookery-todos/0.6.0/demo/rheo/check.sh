@@ -53,4 +53,28 @@ if not bad:
 sys.exit(bad)
 PY
 
+# THE SKIN: `#window` from this package hides a closed todo, and `closed: true`
+#    opts it back in. Asserted on the OUTPUT because the whole point is what did
+#    not get rendered, which no Typst fixture can see.
+python3 - "$H" <<'SKIN' || fail=1
+import os, re, sys
+H = sys.argv[1]
+h = open(os.path.join(H, "index.html")).read()
+i = h.index("closed todo is not transcluded")
+j = h.index("An epic", i)
+seg = h[i:j]
+
+# THREE windows in that section: fetch (closed, hidden), fetch with closed: true
+# (shown), parse (open, shown). So `fetch` appears ONCE, not twice.
+n_fetch = seg.count("idea:fetch")
+if n_fetch != 1:
+    print(f"FAIL: idea:fetch appears {n_fetch} times in the skin section, wanted 1 —"
+          f" a closed todo should be hidden by default and shown only with closed: true")
+    sys.exit(1)
+if "idea:parse" not in seg:
+    print("FAIL: an OPEN todo was hidden too; the filter is not keyed on closedness")
+    sys.exit(1)
+print("  skin: closed todo hidden by default, shown with closed: true, open one unaffected")
+SKIN
+
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

@@ -153,11 +153,36 @@
   }
 
   /* Status, driven by the classes the rows already wear. `idea-tag-todo-closed`
-   * is rookery's own class for our valued `todo-closed` key — no separate
-   * status class is emitted for it, because the tag already says so. */
+   * is rookery's own class for our `todo-closed` key — no separate status class is
+   * emitted for it, because the tag already says so. */
   .todo-row.idea-tag-todo-closed .todo-row-title {
     text-decoration: line-through;
     color: var(--todo-muted-color, var(--idea-id-color, gray));
+  }
+
+  /* A CLOSED TODO IS GREYED WHERE IT IS HATCHED, not only in a list. The rule above
+   * reaches a todo in `#todos-list` and its siblings; this one reaches the CARD, on
+   * the page where the todo was written.
+   *
+   * It needs nothing new from rookery: `.idea-box` and the note's own heading
+   * already carry `idea-tag-<key>` for every tag key (rookery's `idea.typ`), so the
+   * closed marker is on the card as a class the moment a todo carries it.
+   *
+   * OPACITY, not a colour: a card is a whole block — heading, body, tag pills, its
+   * own rule — and recolouring each part would be a rule per part and a new
+   * disagreement every time rookery adds one. One property, and the card recedes
+   * whole. `.idea-box` is rookery's card container; the heading is styled alongside
+   * it because a top-level note's heading sits outside the box. */
+  .idea-box.idea-tag-todo-closed,
+  .idea.idea-tag-todo-closed {
+    opacity: var(--todo-closed-opacity, 0.55);
+  }
+
+  /* Hovering restores it. A closed todo is receded, not hidden: a reader who goes
+   * looking for one should be able to read it without opening its own page. */
+  .idea-box.idea-tag-todo-closed:hover,
+  .idea.idea-tag-todo-closed:hover {
+    opacity: 1;
   }
 
   .todo-row-ready {

@@ -70,6 +70,32 @@ states itself.
 this way: `is-overdue`, `is-upcoming`, `@rheo/rookery-todos`' readiness check and
 every existing call site kept working. What you gain is everything below.
 
+## A skin over rookery
+
+If you use plain rookery you import `idea`, `window` and the rest from rookery. If
+you use this package you import those **same names from here** instead, and get
+versions that take its date arguments:
+
+```typst
+#import "@rheo/rookery-timeline:0.1.0": idea, rookery, window
+#show: rookery
+
+#idea("ship", deadline: d, log: (submitted: d2))[Cut the release.]
+#window("ship")   // rookery's own, unchanged
+```
+
+**Two names are overridden and everything else passes through.** `idea` is
+`dated(rookery.idea)`; `tagged-idea` is the same decoration applied to the factory,
+so a family you build over this skin — a `#submission`, a `#todo` — takes the date
+arguments without wrapping anything itself. `window`, `ideas`, `tag-data`,
+`note-href`, `rookery` and the rest are rookery's, untouched.
+
+`dated-idea` is kept as an alias of `idea`, so call sites written before the skin
+keep working.
+
+**You can still import from rookery directly**, and nothing changes if you do. The
+skin is opt-in: it is where a name comes FROM, not which package provides it.
+
 ## How it composes
 
 `entries(..)` returns a TAG FRAGMENT — a plain dictionary you merge into a

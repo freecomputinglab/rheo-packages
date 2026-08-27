@@ -22,3 +22,10 @@
 #import "graph.typ": *
 #import "views.typ": *
 #import "search.typ": *
+
+// LAST, and the order is as load-bearing here as it is above. `skin.typ`
+// star-imports @rheo/rookery-timeline and shadows `window`; importing it last means
+// that shadowed `window` is what this module exports, where importing it earlier
+// would let a later star-import put rookery's own back. See its header for the
+// pattern and for the one case it cannot filter.
+#import "skin.typ": *

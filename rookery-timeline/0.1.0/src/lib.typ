@@ -63,10 +63,41 @@
 #import "index.typ": *
 #import "view.typ": *
 
-// THE ONE PLACE THIS PACKAGE IMPORTS @rheo/rookery, and it buys exactly one
-// convenience: `#dated-idea` — a plain rookery note that also takes this
-// package's `log:`/`scheduled:`/`deadline:` arguments. Everything else here is
-// import-free, because `dated` (fragment.typ) receives its constructor as an
-// ARGUMENT rather than reaching for one. See the header note above.
-#import "@rheo/rookery:0.6.0": idea
-#let dated-idea = dated(idea)
+// ---- The SKIN over @rheo/rookery ------------------------------------------
+//
+// THE PATTERN. If you use plain rookery you import `idea`, `window` and the rest
+// from rookery. If you use this package you import those SAME names from HERE
+// instead, and get versions that take this package's date arguments. A skin over
+// the default rather than a sidecar beside it.
+//
+//   #import "@rheo/rookery-timeline:0.1.0": idea, window, rookery
+//   #idea("ship", deadline: d, log: (submitted: d2))[..]
+//
+// HOW IT WORKS, and all three facts were verified before this was written:
+//
+//   1. the star-import below RE-EXPORTS every rookery name to this module's own
+//      consumers, so `window`, `ideas`, `tag-data`, `rookery` and the rest pass
+//      through untouched and this file does not have to list them;
+//   2. the aliased import keeps the ORIGINALS reachable, which is what lets a
+//      decorated version call the thing it decorates;
+//   3. a later top-level `#let` SHADOWS a star-imported name, so what this module
+//      exports is the decorated one.
+//
+// WHAT IS OVERRIDDEN, and it is only these two. Everything else is rookery's,
+// unchanged, and a consumer importing it from here gets exactly what it would get
+// from there.
+#import "@rheo/rookery:0.6.0": *
+#import "@rheo/rookery:0.6.0" as _rk
+
+// A rookery note that also takes `log:`/`scheduled:`/`deadline:`.
+#let idea = dated(_rk.idea)
+
+// The FACTORY, decorated too, so a consumer building its own family over this skin
+// — a `#submission`, a `#todo` — gets the date arguments without wrapping anything
+// itself. Without this, every such family would call `dated(..)` around its own
+// `tagged-idea(..)`, which is the boilerplate the skin exists to absorb.
+#let tagged-idea(family) = dated(_rk.tagged-idea(family))
+
+// KEPT AS AN ALIAS, and it is now the same function as `idea` above rather than the
+// only way to get one. Call sites written before the skin keep working.
+#let dated-idea = idea

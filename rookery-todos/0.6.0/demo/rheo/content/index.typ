@@ -1,8 +1,11 @@
 #import "lib.typ": demo, TODAY
 #import "@rheo/rookery:0.6.0": idea
+// `window` COMES FROM THIS PACKAGE, not from rookery, and that is the skin pattern
+// this demo exists to exercise: the name is rookery's, the version here knows about
+// todos, and importing it from the wrapper is the whole of opting in.
 #import "@rheo/rookery-todos:0.6.0": (
   epic, todo, todo-graph-view, todos-blocked, todos-list, todos-ready,
-  todos-search, todos-stale, todos-stats, todos-validate,
+  todos-search, todos-stale, todos-stats, todos-validate, window,
 )
 #import "@rheo/rookery-timeline:0.1.0": entries
 
@@ -87,6 +90,22 @@ A todo whose dependency does not exist. A dangling dep is deliberately NOT an
 error — it is reported by `#todos-validate()` and drawn dashed in the graph.
 
 #todo("blog", title: [Write the blog post], deps: ("nope",))[Depends on a note that isn't here.]
+
+== A closed todo is not transcluded
+
+`#window` from this package renders nothing for a closed todo — the thing is done,
+and the reason to window one is to have it in front of you. Between these two
+paragraphs there is a `#window("fetch")`, and `fetch` is closed:
+
+#window("fetch")
+
+...and `closed: true` opts it back in, for a page that is deliberately a record:
+
+#window("fetch", closed: true)
+
+An OPEN todo is unaffected, which is the control:
+
+#window("parse")
 
 == An epic
 

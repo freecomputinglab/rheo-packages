@@ -379,3 +379,17 @@
 // A note may be a plain string as well as content, since both are `html.elem`
 // bodies.
 #assert.eq(log-of(entries(log: (closed: (timestamp: d(2026, 8, 27), note: "plain")))).first().note, "plain")
+
+// ---- the skin over rookery -------------------------------------------------
+// This package re-exports rookery's whole surface and overrides two names. The
+// pass-through half matters as much as the override: a consumer importing from here
+// should not have to know which names are decorated.
+#assert.eq(type(window), function)
+#assert.eq(type(ideas), function)
+#assert.eq(type(tag-data), function)
+#assert.eq(type(rookery), function)
+// The two that ARE decorated.
+#assert.eq(type(idea), function)
+#assert.eq(type(tagged-idea("venue")), function)
+// `dated-idea` is now an alias of `idea` rather than the only way to get one.
+#assert.eq(dated-idea, idea)

@@ -84,6 +84,44 @@ Migrating: change every `closed: true` to the date it closed, and every
 `closed: <datetime>` keeps working. If you read `closed-on`, it now comes from the
 log; if you filtered on `tags:todo-closed`, that still works.
 
+## A skin over rookery
+
+Same pattern as `@rheo/rookery-timeline`, one layer further out: import `idea`,
+`window` and the rest **from here** and get versions that know about todos.
+
+```typst
+#import "@rheo/rookery-todos:0.6.0": idea, rookery, todo, window
+```
+
+It imports the **timeline skin**, not rookery directly, so the decoration composes:
+`idea` arriving here is already `dated(rookery.idea)`, and a note written through
+this package takes the log arguments as well as the todo ones.
+
+**`window` is the one name this layer overrides.** A closed todo is not transcluded:
+
+```typst
+#window("some-todo")                // renders nothing if that todo is closed
+#window("some-todo", closed: true)  // opts it back in
+```
+
+A closed todo windowed into a page is noise — the thing is done, and the reason to
+window a todo at all is to have it in front of you.
+
+**Only the NAMED case is filtered**, and that is a limitation rather than an
+oversight. `#window` takes either a name or a `tags:`/`match:` selection. Given a
+name, this wrapper reads that note's tags and decides. Given a selection, rookery
+does the selecting internally and `tags:`/`match:` are any/all over a list with **no
+negation** — so a wrapper cannot express "todo and not closed", and a tag-selected
+window still shows closed todos. Fixing that needs a negation or a predicate hook in
+rookery's own tag predicate, not a workaround here.
+
+**A closed todo is also greyed where it is hatched**, not only in a list view. It
+needs nothing new from rookery: `.idea-box` and a note's heading already carry
+`idea-tag-<key>` for every tag key, so the closed marker is on the card as a class.
+The card recedes as a whole via `opacity` — one property rather than a rule per part
+— and hovering restores it, since a closed todo is receded and not hidden. Override
+`--todo-closed-opacity` to taste.
+
 ## The three tag surfaces
 
 This is the whole design of the package. Read it before adding an attribute.
