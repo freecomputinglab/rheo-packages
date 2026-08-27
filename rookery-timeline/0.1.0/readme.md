@@ -33,9 +33,16 @@ rookery's `created` with the log.
 
 ### What moved, if you are coming from `rookery-dates`
 
+The old package's name is written WITHOUT a colon before its version below, and
+that is deliberate rather than sloppy: `just check-versions` greps for the
+`@rheo/<pkg>:<x.y.z>` spec form and fails on one naming a version that is not in
+this repo. `rookery-dates/` has been removed, so the spec form here — in prose
+about what the package used to be called — would fail the lint. MEASURED: it did,
+on this exact line.
+
 | was | is |
 | --- | --- |
-| `@rheo/rookery-dates:0.6.0` | `@rheo/rookery-timeline:0.1.0` |
+| `@rheo/rookery-dates` 0.5.0 and 0.6.0 | `@rheo/rookery-timeline:0.1.0` |
 | the `date-log` tag key | `timeline-log` |
 | `dates(scheduled:, deadline:, log:)` | `entries(scheduled:, deadline:, log:)` |
 | `log-view(..)` | `timeline-view(..)` |
