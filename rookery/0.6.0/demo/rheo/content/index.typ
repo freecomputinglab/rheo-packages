@@ -25,7 +25,7 @@ the only thing that produces a page backlink:
   #window(<sub-note>)
 ]
 
-#note("plain-note", title: [Plain note], updated: datetime(year: 2026, month: 5, day: 2))[
+#note("plain-note", title: [Plain note], created: datetime(year: 2026, month: 5, day: 2))[
   A `#note`, so the registry carries a prepended `note` tag and the heading a
   `idea-tag-note` class.
 
@@ -80,7 +80,7 @@ the only thing that produces a page backlink:
 // a page `.marrow.typ` mints.
 // Same rule about its body as above: no tag name, no class name, no backticked
 // example — only the marker `check.sh` greps for.
-#note("secret-note", title: [Secret note], tags: ("secret",), updated: datetime(year: 2026, month: 6, day: 1))[
+#note("secret-note", title: [Secret note], tags: ("secret",), created: datetime(year: 2026, month: 6, day: 1))[
   SECRETBODY — this note survives the build in full. What disappears is one of its
   two tags: the pill, the class and the generated rule for it are all absent, here
   and on its own minted page and on the index row, while its other tag keeps all

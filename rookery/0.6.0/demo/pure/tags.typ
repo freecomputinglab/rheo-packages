@@ -45,19 +45,11 @@
   created: datetime(year: 2025, month: 2, day: 1),
 )[A note with tag pills AND a date in the same hat.]
 
-// `updated:` distinct from `created:` — the hat shows `resolved-updated`, not
-// `resolved-created` (lib.typ:1478-1492), so this hat reads 2026-03-15 despite
-// having been created in 2024. Combined with show-tags: true since both are
-// the same hat-rendering feature.
-#idea(
-  "n-updated",
-  title: [Updated vs created],
-  tags: ("phd",),
-  created: datetime(year: 2024, month: 1, day: 1),
-  updated: datetime(year: 2026, month: 3, day: 15),
-  show-date: true,
-  show-tags: true,
-)[Minted 2024, updated 2026 — the hat shows 2026-03-15, not 2024-01-01.]
+// There was an `updated:`-versus-`created:` case here until 0.6.0, covering a hat
+// that showed the later of the two. `updated:` is gone: a note's lifecycle is
+// @rheo/rookery-dates' dated log now, and core keeps only the date it can resolve
+// without being told — `created`. The note above already covers a date in the hat
+// alongside tag pills, so there is nothing left for a second one to show.
 
 // #window(show-tags: true) — the pill row renders in a window's summary too,
 // not just #idea's own card: `show-tags` threads into `_window-content` the

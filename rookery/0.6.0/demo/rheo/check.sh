@@ -175,20 +175,21 @@ fi
 #    feeds's own demo, which needs rheo >= 0.6.0 and so cannot run here.
 #
 #    EXACTLY the dated notes, and only them: `.marrow.typ` skips a beacon for a
-#    note with neither `minted` nor `updated`, because Atom requires `<updated>`
-#    and an undated entry is one `items()` would drop anyway. root-note and
-#    inner-note are undated on purpose, so a beacon for either means that gate
-#    stopped working.
+#    note with no `created` date, because Atom requires `<updated>` and an
+#    undated entry is one `items()` would drop anyway. root-note, inner-note and
+#    derived-note are undated on purpose — this demo sets no document date, so
+#    they resolve to none — and a beacon for any of them means that gate stopped
+#    working.
 # `{ grep || true; }` INSIDE the braces, the same guard this file's own header
 # comment records for the version in `check-versions`: with `set -o pipefail`,
 # grep's exit 1 for NO MATCHES kills the script before `note` can say anything —
 # and no match is exactly the failure this line exists to report. MEASURED while
 # writing it: with `syndicate: false` the check exited 1 silently instead of
 # naming the count.
-# THREE dated notes now: `plain-note`, `root-note`'s document date, and
-# `secret-note`, which carries an explicit `updated:`. `private-note` is excluded
-# and so emits no beacon either — a second place the exclusion has to reach, since
-# `.marrow.typ` writes one beacon per minted page.
+# THREE dated notes: `plain-note`, `secret-note` and `sub-note`, each carrying an
+# explicit `created:`. `private-note` is excluded and so emits no beacon either — a
+# second place the exclusion has to reach, since `.marrow.typ` writes one beacon
+# per minted page.
 beacons=$({ grep -o '<li>idea:[^<]*</li>' "$H/index.html" || true; } | wc -l)
 [ "$beacons" -eq 3 ] ||
   note "index.html renders $beacons syndication beacons, expected exactly 3 (the dated notes)"
@@ -198,7 +199,7 @@ grep -q '<li>idea:plain-note | Plain note | ideas/plain-note.html | note</li>' "
 grep -q '<li>idea:sub-note | Sub note | ideas/sub-note.html |' "$H/index.html" ||
   note "sub-note's beacon payload is wrong — note it is written on a NESTED vertebra"
 if grep -q '<li>idea:root-note' "$H/index.html"; then
-  note "an undated note emitted a beacon; the minted/updated gate is not holding"
+  note "an undated note emitted a beacon; the created gate is not holding"
 fi
 
 

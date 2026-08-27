@@ -73,7 +73,7 @@
 // two classes in two places for one piece of metadata. Both now pass it here.
 //
 // A STRING, already formatted, not a `datetime`: the two call sites resolve which
-// date to show and how to display it (`#idea` from `updated`/`created`/the
+// date to show and how to display it (`#idea` from `created`/the
 // document's own, `_window-content` from the registry record), and the paged
 // branches need the same string without a hat to hang it on. Formatting here would
 // put that decision in a third place.

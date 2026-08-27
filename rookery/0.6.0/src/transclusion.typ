@@ -96,13 +96,15 @@
 // Must be called from inside a `context` block: `_permalink` reads the page
 // handle and the prefix state. Both callers already are.
 #let _window-content(id, rec, shown, folded, show-date, show-tags, windows-claim: false) = {
-  // `updated`, not `created`, matching `#idea`'s own hat. The registry record
-  // carries both, and `updated` already falls back to `created` (which falls back
-  // to the document's date) when the note never named one — so a note that says
-  // nothing looks exactly as it did, and a note that does shows when it was last
-  // touched, which is what a reader of a rookery wants off the top of a window.
-  let date = if show-date and rec.updated != none {
-    rec.updated.display("[year]-[month]-[day]")
+  // `created`, matching `#idea`'s own hat. There was an `updated` field here
+  // until 0.6.0 and this hat showed it, on the argument that a reader wants to
+  // know when a note was last touched. Core no longer answers that: a
+  // hand-maintained `updated:` is a second date that can contradict the note's
+  // actual history, and @rheo/rookery-dates now stores a dated log and derives
+  // last-touched from it. A project wanting that in a window hat passes it, or
+  // reads `updated-of(entry, tags)` there.
+  let date = if show-date and rec.created != none {
+    rec.created.display("[year]-[month]-[day]")
   } else { none }
 
   // THE NAME THIS WINDOW SHOWS, hoisted above the target branch because BOTH arms

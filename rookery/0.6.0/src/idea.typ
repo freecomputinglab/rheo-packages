@@ -28,7 +28,7 @@
 // Defined after `_outbound` above because it calls it at registration time, and
 // a `#let` closure captures the scope visible AT DEFINITION time.
 
-#let idea(level: 1, title: none, tags: (), exclude-tags: (), created: none, updated: none, show-date: false, show-tags: false, ..args) = {
+#let idea(level: 1, title: none, tags: (), exclude-tags: (), created: none, show-date: false, show-tags: false, ..args) = {
   // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
@@ -186,8 +186,8 @@
         _pfx() + str(n)
       }
 
-      // Resolution order, most specific first: explicit created:/updated:
-      // arguments, then the containing document's own
+      // Resolution order, most specific first: the explicit created:
+      // argument, then the containing document's own
       // `#set document(date:)`, else no date. MEASURED: a document with no
       // date set yields `auto`, NOT `none` — must be tested for explicitly.
       // Resolved HERE, outside the state.update() closure below: anything
@@ -198,19 +198,24 @@
         if d == auto { none } else { d }
       }
       let resolved-created = if created != none { created } else { doc-date }
-      let resolved-updated = if updated != none { updated } else { resolved-created }
 
       // `show-date` gates display only — the date is always RESOLVED and
       // stored on the registry record above, so a #window of this note can
       // still show it even when the note's own hat (here) does not.
       //
-      // `resolved-updated`, NOT `resolved-created`: the date a reader wants off the
-      // top of a card is when the note was last touched. Nothing changes for a note
-      // that never says `updated:`, because `resolved-updated` falls back to
-      // `resolved-created` one line above, which falls back to the document's own
-      // date. `_window-content` reads the same field off the registry record.
-      let date = if show-date and resolved-updated != none {
-        resolved-updated.display("[year]-[month]-[day]")
+      // `created`, and ONLY `created`. There used to be an `updated:` beside it,
+      // and the argument for showing it here was that "the date a reader wants off
+      // the top of a card is when the note was last touched". That argument was
+      // right and this package was the wrong place to answer it: a hand-maintained
+      // `updated:` is a second date the author has to remember, and it can
+      // contradict what actually happened to the note. A note's LIFECYCLE is
+      // @rheo/rookery-dates' business as of 0.6.0 — it stores a dated log and
+      // derives last-touched from it, so a project wanting that reads
+      // `updated-of(entry, tags)` there rather than a field here. Core keeps the
+      // one date it can resolve without being told anything: when the note was
+      // created. `_window-content` reads the same field off the registry record.
+      let date = if show-date and resolved-created != none {
+        resolved-created.display("[year]-[month]-[day]")
       } else { none }
 
       // The note's CONTEXT: the handle of the page this `#idea` was written
@@ -286,7 +291,6 @@
         raw: body,
         body: _flatten(body),
         created: resolved-created,
-        updated: resolved-updated,
         origin: origin,
         links: links,
         tags: tags,
@@ -445,7 +449,7 @@
 // its whole `#todo`/`#epic` surface on this.
 //
 // The returned function forwards every other argument (level, title, created,
-// updated, show-date, show-tags) and the POSITIONAL SINK untouched, so
+// show-date, show-tags) and the POSITIONAL SINK untouched, so
 // `#note[body]`, `#note("name")[body]` and `#note(<name>)[body]` all work
 // exactly as the `#idea` forms do.
 //

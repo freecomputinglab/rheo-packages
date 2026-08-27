@@ -224,9 +224,12 @@
       // that argument — nobody writes `#idea` for this page, `.marrow.typ` mints
       // it from the registry — and a note's OWN page is the one place the date is
       // not clutter: it is the page's metadata, not a decoration on someone
-      // else's prose. `updated` for the same reason the hat elsewhere shows it,
-      // and it falls back to `minted` and then to the document date, so a note
-      // that names neither still shows something rather than nothing.
+      // else's prose. `created`, the one date core resolves as of 0.6.0 — it
+      // falls back to the document's own date, so a note that names none still
+      // shows something rather than nothing. There was an `updated` beside it
+      // until 0.6.0; a note's lifecycle is @rheo/rookery-dates' dated log now,
+      // and a project wanting last-touched on this page reads it from there
+      // through its own `idea-page-template`.
       #_head(
         _permalink-tab(
           id,
@@ -245,8 +248,8 @@
           // store became a dictionary: `_permalink-tab` maps over an ARRAY OF
           // STRINGS and hard-errors on anything else.
           tags: rec.at("tags", default: (:)).pairs().filter(p => p.at(1) == none).map(p => p.at(0)),
-          date: if rec.updated == none { none } else {
-            rec.updated.display("[year]-[month]-[day]")
+          date: if rec.created == none { none } else {
+            rec.created.display("[year]-[month]-[day]")
           },
         ),
         html.elem(
@@ -429,10 +432,10 @@
         }
       }
       // The beacon itself. Skipped when `syndicate` is off (the default), and
-      // skipped per-note when the note has neither `minted` nor `updated`:
-      // feeds drops an undated entry anyway (Atom's `<updated>` is
-      // required, and Typst cannot stat a file to invent one), so emitting
-      // one here would only produce an entry the feed silently discards.
+      // skipped per-note when the note has no `created` date: feeds drops an
+      // undated entry anyway (Atom's `<updated>` is required, and Typst cannot
+      // stat a file to invent one), so emitting one here would only produce an
+      // entry the feed silently discards.
       // Skips the BEACON only — the page above is still minted regardless.
       //
       // Field mapping, matched to what `.marrow.typ`'s own `rheo-document`
@@ -450,7 +453,7 @@
       //     `rec.tags`, so a stale record cannot hard-fail this. `.keys()`
       //     because the store is a DICTIONARY as of 0.5.0 and a feed category
       //     is a tag NAME — every key, valued tags included.
-      #if syndicate and (rec.created != none or rec.updated != none) {
+      #if syndicate and rec.created != none {
         [#metadata((
           id: id,
           // A LABEL again, for the same reason as `rheo-document(title:)` below: a
@@ -463,7 +466,11 @@
           },
           page: page-at.file,
           published: rec.created,
-          updated: rec.updated,
+          // BOTH from `created`, because a note has one date in core as of
+          // 0.6.0 and Atom requires `<updated>`. A project tracking a real
+          // lifecycle through @rheo/rookery-dates' log emits its own beacon
+          // with the derived date rather than relying on this default.
+          updated: rec.created,
           categories: rec.at("tags", default: (:)).keys(),
         ))#label("feeds:item")]
       }
@@ -565,11 +572,11 @@
         attrs: (class: "idea-outline"),
         rows
           .map(e => {
-            // `updated` first and `created` behind it, the same fallback the
-            // minted page's own date uses, so one note does not date itself two
-            // ways on two pages. A note with neither shows none, rather than a
-            // blank element the stylesheet would still space.
-            let when = if e.updated != none { e.updated } else { e.at("created", default: none) }
+            // `created`, the same date the minted page's own hat uses, so one
+            // note does not date itself two ways on two pages. A note without
+            // one shows none, rather than a blank element the stylesheet would
+            // still space.
+            let when = e.at("created", default: none)
             html.elem(
               "li",
               // `e.tags` is an `ideas()` row's field, which is ALREADY a flat

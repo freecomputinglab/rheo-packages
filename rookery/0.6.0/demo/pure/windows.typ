@@ -42,7 +42,7 @@
 // (inert on the paged target — nothing to click there).
 #window("w-outer", folded: true)
 
-// show-date: true — the resolved `updated` date (falling back to `created`)
+// show-date: true — the resolved `created` date
 // appears at the right-hand end of the hat, inside the window's summary,
 // regardless of whether `#idea` itself was told to show one.
 #window("w-outer", show-date: true)

@@ -32,8 +32,7 @@
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
 //    page:    "ideas/etal.html", // site-root-relative, or none — see `note-path`
-//    created:  datetime or none,
-//    updated: datetime or none)
+//    created: datetime or none)
 //
 // `tags` is the note's tag NAMES, every key including the valued ones, and
 // TAGS ARE UNORDERED as of 0.5.0: key order is unspecified and nothing may
@@ -133,7 +132,6 @@
         href: _note-href(id),
         page: _note-path(id),
         created: rec.at("created", default: none),
-        updated: rec.at("updated", default: none),
       )
     })
 }
