@@ -549,7 +549,9 @@
       // recognised set, and styling one here would invent an opinion.
       (e, sub) => html.elem(
         "li",
-        attrs: (class: (("idea-outline-row",) + e.tags.keys().map(l => "idea-tag-" + l)).join(" ")),
+        // Invisible tags drop out of an outline row for the same reason they drop
+        // out of a card: the class names the tag in the HTML.
+        attrs: (class: (("idea-outline-row",) + _visible-tags(e.tags.keys()).map(l => "idea-tag-" + l)).join(" ")),
         link(e.loc, e.title) + if sub == none { [] } else { sub },
       ),
     )

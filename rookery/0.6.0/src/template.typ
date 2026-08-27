@@ -117,6 +117,7 @@
   ref-target: "page",
   syndicate: false,
   index-page: true,
+  invisible-tags: (),
   doc,
 ) = {
   _validate-config(
@@ -128,6 +129,7 @@
     ref-target,
     syndicate,
     index-page,
+    invisible-tags,
   )
   let resolved = _resolve-theme(
     theme,
@@ -166,6 +168,12 @@
   _idea-page-template.update(_ => idea-page-template)
   _syndicate.update(syndicate)
   _index-page.update(index-page)
+  // Normalized to a flat array of NAMES here, once, so `_visible-tags` can do a
+  // plain `t not in hidden` on every call rather than re-deriving the shape.
+  // `.update(value)` and never `.update(_ => value)` — an array is not a
+  // function, so the wrapper `_idea-page-template` needs would store a closure
+  // (see `_syndicate`, state.typ).
+  _invisible-tags.update(_norm-tags(invisible-tags).keys())
   _theme.update(resolved)
   // DOCUMENT-SCOPE theme publication, ADDITIVE to the per-container INLINE
   // styling `_themed` still applies everywhere it already did (see that

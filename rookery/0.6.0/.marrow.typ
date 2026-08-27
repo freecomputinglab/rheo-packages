@@ -555,7 +555,9 @@
               // `e.tags` is an `ideas()` row's field, which is ALREADY a flat
               // array of names as of 0.5.0 — no `.keys()` here, and do not add
               // one. The dictionary lives on the registry record, not the row.
-              attrs: (class: (("idea-outline-row",) + e.tags.map(t => "idea-tag-" + t)).join(" ")),
+              // Invisible tags drop out here too. `e.tags` is an `ideas()` ROW field
+              // and is ALREADY a flat array of names — no `.keys()`, do not add one.
+              attrs: (class: (("idea-outline-row",) + _visible-tags(e.tags).map(t => "idea-tag-" + t)).join(" ")),
               // The BASENAME, not `e.href`: a sibling under `_IDEA-DIR`, so no
               // depth arithmetic and no `state("rheo-handle")` read — which at
               // this scope would be the last spine vertebra's, not this page's.

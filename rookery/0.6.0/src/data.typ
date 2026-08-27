@@ -164,6 +164,7 @@
   ref-target,
   syndicate,
   index-page,
+  invisible-tags,
 ) = {
   assert(
     type(prefix) == str and prefix != "" and not prefix.contains(":"),
@@ -224,6 +225,10 @@
     type(index-page) == bool,
     message: "@rheo/rookery: `index-page` must be a boolean — got " + repr(index-page),
   )
+  // THROUGH `_assert-tags`, the same helper every other tag-shaped argument in
+  // this package uses, so `invisible-tags: "private"` needs no array ceremony and
+  // a wrong type reads the same way here as it does on `#idea`'s own `tags:`.
+  _assert-tags(invisible-tags, "`invisible-tags`")
 }
 
 // Resolve a tags-color dictionary: each tag maps to either a colour/CSS-string

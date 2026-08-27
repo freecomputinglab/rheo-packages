@@ -264,7 +264,11 @@
       // CLASSES COVER EVERY KEY, valued tags included: `.idea-tag-<key>` is the
       // hook a project styles a tag by, and a tag that carries metadata is no
       // less a tag for it. Only the PILLS below are restricted to flat tags.
-      let cls = ("idea",) + tags.keys().map(l => "idea-tag-" + l)
+      // INVISIBLE TAGS DROP OUT OF THE CLASS LIST TOO, not only out of the pill:
+      // `idea-tag-<tag>` in the HTML names the tag just as plainly as a pill does,
+      // and it is the hook a stylesheet (or a `tags-color` rule) reaches it by.
+      // See `_invisible-tags`/`_visible-tags` (state.typ).
+      let cls = ("idea",) + _visible-tags(tags.keys()).map(l => "idea-tag-" + l)
       // The flat tags — those whose value is `none`. This is what `show-tags:`
       // renders as pills: a valued tag's name alone says nothing useful in a
       // pill (`depends-on` with no dependencies shown), so a package carrying
@@ -310,7 +314,7 @@
         // so a tag can style the whole card, not just the heading; the
         // heading's own class list (above) is untouched for existing
         // stylesheets.
-        let box-cls = ("idea-box",) + tags.keys().map(l => "idea-tag-" + l)
+        let box-cls = ("idea-box",) + _visible-tags(tags.keys()).map(l => "idea-tag-" + l)
         _sweep-block()
         // Bracketed so a link written INSIDE this note counts as the note's,
         // not as its page's — see `_edge`.

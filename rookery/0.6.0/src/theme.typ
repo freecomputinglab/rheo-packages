@@ -2,9 +2,15 @@
 // properties.
 //
 // Read by every element this package renders, through `_themed`, which is why
-// this sits low in the module order — it depends on nothing but `base`.
+// this sits low in the module order — it depends on nothing but `base` and the
+// state module.
 
 #import "base.typ": *
+// `state.typ` for `_visible-tags` alone, so `_tags-color-rules` below emits no
+// rule for an invisible tag. Safe and in order: `state.typ` imports nothing but
+// `base.typ`, and `lib.typ` already loads it BEFORE this file, so there is no
+// cycle here — the module graph stays a DAG.
+#import "state.typ": *
 
 // ---- Theme — configurable the same way ------------------------------------
 //
@@ -147,7 +153,13 @@
 // validated as a usable CSS class, which is what makes interpolating it into a
 // selector here safe.
 #let _tags-color-rules() = {
-  let tags-color = _theme.final().at("tags-color", default: (:))
+  // AN INVISIBLE TAG GETS NO RULE. Nothing wears its `idea-tag-<tag>` class any
+  // more (see `_visible-tags`, state.typ), so a rule for it would be dead CSS
+  // shipped on every page — and, worse, the one place the tag name would still
+  // appear in the output of a build that asked for it to leave no trace.
+  let all-tags-color = _theme.final().at("tags-color", default: (:))
+  let visible = _visible-tags(all-tags-color.keys())
+  let tags-color = all-tags-color.pairs().filter(p => p.at(0) in visible).to-dict()
   let rules = tags-color
     .pairs()
     .map(((tag, def)) => {

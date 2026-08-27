@@ -239,7 +239,9 @@
     // counter's value at THIS (later, transcluded) position instead, so it
     // is left without an id/permalink rather than shown wrong.
     let id = if v.named { _pfx() + v.base } else { none }
-    let cls = ("idea",) + v.tags.keys().map(l => "idea-tag-" + l)
+    // Invisible tags drop out here as they do on a note hatched in place —
+    // a transcluded card must not name a tag its own card would hide.
+    let cls = ("idea",) + _visible-tags(v.tags.keys()).map(l => "idea-tag-" + l)
     if _target() == "html" or _target() == "epub" {
       let attrs = (class: cls.join(" "))
       if id != none { attrs = attrs + (id: id) }
@@ -256,7 +258,7 @@
           }),
         ),
       )
-      let box-cls = ("idea-box",) + v.tags.keys().map(l => "idea-tag-" + l)
+      let box-cls = ("idea-box",) + _visible-tags(v.tags.keys()).map(l => "idea-tag-" + l)
       // Sweep first, OUTSIDE the bracket: it belongs to the page, claiming
       // prose citations written before this note. The references block goes
       // inside the bracket, so the back-references Typst puts in its entries

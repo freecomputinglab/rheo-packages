@@ -97,14 +97,36 @@
 // carried by the class this element already wore. Nothing to do here but wear
 // the class — which is exactly why the theme now also reaches the surfaces this
 // function never touched.
+// INVISIBLE TAGS ARE DROPPED HERE, at the one funnel every pill goes through —
+// `#idea`'s hat, `_window-content`'s summary hat and a minted note page's hat all
+// call this function, so filtering once covers all three and they cannot drift
+// about which tags are invisible. See `_invisible-tags` (state.typ) for what
+// makes a tag invisible and why it is presentation-only.
+//
+// The callers still pass FLAT tags only (those whose value is `none`) — that is a
+// separate and older rule, and this does not replace it: a valued tag's name
+// alone says nothing useful in a pill.
+//
+// `_visible-tags` needs `#context`, and this function is always called from
+// inside one (every caller reads the registry or the prefix to get here).
 #let _permalink-tab(id, href: auto, tags: (), date: none) = html.elem(
   "span",
   attrs: (class: "idea-tab"),
-  _permalink(id, href: href)
-    + (if tags.len() == 0 { [] } else {
-      tags.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
-    })
-    + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) }),
+  {
+    // ONE PARENTHESISED expression, not three lines of `+ ...`. In a Typst CODE
+    // block each line is a statement, so a leading `+` is parsed as UNARY plus
+    // and fails with "cannot apply unary '+' to content" — MEASURED here. The
+    // parens make the whole thing one expression again, exactly as it was when
+    // it was the function's bare body.
+    let shown = _visible-tags(tags)
+    (
+      _permalink(id, href: href)
+        + (if shown.len() == 0 { [] } else {
+          shown.map(t => html.elem("span", attrs: (class: "idea-tag idea-tag-" + t), t)).join()
+        })
+        + (if date == none { [] } else { html.elem("span", attrs: (class: "idea-date"), date) })
+    )
+  },
 )
 
 // The tab and the heading as ONE element, wherever a note wears a header.

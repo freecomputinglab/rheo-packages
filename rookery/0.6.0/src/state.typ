@@ -183,6 +183,68 @@
 // `#window(tags: "post", ..)`, weeknotes' is the same — must not find a second
 // one published under it because it upgraded the package.
 #let _index-page = state("rheo-idea-index-page", false)
+
+// ---- Invisible tags — a tag that leaves no visual trace -------------------
+//
+//   #show: rookery.with(invisible-tags: ("private",))
+//
+// The complement to `exclude-tags` (see `_resolve-excluded`, base.typ), for a
+// tag used at the BUILD level rather than as a label a reader should ever see.
+//
+// THE CASE THIS EXISTS FOR. A project has a `protected` tag (kept out of the
+// public build) and a `private` tag (also kept out, but authorial — private
+// notes must not be distinguishable from protected ones anywhere). `protected`
+// KEEPS its pill, because in the dev build it tells the author something.
+// `private` goes here, so there is no `private` pill and no `idea-tag-private`
+// class in any build.
+//
+// SUPPRESSES BOTH THE PILL AND THE CLASS: the pill in a card's hat, a window
+// summary's hat and a minted note page's hat; the `idea-tag-<tag>` class on the
+// heading, the card, a transcluded card and an `ideas/index.html` row; and the
+// generated `.idea-tag-<tag>` rule a `theme: (tags-color: ..)` entry would
+// otherwise emit for it (`_tags-color-rules`, theme.typ). The tag name is then
+// absent from the HTML altogether, which is the point — a class alone is enough
+// to tell a reader the tag is there.
+//
+// DOES NOT TOUCH FILTERING, and must not: `tags-of`, `tag-value`, `tag-data`,
+// `ideas(tags:, match:)` and `#window(tags: ..)` all still see an invisible tag,
+// and so does `@rheo/rookery-search`'s index and tag query. That is what makes
+// an invisible tag usable as an exclusion key at all — the two features compose
+// precisely because this one is presentation-only.
+//
+// WHY THIS ONE MAY BE A `rookery.with()` STATE WHILE `exclude-tags` MAY NOT.
+// Every site listed above already runs inside a `#context` block, so `.final()`
+// is available with no restructuring. `exclude-tags` has to be readable with NO
+// context, because its gate sits above the `figure(kind: IK)` marker that five
+// structural walks depend on (see `#idea`'s gate). The asymmetry is deliberate
+// — do not "unify" the two onto one surface.
+//
+// A plain value, so `.update(invisible-tags)` — NOT `.update(_ => ..)`. The
+// `_ =>` wrapper exists only to stop `state.update` from calling a FUNCTION
+// value as an updater, and an array is not one. Same discipline as `_syndicate`
+// above.
+#let _invisible-tags = state("rheo-idea-invisible-tags", ())
+
+// Tag names minus the invisible ones.
+//
+// ONE HELPER FOR EVERY SITE, deliberately: the pill a note wears, the
+// `idea-tag-<tag>` class it carries and the generated CSS rule for that class
+// must never disagree about what is invisible, and a second copy of
+// `t not in hidden` is how they would come to.
+//
+// DEFINED IN THIS FILE rather than beside its first caller, because the callers
+// span the module graph — `theme.typ`'s `_tags-color-rules`, `permalink.typ`'s
+// `_permalink-tab`, `idea.typ`, `transclusion.typ` and `.marrow.typ` — and
+// `state.typ` is imported before all of them. A `#let` closure captures the
+// scope visible AT DEFINITION time, so anywhere later would be invisible to
+// something.
+//
+// Needs `#context`: it reads `_invisible-tags.final()`. Every caller is already
+// inside one, which is the property that lets this be a state at all.
+#let _visible-tags(names) = {
+  let hidden = _invisible-tags.final()
+  names.filter(t => t not in hidden)
+}
 // ---- The registry, and a footnote's numbering within its idea -----------
 //
 // `#idea[body]`, `#idea("name")[body]`, and `#idea(<name>)[body]` all work via
