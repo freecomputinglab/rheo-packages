@@ -25,9 +25,12 @@
 #assert.eq(todo-tags(deps: ("a", "b")).at("todo-deps"), ("a", "b"))
 #assert.eq(todo-tags(metadata: (estimate: 30)).at("todo-metadata"), (estimate: 30))
 
-// `closed` — PRESENCE is the status, the value is when.
-#assert.eq(todo-tags(closed: true).at("todo-closed"), none)
-#assert.eq(todo-tags(closed: d(2026, 8, 1)).at("todo-closed"), d(2026, 8, 1))
+// `closed` — the FLAT marker is the filterable status; the DATE is in the log,
+// written by `#todo` rather than by `todo-tags` (see CLOSED-KEY in tags.typ).
+// A date is required as of 0.6.0: `closed: true` is refused, because a log entry
+// needs one and this package has no clock to stamp it from.
+#assert.eq(todo-tags(closed: d(2026, 8, 1)).at("todo-closed"), none)
+#assert.eq(todo-tags(closed: d(2026, 8, 1)).keys(), ("todo", "todo-closed"))
 // `closed: false` emits NO KEY. A key valued `false` would read as closed to
 // every consumer that tests for the key, including rookery's own tag filter.
 #assert.eq(todo-tags(closed: false).keys(), ("todo",))
@@ -66,17 +69,21 @@
 #assert.eq(deps-of(todo-tags()), ())
 #assert.eq(metadata-of(todo-tags()), (:))
 
-#assert.eq(is-closed(todo-tags(closed: true)), true)
+#assert.eq(is-closed(todo-tags(closed: d(2026, 8, 1))), true)
 #assert.eq(is-closed(todo-tags()), false)
-#assert.eq(closed-on(todo-tags(closed: d(2026, 8, 1))), d(2026, 8, 1))
-#assert.eq(closed-on(todo-tags(closed: true)), none)
+// EITHER surface reads as closed: the flat marker, or a `closed` entry in the log
+// on a note written straight through `dates(log: ..)` without `#todo`.
+#assert.eq(is-closed(dates(log: (closed: d(2026, 8, 1)))), true)
+// The date comes from the log, which is the only place it is stored.
+#assert.eq(closed-on(dates(log: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
+#assert.eq(closed-on(todo-tags(closed: d(2026, 8, 1))), none)
 
 // `status-of` — closed wins over a declared status, absent reads as open, and
 // `blocked` never appears because it is derived from the graph, not declared.
 #assert.eq(status-of(todo-tags()), "open")
 #assert.eq(status-of(todo-tags(status: "draft")), "draft")
-#assert.eq(status-of(todo-tags(closed: true)), "closed")
-#assert.eq(status-of(todo-tags(status: "draft", closed: true)), "closed")
+#assert.eq(status-of(todo-tags(closed: d(2026, 8, 1))), "closed")
+#assert.eq(status-of(todo-tags(status: "draft", closed: d(2026, 8, 1))), "closed")
 
 // ---- the graph, cycles, and derived state ---------------------------------
 //
@@ -152,9 +159,12 @@
 #assert.eq(is-ready(done.nodes.at("a"), done, today: NOW), false)
 
 // Deferral is what makes this br's `ready` and not merely "not blocked".
-#let deferred = g(row("x", tags: ("date-scheduled": d(2026, 12, 1))))
+// Built through `dates(..)` rather than by hardcoding `date-scheduled`, which is
+// what this fixture used to do — and exactly the drift the exported stage names
+// exist to prevent. As of 0.6.0 there is no such key: it is a stage in the log.
+#let deferred = g(row("x", tags: dates(scheduled: d(2026, 12, 1))))
 #assert.eq(is-ready(deferred.nodes.at("x"), deferred, today: NOW), false)
-#let arrived = g(row("x", tags: ("date-scheduled": d(2026, 8, 1))))
+#let arrived = g(row("x", tags: dates(scheduled: d(2026, 8, 1))))
 #assert.eq(is-ready(arrived.nodes.at("x"), arrived, today: NOW), true)
 // No schedule at all is not deferral — absence of a plan is not a plan to wait.
 #assert.eq(is-ready(g(row("x")).nodes.at("x"), g(row("x")), today: NOW), true)
@@ -186,3 +196,24 @@
 // ...and with it, the edge POINTING AT it — a satisfied dependency whose box is
 // no longer on the page — while the edge between two open rows survives.
 #assert.eq(graph-slice(g-slice, closed: false).edges, (("open-b", "open-a"),))
+
+// ---- ACTIVATED-STAGE — this package's own log vocabulary ------------------
+// rookery-dates reserves `scheduled`, `deadline` and `closed` and leaves the rest
+// to its consumers; a status TRANSITION is this package's to name, which its own
+// header says outright.
+#assert.eq(ACTIVATED-STAGE, "activated")
+// The flat status key and the log entry are not redundant: the key is what a tag
+// query filters on, the entry is what says since when.
+#assert.eq(
+  status-of(todo-tags(status: "in-progress")),
+  "in-progress",
+)
+
+// ---- updated-of over a todo's log — what todos-stale now reads ------------
+// It used to read core's `updated`, which fell back to the DOCUMENT's date, so
+// staleness measured document age on any project that did not hand-write one.
+#assert.eq(
+  updated-of((created: d(2026, 1, 1)), dates(log: (activated: d(2026, 7, 1)))),
+  d(2026, 7, 1),
+)
+#assert.eq(updated-of((created: d(2026, 1, 1)), (:)), d(2026, 1, 1))

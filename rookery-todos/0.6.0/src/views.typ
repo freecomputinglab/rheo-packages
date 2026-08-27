@@ -18,7 +18,7 @@
 //     document date and panics when neither is available.
 
 #import "@rheo/rookery:0.6.0": ideas, window
-#import "@rheo/rookery-dates:0.6.0": deadline-of, is-overdue, scheduled-of
+#import "@rheo/rookery-dates:0.6.0": dates, deadline-of, is-overdue, scheduled-of, updated-of
 #import "target.typ": *
 #import "tags.typ": *
 #import "todo.typ": *
@@ -264,13 +264,20 @@
 
 // ---- #todos-stale — br `stale` ---------------------------------------------
 //
-// Open todos untouched for more than `older-than` days. `updated` is ROOKERY
-// CORE's field, not a tag of ours — rookery already resolves it from
-// `#idea(updated:)`, then `minted`, then the document date.
+// Open todos untouched for more than `older-than` days.
 //
-// A todo with NO date at all is not stale: nothing is known about when it was
-// touched, and reporting silence as staleness would flag every undated project
-// wholesale.
+// RE-SOURCED IN 0.6.0, AND IT NOW MEASURES WHAT IT CLAIMS TO. It used to read
+// rookery core's `updated` field, which resolved from `#idea(updated:)`, then
+// `minted`, then the DOCUMENT's date — so on any project that did not hand-write
+// an `updated:` per todo, "stale" measured how old the document was and not
+// whether anything had happened. It now reads @rheo/rookery-dates'
+// `updated-of(row, tags)`: the last entry in the todo's own dated log, falling
+// back to `created`. A todo that was deferred, activated or otherwise touched
+// says so, because touching it puts an entry in the log.
+//
+// A todo with NO date at all is still not stale: nothing is known about when it
+// was touched, and reporting silence as staleness would flag every undated
+// project wholesale.
 #let todos-stale(title: none, today: none, older-than: 30, windows: false) = context {
   let graph = todo-graph()
   assert-acyclic(graph)
@@ -285,13 +292,19 @@
   // now" in the whole stack — including its panic when there is none, and its
   // MEASURED handling of an unset document date, which is `auto` and not
   // `none`.
-  let stale(u) = is-overdue(("date-deadline": u + duration(days: older-than)), today: today)
+  // Built through `dates(deadline: ..)` rather than by hand-writing a tag key:
+  // the deadline is a STAGE in the log now, not a key of its own, and naming the
+  // storage shape here would be this view knowing something only rookery-dates
+  // should.
+  let stale(u) = is-overdue(dates(deadline: u + duration(days: older-than)), today: today)
+  let touched = r => updated-of(r, r.tags-dict)
   let rows = todos().filter(r => {
     if r.closed { return false }
-    if r.updated == none { return false }
-    stale(r.updated)
+    let u = touched(r)
+    if u == none { return false }
+    stale(u)
   })
-  let when = r => [last touched #r.updated.display("[year]-[month]-[day]")]
+  let when = r => [last touched #touched(r).display("[year]-[month]-[day]")]
   if windows {
     _windows(title, _by-priority(rows), [Nothing is stale.], trailing: when)
   } else {

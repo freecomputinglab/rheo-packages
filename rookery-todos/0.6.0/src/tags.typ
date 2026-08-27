@@ -19,15 +19,22 @@
 //
 // 3. NOT TAGS OF OURS AT ALL — labels are PLAIN, UNNAMESPACED rookery tags,
 //    because a todo's labels ARE rookery tags and namespacing them would break
-//    exactly the filtering and theming that is the point. Dates come from
-//    @rheo/rookery-dates. Created/updated come from rookery's own
-//    `minted`/`updated`.
+//    exactly the filtering and theming that is the point. EVERY DATE comes from
+//    @rheo/rookery-dates' `date-log`, including the one this package used to
+//    store itself (see `CLOSED-KEY` below). `created` comes from rookery's own
+//    row field; there is no `updated` field any more — rookery-dates derives
+//    last-touched from the log.
 //
 // DERIVED, NEVER STORED: `blocked`, `ready`, `stale`. Tagging them would let
 // them go stale against the deps and dates that define them. See `graph.typ`.
 //
 // DELIBERATELY ABSENT: any parent/child key. Todos are networked purely through
 // `todo-deps`; an epic is a tag, not a containment edge.
+
+// The log readers and the reserved stage names this package builds on. `closed`
+// is one of rookery-dates' three reserved stages, so this package names it
+// through the exported constant rather than hardcoding the string.
+#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, has-stage, stage-date
 
 // The base key every todo carries.
 #let TODO-KEY = "todo"
@@ -42,12 +49,40 @@
 // here either — it is derived from dependencies, never declared.
 #let STATUSES = ("in-progress", "deferred", "draft")
 
+// THIS PACKAGE'S OWN LOG STAGE, and the only one it names. rookery-dates
+// reserves `scheduled`, `deadline` and `closed` and leaves every other stage
+// name to its consumers — its `src/lib.typ` header says outright that status
+// transitions "belong to whoever owns the status", which is this package.
+//
+// `activated` is the moment a todo went from ready to actually being worked on:
+// the transition `status: "in-progress"` records as a STATE, given a date. The
+// two are not redundant — the flat `todo-in-progress` key is what a tag query
+// filters on, and the log entry is what says since when.
+#let ACTIVATED-STAGE = "activated"
+
 // The valued keys. Namespaced with a `todo-` prefix per rookery's convention:
 // a key becomes a CSS class fragment, and a bare `deps` is a generic name two
 // packages could both claim.
-#let CLOSED-KEY = "todo-closed"
 #let DEPS-KEY = "todo-deps"
 #let METADATA-KEY = "todo-metadata"
+
+// `todo-closed` IS NO LONGER A VALUED KEY. The date a todo closed lives in
+// @rheo/rookery-dates' `date-log`, under its reserved `closed` stage, alongside
+// every other dated event in the todo's life — which is the whole point of
+// 0.6.0: one store for a todo's timeline instead of a valued tag here, two date
+// keys there, and core's `updated` somewhere else again.
+//
+// WHAT THIS KEY STILL IS: a FLAT presence marker, valued `none`, written
+// alongside the log entry. It carries no date and is not a second copy of one.
+// It exists for one reason, and the header above already calls that reason the
+// payoff of the flat-tag surface: `tags:todo&!todo-closed` in a search bar lists
+// the open todos with no rookery-todos code involved. Rookery's tag predicate
+// and rookery-search's `tags:` query both test KEYS, so a fact living only
+// inside `date-log`'s value is invisible to them. Losing that query to buy
+// tidiness would have been a bad trade.
+//
+// So: presence here, date in the log, and `is-closed` below reads either.
+#let CLOSED-KEY = "todo-closed"
 
 // A local copy of rookery's four-form tag normalizer, so this module stays a
 // pure function of its arguments and the merge below cannot depend on which
@@ -138,13 +173,24 @@
     out.insert("todo-" + status, none)
   }
 
+  // A DATE IS NOW REQUIRED, where `closed: true` used to mean "closed, when
+  // unknown". Closing is a dated event in the log as of 0.6.0, and an entry
+  // needs a date. This package cannot invent one — there is no wall clock to
+  // stamp from, which its own header records — so an undated close is simply a
+  // caller who did not say when, and the message says so rather than guessing.
+  //
+  // Only the FLAT marker is written here. `#todo` puts the date itself into the
+  // log through rookery-dates' decorator; see `todo.typ`.
   if closed != none and closed != false {
     assert(
-      closed == true or type(closed) == datetime,
-      message: "@rheo/rookery-todos: `closed` must be a boolean or a datetime "
-        + "(the date it closed) — got " + repr(closed),
+      type(closed) == datetime,
+      message: "@rheo/rookery-todos: `closed` must be the datetime it closed — got "
+        + repr(closed)
+        + ". `closed: true` no longer works: a close is a dated entry in "
+        + "@rheo/rookery-dates' log as of 0.6.0, and this package has no clock to "
+        + "stamp one from. Give the date.",
     )
-    out.insert(CLOSED-KEY, if closed == true { none } else { closed })
+    out.insert(CLOSED-KEY, none)
   }
 
   if deps != none {
@@ -179,9 +225,15 @@
 // Is this note a todo at all?
 #let is-todo(tags) = TODO-KEY in tags
 
-// Closed is PRESENCE of the key. Its value, when there is one, is the date.
-#let is-closed(tags) = CLOSED-KEY in tags
-#let closed-on(tags) = tags.at(CLOSED-KEY, default: none)
+// Closed is PRESENCE — of the flat marker `#todo` writes, or of a `closed` entry
+// in the log. EITHER, so a note whose log was written directly through
+// `dates(log: (closed: d))` without going through `#todo` still reads as closed
+// rather than silently open.
+#let is-closed(tags) = CLOSED-KEY in tags or has-stage(tags, CLOSED-STAGE)
+
+// The date it closed, from the log. `none` where the marker is present but no
+// dated entry is — which `#todo` cannot produce, but a hand-written note can.
+#let closed-on(tags) = stage-date(tags, CLOSED-STAGE)
 
 // The names this todo depends on, already normalized at write time.
 #let deps-of(tags) = tags.at(DEPS-KEY, default: ())

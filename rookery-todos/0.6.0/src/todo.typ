@@ -1,6 +1,7 @@
 // `#todo` — the package's primitive, an `#idea` variant carrying todo tags.
 
 #import "@rheo/rookery:0.6.0": tagged-idea, _norm
+#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, dated
 #import "tags.typ": *
 
 // A todo is a rookery note tagged `todo`, plus whatever `todo-tags` folds in.
@@ -13,17 +14,28 @@
 // `tags:`. `..args` is forwarded untouched, which is what keeps all three
 // `#idea` call forms working — `#todo[body]`, `#todo("name")[body]` and
 // `#todo(<name>)[body]` — along with every `#idea` named argument this wrapper
-// does not itself consume: `title`, `level`, `minted`, `updated`, `show-date`,
+// does not itself consume: `title`, `level`, `created`, `show-date`,
 // `show-tags`.
 //
-// DATES ARE NOT PARAMETERS HERE. `scheduled`/`deadline` come from
-// @rheo/rookery-dates and merge through `tags:`:
+// DATES ARE PARAMETERS AS OF 0.6.0. `#todo` is built on rookery-dates'
+// `dated(..)` decorator, so `scheduled:`, `deadline:` and `log:` are named
+// arguments:
+//
+//   #todo("ship", deadline: d, log: (activated: d2))[..]
+//
+// The old form still works and is still supported — `dated` merges its fragment
+// into whatever `tags:` the caller passed — so `#todo("ship", tags: dates(deadline: d))`
+// is unchanged:
 //
 //   #todo("ship", tags: dates(deadline: d))[..]
 //
-// and created/updated are rookery's own `minted`/`updated`, forwarded through
-// `..args`. Nothing in this package auto-stamps a date; there is no wall clock
-// to stamp from (see rookery-dates' readme for the measured evidence).
+// `created` is rookery's own row field, forwarded through `..args`. There is no
+// `updated`: rookery removed it in 0.6.0 and rookery-dates derives last-touched
+// from the log. Nothing in this package auto-stamps a date; there is no wall
+// clock to stamp from (see rookery-dates' readme for the measured evidence).
+//
+// `closed:` IS A DATE, and it goes into the log rather than onto a valued tag —
+// see `CLOSED-KEY` in `tags.typ` for why the flat marker stays beside it.
 //
 // AN AUTO-ID DEP IS FRAGILE, and this package cannot warn you about it here.
 // Rookery's unnamed notes take a sequence number from a counter, so `#todo[..]`
@@ -48,8 +60,20 @@
   deps: (),
   metadata: (:),
   tags: none,
+  log: none,
   ..args,
-) = (tagged-idea(TODO-KEY))(
+) = (dated(tagged-idea(TODO-KEY)))(
+  // `closed:` folded into the log the caller passed, so a todo's close and the
+  // rest of its timeline are one record. Written here rather than in
+  // `todo-tags` because the log belongs to rookery-dates and `todo-tags` builds
+  // only this package's own keys.
+  log: {
+    let l = if log == none { (:) } else { log }
+    if closed != none and closed != false and CLOSED-STAGE not in l {
+      l.insert(CLOSED-STAGE, closed)
+    }
+    if l.len() == 0 { none } else { l }
+  },
   tags: todo-tags(
     tags: tags,
     priority: priority,

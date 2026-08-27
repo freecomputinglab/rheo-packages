@@ -14,7 +14,7 @@
 //   #context todos()
 //
 // One row per note carrying the `todo` key, each carrying rookery's own row
-// fields (id, name, title, text, href, page, minted, updated) plus this
+// fields (id, name, title, text, label, href, page, created) plus this
 // package's decoded attributes and the raw tag dictionary.
 //
 // TWO BULK READS, NOT N SMALL ONES, and that is deliberate. `ideas()` resolves
@@ -176,10 +176,10 @@
 //
 // THE DEFERRAL CLAUSE IS WHAT MAKES THIS br's `ready` RATHER THAN MERELY "not
 // blocked". A todo scheduled for next week is not work you can pick up now.
-// Deferral is read from @rheo/rookery-dates' `date-scheduled`, so scheduling
+// Deferral is read from @rheo/rookery-dates' `scheduled` log stage, so scheduling
 // stays one concept owned by one package rather than two that can disagree.
 //
-// A todo with NO `date-scheduled` is not deferred — absence of a plan is not a
+// A todo with NO `scheduled` entry is not deferred — absence of a plan is not a
 // plan to wait, which is why this asks `scheduled-of(..) == none or ..` rather
 // than `is-scheduled-now(..)` alone.
 //
