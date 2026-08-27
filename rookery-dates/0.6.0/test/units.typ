@@ -247,3 +247,33 @@
 #assert.eq(rung((:), ladder: JOB, today: _T), none)
 #assert.eq(is-settled(dates(deadline: d(2027, 1, 1)), ladder: JOB, today: _T), false)
 #assert.eq(rung(dates(deadline: d(2027, 1, 1)), ladder: JOB, today: _T), none)
+
+// ---- tag-index extractors — the log made projectable ----------------------
+// A log can never ride on an `ideas()` row (rookery keeps tag values off rows),
+// so the only way its facts become filterable or sortable is as derived scalars.
+// Each of these is a factory returning the function core's `(from: ..)` calls.
+#assert.eq((as-stage(today: _JAN5))(_flight), "longlisted")
+#assert.eq((as-stage(today: _JAN5))((:)), none)
+
+// A date comes back as a zero-padded STRING, never a datetime: core's scalar
+// assert would refuse the datetime, and the string sorts lexically in date order.
+#assert.eq((as-date(DEADLINE-STAGE))(dates(deadline: d(2026, 11, 1))), "20261101")
+#assert.eq((as-date(DEADLINE-STAGE))(_flight), none)
+#assert.eq((as-entered(today: _JAN5))(_flight), "20261028")
+
+#assert.eq((as-rung(ladder: JOB, today: _JAN5))(_flight), 1)
+#assert.eq((as-settled(ladder: JOB, today: _JAN5))(_flight), false)
+#assert.eq(
+  (as-settled(ladder: JOB, today: _JAN5))(dates(log: (offered: d(2026, 12, 1)))),
+  true,
+)
+#assert.eq((as-days-in-flight(today: _JAN5))(_flight), 69)
+
+// EVERY ONE returns a scalar or none, which is the whole contract — core asserts
+// it and names the field when it fails.
+#let _scalar(v) = v == none or type(v) in (str, int, float, bool)
+#assert(_scalar((as-stage(today: _JAN5))(_flight)))
+#assert(_scalar((as-date(DEADLINE-STAGE))(_flight)))
+#assert(_scalar((as-rung(ladder: JOB, today: _JAN5))(_flight)))
+#assert(_scalar((as-settled(ladder: JOB, today: _JAN5))(_flight)))
+#assert(_scalar((as-days-in-flight(today: _JAN5))(_flight)))

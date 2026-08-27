@@ -47,6 +47,7 @@
 #import "read.typ": *
 #import "when.typ": *
 #import "ladder.typ": *
+#import "index.typ": *
 
 // THE ONE PLACE THIS PACKAGE IMPORTS @rheo/rookery, and it buys exactly one
 // convenience: `#dated-idea` — a plain rookery note that also takes this
