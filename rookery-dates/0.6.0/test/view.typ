@@ -48,3 +48,13 @@
 = 4. The same log, with a ladder
 
 #log-view((created: d(2026, 10, 1)), straddling, today: NOW, ladder: JOURNAL)
+
+= 5. Timed events on the reference date itself
+
+// The case that caught the bug: a date-only `today:` — which is what a site
+// passes — against events carrying times on that very day. Both have HAPPENED, and
+// a rail that called them booked would be wrong about the commonest call there is.
+#log-view((:), dates(log: (
+  activated: t(2027, 1, 5, 15),
+  closed: t(2027, 1, 5, 16),
+)), today: NOW)

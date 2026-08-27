@@ -49,8 +49,29 @@
   if events.len() == 0 { return }
 
   let now = _today(today)
-  let past = events.filter(e => _stamp-of(e.on) <= _stamp-of(now))
-  let booked = events.filter(e => _stamp-of(e.on) > _stamp-of(now))
+
+  // HAS THIS HAPPENED? Compared at the COARSER of the two precisions, which is not
+  // a nicety — it is the difference between the rail being right and being useless
+  // on the commonest call there is.
+  //
+  // `_stamp-of` treats a date-only value as the START of its day, which is correct
+  // for ORDERING (a bare `deadline` precedes a timed event during that day). Used
+  // here it is wrong: with a date-only `today:` — what almost every project passes,
+  // since a site's reference date is a date — every timed event occurring today
+  // would stamp LATER than the reference and read as booked. MEASURED: a todo
+  // closed at 16:00 on the reference date showed as not yet closed.
+  //
+  // A bare reference date means the whole DAY. So both sides drop to day
+  // granularity unless both carry a time, in which case the clock decides.
+  let happened(e) = {
+    if _has-time(e.on) and _has-time(now) {
+      _stamp-of(e.on) <= _stamp-of(now)
+    } else {
+      _day-of(e.on) <= _day-of(now)
+    }
+  }
+  let past = events.filter(happened)
+  let booked = events.filter(e => not happened(e))
 
   // The rungs a ladder says are still ahead — drawn undated, after everything
   // dated. WITHOUT a ladder this is empty and the view is a RECORD of what

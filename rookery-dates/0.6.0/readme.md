@@ -376,6 +376,13 @@ Guarded on `.hour() != none`, because a date-only entry cannot be asked for its
 time — MEASURED, `.display("[hour]")` on one panics with *"failed to format
 datetime (insufficient information)"*.
 
+**Has-it-happened is compared at the coarser of the two precisions.** A bare
+`today:` — which is what a site passes, since a reference date is a date — means
+the whole DAY, so an event timed 16:00 on that date has happened. Only when both
+the event and the reference carry a time does the clock decide. Ordering is
+different and uses full precision, so a date-only `deadline` still precedes a
+timed event during that day.
+
 ### Styling it
 
 Every class is a published contract: `.date-log` on the list, `.date-log-event`

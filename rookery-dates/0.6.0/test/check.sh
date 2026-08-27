@@ -14,8 +14,8 @@ python3 - "$H" <<'PY' || fail=1
 import re, sys
 h = open(sys.argv[1]).read()
 rails = re.findall(r'<ol class="date-log">(.*?)</ol>', h, re.S)
-if len(rails) != 4:
-    print(f"FAIL: expected 4 rails, found {len(rails)}"); sys.exit(1)
+if len(rails) != 5:
+    print(f"FAIL: expected 5 rails, found {len(rails)}"); sys.exit(1)
 
 def rows(rail):
     return re.findall(r'<li class="date-log-event ([a-z-]+)">(.*?)</li>', rail, re.S)
@@ -58,7 +58,17 @@ if "—" not in exp[0]:
 if 'date-log-expected' in rails[0]:
     print("FAIL: rail 1 drew expected rungs with no ladder passed"); sys.exit(1)
 
-print(f"  log-view: 4 rails, divider only where both sides exist, same-day times "
+# 5. TIMED EVENTS ON THE REFERENCE DATE have happened. A date-only `today:` means
+# the whole day, so comparing at full precision would call them booked — which it
+# did, until the split dropped to the coarser of the two precisions.
+five = rows(rails[4])
+if [c for c, _ in five] != ["date-log-past"] * 2:
+    print(f"FAIL: timed events on the reference date read as {[c for c, _ in five]}, not past")
+    sys.exit(1)
+if 'class="date-log-today"' in rails[4]:
+    print("FAIL: rail 5 drew a divider with nothing booked"); sys.exit(1)
+
+print(f"  log-view: 5 rails, divider only where both sides exist, same-day times "
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 
