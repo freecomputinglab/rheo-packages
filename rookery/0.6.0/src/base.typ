@@ -134,3 +134,84 @@
   c.at("spine-flat", default: ()).any(v => v.at("handle", default: none) == handle)
 }
 
+// ---- Excluded tags — the build-level corpus filter -------------------------
+//
+// A note carrying an excluded tag is not hidden, it is ABSENT: `#idea` never
+// builds its marker, so there is no output, no registry entry, no Typst label,
+// no minted page, no `ideas()` row, no search-index entry, no feeds beacon, no
+// outline entry and no backlink. The point is a build script producing
+// different subsections of ONE rookery from one source tree — a public site
+// that drops `protected` notes, a dev build that keeps them.
+//
+// THE WHOLE REASON THIS LIVES HERE AND READS `sys.inputs` RATHER THAN A STATE.
+// `sys.inputs` is readable from ANY scope with NO `#context` block, exactly as
+// `_rheo-ctx` at the top of this file reads it. That property is load-bearing:
+// `#idea`'s gate has to sit ABOVE the `figure(kind: IK)` marker, because five
+// things walk for that marker STRUCTURALLY, before realization — `_flatten`'s
+// IK rule (transclusion.typ), `_outbound` (links.typ), `_std-footnotes` and
+// `_footnotes` (pure.typ), and `_ideas-outline-data`'s `query()` (outline.typ).
+// A `#context` node's children are not in the content tree until realization,
+// so a `#context`-wrapped idea is invisible to all five.
+//
+// REJECTED, and do not reintroduce it: `#show: rookery.with(exclude-tags: ..)`.
+// A template argument becomes STATE, state is read with `.final()`, and
+// `.final()` needs `#context` — which is precisely what the gate cannot have.
+// Hence the declared half of the list is a plain ARGUMENT on `#idea` and
+// `#tagged-idea` instead. (`invisible-tags` IS a `rookery.with` argument, and
+// the asymmetry is deliberate: that one is pure presentation, and every site it
+// touches already runs inside a `#context`.)
+//
+// ALSO REJECTED, on measured evidence: gating with
+// `show figure.where(kind: IK): none`. `outline.typ` records the MEASURED fact
+// that a show rule does NOT remove the figure from `query()`, so the outline
+// would go on listing excluded notes — strictly worse than doing nothing.
+//
+// TWO CHANNELS AND HOW THEY COMPOSE:
+//
+//   excluded = (declared UNION rookery-exclude) MINUS rookery-include
+//
+// The DECLARED list is the CD baseline, so a public build needs no environment
+// at all — a project declares `exclude-tags: ("protected", "private")` once and
+// its published site is correct by default. `rookery-include` is how a DEV
+// build puts those notes back. `rookery-exclude` is how a build script carves a
+// further subsection without touching the project source.
+//
+// UNDER RHEO, TODAY: `rheo compile` forwards no `--input`, so the two
+// `sys.inputs` keys currently reach a plain `typst compile` only, while the
+// declared list works everywhere. A rheo-side `--input` flag plus a
+// `rheo.toml [inputs]` table are specced (rheo beads `rheo-cli-input-flag-q12`
+// and `rheo-toml-inputs-table-rih`); nothing here changes when they land.
+
+// One `sys.inputs` key as an array of tag names, or `()` when it is absent.
+//
+// DEFINED HERE, AT THE BOTTOM OF THE FILE, and that is not cosmetic:
+// `_split-tag-list` reaches this file through `#import "pure.typ": *` above,
+// and a `#let` closure captures the scope visible AT DEFINITION time — placed
+// beside `_rheo-ctx` at the top, this would be an unknown-variable error. Same
+// ordering discipline the whole module graph is built on (see the header of
+// this file and `lib.typ`).
+#let _input-tags(key) = {
+  let v = sys.inputs.at(key, default: none)
+  if v == none { return () }
+  assert(
+    type(v) == str,
+    message: "@rheo/rookery: `--input " + key + "` must be a string of comma- "
+      + "or space-separated tag names — got " + repr(v),
+  )
+  _split-tag-list(v)
+}
+
+// The final excluded set. See the banner above for the formula and for why this
+// takes no `#context`.
+//
+// `declared` accepts the SAME four forms `#idea`'s `tags:` accepts — `none`, a
+// string, an array, a dictionary — because it is routed through `_norm-tags`.
+// That is what makes `exclude-tags: "private"` work with no array ceremony,
+// exactly as `tags: "draft"` already does.
+#let _resolve-excluded(declared) = {
+  let d = _norm-tags(declared).keys()
+  let add = _input-tags("rookery-exclude")
+  let drop = _input-tags("rookery-include")
+  (d + add).dedup().filter(t => t not in drop)
+}
+

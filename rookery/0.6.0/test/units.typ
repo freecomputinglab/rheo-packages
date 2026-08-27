@@ -19,8 +19,9 @@
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
   _is-inline, _join, _nest-outline, _norm, _norm-tags, _note-file, _outbound,
-  _own-cited-keys, _plain, _resolve-tags-color, _sort-ids, _tag-pred, _truncate,
-  footnote, idea, note-href, note-path, window,
+  _own-cited-keys, _plain, _resolve-excluded, _resolve-tags-color, _sort-ids,
+  _split-tag-list, _tag-pred, _truncate, footnote, idea, note-href, note-path,
+  window,
 )
 
 // ---- _norm — bare name, full id, label, and a name with its own colon ------
@@ -344,3 +345,37 @@
 // `#assert.fails` to catch one. A rejected key is exercised by hand instead —
 // `tags-color: ("my tag": rgb("#f00"))` in demo/pure/root.typ fails the build
 // with the message naming the key.
+
+// ---- _split-tag-list — one `--input` value as tag names --------------------
+// A `sys.inputs` value is ALWAYS a string, so a LIST of tags arrives as one
+// string. Commas and whitespace in any mixture, because a caller should not
+// have to know which spelling this package parses.
+#assert.eq(_split-tag-list("a, b  c"), ("a", "b", "c"))
+#assert.eq(_split-tag-list("a,b,c"), ("a", "b", "c"))
+#assert.eq(_split-tag-list("solo"), ("solo",))
+// `none` is an ABSENT key, and the empty string is an empty value — both mean
+// "no tags", never one tag whose name is the empty string. Such a tag is one no
+// note can carry while every note could be tested against it.
+#assert.eq(_split-tag-list(none), ())
+#assert.eq(_split-tag-list(""), ())
+#assert.eq(_split-tag-list(" , "), ())
+// A trailing comma and a doubled separator are harmless for the same reason.
+#assert.eq(_split-tag-list("a,,b,"), ("a", "b"))
+
+// ---- _resolve-excluded — declared UNION exclude MINUS include --------------
+// With no `--input` given (which is how `just test` compiles this fixture), the
+// result is the declared list and nothing else. `test/inputs.typ` is the
+// fixture that exercises the two `sys.inputs` keys, because they cannot be set
+// from here.
+#assert.eq(_resolve-excluded(none), ())
+#assert.eq(_resolve-excluded(()), ())
+// The SAME four forms `#idea`'s `tags:` takes, since this routes through
+// `_norm-tags` — so `exclude-tags: "private"` needs no array ceremony.
+#assert.eq(_resolve-excluded("x"), ("x",))
+#assert.eq(_resolve-excluded(("x", "y")), ("x", "y"))
+#assert.eq(_resolve-excluded((x: none, y: none)), ("x", "y"))
+// A VALUED tag excludes exactly as a plain one does: the names are the keys, and
+// a tag carrying metadata is no less a tag (the rule `cls` in idea.typ follows).
+#assert.eq(_resolve-excluded((x: (owner: "me"))), ("x",))
+// Deduped, so a tag named twice is one tag.
+#assert.eq(_resolve-excluded(("x", "x")), ("x",))

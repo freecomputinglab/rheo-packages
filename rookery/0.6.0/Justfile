@@ -11,6 +11,16 @@ default:
 # `src/lib.typ` reads it at import time. `--format pdf` with a `/dev/null`
 # output because typst cannot infer a format from that path, and nothing here
 # is rendered — only asserted.
+#
+# TWO FIXTURES, and the second one exists because of `--input`. `sys.inputs` is
+# fixed for a whole compile, so varying it means varying the INVOCATION — the
+# `rookery-exclude`/`rookery-include` cases cannot live in `units.typ`, which is
+# compiled with no inputs at all (and must stay that way: it is the fixture that
+# proves an unparameterised build sees the declared list and nothing else).
+# `test/inputs.typ` asserts against exactly the two values passed below, so the
+# flags here and the assertions there are one unit — change either and change
+# both.
 test:
     typst compile --features html --root . --format pdf test/units.typ /dev/null
+    typst compile --features html --root . --format pdf --input rookery-exclude=c --input rookery-include=a test/inputs.typ /dev/null
     @echo "units OK"

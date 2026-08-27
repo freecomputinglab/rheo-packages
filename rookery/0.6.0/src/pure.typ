@@ -74,6 +74,30 @@
   }
 }
 
+// ---- _split-tag-list — one `--input` value as tag names --------------------
+//
+// A `sys.inputs` value is ALWAYS a string — Typst's own contract for
+// `--input key=value`, not a choice this package made — so a LIST of tags
+// arrives as one string and has to be split somewhere.
+//
+// COMMAS AND/OR WHITESPACE, in any mixture, because
+// `--input rookery-exclude="private, protected"` and
+// `--input rookery-exclude=private,protected` mean the same thing and neither
+// caller should have to know which spelling this package parses.
+//
+// The `.filter(t => t != "")` is what makes a trailing comma, a doubled
+// separator, a leading space and the empty string all harmless: an empty value
+// means "no tags", never "one tag whose name is the empty string" — which would
+// otherwise be a tag no note can carry and every note could be tested against.
+//
+// PURE, hence its place in this file: string in, array out, no `sys.inputs` and
+// no state. The READ that feeds it is `_input-tags` in `base.typ`, where every
+// read of that dictionary already lives.
+#let _split-tag-list(s) = {
+  if s == none { return () }
+  s.split(regex("[,\\s]+")).filter(t => t != "")
+}
+
 // ---- _tag-pred — the shared tag filter -----------------------------------
 //
 // `tags` is `none`, a single string, an array of strings, or a dictionary —
