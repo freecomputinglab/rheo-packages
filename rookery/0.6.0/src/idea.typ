@@ -28,7 +28,7 @@
 // Defined after `_outbound` above because it calls it at registration time, and
 // a `#let` closure captures the scope visible AT DEFINITION time.
 
-#let idea(level: 1, title: none, tags: (), minted: none, updated: none, show-date: false, show-tags: false, ..args) = {
+#let idea(level: 1, title: none, tags: (), exclude-tags: (), minted: none, updated: none, show-date: false, show-tags: false, ..args) = {
   // Same leniency as `#window`/`#ideas-outline`/`#ideas`: a single tag needs
   // no array ceremony. Without this, a bare string reached `v.tags.map(...)`
   // below and further down at render time — str has no `.map`, so the error
@@ -48,6 +48,62 @@
   }
   let named = name != none
   let base = if named { _norm(name) } else { none }
+
+  // ---- THE EXCLUSION GATE, and it sits HERE for a reason -------------------
+  //
+  // A note carrying an excluded tag is not hidden, it is ABSENT: no figure, no
+  // metadata, no registry entry, no Typst label, no minted page, no `ideas()`
+  // row, no search-index entry, no feeds beacon, no outline entry, no backlink.
+  // See `_resolve-excluded` (base.typ) for the two channels, how they compose,
+  // and why the list is an ARGUMENT rather than a `rookery.with()` state.
+  //
+  // ABOVE the `figure(kind: IK)` below, and that is the whole architecture of
+  // this gate rather than a convenience. FIVE things walk for that marker
+  // STRUCTURALLY, before realization — `_flatten`'s IK rule (transclusion.typ),
+  // `_outbound` (links.typ), `_std-footnotes` and `_footnotes` (pure.typ), and
+  // `_ideas-outline-data`'s `query()` (outline.typ) — so the marker cannot be
+  // built and then suppressed. It has to never exist, which means the decision
+  // has to be made with NO `#context`, which is why `_resolve-excluded` reads
+  // `sys.inputs` and a plain argument instead of a state.
+  //
+  // TAG KEYS, so a VALUED tag excludes exactly as a plain one does: a tag
+  // carrying metadata is no less a tag, the same rule `cls` below follows.
+  let excluded = _resolve-excluded(exclude-tags)
+  if tags.keys().any(t => t in excluded) {
+    // TWO THINGS ONLY, and nothing else. Both are invisible.
+    //
+    // 1. THE COUNTER STILL STEPS for an unnamed note. Deliberate, not an
+    //    oversight: an unnamed note takes its id from this counter, so skipping
+    //    the step shifts every LATER unnamed note's id — `ideas/3.html` in the
+    //    dev build would silently become `ideas/2.html` in the public one. One
+    //    inert content node per excluded note buys stable URLs across every
+    //    build variant, which is the whole point of a feature whose output is
+    //    several builds of one source tree.
+    //
+    //    `counter.step()` RETURNS CONTENT: emitted as the block's value here,
+    //    never inside a code block whose value is used — the trap recorded
+    //    above at the non-excluded path's own `.step()`.
+    //
+    // 2. THE ID GOES ON `_excluded-ids`, named notes only — an unnamed note has
+    //    no id anything could link to by name. That state is what lets
+    //    `#window`/`#hyperlink`/`#idea-body` tell "deliberately excluded from
+    //    this build" from "typo" and degrade instead of panicking. It holds
+    //    STRINGS and nothing else: no body, no title, no tags, nothing to
+    //    flatten or serialize, which is what keeps an excluded note free.
+    //
+    //    The `#context` wrapper is needed because `_pfx()` reads
+    //    `_prefix.final()`. Safe here where it is fatal around the figure: this
+    //    emits no content, so there is nothing for a structural walk to miss.
+    return {
+      if not named { counter("rheo-ideas-seq").step() }
+      if named {
+        context _excluded-ids.update(r => {
+          let id = _pfx() + base
+          if id in r { r } else { r + (id,) }
+        })
+      }
+    }
+  }
 
   // The marker wraps the whole idea. Its body carries the RAW body as
   // metadata so a later _flatten can render a nested idea's content without
@@ -334,8 +390,30 @@
 // `.with()`, so `#note("x", tags: ("draft",))` would silently drop "note" —
 // the tag the caller chose `#note` for in the first place. The closure below
 // exists precisely because `.with()` cannot express "merge, don't replace".
-#let tagged-idea(tag, value: none) = (tags: none, ..args) => idea(
+// `exclude-tags:` IS TAKEN HERE TOO, AND IT IS REQUIRED, not a nicety. This
+// factory's returned closure calls the `idea` captured in PACKAGE scope, so a
+// project writing `#let idea = idea.with(exclude-tags: E)` does NOT thereby
+// reach `#let note = tagged-idea("note")` — that wrapper would keep hatching
+// the very notes the project asked to have excluded, which is the worst failure
+// shape available: a silently incomplete exclusion in a published build. Hence
+// the documented project pattern is two bindings sharing one list:
+//
+//   #let EX = ("protected", "private")
+//   #let idea = idea.with(exclude-tags: EX)
+//   #let note = tagged-idea("note", exclude-tags: EX)
+//
+// It is named on the RETURNED CLOSURE as well, defaulting to the factory's own
+// value, and that is deliberate: without it a caller writing
+// `#note("x", exclude-tags: (..))` would land the argument in `..args` and
+// Typst would error on a duplicate named argument. With it, the factory binding
+// is the default and a call site can still override.
+#let tagged-idea(tag, value: none, exclude-tags: ()) = (
+  tags: none,
+  exclude-tags: exclude-tags,
+  ..args,
+) => idea(
   tags: _dedup-tag(tag, tags, value: value),
+  exclude-tags: exclude-tags,
   ..args,
 )
 

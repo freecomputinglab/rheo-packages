@@ -195,6 +195,35 @@
 // entry other beads (#window, #hyperlink) read from.
 #let _registry = state("rheo-ideas", (:))
 
+// ---- The excluded ids — "deliberately absent", not "never existed" ---------
+//
+// Every NAMED note `#idea`'s exclusion gate dropped from this build, as a plain
+// ARRAY OF STRINGS of full ids. No bodies, no titles, no tags, no dates —
+// nothing to flatten and nothing to serialize, which is what keeps an excluded
+// note genuinely free rather than merely invisible. See `_resolve-excluded`
+// (base.typ) for what excludes a note and why the decision is context-free.
+//
+// ITS ONLY JOB is letting a consumer tell a note the build removed on purpose
+// from a note that never existed. `#window`, `#hyperlink` and `#idea-body`
+// otherwise treat both identically and panic `unknown note`, so turning on an
+// exclusion would break the public build wherever a surviving note or page
+// links to a removed one. With this, they render nothing (or the bare id) for an
+// excluded target while a genuine TYPO still panics, which is the distinction
+// worth having.
+//
+// UNNAMED NOTES ARE NOT HERE, and cannot be: an auto-numbered note has no id
+// anything could name it by, so there is nothing for a consumer to look up.
+//
+// Read with `.final()`, like `_registry` and `_prefix` above and for the same
+// reason: a note may be excluded in one file and linked from another, and
+// `.final()` is what makes every reader agree regardless of which file it sits
+// in.
+//
+// `.update(r => ..)` is the UPDATER form and is correct here — the value is an
+// array, not a function, so the `_ =>` wrapper the states below carry (see
+// `_idea-page-template`) is neither needed nor wanted.
+#let _excluded-ids = state("rheo-ideas-excluded", ())
+
 // Stepped ONCE per rendered idea box. It exists only so two renderings of the
 // SAME body on one output page (its own `#idea`, plus a `#window` on it) get
 // distinct HTML ids. Document-wide and monotonic — uniqueness within a page is
