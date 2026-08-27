@@ -14,11 +14,11 @@
 //  2. It takes `today:` where it needs a reference date, and never calls
 //     `datetime.today()`. That returns 1980-01-01 under a reproducible build
 //     and DOES NOT ERROR — a stale-todo report built on it would silently list
-//     the whole project. @rheo/rookery-dates resolves `today:` against the
+//     the whole project. @rheo/rookery-timeline resolves `today:` against the
 //     document date and panics when neither is available.
 
 #import "@rheo/rookery:0.6.0": ideas, window
-#import "@rheo/rookery-dates:0.6.0": dates, deadline-of, is-overdue, scheduled-of, updated-of
+#import "@rheo/rookery-timeline:0.1.0": entries, deadline-of, is-overdue, scheduled-of, updated-of
 #import "target.typ": *
 #import "tags.typ": *
 #import "todo.typ": *
@@ -270,7 +270,7 @@
 // rookery core's `updated` field, which resolved from `#idea(updated:)`, then
 // `minted`, then the DOCUMENT's date — so on any project that did not hand-write
 // an `updated:` per todo, "stale" measured how old the document was and not
-// whether anything had happened. It now reads @rheo/rookery-dates'
+// whether anything had happened. It now reads @rheo/rookery-timeline's
 // `updated-of(row, tags)`: the last entry in the todo's own dated log, falling
 // back to `created`. A todo that was deferred, activated or otherwise touched
 // says so, because touching it puts an entry in the log.
@@ -287,16 +287,16 @@
       + "number of days — got " + repr(older-than),
   )
   // "Untouched since `updated` + N days" is the same question as "is that date
-  // in the past", so it goes through rookery-dates' `is-overdue` rather than a
+  // in the past", so it goes through rookery-timeline's `is-overdue` rather than a
   // second date comparison written here. That keeps ONE answer to "what is
   // now" in the whole stack — including its panic when there is none, and its
   // MEASURED handling of an unset document date, which is `auto` and not
   // `none`.
-  // Built through `dates(deadline: ..)` rather than by hand-writing a tag key:
+  // Built through `entries(deadline: ..)` rather than by hand-writing a tag key:
   // the deadline is a STAGE in the log now, not a key of its own, and naming the
-  // storage shape here would be this view knowing something only rookery-dates
+  // storage shape here would be this view knowing something only rookery-timeline
   // should.
-  let stale(u) = is-overdue(dates(deadline: u + duration(days: older-than)), today: today)
+  let stale(u) = is-overdue(entries(deadline: u + duration(days: older-than)), today: today)
   let touched = r => updated-of(r, r.tags-dict)
   let rows = todos().filter(r => {
     if r.closed { return false }

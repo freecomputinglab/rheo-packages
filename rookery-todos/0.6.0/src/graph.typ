@@ -5,7 +5,7 @@
 // footing the shipped ones stand on.
 
 #import "@rheo/rookery:0.6.0": ideas, tag-data
-#import "@rheo/rookery-dates:0.6.0": is-scheduled-now, scheduled-of
+#import "@rheo/rookery-timeline:0.1.0": is-scheduled-now, scheduled-of
 #import "target.typ": *
 #import "tags.typ": *
 
@@ -176,14 +176,14 @@
 //
 // THE DEFERRAL CLAUSE IS WHAT MAKES THIS br's `ready` RATHER THAN MERELY "not
 // blocked". A todo scheduled for next week is not work you can pick up now.
-// Deferral is read from @rheo/rookery-dates' `scheduled` log stage, so scheduling
+// Deferral is read from @rheo/rookery-timeline's `scheduled` log stage, so scheduling
 // stays one concept owned by one package rather than two that can disagree.
 //
 // A todo with NO `scheduled` entry is not deferred — absence of a plan is not a
 // plan to wait, which is why this asks `scheduled-of(..) == none or ..` rather
 // than `is-scheduled-now(..)` alone.
 //
-// `today:` is passed through to rookery-dates, which resolves it against the
+// `today:` is passed through to rookery-timeline, which resolves it against the
 // document date and panics if neither is available. NOTHING HERE CALLS
 // `datetime.today()`: it returns 1980-01-01 under a reproducible build and does
 // not error while doing it.

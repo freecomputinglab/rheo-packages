@@ -4,7 +4,7 @@
   epic, todo, todo-graph-view, todos-blocked, todos-list, todos-ready,
   todos-search, todos-stale, todos-stats, todos-validate,
 )
-#import "@rheo/rookery-dates:0.6.0": dates
+#import "@rheo/rookery-timeline:0.1.0": entries
 
 #show: demo
 
@@ -54,7 +54,7 @@ levels deep.
 #todo("ship", title: [Ship it], priority: 1, deps: ("render", "style"))[The release itself.]
 #todo("docs", title: [Write the docs], type: "docs", deps: ("ship",))[Follows the release.]
 
-A DEFERRED todo. Its `scheduled` date comes from `@rheo/rookery-dates`, merged
+A DEFERRED todo. Its `scheduled` date comes from `@rheo/rookery-timeline`, merged
 through `tags:` — this package takes no date parameters of its own, because
 dates are one concept owned by one package.
 
@@ -62,7 +62,7 @@ dates are one concept owned by one package.
   "retro",
   title: [Run the retro],
   priority: 2,
-  tags: dates(scheduled: datetime(year: 2026, month: 12, day: 1)),
+  tags: entries(scheduled: datetime(year: 2026, month: 12, day: 1)),
 )[Not ready until December, even though nothing blocks it.]
 
 A todo with a DEADLINE, from the same package.
@@ -71,7 +71,7 @@ A todo with a DEADLINE, from the same package.
   "audit",
   title: [Security audit],
   priority: 0,
-  tags: dates(deadline: datetime(year: 2026, month: 9, day: 15)),
+  tags: entries(deadline: datetime(year: 2026, month: 9, day: 15)),
 )[Ready now, and due next month.]
 
 A STALE todo: open, and untouched since January.

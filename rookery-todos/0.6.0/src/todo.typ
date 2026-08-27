@@ -1,7 +1,7 @@
 // `#todo` — the package's primitive, an `#idea` variant carrying todo tags.
 
 #import "@rheo/rookery:0.6.0": tagged-idea, _norm
-#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, dated
+#import "@rheo/rookery-timeline:0.1.0": CLOSED-STAGE, dated
 #import "tags.typ": *
 
 // A todo is a rookery note tagged `todo`, plus whatever `todo-tags` folds in.
@@ -17,27 +17,34 @@
 // does not itself consume: `title`, `level`, `created`, `show-date`,
 // `show-tags`.
 //
-// EVERY DATE A TODO CARRIES BELONGS TO @rheo/rookery-dates, in its entirety.
+// EVERY DATE A TODO CARRIES BELONGS TO @rheo/rookery-timeline, in its entirety.
 // `#todo` is built on that package's `dated(..)` decorator, so `scheduled:`,
 // `deadline:` and `log:` are its named arguments passed straight through:
 //
 //   #todo("ship", deadline: d, log: (activated: d2, closed: d3))[..]
 //
-// WHAT THIS PACKAGE CONTRIBUTES IS A VOCABULARY, not storage: the stage names
-// `activated` and `closed` (see `ACTIVATED-STAGE` and rookery-dates'
-// `CLOSED-STAGE`), the `TODO-LADDER` that orders them, and the views. There is no
-// `closed:` argument — a close is `log: (closed: d)`, one way to write one fact.
+// WHAT THIS PACKAGE IS, stated plainly because the boundary moved: a LIFECYCLE
+// declared over @rheo/rookery-timeline. It contributes the stage names `activated`
+// and `closed` (see `ACTIVATED-STAGE` and that package's `CLOSED-STAGE`), the
+// `TODO-LADDER` that orders them, its own tag family, and the views. It owns NO
+// dates: the log, the readers, the derivations over a ladder and the rail that
+// draws one all live there, and a todo is one vocabulary among several — a
+// submission tracker declares another over the same machinery.
+//
+// There is no `closed:` argument — a close is `log: (closed: d)`, one way to write
+// one fact. An entry may carry its own `note` too, which is where prose about a
+// particular transition belongs.
 //
 // The old form still works and is still supported — `dated` merges its fragment
-// into whatever `tags:` the caller passed — so `#todo("ship", tags: dates(deadline: d))`
+// into whatever `tags:` the caller passed — so `#todo("ship", tags: entries(deadline: d))`
 // is unchanged:
 //
-//   #todo("ship", tags: dates(deadline: d))[..]
+//   #todo("ship", tags: entries(deadline: d))[..]
 //
 // `created` is rookery's own row field, forwarded through `..args`. There is no
-// `updated`: rookery removed it in 0.6.0 and rookery-dates derives last-touched
+// `updated`: rookery removed it in 0.6.0 and rookery-timeline derives last-touched
 // from the log. Nothing in this package auto-stamps a date; there is no wall
-// clock to stamp from (see rookery-dates' readme for the measured evidence).
+// clock to stamp from (see rookery-timeline's readme for the measured evidence).
 //
 // `closed:` IS A DATE, and it goes into the log rather than onto a valued tag —
 // see `CLOSED-KEY` in `tags.typ` for why the flat marker stays beside it.
@@ -85,7 +92,7 @@
     //
     // Deriving it here is what makes them one way. `todo-tags` cannot do it: it
     // builds this package's keys and never sees the log, which belongs to
-    // @rheo/rookery-dates.
+    // @rheo/rookery-timeline.
     closed: log != none and CLOSED-STAGE in log,
     deps: deps,
     metadata: metadata,

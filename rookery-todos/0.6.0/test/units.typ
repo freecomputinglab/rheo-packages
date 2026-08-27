@@ -3,10 +3,10 @@
 // compile with a line number, and a passing compile is the green light.
 
 #import "/src/lib.typ": *
-// rookery-dates is NOT re-exported by this package's lib, deliberately — a
+// rookery-timeline is NOT re-exported by this package's lib, deliberately — a
 // consumer imports it itself. The fixture does the same, for the derivations
 // `TODO-LADDER` exists to feed.
-#import "@rheo/rookery-dates:0.6.0": dates, is-settled, next-stage, rung
+#import "@rheo/rookery-timeline:0.1.0": entries, is-settled, next-stage, rung
 
 #let d(y, m, dd) = datetime(year: y, month: m, day: dd)
 
@@ -75,17 +75,17 @@
 // THE LOG ALONE decides. The flat marker is an index into it, not a second
 // source: with one write path the two cannot disagree, so `is-closed` reads the
 // log and a marker without an entry (which `#todo` cannot produce) is not closed.
-#assert.eq(is-closed(dates(log: (closed: d(2026, 8, 1)))), true)
+#assert.eq(is-closed(entries(log: (closed: d(2026, 8, 1)))), true)
 #assert.eq(is-closed(todo-tags()), false)
 #assert.eq(is-closed(todo-tags(closed: true)), false)
-#assert.eq(closed-on(dates(log: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
+#assert.eq(closed-on(entries(log: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
 
 // `status-of` — closed wins over a declared status, absent reads as open, and
 // `blocked` never appears because it is derived from the graph, not declared.
 #assert.eq(status-of(todo-tags()), "open")
 #assert.eq(status-of(todo-tags(status: "draft")), "draft")
-#assert.eq(status-of(todo-tags(closed: true) + dates(log: (closed: d(2026, 8, 1)))), "closed")
-#assert.eq(status-of(todo-tags(status: "draft", closed: true) + dates(log: (closed: d(2026, 8, 1)))), "closed")
+#assert.eq(status-of(todo-tags(closed: true) + entries(log: (closed: d(2026, 8, 1)))), "closed")
+#assert.eq(status-of(todo-tags(status: "draft", closed: true) + entries(log: (closed: d(2026, 8, 1)))), "closed")
 
 // ---- the graph, cycles, and derived state ---------------------------------
 //
@@ -161,12 +161,12 @@
 #assert.eq(is-ready(done.nodes.at("a"), done, today: NOW), false)
 
 // Deferral is what makes this br's `ready` and not merely "not blocked".
-// Built through `dates(..)` rather than by hardcoding `date-scheduled`, which is
+// Built through `entries(..)` rather than by hardcoding `the `scheduled` log stage`, which is
 // what this fixture used to do — and exactly the drift the exported stage names
 // exist to prevent. As of 0.6.0 there is no such key: it is a stage in the log.
-#let deferred = g(row("x", tags: dates(scheduled: d(2026, 12, 1))))
+#let deferred = g(row("x", tags: entries(scheduled: d(2026, 12, 1))))
 #assert.eq(is-ready(deferred.nodes.at("x"), deferred, today: NOW), false)
-#let arrived = g(row("x", tags: dates(scheduled: d(2026, 8, 1))))
+#let arrived = g(row("x", tags: entries(scheduled: d(2026, 8, 1))))
 #assert.eq(is-ready(arrived.nodes.at("x"), arrived, today: NOW), true)
 // No schedule at all is not deferral — absence of a plan is not a plan to wait.
 #assert.eq(is-ready(g(row("x")).nodes.at("x"), g(row("x")), today: NOW), true)
@@ -200,7 +200,7 @@
 #assert.eq(graph-slice(g-slice, closed: false).edges, (("open-b", "open-a"),))
 
 // ---- ACTIVATED-STAGE — this package's own log vocabulary ------------------
-// rookery-dates reserves `scheduled`, `deadline` and `closed` and leaves the rest
+// rookery-timeline reserves `scheduled`, `deadline` and `closed` and leaves the rest
 // to its consumers; a status TRANSITION is this package's to name, which its own
 // header says outright.
 #assert.eq(ACTIVATED-STAGE, "activated")
@@ -215,28 +215,28 @@
 // It used to read core's `updated`, which fell back to the DOCUMENT's date, so
 // staleness measured document age on any project that did not hand-write one.
 #assert.eq(
-  updated-of((created: d(2026, 1, 1)), dates(log: (activated: d(2026, 7, 1)))),
+  updated-of((created: d(2026, 1, 1)), entries(log: (activated: d(2026, 7, 1)))),
   d(2026, 7, 1),
 )
 #assert.eq(updated-of((created: d(2026, 1, 1)), (:)), d(2026, 1, 1))
 
-// ---- TODO-LADDER — rookery-dates' derivations, over this vocabulary --------
+// ---- TODO-LADDER — rookery-timeline's derivations, over this vocabulary --------
 // The point of "a structure over the log": nothing here reimplements settledness.
 // The ladder is the words, and that package does the reasoning.
 #let _T = d(2026, 9, 1)
 #assert.eq(TODO-LADDER.terminal, ("closed",))
 #assert.eq(TODO-LADDER.transit, ("scheduled", "activated"))
 #assert.eq(
-  is-settled(dates(log: (closed: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  is-settled(entries(log: (closed: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   true,
 )
 #assert.eq(
-  is-settled(dates(log: (activated: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  is-settled(entries(log: (activated: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   false,
 )
 #assert.eq(
-  next-stage(dates(log: (scheduled: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  next-stage(entries(log: (scheduled: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   "activated",
 )
 // `deadline` is deliberately NOT a rung, so a todo carrying one has not advanced.
-#assert.eq(rung(dates(deadline: d(2026, 8, 1)), ladder: TODO-LADDER, today: _T), none)
+#assert.eq(rung(entries(deadline: d(2026, 8, 1)), ladder: TODO-LADDER, today: _T), none)

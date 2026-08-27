@@ -20,9 +20,9 @@
 // 3. NOT TAGS OF OURS AT ALL — labels are PLAIN, UNNAMESPACED rookery tags,
 //    because a todo's labels ARE rookery tags and namespacing them would break
 //    exactly the filtering and theming that is the point. EVERY DATE comes from
-//    @rheo/rookery-dates' `date-log`, including the one this package used to
+//    @rheo/rookery-timeline's `timeline-log`, including the one this package used to
 //    store itself (see `CLOSED-KEY` below). `created` comes from rookery's own
-//    row field; there is no `updated` field any more — rookery-dates derives
+//    row field; there is no `updated` field any more — rookery-timeline derives
 //    last-touched from the log.
 //
 // DERIVED, NEVER STORED: `blocked`, `ready`, `stale`. Tagging them would let
@@ -32,9 +32,9 @@
 // `todo-deps`; an epic is a tag, not a containment edge.
 
 // The log readers and the reserved stage names this package builds on. `closed`
-// is one of rookery-dates' three reserved stages, so this package names it
+// is one of rookery-timeline's three reserved stages, so this package names it
 // through the exported constant rather than hardcoding the string.
-#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, SCHEDULED-STAGE, has-stage, stage-date
+#import "@rheo/rookery-timeline:0.1.0": CLOSED-STAGE, SCHEDULED-STAGE, has-stage, stage-date
 
 // The base key every todo carries.
 #let TODO-KEY = "todo"
@@ -49,7 +49,7 @@
 // here either — it is derived from dependencies, never declared.
 #let STATUSES = ("in-progress", "deferred", "draft")
 
-// THIS PACKAGE'S OWN LOG STAGE, and the only one it names. rookery-dates
+// THIS PACKAGE'S OWN LOG STAGE, and the only one it names. rookery-timeline
 // reserves `scheduled`, `deadline` and `closed` and leaves every other stage
 // name to its consumers — its `src/lib.typ` header says outright that status
 // transitions "belong to whoever owns the status", which is this package.
@@ -60,10 +60,10 @@
 // filters on, and the log entry is what says since when.
 #let ACTIVATED-STAGE = "activated"
 
-// THE LADDER A TODO'S STAGES FORM, in @rheo/rookery-dates' own shape, so that
+// THE LADDER A TODO'S STAGES FORM, in @rheo/rookery-timeline's own shape, so that
 // package's `is-settled`/`rung`/`next-stage` work over a todo with nothing
 // reimplemented here. This is what "a structure over the log" means concretely:
-// rookery-dates holds the events and the reasoning, and this is the vocabulary
+// rookery-timeline holds the events and the reasoning, and this is the vocabulary
 // that orders them.
 //
 // `deadline` IS NOT A RUNG. It is a date a todo carries, not a state it passes
@@ -81,7 +81,7 @@
 #let METADATA-KEY = "todo-metadata"
 
 // `todo-closed` IS NO LONGER A VALUED KEY. The date a todo closed lives in
-// @rheo/rookery-dates' `date-log`, under its reserved `closed` stage, alongside
+// @rheo/rookery-timeline's `timeline-log`, under its reserved `closed` stage, alongside
 // every other dated event in the todo's life — which is the whole point of
 // 0.6.0: one store for a todo's timeline instead of a valued tag here, two date
 // keys there, and core's `updated` somewhere else again.
@@ -92,7 +92,7 @@
 // payoff of the flat-tag surface: `tags:todo&!todo-closed` in a search bar lists
 // the open todos with no rookery-todos code involved. Rookery's tag predicate
 // and rookery-search's `tags:` query both test KEYS, so a fact living only
-// inside `date-log`'s value is invisible to them. Losing that query to buy
+// inside `timeline-log`'s value is invisible to them. Losing that query to buy
 // tidiness would have been a bad trade.
 //
 // So: presence here, date in the log, and `is-closed` below reads either.
@@ -228,7 +228,7 @@
 
 // THE LOG ALONE, which it can be now that there is one write path. It used to
 // read "the flat marker OR a `closed` log entry", because `#todo(closed: d)` wrote
-// the marker and `dates(log: (closed: d))` wrote the entry and neither wrote both.
+// the marker and `entries(log: (closed: d))` wrote the entry and neither wrote both.
 // With the marker derived from the log the two cannot disagree, so reading both
 // would only hide a bug rather than tolerate one.
 #let is-closed(tags) = has-stage(tags, CLOSED-STAGE)

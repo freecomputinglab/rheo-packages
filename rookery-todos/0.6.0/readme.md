@@ -53,7 +53,7 @@ a shortcoming.
 
 A todo already had a lifecycle — filed, scheduled, activated, closed — and it was
 spread across three owners: rookery core's `minted`/`updated`,
-`@rheo/rookery-dates`' two date keys, and this package's own valued `todo-closed`.
+`@rheo/rookery-timeline`' two date keys, and this package's own valued `todo-closed`.
 That last one was a dated event wearing a tag's clothes. As of 0.6.0 every date a
 todo carries lives in one log:
 
@@ -62,7 +62,7 @@ todo carries lives in one log:
 ```
 
 - **`#todo` takes `scheduled:`, `deadline:` and `log:` as named arguments**, being
-  built on rookery-dates' `dated(..)` decorator. The old `tags: dates(deadline: d)`
+  built on rookery-timeline's `dated(..)` decorator. The old `tags: entries(deadline: d)`
   form still works and is still supported.
 - **`closed:` is a date, and it writes a log entry.** `closed: true` used to mean
   "closed, when unknown"; a log entry needs a date, and this package has no clock
@@ -71,7 +71,7 @@ todo carries lives in one log:
 - **`todo-closed` survives as a FLAT marker** carrying no date. See surface 2
   below for why that is not a second copy.
 - **`activated` joins the vocabulary** — the moment a todo went from ready to
-  being worked on. rookery-dates reserves `scheduled`/`deadline`/`closed` and
+  being worked on. rookery-timeline reserves `scheduled`/`deadline`/`closed` and
   leaves the rest to its consumers; a status transition is this package's to name.
 - **`#todos-stale` now measures activity rather than document age.** It read
   core's `updated`, which fell back to the DOCUMENT's date — so on any project
@@ -122,7 +122,7 @@ payoff named at the top of surface 1 — would have been lost to buy tidiness.
 
 So `todo-closed` is now a FLAT presence marker valued `none`, carrying no date and
 duplicating nothing. `is-closed` reads either it or a `closed` entry in the log, so
-a note written straight through `dates(log: (closed: d))` without `#todo` still
+a note written straight through `entries(log: (closed: d))` without `#todo` still
 reads as closed; `closed-on` reads only the log, the one place the date is stored.
 `closed: false` still emits no key at all.
 
@@ -131,12 +131,12 @@ reads as closed; `closed-on` reads only the log, the one place the date is store
 - **Labels are plain, unnamespaced rookery tags.** `#todo("x", tags: ("phd",))`.
   A todo's labels *are* rookery tags, and namespacing them would break exactly
   the filtering and theming that is the point.
-- **Dates come from [`@rheo/rookery-dates`](../../rookery-dates)** —
+- **Dates come from [`@rheo/rookery-timeline`](../../rookery-timeline)** —
   `#todo("x", deadline: d, log: (activated: d2))`, or the older
-  `#todo("x", tags: dates(deadline: d))`. One concept, one package, and as of
+  `#todo("x", tags: entries(deadline: d))`. One concept, one package, and as of
   0.6.0 one log.
 - **`created` is rookery core's own**, forwarded straight through `#todo`. There
-  is no `updated` beside it any more; `updated-of(row, tags)` in rookery-dates
+  is no `updated` beside it any more; `updated-of(row, tags)` in rookery-timeline
   derives last-touched from the log instead.
 
 ## Rows as windows: `windows:`
@@ -305,7 +305,7 @@ document's `#set document(date:)`, and panics if neither is available.
 1980-01-01 wherever `SOURCE_DATE_EPOCH` is set for reproducible builds
 (MEASURED, typst 0.15.1) and it does not error while doing it — a stale-todo
 report built on it would silently list the entire project.
-`@rheo/rookery-dates`' readme carries the full evidence.
+`@rheo/rookery-timeline`' readme carries the full evidence.
 
 ## Styling
 
@@ -373,7 +373,7 @@ blob and bloats the page.
 
 ## Requirements
 
-- `@rheo/rookery` 0.6.0 and `@rheo/rookery-dates` 0.6.0. Both are hard imports.
+- `@rheo/rookery` 0.6.0 and `@rheo/rookery-timeline` 0.6.0. Both are hard imports.
 - rheo 0.6.0 or later, inherited from rookery's own floor.
 - A built package: `dist/` must exist before a project sees an edit.
 
