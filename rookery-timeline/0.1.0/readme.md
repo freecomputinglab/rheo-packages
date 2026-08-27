@@ -514,6 +514,11 @@ date — inside the same list item, so the dot stays aligned to the prose it bel
 to. That is the whole reason an entry can carry content: a sentence about one event
 on the note's body reads as a claim about the whole thing.
 
+A note may span more than one paragraph. Its container is a `<div>` and not a `<p>`
+for exactly that reason — MEASURED, a two-paragraph note inside a `<p>` renders
+EMPTY, because Typst's paragraphs are block content a `<p>` cannot legally contain
+and the whole element collapses.
+
 An event without a note gets no element at all rather than an empty one, and an
 **expected rung never gets one** — a rung that has not happened cannot have prose
 about it, and the ladder supplies names only.

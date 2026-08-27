@@ -14,8 +14,8 @@ python3 - "$H" <<'PY' || fail=1
 import re, sys
 h = open(sys.argv[1]).read()
 rails = re.findall(r'<ol class="timeline">(.*?)</ol>', h, re.S)
-if len(rails) != 7:
-    print(f"FAIL: expected 7 rails, found {len(rails)}"); sys.exit(1)
+if len(rails) != 8:
+    print(f"FAIL: expected 8 rails, found {len(rails)}"); sys.exit(1)
 
 def rows(rail):
     # `[a-z- ]` and not `[a-z-]`: the current row carries TWO classes
@@ -122,7 +122,17 @@ if "review" in names7:
     print("FAIL: `review` listed as still-to-come after two reviews happened")
     sys.exit(1)
 
-print(f"  timeline-view: 7 rails, one current row each, divider only where both sides exist, same-day times "
+# 8. A MULTI-PARAGRAPH NOTE survives. It rendered empty inside a <p>, because
+# Typst paragraphs are block content that a <p> cannot legally contain.
+eight = rows(rails[7])
+body8 = eight[0][1]
+if "First paragraph" not in body8 or "Second paragraph" not in body8:
+    print(f"FAIL: a two-paragraph note lost its prose: {txt(body8)!r}"); sys.exit(1)
+if "<p class=\"timeline-note\"" in rails[7]:
+    print("FAIL: the note is still a <p>, which collapses multi-paragraph content")
+    sys.exit(1)
+
+print(f"  timeline-view: 8 rails, one current row each, divider only where both sides exist, same-day times "
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 

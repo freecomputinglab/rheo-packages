@@ -159,8 +159,13 @@
       // than about the note as a whole. Inside the same `<li>`, not as a sibling
       // row, so the rail's dot stays aligned to the event the prose belongs to —
       // which is the entire point of an entry carrying it.
+      // A `<div>`, NOT a `<p>`. MEASURED: a note spanning more than one paragraph
+      // renders EMPTY inside a `<p>` — Typst's own paragraphs are block content, and
+      // a `<p>` cannot legally contain them, so the whole element collapses. A note
+      // is authored prose and the author chose its length, so the container has to
+      // take whatever they wrote.
       if note != none {
-        html.elem("p", attrs: (class: "timeline-note"), note)
+        html.elem("div", attrs: (class: "timeline-note"), note)
       }
     },
   )

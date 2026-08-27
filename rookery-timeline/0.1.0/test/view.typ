@@ -87,3 +87,18 @@
   "review-1": d(2026, 11, 1),
   "review-2": d(2026, 12, 1),
 )), today: NOW, ladder: JOURNAL2)
+
+= 8. A note spanning two paragraphs
+
+// It rendered EMPTY inside a `<p>`: Typst paragraphs are block content and a `<p>`
+// cannot contain them, so the element collapsed and took the prose with it.
+#timeline-view((:), entries(timeline: (
+  submitted: (
+    timestamp: d(2026, 5, 1),
+    note: [
+      First paragraph of the note.
+
+      Second paragraph, which is what broke it.
+    ],
+  ),
+)), today: NOW)
