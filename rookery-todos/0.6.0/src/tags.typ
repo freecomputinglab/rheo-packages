@@ -34,7 +34,7 @@
 // The log readers and the reserved stage names this package builds on. `closed`
 // is one of rookery-dates' three reserved stages, so this package names it
 // through the exported constant rather than hardcoding the string.
-#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, has-stage, stage-date
+#import "@rheo/rookery-dates:0.6.0": CLOSED-STAGE, SCHEDULED-STAGE, has-stage, stage-date
 
 // The base key every todo carries.
 #let TODO-KEY = "todo"
@@ -59,6 +59,20 @@
 // two are not redundant — the flat `todo-in-progress` key is what a tag query
 // filters on, and the log entry is what says since when.
 #let ACTIVATED-STAGE = "activated"
+
+// THE LADDER A TODO'S STAGES FORM, in @rheo/rookery-dates' own shape, so that
+// package's `is-settled`/`rung`/`next-stage` work over a todo with nothing
+// reimplemented here. This is what "a structure over the log" means concretely:
+// rookery-dates holds the events and the reasoning, and this is the vocabulary
+// that orders them.
+//
+// `deadline` IS NOT A RUNG. It is a date a todo carries, not a state it passes
+// through — a todo with a deadline has not thereby progressed. `created` is not
+// one either: it is rookery core's own field and is not in the log at all.
+#let TODO-LADDER = (
+  transit: (SCHEDULED-STAGE, ACTIVATED-STAGE),
+  terminal: (CLOSED-STAGE,),
+)
 
 // The valued keys. Namespaced with a `todo-` prefix per rookery's convention:
 // a key becomes a CSS class fragment, and a bare `deps` is a generic name two
@@ -136,7 +150,8 @@
   priority: none,
   kind: none,
   status: none,
-  closed: none,
+  // A BOOL saying whether the log records a close, not a date. `#todo` derives it.
+  closed: false,
   deps: (),
   metadata: (:),
   norm: it => it,
@@ -173,25 +188,11 @@
     out.insert("todo-" + status, none)
   }
 
-  // A DATE IS NOW REQUIRED, where `closed: true` used to mean "closed, when
-  // unknown". Closing is a dated event in the log as of 0.6.0, and an entry
-  // needs a date. This package cannot invent one — there is no wall clock to
-  // stamp from, which its own header records — so an undated close is simply a
-  // caller who did not say when, and the message says so rather than guessing.
-  //
-  // Only the FLAT marker is written here. `#todo` puts the date itself into the
-  // log through rookery-dates' decorator; see `todo.typ`.
-  if closed != none and closed != false {
-    assert(
-      type(closed) == datetime,
-      message: "@rheo/rookery-todos: `closed` must be the datetime it closed — got "
-        + repr(closed)
-        + ". `closed: true` no longer works: a close is a dated entry in "
-        + "@rheo/rookery-dates' log as of 0.6.0, and this package has no clock to "
-        + "stamp one from. Give the date.",
-    )
-    out.insert(CLOSED-KEY, none)
-  }
+  // A BOOL, and it is DERIVED — `#todo` passes `CLOSED-STAGE in log`, never a
+  // date. The date lives in the log and nowhere else; this is only the flat
+  // marker that makes closedness reachable from a tag query. See `todo.typ` for
+  // why deriving it is what collapsed two write paths into one.
+  if closed == true { out.insert(CLOSED-KEY, none) }
 
   if deps != none {
     assert(
@@ -225,14 +226,14 @@
 // Is this note a todo at all?
 #let is-todo(tags) = TODO-KEY in tags
 
-// Closed is PRESENCE — of the flat marker `#todo` writes, or of a `closed` entry
-// in the log. EITHER, so a note whose log was written directly through
-// `dates(log: (closed: d))` without going through `#todo` still reads as closed
-// rather than silently open.
-#let is-closed(tags) = CLOSED-KEY in tags or has-stage(tags, CLOSED-STAGE)
+// THE LOG ALONE, which it can be now that there is one write path. It used to
+// read "the flat marker OR a `closed` log entry", because `#todo(closed: d)` wrote
+// the marker and `dates(log: (closed: d))` wrote the entry and neither wrote both.
+// With the marker derived from the log the two cannot disagree, so reading both
+// would only hide a bug rather than tolerate one.
+#let is-closed(tags) = has-stage(tags, CLOSED-STAGE)
 
-// The date it closed, from the log. `none` where the marker is present but no
-// dated entry is — which `#todo` cannot produce, but a hand-written note can.
+// The date it closed, from the log — the only place it is stored.
 #let closed-on(tags) = stage-date(tags, CLOSED-STAGE)
 
 // The names this todo depends on, already normalized at write time.

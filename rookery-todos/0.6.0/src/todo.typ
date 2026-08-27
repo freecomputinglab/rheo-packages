@@ -17,11 +17,16 @@
 // does not itself consume: `title`, `level`, `created`, `show-date`,
 // `show-tags`.
 //
-// DATES ARE PARAMETERS AS OF 0.6.0. `#todo` is built on rookery-dates'
-// `dated(..)` decorator, so `scheduled:`, `deadline:` and `log:` are named
-// arguments:
+// EVERY DATE A TODO CARRIES BELONGS TO @rheo/rookery-dates, in its entirety.
+// `#todo` is built on that package's `dated(..)` decorator, so `scheduled:`,
+// `deadline:` and `log:` are its named arguments passed straight through:
 //
-//   #todo("ship", deadline: d, log: (activated: d2))[..]
+//   #todo("ship", deadline: d, log: (activated: d2, closed: d3))[..]
+//
+// WHAT THIS PACKAGE CONTRIBUTES IS A VOCABULARY, not storage: the stage names
+// `activated` and `closed` (see `ACTIVATED-STAGE` and rookery-dates'
+// `CLOSED-STAGE`), the `TODO-LADDER` that orders them, and the views. There is no
+// `closed:` argument — a close is `log: (closed: d)`, one way to write one fact.
 //
 // The old form still works and is still supported — `dated` merges its fragment
 // into whatever `tags:` the caller passed — so `#todo("ship", tags: dates(deadline: d))`
@@ -56,24 +61,13 @@
   priority: none,
   type: none,
   status: none,
-  closed: none,
   deps: (),
   metadata: (:),
   tags: none,
   log: none,
   ..args,
 ) = (dated(tagged-idea(TODO-KEY)))(
-  // `closed:` folded into the log the caller passed, so a todo's close and the
-  // rest of its timeline are one record. Written here rather than in
-  // `todo-tags` because the log belongs to rookery-dates and `todo-tags` builds
-  // only this package's own keys.
-  log: {
-    let l = if log == none { (:) } else { log }
-    if closed != none and closed != false and CLOSED-STAGE not in l {
-      l.insert(CLOSED-STAGE, closed)
-    }
-    if l.len() == 0 { none } else { l }
-  },
+  log: log,
   tags: todo-tags(
     tags: tags,
     priority: priority,
@@ -81,7 +75,18 @@
     // `type()` for the whole callee body, and `todo-tags` needs that builtin.
     kind: type,
     status: status,
-    closed: closed,
+    // THE FLAT MARKER IS DERIVED FROM THE LOG, not from an argument. There used
+    // to be a `closed:` parameter beside `log:`, and the two were not
+    // equivalent: MEASURED, `#todo("a", closed: d)` carried `todo-closed` while
+    // `#todo("b", log: (closed: d))` did not, so the second read as closed to
+    // `is-closed` and as OPEN to `tags:todo&!todo-closed` — the query this
+    // package's own header calls the payoff of the flat-tag surface. Two ways to
+    // write one fact, one of them silently unfilterable.
+    //
+    // Deriving it here is what makes them one way. `todo-tags` cannot do it: it
+    // builds this package's keys and never sees the log, which belongs to
+    // @rheo/rookery-dates.
+    closed: log != none and CLOSED-STAGE in log,
     deps: deps,
     metadata: metadata,
     // Rookery's own name normalizer, so a dep written as a bare name, a full

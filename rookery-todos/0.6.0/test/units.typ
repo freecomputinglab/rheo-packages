@@ -3,6 +3,10 @@
 // compile with a line number, and a passing compile is the green light.
 
 #import "/src/lib.typ": *
+// rookery-dates is NOT re-exported by this package's lib, deliberately — a
+// consumer imports it itself. The fixture does the same, for the derivations
+// `TODO-LADDER` exists to feed.
+#import "@rheo/rookery-dates:0.6.0": dates, is-settled, next-stage, rung
 
 #let d(y, m, dd) = datetime(year: y, month: m, day: dd)
 
@@ -25,16 +29,15 @@
 #assert.eq(todo-tags(deps: ("a", "b")).at("todo-deps"), ("a", "b"))
 #assert.eq(todo-tags(metadata: (estimate: 30)).at("todo-metadata"), (estimate: 30))
 
-// `closed` — the FLAT marker is the filterable status; the DATE is in the log,
-// written by `#todo` rather than by `todo-tags` (see CLOSED-KEY in tags.typ).
-// A date is required as of 0.6.0: `closed: true` is refused, because a log entry
-// needs one and this package has no clock to stamp it from.
-#assert.eq(todo-tags(closed: d(2026, 8, 1)).at("todo-closed"), none)
-#assert.eq(todo-tags(closed: d(2026, 8, 1)).keys(), ("todo", "todo-closed"))
+// `closed` on `todo-tags` is a BOOL, and it is DERIVED: `#todo` passes
+// `CLOSED-STAGE in log`, never a date. The date lives in the log alone. There is
+// no `closed:` argument on `#todo` any more — a close is `log: (closed: d)`.
+#assert.eq(todo-tags(closed: true).at("todo-closed"), none)
+#assert.eq(todo-tags(closed: true).keys(), ("todo", "todo-closed"))
 // `closed: false` emits NO KEY. A key valued `false` would read as closed to
 // every consumer that tests for the key, including rookery's own tag filter.
 #assert.eq(todo-tags(closed: false).keys(), ("todo",))
-#assert.eq(todo-tags(closed: none).keys(), ("todo",))
+
 
 // EMPTY MEANS ABSENT for the valued keys — no meaningless class, no key that
 // reads as "has dependencies, namely none".
@@ -69,21 +72,20 @@
 #assert.eq(deps-of(todo-tags()), ())
 #assert.eq(metadata-of(todo-tags()), (:))
 
-#assert.eq(is-closed(todo-tags(closed: d(2026, 8, 1))), true)
-#assert.eq(is-closed(todo-tags()), false)
-// EITHER surface reads as closed: the flat marker, or a `closed` entry in the log
-// on a note written straight through `dates(log: ..)` without `#todo`.
+// THE LOG ALONE decides. The flat marker is an index into it, not a second
+// source: with one write path the two cannot disagree, so `is-closed` reads the
+// log and a marker without an entry (which `#todo` cannot produce) is not closed.
 #assert.eq(is-closed(dates(log: (closed: d(2026, 8, 1)))), true)
-// The date comes from the log, which is the only place it is stored.
+#assert.eq(is-closed(todo-tags()), false)
+#assert.eq(is-closed(todo-tags(closed: true)), false)
 #assert.eq(closed-on(dates(log: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
-#assert.eq(closed-on(todo-tags(closed: d(2026, 8, 1))), none)
 
 // `status-of` — closed wins over a declared status, absent reads as open, and
 // `blocked` never appears because it is derived from the graph, not declared.
 #assert.eq(status-of(todo-tags()), "open")
 #assert.eq(status-of(todo-tags(status: "draft")), "draft")
-#assert.eq(status-of(todo-tags(closed: d(2026, 8, 1))), "closed")
-#assert.eq(status-of(todo-tags(status: "draft", closed: d(2026, 8, 1))), "closed")
+#assert.eq(status-of(todo-tags(closed: true) + dates(log: (closed: d(2026, 8, 1)))), "closed")
+#assert.eq(status-of(todo-tags(status: "draft", closed: true) + dates(log: (closed: d(2026, 8, 1)))), "closed")
 
 // ---- the graph, cycles, and derived state ---------------------------------
 //
@@ -217,3 +219,24 @@
   d(2026, 7, 1),
 )
 #assert.eq(updated-of((created: d(2026, 1, 1)), (:)), d(2026, 1, 1))
+
+// ---- TODO-LADDER — rookery-dates' derivations, over this vocabulary --------
+// The point of "a structure over the log": nothing here reimplements settledness.
+// The ladder is the words, and that package does the reasoning.
+#let _T = d(2026, 9, 1)
+#assert.eq(TODO-LADDER.terminal, ("closed",))
+#assert.eq(TODO-LADDER.transit, ("scheduled", "activated"))
+#assert.eq(
+  is-settled(dates(log: (closed: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  true,
+)
+#assert.eq(
+  is-settled(dates(log: (activated: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  false,
+)
+#assert.eq(
+  next-stage(dates(log: (scheduled: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  "activated",
+)
+// `deadline` is deliberately NOT a rung, so a todo carrying one has not advanced.
+#assert.eq(rung(dates(deadline: d(2026, 8, 1)), ladder: TODO-LADDER, today: _T), none)
