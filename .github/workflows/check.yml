@@ -137,7 +137,13 @@ jobs:
       # roots. Running the recipe directly means a
       # new root added to the Justfile is gated in CI automatically instead of
       # needing this step updated in the same commit and possibly forgotten.
-      - name: rookery pure demo compiles, HTML and PDF
+      # `just build` now ends by invoking the demo's own `just check`, which greps
+      # the output for the two things a clean compile cannot prove: that an
+      # excluded note is ABSENT from the HTML rather than merely unrendered, and
+      # that an invisible tag leaves behind no pill, no class and no CSS rule. One
+      # step gates both, for the same reason recorded above — a check added to the
+      # Justfile is picked up here automatically.
+      - name: rookery pure demo compiles and checks, HTML and PDF
         run: cd rookery/0.6.0/demo/pure && just build
 
       # The rheo half of rookery's coverage, and the only thing that proves

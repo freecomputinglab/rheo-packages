@@ -10,10 +10,28 @@ watch:
     typst watch --features html --format html --root ../.. root.typ build/root.html
 
 # Compiles every root in this demo, HTML and PDF, both with --features html
-# (mandatory regardless of format — see root.typ). Mirrors (and should stay
-# in sync with) the "rookery pure demo compiles" step in the repo-root
-# .github/workflows/check.yml — that step invokes `typst compile` directly
-# rather than `just build`, so a new root added here needs BOTH updated.
+# (mandatory regardless of format — see root.typ). The repo-root
+# .github/workflows/check.yml runs THIS RECIPE ("rookery pure demo compiles",
+# `cd rookery/0.6.0/demo/pure && just build`), so a root added here is picked up
+# by CI with no second edit. It did once invoke `typst compile` directly, which
+# is why this comment used to warn that both needed updating — it no longer does.
+#
+# `excluded.typ` and `invisible.typ` are HTML ONLY, deliberately: neither asserts
+# anything about the paged target, and a PDF line each would double their runtime
+# for no coverage. Every other root here is built both ways because the paged
+# branch is exactly what it is testing.
+#
+# `excluded.typ` IS COMPILED TWICE, and that pair is the only test in this repo
+# that can make its point: the SAME source file, one `--input` apart. The file
+# declares `private` excluded, so the first compile drops those notes and the
+# second (`--input rookery-include=private`) puts them back — exactly the
+# dev-vs-CD split the feature exists for. `rheo compile` forwards no `--input`
+# today (see `_resolve-excluded`, src/base.typ), so `demo/rheo` cannot vary the
+# env half at all and this is where that half is covered.
+#
+# Comments belong in THIS header, not inside the recipe body: `just` echoes a
+# `#` line in a body as if it were a command, so an explanation written there is
+# printed to the user on every build.
 build:
     mkdir -p build
     typst compile --features html --format html --root ../.. root.typ build/root.html
@@ -21,3 +39,55 @@ build:
     typst compile --features html --root ../.. paged.typ build/paged.pdf
     typst compile --features html --format html --root ../.. root-prefix.typ build/root-prefix.html
     typst compile --features html --root ../.. root-prefix.typ build/root-prefix.pdf
+    typst compile --features html --format html --root ../.. invisible.typ build/invisible.html
+    typst compile --features html --format html --root ../.. excluded.typ build/excluded.html
+    typst compile --features html --format html --root ../.. --input rookery-include=private excluded.typ build/excluded-dev.html
+    @just check
+
+# Greps on what `build` produced. The assertions live here rather than as
+# `assert`s inside the roots because what these two roots claim is about the
+# OUTPUT — that a string is absent from the HTML — and a Typst `assert` cannot
+# see its own rendering. Same reason `demo/rheo/check.sh` exists.
+check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail=0
+    note() { echo "FAIL: $*"; fail=1; }
+
+    # 1. An excluded note is ABSENT, not hidden: neither its body nor its id
+    #    appears anywhere. Covers the plain form, a `tagged-idea` wrapper, and a
+    #    VALUED tag — three ways in, one gate.
+    if grep -qE 'DROPBODY|idea:gone' build/excluded.html; then
+      note "excluded note leaked into build/excluded.html"
+    fi
+    # 2. The surviving note is untouched.
+    grep -q 'idea:keeper' build/excluded.html || note "keeper missing from excluded.html"
+    grep -q KEEPBODY build/excluded.html || note "keeper body missing from excluded.html"
+    # 3. `#ideas()` sees one note — the assertion that also covers the registry,
+    #    and through it every minted page, the search index and the feeds beacon.
+    grep -q 'count=1' build/excluded.html || note "ideas() count is not 1 in excluded.html"
+    # 4. Graceful degradation: `#hyperlink` keeps its body as plain text (deleting
+    #    it would break the author's sentence), and nothing panicked getting here.
+    grep -q 'HLBODY' build/excluded.html || note "hyperlink body dropped in excluded.html"
+    # 5. THE DEV BUILD, same file, one --input apart: the notes come back.
+    grep -q DROPBODY build/excluded-dev.html || note "rookery-include did not restore the excluded notes"
+    grep -q 'count=4' build/excluded-dev.html || note "ideas() count is not 4 in excluded-dev.html"
+
+    # 6. An invisible tag leaves NO trace: no pill, no class, no generated CSS
+    #    rule. A flat grep, with no documented exception — `invisible.typ` reports
+    #    its filtering assertions as a count and a 0/1 flag precisely so this line
+    #    can stay this simple.
+    if grep -q private build/invisible.html; then
+      note "invisible tag 'private' leaked into build/invisible.html"
+    fi
+    # 7. A VISIBLE tag on the same note keeps everything: pill, class, themed rule.
+    grep -q 'idea-tag-draft' build/invisible.html || note "visible tag class missing"
+    grep -q '>draft</span>' build/invisible.html || note "visible tag pill missing"
+    grep -q '.idea-tag-draft {' build/invisible.html || note "tags-color rule missing for draft"
+    # 8. FILTERING SURVIVES, which is the boundary of the feature: `tags-of` still
+    #    reports both tags and still matches the invisible one.
+    grep -q 'tagcount=2' build/invisible.html || note "tags-of lost a tag"
+    grep -q 'filterable=1' build/invisible.html || note "invisible tag is no longer filterable"
+
+    if [ "$fail" -ne 0 ]; then exit 1; fi
+    echo "demo/pure OK"
