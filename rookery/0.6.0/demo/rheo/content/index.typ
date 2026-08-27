@@ -1,8 +1,10 @@
-#import "lib.typ": demo
-#import "@rheo/rookery:0.6.0": footnote, idea, ideas-outline, tagged-idea, window
+#import "lib.typ": demo, idea, note
+#import "@rheo/rookery:0.6.0": footnote, ideas-outline, window
 
-// `#note` is a project-local two-liner as of 0.5.0, not a package export.
-#let note = tagged-idea("note")
+// `idea` AND `note` COME FROM `lib.typ`, not from the package, and that is the
+// exclusion pattern rather than a style preference: both are bound there with
+// `exclude-tags: ("private",)`, and importing the package's own `idea` here
+// would silently opt this vertebra out of the project's exclusions.
 #show: demo
 
 = Rookery under rheo
@@ -52,5 +54,37 @@ the only thing that produces a page backlink:
       .join(),
   )
 }
+
+// ---- EXCLUDED AND INVISIBLE TAGS, which only a rheo build can check -------
+//
+// `demo/pure` proves an excluded note is absent from ONE page's HTML. What needs
+// rheo is everything downstream of the registry: `.marrow.typ` mints one page per
+// registered note and an `ideas/index.html` listing all of them, and an excluded
+// note must be missing from BOTH — no `ideas/private-note.html` at all, and no
+// row for it on the index.
+// ITS BODY NAMES NO TAG AND NO CLASS, deliberately: `check.sh` asserts that
+// certain strings appear NOWHERE in the built tree, and prose explaining which
+// strings those are would put them back — MEASURED, an earlier draft of this file
+// tripped its own assertions from inside a note body. The explanation lives in
+// these comments, which render nothing.
+#idea("private-note", title: [Private note], tags: ("private",))[
+  PRIVATEBODY — this note is dropped by the build, so it mints no page and takes
+  no row on the index.
+]
+
+// A note carrying the INVISIBLE tag, plus a visible one, so every assertion is a
+// difference between two tags on one note rather than the absence of all of them.
+// It survives the build; only the tag's name disappears. The minted page is the
+// place that matters most: it renders its note's tags UNCONDITIONALLY, with no
+// `show-tags:` argument to gate them, because nothing writes an `#idea` call for
+// a page `.marrow.typ` mints.
+// Same rule about its body as above: no tag name, no class name, no backticked
+// example — only the marker `check.sh` greps for.
+#note("secret-note", title: [Secret note], tags: ("secret",), updated: datetime(year: 2026, month: 6, day: 1))[
+  SECRETBODY — this note survives the build in full. What disappears is one of its
+  two tags: the pill, the class and the generated rule for it are all absent, here
+  and on its own minted page and on the index row, while its other tag keeps all
+  three.
+]
 
 #ideas-outline(rookery-wide: true)

@@ -80,6 +80,9 @@
 //   _own-cited-keys      which keys a body cites, minus the windowed ones
 //   _window-depth        the document-wide nested-window budget state
 //   _idea-page-template  the project's own minted-page template, if any
+//   _visible-tags        tag names minus the invisible ones, for the index
+//                        page's row classes — marrow renders those rows itself,
+//                        so it has to apply the same filter every card does
 //   window               public, but listed for completeness: marrow renders
 //                        the backlinks list as folded windows
 //

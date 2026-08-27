@@ -16,5 +16,17 @@ watch:
 
 # Asserts on the OUTPUT, not merely that the build succeeded — every path below
 # exists only under rheo and none of it is covered by `demo/pure`.
-check: build
+#
+# CLEANS FIRST, and that is required rather than tidy. `rheo compile` writes
+# pages; it does not remove one that is no longer produced. Several assertions
+# here are about ABSENCE — `ideas/private-note.html` must NOT exist, and certain
+# strings must appear nowhere in the tree — so a page left behind by an earlier
+# build fails them for the wrong reason. MEASURED: after one run with the
+# exclusion deliberately disabled, the stale `ideas/private-note.html` made the
+# very next (correct) run fail. `build/` is gitignored and holds nothing but
+# output, so there is nothing to lose by removing it.
+check: clean build
     ./check.sh
+
+clean:
+    rm -rf build

@@ -138,8 +138,12 @@ if [ -f "$H/ideas/index.html" ]; then
   if grep -q 'idea-outline-row"><a href="[^"]*#loc-' "$idx"; then
     note "ideas/index.html links a row at a vertebra anchor, not at a minted page"
   fi
-  grep -q 'idea-index-count">4 ideas<' "$idx" ||
-    note "ideas/index.html does not count its 4 ideas"
+  # FIVE, not four: `secret-note` was added for the invisible-tag assertions and
+  # `private-note` was added for the exclusion ones — the second is EXCLUDED, so it
+  # never registers and never gets a row. This count is therefore also the
+  # assertion that exclusion reaches the index page.
+  grep -q 'idea-index-count">5 ideas<' "$idx" ||
+    note "ideas/index.html does not count its 5 ideas"
   # A dated note carries its date; sub-note is the demo's only dated one.
   grep -q 'idea-date">2026-03-14<' "$idx" ||
     note "ideas/index.html does not show the dated note's date"
@@ -181,9 +185,13 @@ fi
 # and no match is exactly the failure this line exists to report. MEASURED while
 # writing it: with `syndicate: false` the check exited 1 silently instead of
 # naming the count.
+# THREE dated notes now: `plain-note`, `root-note`'s document date, and
+# `secret-note`, which carries an explicit `updated:`. `private-note` is excluded
+# and so emits no beacon either — a second place the exclusion has to reach, since
+# `.marrow.typ` writes one beacon per minted page.
 beacons=$({ grep -o '<li>idea:[^<]*</li>' "$H/index.html" || true; } | wc -l)
-[ "$beacons" -eq 2 ] ||
-  note "index.html renders $beacons syndication beacons, expected exactly 2 (the dated notes)"
+[ "$beacons" -eq 3 ] ||
+  note "index.html renders $beacons syndication beacons, expected exactly 3 (the dated notes)"
 # The TITLE the note authored, not its slug, and the minted page's own path.
 grep -q '<li>idea:plain-note | Plain note | ideas/plain-note.html | note</li>' "$H/index.html" ||
   note "plain-note's beacon payload is wrong (id, title, page or categories)"
@@ -213,6 +221,60 @@ grep -q 'idea-tag-note { --idea-tag-bg: #3366ff[;}]' "$H/ideas/root-note.html" |
 grep -q 'idea-tag-line: #3366ff' "$H/ideas/root-note.html" ||
   note "ideas/root-note.html's generated rule does not set --idea-tag-line for the note tag"
 
+
+# 9. EXCLUDED TAGS reaching everything downstream of the registry. `demo/pure`
+#    proves an excluded note is absent from one page's HTML; only here can it be
+#    shown to mint no page, take no index row, emit no beacon and appear nowhere
+#    in the whole output tree. `content/lib.typ` binds
+#    `exclude-tags: ("private",)` on both `idea` and `tagged-idea`.
+[ -f "$H/ideas/private-note.html" ] &&
+  note "ideas/private-note.html was minted for an EXCLUDED note"
+#    The strongest form of the assertion, and the one worth keeping: the note's
+#    id, its slug and its body appear NOWHERE in the built tree — not on the index,
+#    not in a backlink list, not in a beacon, not in a Context footer.
+if grep -rq -e 'private-note' -e PRIVATEBODY "$H"; then
+  note "an excluded note leaked into the build: $(grep -rl -e 'private-note' -e PRIVATEBODY "$H" | tr '\n' ' ')"
+fi
+#    The control: the note added alongside it, which is NOT excluded, did mint.
+[ -f "$H/ideas/secret-note.html" ] ||
+  note "no minted page at ideas/secret-note.html — the non-excluded control is missing"
+
+# 10. INVISIBLE TAGS on the surfaces only a rheo build has. A minted note page
+#     renders its tags UNCONDITIONALLY (nothing writes a `show-tags:` argument for
+#     a page `.marrow.typ` mints), and the index page puts `idea-tag-<tag>` on
+#     every row — so these are the two places an invisible tag would most
+#     obviously leak. `content/lib.typ` sets `invisible-tags: ("secret",)` AND
+#     themes `secret`, so the generated `@layer rookery-tags` block is checked too.
+#     TARGETED greps, not a flat `grep -r secret`, and the reason is structural
+#     rather than fussy: the note's own SLUG is `secret-note`, which appears
+#     legitimately in every link to its page, in its Context footer and in its
+#     beacon. What must be absent is the CLASS, the PILL and the generated RULE.
+if grep -rq 'idea-tag-secret' "$H"; then
+  note "invisible tag leaked as a class: $(grep -rl 'idea-tag-secret' "$H" | tr '\n' ' ')"
+fi
+if grep -rq '>secret<' "$H"; then
+  note "invisible tag leaked as a pill: $(grep -rl '>secret<' "$H" | tr '\n' ' ')"
+fi
+if grep -rq 'idea-tag-secret {' "$H"; then
+  note "a tags-color rule was generated for an invisible tag"
+fi
+#     The control again, on the same note and the same pages: its VISIBLE `note`
+#     tag keeps its class everywhere, so these checks are a difference between two
+#     tags rather than the absence of all tag markup.
+grep -q 'idea-tag-note' "$H/ideas/secret-note.html" ||
+  note "ideas/secret-note.html lost the visible 'note' tag class"
+grep -q 'SECRETBODY' "$H/ideas/secret-note.html" ||
+  note "ideas/secret-note.html does not render its body"
+
+# 11. NOT COVERED HERE, deliberately, and recorded so the gap is a decision
+#     rather than an oversight: the `sys.inputs` half of the exclusion
+#     (`--input rookery-exclude=..` / `rookery-include=..`). `rheo compile`
+#     forwards no `--input` at all today — `build_inputs` in rheo core inserts
+#     only `rheo-context` — so there is no way to vary it from here.
+#     `demo/pure` covers that half (it compiles `excluded.typ` twice, one
+#     `--input` apart), and rheo beads `rheo-cli-input-flag-q12` /
+#     `rheo-toml-inputs-table-rih` are what will make it reachable from a rheo
+#     build. Nothing in this package changes when they land.
 
 if [ "$fail" -ne 0 ]; then
   echo "demo/rheo: FAILED"
