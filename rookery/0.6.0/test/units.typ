@@ -19,7 +19,7 @@
 #import "/src/lib.typ": (
   _bib, _bib-keys, _blocks, _body-plain, _body-text, _cite-scan, _dedup-tag,
   _is-inline, _join, _nest-outline, _norm, _norm-tags, _note-file, _outbound,
-  _own-cited-keys, _plain, _resolve-excluded, _resolve-tags-color, _sort-ids,
+  _derived-title, _own-cited-keys, _plain, _resolve-excluded, _resolve-tags-color, _sort-ids,
   _split-tag-list, _tag-pred, _truncate, footnote, idea, note-href, note-path,
   window,
 )
@@ -379,3 +379,35 @@
 #assert.eq(_resolve-excluded((x: (owner: "me"))), ("x",))
 // Deduped, so a tag named twice is one tag.
 #assert.eq(_resolve-excluded(("x", "x")), ("x",))
+
+// ---- _derived-title — a titleless note names itself by its body -------------
+// An EMPTY body derives nothing and stays `none`: `#idea("x")[]` has no text to
+// name itself with, and `""` would put an empty `.idea-title` span in the
+// heading, defeating the `h*.idea:empty` rules that exist to collapse it.
+#assert.eq(_derived-title([]), none)
+#assert.eq(_derived-title(none), none)
+// Under the limit: the body verbatim, no ellipsis.
+#assert.eq(_derived-title([Short body.]), "Short body.")
+// EXACTLY at the limit is not over it — an off-by-one here appends `...` to a
+// title that was already complete.
+#assert.eq(_derived-title([#("a" * 60)]), "a" * 60)
+#assert.eq(_derived-title([#("a" * 61)]), "a" * 60 + "...")
+// Whitespace collapses first (via `_body-plain`), so a multi-block body arrives
+// as one clean line rather than carrying the source's own line breaks.
+#assert.eq(_derived-title([A.#parbreak()B.]), "A. B.")
+#assert.eq(
+  _derived-title[
+    - one
+    - two
+  ],
+  "one two",
+)
+// NON-ASCII MUST NOT PANIC, and must count as CHARACTERS rather than bytes.
+// `str.slice` takes byte offsets and hard-errors mid-character, which is why
+// `_derived-title` slices `.clusters()`; each of these is >60 bytes and <=60
+// clusters, so a byte-based slice would either panic or truncate early.
+#assert.eq(_derived-title([héllo wörld]), "héllo wörld")
+#assert.eq(_derived-title([#("é" * 40)]), "é" * 40)
+#assert.eq(_derived-title([#("é" * 61)]), "é" * 60 + "...")
+// The limit is a parameter for these tests only — `#idea` never passes one.
+#assert.eq(_derived-title([abcdef], limit: 3), "abc...")

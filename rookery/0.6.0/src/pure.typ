@@ -344,6 +344,47 @@
 // single space, and the ends are trimmed.
 #let _body-plain(c) = _body-text(c).replace(regex("\s+"), " ").trim()
 
+// ---- _derived-title — a titleless note names itself by its body -------------
+//
+// The first `limit` characters of the body as plain text, with `...` appended
+// when there is more body than that. `#idea` uses it whenever `title:` is
+// `none`, so a titleless note is named everywhere a titled one is — its own
+// minted page's `<title>`, an `ideas/index.html` row, a `#window` summary, a
+// bottomed-out window link, an outline entry.
+//
+// WHY IT EXISTS. `#idea[body]` — the frictionless, auto-numbered form — used to
+// be identifiable only by its `[idea:1]` permalink, and every place that names a
+// note for a reader fell back to something unhelpful: the slug, the bare id, or
+// (in `#ideas-outline`) skipping the note entirely.
+//
+// `_body-plain` above is exactly the right source: it walks the body to text and
+// collapses every whitespace run to one space, so a multi-block, multi-line body
+// arrives here as one clean line with nothing to tidy afterwards.
+//
+// `.clusters()`, NEVER `s.slice(0, limit)`, and this is measured rather than
+// cautious: Typst's `str.slice` takes BYTE offsets and PANICS when one lands
+// inside a multi-byte character. A body containing any non-ASCII text — an
+// accent, an em dash, one of Typst's own smart quotes — would fail the build at
+// a boundary invisible in the source. `.clusters()` returns grapheme clusters,
+// so the count is what a reader means by "characters" and the slice is always
+// safe. VERIFIED on typst 0.15.1: `"héllo wörld naïve"` is 17 clusters, and
+// `.clusters().slice(0, 5).join()` is `"héllo"`.
+//
+// AN EMPTY BODY DERIVES NOTHING and stays `none`. `#idea("x")[]` is legal and
+// has no text to name itself with; returning `""` would put an empty
+// `<span class="idea-title">` in every such heading and defeat the
+// `h*.idea:empty` rules in `rookery.css` that exist to collapse exactly that.
+// It is now the ONLY case those rules are reached by.
+//
+// The limit is a parameter for the tests' sake, not a knob: `#idea` never passes
+// one, and there is deliberately no way for a project to change it.
+#let _derived-title(raw, limit: 60) = {
+  let s = _body-plain(raw)
+  if s == "" { return none }
+  let cs = s.clusters()
+  if cs.len() <= limit { s } else { cs.slice(0, limit).join() + "..." }
+}
+
 #let IK = "rheo-idea" // marker for an idea
 #let WK = "rheo-idea-window" // marker for a window; defined here (not next to
 // `#window` below) because `_flatten` needs both marker kinds and must be

@@ -226,8 +226,30 @@
       // order no longer collide — which is correct now that order carries no
       // meaning. Two whose tag VALUES differ do collide, exactly as they
       // already did when `raw` or `origin` differed.
+      // THE EFFECTIVE TITLE, resolved ONCE here and used by both the record
+      // below and the rendered heading further down.
+      //
+      // AT REGISTRATION, not at each render site, and that is the whole reason
+      // this change is small: every place that names a note for a reader reads
+      // the RECORD — the minted page's `<h1>` and its `rheo-document(title:)`,
+      // the `<feeds:item>` beacon, an `ideas/index.html` row, a `#window`
+      // summary, `_window-link`'s bottomed-out row, `ideas()`'s `title`/`text`
+      // fields — so deriving here reaches all of them with no change of their
+      // own. There are ten-odd such sites and three of them are in
+      // `.marrow.typ`; deriving separately in each would drift.
+      //
+      // AN EXPLICIT TITLE ALWAYS WINS, unchanged. Only `title: none` derives.
+      //
+      // `_derived-title` returns a STRING where this field has until now held
+      // CONTENT or `none`. Every consumer treats it as content — `html.elem(..,
+      // ttl)`, `strong(rec.title)`, `link(.., rec.title)`, `_plain(rec.title)` —
+      // and a str IS content in Typst for all of those, VERIFIED by both demos.
+      // If a site ever does need a cast, wrap at this derivation rather than at
+      // the consumer, so the record carries exactly one shape.
+      let resolved-title = if title != none { title } else { _derived-title(body) }
+
       let rec = (
-        title: title,
+        title: resolved-title,
         raw: body,
         body: _flatten(body),
         minted: resolved-minted,
@@ -260,7 +282,9 @@
         [#figure([], kind: "rheo-idea-anchor", supplement: none)#label(id)]
       }
 
-      let ttl = if title == none { none } else { title }
+      // `resolved-title`, so a titleless note renders the heading its record
+      // carries rather than no heading at all. Still `none` for an empty body.
+      let ttl = resolved-title
       // CLASSES COVER EVERY KEY, valued tags included: `.idea-tag-<key>` is the
       // hook a project styles a tag by, and a tag that carries metadata is no
       // less a tag for it. Only the PILLS below are restricted to flat tags.
