@@ -131,6 +131,20 @@
     context {
       let id = _pfx() + n
       if id not in _registry.final() {
+        // EXCLUDED IS NOT MISSING — the same distinction `#window` and
+        // `#idea-body` draw, through the same `_excluded-ids` state, for the
+        // same reason: a build that drops a tag must not fail wherever a
+        // surviving page links to a dropped note.
+        //
+        // THE BODY, UNLINKED, rather than nothing — and this is the one place
+        // the degradation differs from `#window`'s. A hyperlink sits INLINE in a
+        // sentence the author wrote, so deleting it would delete a word out of
+        // their prose and leave the grammar broken. The text stays and only the
+        // link goes.
+        //
+        // A TYPO STILL PANICS, message unchanged. See `#window`'s own banner for
+        // why the `@idea:x` markup form cannot be rescued here at all.
+        if id in _excluded-ids.final() { return body }
         panic("@rheo/rookery: #hyperlink unknown note '" + id + "'")
       }
       link(_resolve-dest(id, link-to), body)

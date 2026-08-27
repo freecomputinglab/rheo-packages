@@ -97,10 +97,17 @@
     return {
       if not named { counter("rheo-ideas-seq").step() }
       if named {
-        context _excluded-ids.update(r => {
+        context {
+          // THE ID IS BUILT OUT HERE, NOT INSIDE THE `update` CLOSURE, and this
+          // is the trap the non-excluded path below already records against
+          // `doc-date`: an updater closure runs LAZILY, at `.final()` time,
+          // where context is unknown — so a `_pfx()` call inside it fails with
+          // "can only be used when context is known" the moment any reader
+          // resolves this state. MEASURED here: `#window`'s own
+          // `_excluded-ids.final()` was the reader that tripped it.
           let id = _pfx() + base
-          if id in r { r } else { r + (id,) }
-        })
+          _excluded-ids.update(r => if id in r { r } else { r + (id,) })
+        }
       }
     }
   }

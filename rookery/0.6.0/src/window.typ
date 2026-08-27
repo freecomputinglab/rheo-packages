@@ -150,12 +150,37 @@
 
   // Named ids first, in call-site order, and the only ones that can be wrong:
   // a tag scan reads the registry it filters, so it cannot name a missing note.
-  let named = ids.map(n => _pfx() + n)
-  for id in named {
-    if id not in reg {
-      panic("@rheo/rookery: #window unknown note '" + id + "'")
-    }
-  }
+  //
+  // EXCLUDED IS NOT MISSING. A note this build dropped for its tags (see
+  // `_resolve-excluded`, base.typ) is deliberately absent, and a `#window` on it
+  // renders NOTHING rather than failing the build — otherwise turning on an
+  // exclusion breaks the public build wherever a surviving note or page links to
+  // a removed one, which would make the feature unusable in the one scenario it
+  // exists for. Filtered out of `named` here, so every consumer of that array
+  // below (the sort, the tag merge, the rendering) simply never sees it.
+  //
+  // A TYPO STILL PANICS, message unchanged, and telling the two apart is the
+  // entire reason `_excluded-ids` exists (state.typ). Dropping the panic
+  // outright was the alternative and it is worse: a misspelt name would then
+  // silently render nothing, which is the class of mistake this package fails
+  // loudly on everywhere else.
+  //
+  // CANNOT BE RESCUED, and no later bead should try: the `@idea:x` MARKUP form
+  // is a Typst `ref` to a label minted by the very `#idea` that got removed, so
+  // it is a hard `label does not exist` error neither this package nor rheo can
+  // intercept. An author whose notes may be excluded routes links to them
+  // through `#window`, `#hyperlink` or `#note-href` — never through `@`.
+  //
+  // ALSO REJECTED: minting the hidden anchor and label for an excluded note so
+  // `@`-refs keep resolving. That leaks the excluded note's id into the public
+  // build's HTML, which for a `private` tag is precisely what the feature exists
+  // to prevent.
+  let gone = _excluded-ids.final()
+  let named = ids.map(n => _pfx() + n).filter(id => {
+    if id in reg { return true }
+    if id in gone { return false }
+    panic("@rheo/rookery: #window unknown note '" + id + "'")
+  })
 
   // Tag matches minus anything already named — a note that is both shows once,
   // in the position the author named it.
@@ -333,6 +358,10 @@
   let id = _pfx() + _norm(name)
   let reg = _registry.final()
   if id not in reg {
+    // EXCLUDED IS NOT MISSING — the same distinction `#window` above draws, for
+    // the same reason and through the same state. An excluded note renders as
+    // nothing; a typo still panics with the message unchanged.
+    if id in _excluded-ids.final() { return [] }
     panic("@rheo/rookery: #idea-body unknown note '" + id + "'")
   }
   let rec = reg.at(id)

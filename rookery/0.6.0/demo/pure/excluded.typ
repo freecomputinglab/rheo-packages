@@ -17,7 +17,7 @@
 // That pair is the whole feature in one place, and this demo is the only test in
 // the repo that can make it: `rheo compile` forwards no `--input` today (see
 // `_resolve-excluded`'s banner), so `demo/rheo` cannot vary the env half at all.
-#import "../../src/lib.typ": idea, ideas, rookery, tagged-idea
+#import "../../src/lib.typ": hyperlink, idea, idea-body, ideas, rookery, tagged-idea, window
 
 #show: rookery
 
@@ -43,11 +43,28 @@
 // A VALUED tag excludes exactly as a plain one does — the names are the keys.
 #idea("gone3", tags: (private: (owner: "me")))[DROPBODY3]
 
-// NO `#window("gone")` HERE YET. It panics `#window unknown note 'idea:gone'`
-// until the graceful-degradation bead lands, and that bead extends this file
-// with exactly that line — which is what makes the exclusion usable rather than
-// merely correct. The `@idea:gone` MARKUP form will never be written here: it is
+// LINKS TO AN EXCLUDED NOTE, which are what make the exclusion usable rather
+// than merely correct. Each of these panicked `unknown note 'idea:gone'` before
+// the degradation landed, so a public build failed wherever a surviving page
+// pointed at a removed one. `#window` and `#idea-body` now render nothing;
+// `#hyperlink` renders its body UNLINKED, because it sits inline in a sentence
+// and deleting it would break the author's grammar.
+//
+// The `@idea:gone` MARKUP form is deliberately absent and always will be: it is
 // a Typst `ref` to a label minted by the very `#idea` that got removed, so it is
 // a hard `label does not exist` error this package cannot intercept.
+#window("gone")
+
+Prose pointing at #hyperlink("gone")[HLBODY] mid-sentence, which survives as
+plain text with no link around it.
+
+#context idea-body("gone")
+
+// A surviving note windows fine alongside all that.
+#window("keeper")
+
+// A genuine TYPO still panics — the distinction `_excluded-ids` exists to draw.
+// Not written live here, since it would fail this build by design; exercised by
+// hand per the bead's VERIFY.
 
 #context [count=#ideas().len()]
