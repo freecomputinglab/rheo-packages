@@ -120,21 +120,25 @@ export const bodyScore = (body, query) => {
 // With a tag expression and NO residual text (`tags:draft` on its own), `q` is
 // `""`, `score(hay, "")` is 0 for every survivor, and they all land in the name
 // tier at score 0. THAT tie no longer breaks by id alone: for `q === ""` (a bare
-// `""` query too) `dateCmp` below breaks it by `row.updated` first, newest
+// `""` query too) `dateCmp` below breaks it by `row.created` first, newest
 // first, undated last — the JS twin of `_rank`'s date branch in `src/lib.typ`,
-// which mirrors `_sort-ids` in `rookery/0.4.0/src/pure.typ`. A REAL query
+// which mirrors `_sort-ids` in rookery's own `src/pure.typ`. A REAL query
 // (`q !== ""`) is untouched: ties there still break by id alone, exactly as
 // before.
 //
-// `row.updated` is ALREADY the zero-padded `"[year][month][day]"` stamp
+// `row.created` is ALREADY the zero-padded `"[year][month][day]"` stamp
 // `#search-index` ships (see its comment in `src/lib.typ`) — never a raw date
 // object — so lexicographic string comparison is numeric-order comparison,
 // with no parsing needed here.
+//
+// THE KEY IS `created`, not `updated`, since 0.6.0: rookery dropped its
+// `updated` field, and the island key renamed with it rather than shipping a
+// name that disagreed with its contents.
 const dateCmp = (a, b) => {
-  if (a.updated == null && b.updated == null) return 0;
-  if (a.updated == null) return 1;
-  if (b.updated == null) return -1;
-  return a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0;
+  if (a.created == null && b.created == null) return 0;
+  if (a.created == null) return 1;
+  if (b.created == null) return -1;
+  return a.created < b.created ? 1 : a.created > b.created ? -1 : 0;
 };
 export const search = (rows, query, limit) => {
   const { rpn, text } = splitQuery(query);

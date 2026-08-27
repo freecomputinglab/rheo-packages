@@ -18,7 +18,7 @@
 //   #context search-ideas("tags:(a|b)&c flt")          // a reader's tag filter
 //
 // Returns a plain ARRAY of dictionaries — every field `@rheo/rookery`'s
-// `ideas()` provides (id, name, title, text, tags, body, href, minted, updated)
+// `ideas()` provides (id, name, title, text, label, tags, body, href, page, created)
 // plus `score` and `kind` — so a caller renders it however it likes. Pure
 // Typst: no rheo needed, though `href` is `none` without it (nothing mints
 // note pages), in which case a caller links with `#link(label(id))` instead.
@@ -149,13 +149,13 @@
 //   #search-index(tags: "phd")             // only the notes tagged phd
 //
 // Emits `<script type="application/json" id="rookery-search-index">[...]</script>`,
-// one row per note: `(id, name, text, tags, body, updated, href)`, where `text`
+// one row per note: `(id, name, text, tags, body, created, href)`, where `text`
 // is the plain-text title ("" when untitled), `tags` is the note's own tag
 // array (THE KEY IS ABSENT when it has none), `body` is that note's compressed
-// term string ("" when it compresses to nothing), `updated` is that note's
+// term string ("" when it compresses to nothing), `created` is that note's
 // resolved date as a zero-padded `"[year][month][day]"` string (THE KEY IS
 // ABSENT when the note is undated — never shipped as `""` or `null`; this is
-// the same stamp `_rank` computes from `e.updated` for the default/browse
+// the same stamp `_rank` computes from `e.created` for the default/browse
 // listing, see its comment), and `href` is the depth-relative
 // path to the note's minted page — computed against the page this call sits on,
 // so an island in a site's shared chrome comes out right on a nested vertebra

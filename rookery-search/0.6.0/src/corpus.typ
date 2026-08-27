@@ -327,10 +327,16 @@
     if e.tags.len() > 0 { row.insert("tags", e.tags) }
     if body-search { row.insert("body", bodies.at(i)) }
     // Same `"[year][month][day]"` stamp `_rank`'s `stamp-of` computes from
-    // `e.updated` — omitted, never `""` or `none`, for an undated note, the
+    // `e.created` — omitted, never `""` or `none`, for an undated note, the
     // same convention `tags`/`body` above already use.
-    let u = e.at("updated", default: none)
-    if u != none { row.insert("updated", u.display("[year][month][day]")) }
+    //
+    // THE ROW FIELD IS `created`, and so is the island key. Both were `updated`
+    // until 0.6.0; rookery removed that field, and keeping the island key named
+    // `updated` while it carried a creation date would be exactly the drift this
+    // file's comments exist to prevent. `just parity` is what keeps this stamp
+    // and `score.js`'s `dateCmp` reading the same key.
+    let u = e.at("created", default: none)
+    if u != none { row.insert("created", u.display("[year][month][day]")) }
     row.insert("href", e.href)
     row
   })

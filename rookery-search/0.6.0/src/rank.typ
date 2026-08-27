@@ -49,11 +49,17 @@
   // answer. For `q == ""` (a bare `""` query, or a `tags:`-only query with no
   // residual) the DEFAULT/BROWSE listing sorts dated notes newest-first, with
   // undated notes falling to the end in their old id order. This mirrors
-  // `_sort-ids` in `rookery/0.4.0/src/pure.typ` (`sort: "date"`) — same
+  // `_sort-ids` in rookery's own `src/pure.typ` (`sort: "date"`) — same
   // dated/undated split, same zero-padded `[year][month][day]` stamp comparison,
-  // same dedup-and-walk-descending — applied here to `e.updated` instead of to
-  // an id's registry-looked-up `minted`. The body tier stays empty for `q == ""`
-  // either way, `body-score` returning `none` for an empty query.
+  // same dedup-and-walk-descending — over the SAME field, `e.created`.
+  //
+  // IT READ `e.updated` UNTIL 0.6.0, and that field no longer exists: rookery
+  // removed it, leaving a note's lifecycle to @rheo/rookery-dates' log. Left
+  // alone, this branch would have found `none` on every row, dropped every note
+  // into the undated bucket, and silently reverted the browse listing to id
+  // order — no error, just the wrong answer, which is why this is filed as a bug
+  // rather than a follow-up. The body tier stays empty for `q == ""` either way,
+  // `body-score` returning `none` for an empty query.
   let tq = split-query(query)
   let q = tq.text
   let name-hits = ()
@@ -107,7 +113,7 @@
     name-hits.sorted(key: e => -1 * e.score)
   } else {
     let stamp-of(e) = {
-      let u = e.at("updated", default: none)
+      let u = e.at("created", default: none)
       if u == none { none } else { u.display("[year][month][day]") }
     }
     let dated = name-hits.filter(e => stamp-of(e) != none)

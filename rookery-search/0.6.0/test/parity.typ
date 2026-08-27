@@ -130,8 +130,8 @@
   // breaks by id: ddd before eee. DATED, so the empty-residual case ("", none
   // below) breaks the same tie by date instead — newest first, eee (Mar 2026)
   // before ddd (Jan 2026) — and sorts both ahead of every undated row.
-  (id: "idea:ddd", name: "wnd", text: "Wnd", updated: datetime(year: 2026, month: 1, day: 5)),
-  (id: "idea:eee", name: "wnd", text: "Wnd", updated: datetime(year: 2026, month: 3, day: 1)),
+  (id: "idea:ddd", name: "wnd", text: "Wnd", created: datetime(year: 2026, month: 1, day: 5)),
+  (id: "idea:eee", name: "wnd", text: "Wnd", created: datetime(year: 2026, month: 3, day: 1)),
   // A WEAK name match: the query's letters appear scattered through a long
   // haystack, so its score lands BELOW a strong body-tier score. It must still
   // sort above every body row — that is the tiering rule, not a score contest.
@@ -156,7 +156,7 @@
 // Emitted for the runner too, so the JavaScript side ranks THE SAME rows rather
 // than a hand-copied second corpus that could drift from this one.
 //
-// `updated` IS RESTAMPED ON THE WAY OUT, and that is not a divergence from
+// `created` IS RESTAMPED ON THE WAY OUT, and that is not a divergence from
 // "the same rows" — it is the SAME conversion `#search-index`'s row-builder
 // makes when it ships an `ideas()` row (raw `datetime`) to the browser as JSON
 // (a `"[year][month][day]"` string): `typst eval --format json` has no native
@@ -166,8 +166,8 @@
 // `eee`, exactly as `ideas()` would hand it — only the metadata dump for the
 // JS runner is restamped, matching what a real island row actually carries.
 #metadata(tier-rows.map(e => {
-  let u = e.at("updated", default: none)
-  if u == none { e } else { (..e, updated: u.display("[year][month][day]")) }
+  let u = e.at("created", default: none)
+  if u == none { e } else { (..e, created: u.display("[year][month][day]")) }
 })) <tier-rows>
 
 #let tier-cases = (
