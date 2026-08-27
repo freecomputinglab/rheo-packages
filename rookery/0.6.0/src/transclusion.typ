@@ -109,6 +109,8 @@
     // The id leads the summary as the window's own top rule, so a titleless
     // note needs no special case: the tab is there either way, and the title
     // span is simply absent beneath it. `#idea`'s own heading does the same.
+    // Reached only by an EMPTY-BODIED note as of 0.6.0 — every other titleless
+    // note carries a title derived from its body (`_derived-title`, pure.typ).
     let title-span = if rec.title == none { [] } else {
       html.elem("span", attrs: (class: "idea-window-title"), rec.title)
     }
@@ -174,6 +176,7 @@
     // here and the body always shows. The head still renders and the
     // permalink is still the only link, so both targets read the same.
     let head = {
+      // Same narrowing as the HTML arm above: the empty-bodied case alone.
       if rec.title != none { strong(rec.title); [ ] }
       _permalink-paged(id)
       if date != none { [ ]; text(gray, date) }
@@ -253,6 +256,9 @@
         html.elem(
           "h" + str(v.level + 1),
           attrs: attrs,
+          // Reads the `#metadata` payload, which as of 0.6.0 carries the DERIVED
+          // title too — see `resolved-title`'s banner in idea.typ for why the
+          // derivation is hoisted above the figure to reach both channels.
           (if v.title == none { [] } else {
             html.elem("span", attrs: (class: "idea-title"), v.title)
           }),
@@ -278,6 +284,7 @@
     } else {
       _sweep-block()
       _bracket({
+        // Metadata payload again, derived title included — as the HTML arm above.
         if v.title != none { heading(depth: v.level, v.title) }
         _footnoted(v.body)
       } + _refs-block(_own-cited-keys(v.body, windows-claim: depth > 1)), IK)

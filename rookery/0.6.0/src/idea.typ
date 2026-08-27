@@ -112,6 +112,31 @@
     }
   }
 
+  // THE EFFECTIVE TITLE, resolved ONCE, HERE — above the figure and outside every
+  // `#context` block, so the same value reaches BOTH channels a note's title
+  // travels by:
+  //
+  //   - the `#metadata` payload just below, which `_flatten`'s IK rule reads to
+  //     rebuild a NESTED note's heading, and which `#ideas-outline` queries;
+  //   - the registry record in the context block further down, which the minted
+  //     page, the index page, the feeds beacon, `#window`'s summary,
+  //     `_window-link` and `ideas()` all read.
+  //
+  // BOTH, and that is the point of hoisting it. Deriving only into the record
+  // left the three metadata readers (`transclusion.typ`'s two heading arms and
+  // `outline.typ`'s skip) still seeing `none` — MEASURED: a titleless note stayed
+  // absent from `#ideas-outline` while its own card had a derived heading, which
+  // is two answers to one question.
+  //
+  // It can live out here precisely because `_derived-title` is PURE: no state, no
+  // context, no query, just a walk of the body it was handed. That is what
+  // `pure.typ` is for and why the helper belongs there.
+  //
+  // AN EXPLICIT TITLE ALWAYS WINS. Only `title: none` derives, and an empty body
+  // derives `none` — the one case every "no title" branch downstream still exists
+  // for.
+  let resolved-title = if title != none { title } else { _derived-title(body) }
+
   // The marker wraps the whole idea. Its body carries the RAW body as
   // metadata so a later _flatten can render a nested idea's content without
   // re-registering or re-counting it.
@@ -123,7 +148,7 @@
     //
     // `tags` here is the DICTIONARY, as of 0.5.0 — `_flatten`'s IK rule and
     // `#ideas-outline` both read it back and must take `.keys()` for names.
-    #metadata((body: body, title: title, named: named, base: base, level: level, tags: tags))
+    #metadata((body: body, title: resolved-title, named: named, base: base, level: level, tags: tags))
     // counter.step() RETURNS CONTENT: emit it here, never inside a code block
     // whose value is used, or it silently turns the id into content.
     #if not named { counter("rheo-ideas-seq").step() }
@@ -226,28 +251,15 @@
       // order no longer collide — which is correct now that order carries no
       // meaning. Two whose tag VALUES differ do collide, exactly as they
       // already did when `raw` or `origin` differed.
-      // THE EFFECTIVE TITLE, resolved ONCE here and used by both the record
-      // below and the rendered heading further down.
+      // `resolved-title` comes from above the figure — see its banner there for
+      // why it is hoisted out of this block.
       //
-      // AT REGISTRATION, not at each render site, and that is the whole reason
-      // this change is small: every place that names a note for a reader reads
-      // the RECORD — the minted page's `<h1>` and its `rheo-document(title:)`,
-      // the `<feeds:item>` beacon, an `ideas/index.html` row, a `#window`
-      // summary, `_window-link`'s bottomed-out row, `ideas()`'s `title`/`text`
-      // fields — so deriving here reaches all of them with no change of their
-      // own. There are ten-odd such sites and three of them are in
-      // `.marrow.typ`; deriving separately in each would drift.
-      //
-      // AN EXPLICIT TITLE ALWAYS WINS, unchanged. Only `title: none` derives.
-      //
-      // `_derived-title` returns a STRING where this field has until now held
-      // CONTENT or `none`. Every consumer treats it as content — `html.elem(..,
-      // ttl)`, `strong(rec.title)`, `link(.., rec.title)`, `_plain(rec.title)` —
-      // and a str IS content in Typst for all of those, VERIFIED by both demos.
-      // If a site ever does need a cast, wrap at this derivation rather than at
-      // the consumer, so the record carries exactly one shape.
-      let resolved-title = if title != none { title } else { _derived-title(body) }
-
+      // It is a STRING where this field has until now held CONTENT or `none`.
+      // Every consumer treats it as content — `html.elem(.., ttl)`,
+      // `strong(rec.title)`, `link(.., rec.title)`, `_plain(rec.title)` — and a
+      // str IS content in Typst for all of those, VERIFIED by both demos. If a
+      // site ever does need a cast, wrap at the derivation rather than at the
+      // consumer, so the record carries exactly one shape.
       let rec = (
         title: resolved-title,
         raw: body,

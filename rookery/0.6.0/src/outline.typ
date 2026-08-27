@@ -312,6 +312,16 @@
     let m = el.body.children.find(x => x.func() == metadata)
     if m == none { continue }
     let v = m.value
+    // ONLY AN EMPTY-BODIED NOTE IS SKIPPED NOW. This used to skip every
+    // titleless note, on the reasoning that there was "nothing to label them
+    // with" — `#idea` now derives a label from the body (`_derived-title`,
+    // pure.typ) and puts it on the `#metadata` payload this reads, so a titleless
+    // note appears here like any other. MEASURED before and after: a
+    // `#idea[A titleless note...]` was absent from the outline and is now listed
+    // by its first 60 characters.
+    //
+    // The branch stays because `_derived-title` returns `none` for a body with no
+    // text, and an outline entry still needs something to say.
     if v.title == none { continue }
     // `tags` with a default, not `v.tags`: this metadata is read on the paged
     // and no-rheo paths too, and a default costs nothing where a missing key

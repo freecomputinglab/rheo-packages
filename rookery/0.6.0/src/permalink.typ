@@ -177,6 +177,11 @@
 // `#let` closure captures the scope visible AT DEFINITION time, and `_flatten` is one
 // of the two callers.
 #let _window-link(id, rec) = {
+  // THE PERMALINK FALLBACK IS NOW THE EMPTY-BODIED CASE ALONE. This function's
+  // banner calls it "the one case the old rendering survives in"; a titleless
+  // note now carries a derived title (`_derived-title`, pure.typ), so a
+  // bottomed-out window names the note instead of showing a bare id — which is
+  // what the row shape was always for.
   let row = if rec.title == none { _permalink(id) } else {
     link(_resolve-dest(id, "page"), rec.title)
   }

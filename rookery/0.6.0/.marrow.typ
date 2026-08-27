@@ -257,6 +257,8 @@
           attrs: (id: id, class: "idea"),
           // Title in a span, exactly as `#idea` does it — a hook, not a
           // requirement.
+          // Empty-bodied case alone as of 0.6.0; a titleless note's <h1> now has
+          // its derived title in it.
           (if rec.title == none { [] } else {
             html.elem("span", attrs: (class: "idea-title"), rec.title)
           }),
@@ -449,6 +451,11 @@
       #if syndicate and (rec.minted != none or rec.updated != none) {
         [#metadata((
           id: id,
+          // Same narrowing as the `rheo-document(title:)` below: `slug` is now
+          // the empty-bodied case alone. `_plain` on a DERIVED title is a no-op
+          // (it is already a plain string) and on an authored one it flattens
+          // content, which is what feeds's `items()` requires — one call covers
+          // both, so do not branch on which kind it is.
           title: if rec.title == none { slug } else { _plain(rec.title) },
           page: page-at.file,
           published: rec.minted,
@@ -467,6 +474,10 @@
       page-at.file,
       handle: page-at.handle,
       format: "html",
+      // The `slug` fallback is now reached only by an EMPTY-BODIED note — every
+      // other titleless note carries a title derived from its body
+      // (`_derived-title`, src/pure.typ), so a minted page is named by its
+      // opening words rather than by `1`. Live guard, not dead code.
       title: if rec.title == none { slug } else { rec.title },
       if tpl == none { page } else { tpl(id: id, note: rec, page) },
     )
@@ -561,6 +572,9 @@
               // The BASENAME, not `e.href`: a sibling under `_IDEA-DIR`, so no
               // depth arithmetic and no `state("rheo-handle")` read — which at
               // this scope would be the last spine vertebra's, not this page's.
+              // `e.name` (the bare id) is now the empty-bodied case alone: an
+              // `ideas()` row's `title` comes off the registry record, which
+              // carries the derived title.
               link(_note-page(e.id).slug + ".html", if e.title == none { e.name } else { e.title })
                 + if when == none { [] } else {
                   html.elem("span", attrs: (class: "idea-date"), when.display("[year]-[month]-[day]"))
