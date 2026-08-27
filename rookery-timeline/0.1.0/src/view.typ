@@ -113,7 +113,9 @@
         .map(p => {
           let (i, e) = p
           let when = if shares-day(i) { _fmt-day(e.timestamp) + " " + _fmt-time(e.timestamp) } else { _fmt-day(e.timestamp) }
-          [#when — #e.stage.replace("-", " ")]
+          // The note follows the stage here rather than taking its own line: a list
+          // item on a paged target has no columns to place it in.
+          [#when — #e.stage.replace("-", " ")#if "note" in e { [. #e.note] }]
         })
         + expected.map(n => [— #n.replace("-", " ") (expected)]),
     )
@@ -122,7 +124,7 @@
   // `timed` is decided by the CALLER, from the event's index, rather than looked
   // up in here from its date — two events could share a timestamp, and a lookup by
   // value would then answer for whichever came first.
-  let row(cls, stage, when, timed: false) = html.elem(
+  let row(cls, stage, when, timed: false, note: none) = html.elem(
     "li",
     attrs: (class: "timeline-event " + cls),
     {
@@ -136,11 +138,20 @@
           if timed { _fmt-day(when) + " " + _fmt-time(when) } else { _fmt-day(when) },
         )
       }
+      // THE NOTE, if this event has one: the prose that is about THIS event rather
+      // than about the note as a whole. Inside the same `<li>`, not as a sibling
+      // row, so the rail's dot stays aligned to the event the prose belongs to —
+      // which is the entire point of an entry carrying it.
+      if note != none {
+        html.elem("p", attrs: (class: "timeline-note"), note)
+      }
     },
   )
 
   html.elem("ol", attrs: (class: "timeline-log"), {
-    for (i, e) in past.enumerate() { row("timeline-past", e.stage, e.timestamp, timed: shares-day(i)) }
+    for (i, e) in past.enumerate() {
+      row("timeline-past", e.stage, e.timestamp, timed: shares-day(i), note: e.at("note", default: none))
+    }
     // ONLY WHERE BOTH SIDES EXIST. A rail whose every event is past needs no line
     // saying where now is — it would be a divider at the bottom, marking nothing.
     if past.len() > 0 and booked.len() > 0 {
@@ -151,8 +162,16 @@
       ))
     }
     for (i, e) in booked.enumerate() {
-      row("timeline-future", e.stage, e.timestamp, timed: shares-day(past.len() + i))
+      row(
+        "timeline-future",
+        e.stage,
+        e.timestamp,
+        timed: shares-day(past.len() + i),
+        note: e.at("note", default: none),
+      )
     }
+    // NO NOTE ON AN EXPECTED RUNG. A rung that has not happened cannot have prose
+    // about it, and the ladder supplies names only.
     for n in expected { row("timeline-expected", n, none) }
   })
 }

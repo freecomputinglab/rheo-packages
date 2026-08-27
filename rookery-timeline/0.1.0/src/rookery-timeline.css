@@ -23,6 +23,7 @@
      --timeline-muted    a booked or expected row
      --timeline-dot      the filled dot
      --timeline-gap      vertical space between events
+     --timeline-note     an entry's own prose (defaults to --timeline-muted)
 */
 @layer rookery-timeline {
   /* THE RAIL IS A BORDER ON THE LIST, not a pseudo-element per row: one line that
@@ -77,6 +78,17 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-size: 0.85em;
+  }
+
+  /* THE NOTE: prose about THIS event. `flex-basis: 100%` gives it its own line
+     under the stage and the date rather than competing with them for the row — the
+     row is `flex-wrap: wrap`, so this is what wraps it. Not uppercased, unlike
+     `.timeline-stage`: a stage is a label and this is a sentence. */
+  .timeline-note {
+    flex-basis: 100%;
+    margin: 0.15rem 0 0;
+    color: var(--timeline-note, var(--timeline-muted, gray));
+    font-size: 0.9em;
   }
 
   .timeline-when {

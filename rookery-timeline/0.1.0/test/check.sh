@@ -14,8 +14,8 @@ python3 - "$H" <<'PY' || fail=1
 import re, sys
 h = open(sys.argv[1]).read()
 rails = re.findall(r'<ol class="timeline-log">(.*?)</ol>', h, re.S)
-if len(rails) != 5:
-    print(f"FAIL: expected 5 rails, found {len(rails)}"); sys.exit(1)
+if len(rails) != 6:
+    print(f"FAIL: expected 6 rails, found {len(rails)}"); sys.exit(1)
 
 def rows(rail):
     return re.findall(r'<li class="timeline-event ([a-z-]+)">(.*?)</li>', rail, re.S)
@@ -68,7 +68,23 @@ if [c for c, _ in five] != ["timeline-past"] * 2:
 if 'class="timeline-today"' in rails[4]:
     print("FAIL: rail 5 drew a divider with nothing booked"); sys.exit(1)
 
-print(f"  timeline-view: 5 rails, divider only where both sides exist, same-day times "
+# 6. AN ENTRY'S NOTE lands inside that event's own <li>, so the rail's dot stays
+# aligned to the prose it belongs to — and an event without one gets no empty
+# element, which would be worse than none.
+six = re.findall(r'<li class="timeline-event ([a-z-]+)">(.*?)</li>', rails[5], re.S)
+if len(six) != 2:
+    print(f"FAIL: rail 6 has {len(six)} rows, expected 2"); sys.exit(1)
+if 'class="timeline-note"' not in six[0][1]:
+    print(f"FAIL: the noted event carries no .timeline-note: {txt(six[0][1])}"); sys.exit(1)
+if "500-word abstract" not in txt(six[0][1]):
+    print(f"FAIL: the note's prose is missing: {txt(six[0][1])}"); sys.exit(1)
+if 'timeline-note' in six[1][1]:
+    print(f"FAIL: the note-less event drew an empty note: {txt(six[1][1])}"); sys.exit(1)
+# ...and an expected rung never gets one: the ladder supplies names, not prose.
+if 'timeline-note' in "".join(b for c, b in rows(rails[3]) if c == "timeline-expected"):
+    print("FAIL: an expected rung drew a note"); sys.exit(1)
+
+print(f"  timeline-view: 6 rails, divider only where both sides exist, same-day times "
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 

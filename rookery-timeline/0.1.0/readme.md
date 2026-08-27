@@ -393,6 +393,7 @@ stylesheet at all.
 
 ```
 ●  28 Oct 2026   submitted
+│  Sent the 500-word abstract, not the full paper.
 │
 ●  15 Nov 2026   under-review
 │
@@ -413,6 +414,17 @@ rail whose every event is past does not need a line saying where now is.
 
 `created` leads the rail, from rookery's own field via `timeline` — so the record
 starts when the note was written and the log is what happened to it since.
+
+### An event's own prose
+
+Where an entry carries a `note`, the rail renders it under that event's stage and
+date — inside the same list item, so the dot stays aligned to the prose it belongs
+to. That is the whole reason an entry can carry content: a sentence about one event
+on the note's body reads as a claim about the whole thing.
+
+An event without a note gets no element at all rather than an empty one, and an
+**expected rung never gets one** — a rung that has not happened cannot have prose
+about it, and the ladder supplies names only.
 
 ### With a ladder it becomes a progress indicator
 
@@ -453,10 +465,10 @@ timed event during that day.
 
 Every class is a published contract: `.timeline` on the list, `.timeline-event`
 per row plus exactly one of `.timeline-past` / `.timeline-future` /
-`.timeline-expected`, `.timeline-stage` and `.timeline-when` inside, and
-`.timeline-today` on the divider. Five custom properties theme it without
+`.timeline-expected`, `.timeline-stage`, `.timeline-when` and `.timeline-note` inside, and
+`.timeline-today` on the divider. Six custom properties theme it without
 overriding a rule — `--timeline-line`, `--timeline-fg`, `--timeline-muted`,
-`--timeline-dot`, `--timeline-gap`.
+`--timeline-dot`, `--timeline-gap`, `--timeline-note`.
 
 ### What it deliberately is not
 

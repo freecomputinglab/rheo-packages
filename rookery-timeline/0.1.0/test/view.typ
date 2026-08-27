@@ -58,3 +58,16 @@
   activated: t(2027, 1, 5, 15),
   closed: t(2027, 1, 5, 16),
 )), today: NOW)
+
+= 6. Entries carrying their own notes
+
+// The prose that is ABOUT one event, which used to end up on the note's body and
+// read as a claim about the whole thing. One event has a note, one does not — a
+// rail that drew an empty one for the second would be worse than drawing none.
+#timeline-view((:), entries(log: (
+  submitted: (
+    timestamp: d(2026, 5, 1),
+    note: [Sent the 500-word abstract, not the full paper.],
+  ),
+  rejected: d(2026, 7, 1),
+)), today: NOW)
