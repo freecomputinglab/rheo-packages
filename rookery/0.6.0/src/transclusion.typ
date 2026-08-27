@@ -105,14 +105,32 @@
     rec.updated.display("[year]-[month]-[day]")
   } else { none }
 
+  // THE NAME THIS WINDOW SHOWS, hoisted above the target branch because BOTH arms
+  // need it — the HTML summary and the paged head. Bound inside the HTML arm it
+  // was out of scope in the paged one, which `demo/pure/paged.typ` is what catches.
+  //
+  // A LABEL, and this one is a DELIBERATE CALL rather than an obvious case.
+  //
+  // A `#window` is a REFERENCE to another note, and its summary is the clickable
+  // thing that names it — so it needs a name, and `folded: true` (the common case,
+  // and what every index built out of windows uses) shows the summary ALONE with
+  // no body under it. That is exactly the situation a derived name is for.
+  //
+  // UNFOLDED, a derived label does sit above the body it came from, which is the
+  // duplication this split exists to avoid elsewhere. Accepted here: the
+  // alternative is an unnamed disclosure control, and a window with nothing in its
+  // summary cannot be recognised or clicked with intent.
+  //
+  // `.at` with a default, so a record written by an older rookery in the same
+  // document degrades to no name rather than panicking.
+  let name = rec.at("label", default: none)
+
   if _target() == "html" or _target() == "epub" {
     // The id leads the summary as the window's own top rule, so a titleless
     // note needs no special case: the tab is there either way, and the title
     // span is simply absent beneath it. `#idea`'s own heading does the same.
-    // Reached only by an EMPTY-BODIED note as of 0.6.0 — every other titleless
-    // note carries a title derived from its body (`_derived-title`, pure.typ).
-    let title-span = if rec.title == none { [] } else {
-      html.elem("span", attrs: (class: "idea-window-title"), rec.title)
+    let title-span = if name == none { [] } else {
+      html.elem("span", attrs: (class: "idea-window-title"), name)
     }
     // The tab stays INSIDE the `<summary>`, as its first child. Moving it into
     // the `<details>` body would hide the id whenever the window is folded, and
@@ -176,8 +194,9 @@
     // here and the body always shows. The head still renders and the
     // permalink is still the only link, so both targets read the same.
     let head = {
-      // Same narrowing as the HTML arm above: the empty-bodied case alone.
-      if rec.title != none { strong(rec.title); [ ] }
+      // The label, as the HTML arm above — a paged window summary names its note
+      // for the same reason.
+      if name != none { strong(name); [ ] }
       _permalink-paged(id)
       if date != none { [ ]; text(gray, date) }
     }

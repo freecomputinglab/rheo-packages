@@ -92,12 +92,11 @@
         let reg = _registry.final()
         let shown = if it.supplement != auto {
           it.supplement
-        // A titleless note now HAS a title here (derived from its body,
-        // `_derived-title` in pure.typ), so a `@idea:x` reference renders the
-        // note's opening words instead of falling through to its bare id. The
-        // fallback below is the empty-bodied case alone.
-        } else if id in reg and reg.at(id).title != none {
-          reg.at(id).title
+        // A LABEL: a reference NAMES the note it points at, so `@idea:x` renders
+        // the note's title, or its opening words when it has none, instead of
+        // falling through to a bare id.
+        } else if id in reg and reg.at(id).at("label", default: none) != none {
+          reg.at(id).label
         } else {
           raw(id)
         }

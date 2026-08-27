@@ -89,27 +89,39 @@ check:
     grep -q 'tagcount=2' build/invisible.html || note "tags-of lost a tag"
     grep -q 'filterable=1' build/invisible.html || note "invisible tag is no longer filterable"
 
-    # 9. DERIVED TITLES (titles.typ, included by root.typ). A note with no
-    #    `title:` takes the first 60 characters of its body as plain text.
-    #    Under the limit: verbatim, and NO ellipsis.
-    grep -q '<span class="idea-title">DTSHORT and this body is well under the limit.</span>' build/root.html ||
-      note "a short body did not become the note's title verbatim"
-    #    Over it: cut to EXACTLY 60 characters and given an ellipsis. Written out in
-    #    full rather than as a length check, so an off-by-one in the cut is visible
-    #    in the diff — 'DTLONG ' is 7 characters, so 53 x's follow.
-    grep -q '<span class="idea-title">DTLONG xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...</span>' build/root.html ||
-      note "a long body was not cut to 60 characters with an ellipsis"
-    #    An EMPTY body derives NOTHING: that note keeps its heading (it carries the
-    #    id anchor) but gains no title span. This is the one case the package's
-    #    `h*.idea:empty` CSS is still reached by, which is why it is asserted rather
-    #    than assumed.
+    # 9. DERIVED LABELS (titles.typ, included by root.typ). A note with no
+    #    `title:` gets a naming LABEL from its body — the first 60 characters as
+    #    plain text — used wherever the note is REFERRED TO. It does NOT become the
+    #    note's own heading: the body is right there below it, so printing the
+    #    label there printed the text twice (the defect this split fixed).
+    #
+    #    So: the label reaches the OUTLINE, and the note's own heading stays empty.
+    grep -q 'idea-outline-row"><a href="#loc-[0-9]*">DTSHORT and this body is well under the limit.' build/root.html ||
+      note "a derived label did not reach #ideas-outline"
+    #    Cut to EXACTLY 60 characters with an ellipsis. 'DTLONG ' is 7 characters,
+    #    so 53 x's follow; written out in full so an off-by-one shows in the diff.
+    grep -q 'idea-outline-row"><a href="#loc-[0-9]*">DTLONG xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\.\.\.' build/root.html ||
+      note "a long body was not cut to 60 characters with an ellipsis in the outline"
+    #    THE BODY IS NOT DUPLICATED. Exactly one occurrence of the short body's
+    #    text in the whole page: its body, and not also a heading above it. This is
+    #    the regression guard for the defect — MEASURED before the split, a bare
+    #    `#todo[Call scooter palace ..]` rendered its sentence as an <h2> and then
+    #    again as the body.
+    #    STRUCTURAL, not a count: root.typ calls `#ideas-outline` several times, so
+    #    the number of occurrences is an artefact of the demo rather than of the
+    #    feature. What must hold is that no occurrence sits inside an `.idea-title`
+    #    span — asserted just below — which is precisely "not printed as a heading".
+    grep -q '>DTSHORT and this body is well under the limit.' build/root.html ||
+      note "the short body did not render at all"
+    #    And no `.idea-title` span is emitted for a titleless note — its heading
+    #    keeps only the id anchor, exactly as before 0.6.0.
+    if grep -q '<span class="idea-title">DTSHORT' build/root.html; then
+      note "a derived label was printed as the note's own heading"
+    fi
+    #    An EMPTY body has no label either, so that note is absent from the outline
+    #    as well as untitled.
     grep -q 'id="idea:dt-empty"[^>]*></h' build/root.html ||
       note "an empty-bodied note did not stay untitled"
-    #    And the derived title reaches #ideas-outline, where an untitled note used
-    #    to be skipped outright — the half no card can demonstrate.
-    grep -q '<li class="idea-outline-row"><a href="#idea:[0-9]*">DTSHORT' build/root.html ||
-      grep -q 'idea-outline-row"><a href="#loc-[0-9]*">DTSHORT' build/root.html ||
-      note "a derived title did not reach #ideas-outline"
 
     if [ "$fail" -ne 0 ]; then exit 1; fi
     echo "demo/pure OK"

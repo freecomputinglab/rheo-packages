@@ -257,8 +257,10 @@
           attrs: (id: id, class: "idea"),
           // Title in a span, exactly as `#idea` does it — a hook, not a
           // requirement.
-          // Empty-bodied case alone as of 0.6.0; a titleless note's <h1> now has
-          // its derived title in it.
+          // THE AUTHORED TITLE, so a titleless note's <h1> stays empty exactly as it
+          // did before 0.6.0. The derived label goes in this page's `<title>`
+          // instead (see `rheo-document(title:)` below) — putting it here printed
+          // the body twice.
           (if rec.title == none { [] } else {
             html.elem("span", attrs: (class: "idea-title"), rec.title)
           }),
@@ -451,12 +453,14 @@
       #if syndicate and (rec.minted != none or rec.updated != none) {
         [#metadata((
           id: id,
-          // Same narrowing as the `rheo-document(title:)` below: `slug` is now
-          // the empty-bodied case alone. `_plain` on a DERIVED title is a no-op
-          // (it is already a plain string) and on an authored one it flattens
-          // content, which is what feeds's `items()` requires — one call covers
-          // both, so do not branch on which kind it is.
-          title: if rec.title == none { slug } else { _plain(rec.title) },
+          // A LABEL again, for the same reason as `rheo-document(title:)` below: a
+          // feed entry names the note, it does not render it. Already a plain
+          // `str`, which is what feeds's `items()` requires — so no `_plain` call
+          // and no branch on whether the name was authored or derived.
+          title: {
+            let l = rec.at("label", default: none)
+            if l == none { slug } else { l }
+          },
           page: page-at.file,
           published: rec.minted,
           updated: rec.updated,
@@ -474,11 +478,16 @@
       page-at.file,
       handle: page-at.handle,
       format: "html",
-      // The `slug` fallback is now reached only by an EMPTY-BODIED note — every
-      // other titleless note carries a title derived from its body
-      // (`_derived-title`, src/pure.typ), so a minted page is named by its
-      // opening words rather than by `1`. Live guard, not dead code.
-      title: if rec.title == none { slug } else { rec.title },
+      // THE BROWSER TAB, so a LABEL rather than the authored title: this is never
+      // rendered beside the note's body, which is what makes a derived name safe
+      // here and wrong on the `<h1>` above (see `#idea`'s title-vs-label banner).
+      // A titleless note's page is therefore called by its opening words instead
+      // of by `1`. `slug` survives as the fallback for a note whose label is
+      // somehow absent.
+      title: {
+        let l = rec.at("label", default: none)
+        if l == none { slug } else { l }
+      },
       if tpl == none { page } else { tpl(id: id, note: rec, page) },
     )
   }
@@ -572,10 +581,9 @@
               // The BASENAME, not `e.href`: a sibling under `_IDEA-DIR`, so no
               // depth arithmetic and no `state("rheo-handle")` read — which at
               // this scope would be the last spine vertebra's, not this page's.
-              // `e.name` (the bare id) is now the empty-bodied case alone: an
-              // `ideas()` row's `title` comes off the registry record, which
-              // carries the derived title.
-              link(_note-page(e.id).slug + ".html", if e.title == none { e.name } else { e.title })
+              // `e.label` — an index row NAMES the note. Never empty (it falls back
+              // to the note's own name), so there is no branch left here at all.
+              link(_note-page(e.id).slug + ".html", e.label)
                 + if when == none { [] } else {
                   html.elem("span", attrs: (class: "idea-date"), when.display("[year]-[month]-[day]"))
                 },

@@ -339,12 +339,13 @@
 /* A note whose heading has NO CONTENT keeps the element only to carry the `id`
    anchor every `@idea:etal` fragment link resolves to, and must take no space.
 
-   AS OF 0.6.0 THIS IS THE EMPTY-BODIED NOTE ALONE, and these rules are still
-   live: `#idea` now derives a title from the body for every titleless note
-   (`_derived-title`, src/pure.typ), so a bare `#idea[body]` DOES get a heading
-   with text in it. What is left is `#idea("x")[]` — nothing to derive from — plus
-   a note with no title and no date. Narrower than before, not gone; do not delete
-   these as dead. */
+   AS LOAD-BEARING AS EVER, and 0.6.0 does not narrow them. That version derives a
+   naming LABEL from the body for a titleless note, but deliberately does NOT print
+   it here: a heading sits directly above the note's own body, so printing the
+   label there rendered the same text twice (see `#idea`'s title-vs-label banner in
+   src/idea.typ). The label goes to the places that REFER to the note — the minted
+   page's `<title>`, an index row, an outline entry — and a titleless note's
+   heading is as empty as it was in 0.5.0. */
 h1.idea:empty,
 h2.idea:empty,
 h3.idea:empty,

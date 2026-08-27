@@ -112,30 +112,53 @@
     }
   }
 
-  // THE EFFECTIVE TITLE, resolved ONCE, HERE — above the figure and outside every
-  // `#context` block, so the same value reaches BOTH channels a note's title
-  // travels by:
+  // ---- TITLE vs LABEL, and the distinction is the whole point ---------------
   //
-  //   - the `#metadata` payload just below, which `_flatten`'s IK rule reads to
-  //     rebuild a NESTED note's heading, and which `#ideas-outline` queries;
-  //   - the registry record in the context block further down, which the minted
-  //     page, the index page, the feeds beacon, `#window`'s summary,
-  //     `_window-link` and `ideas()` all read.
+  // A note travels under two names, and conflating them was a real defect:
   //
-  // BOTH, and that is the point of hoisting it. Deriving only into the record
-  // left the three metadata readers (`transclusion.typ`'s two heading arms and
-  // `outline.typ`'s skip) still seeing `none` — MEASURED: a titleless note stayed
-  // absent from `#ideas-outline` while its own card had a derived heading, which
-  // is two answers to one question.
+  //   `title`  the AUTHORED title, `none` when the author gave none. This is what
+  //            gets PRINTED AS A HEADING above the note's own body — its card, its
+  //            minted page's `<h1>`, a transcluded card's heading.
   //
-  // It can live out here precisely because `_derived-title` is PURE: no state, no
-  // context, no query, just a walk of the body it was handed. That is what
-  // `pure.typ` is for and why the helper belongs there.
+  //   `label`  what to CALL this note somewhere else: a browser tab, an
+  //            `ideas/index.html` row, an `#ideas-outline` entry, a feed item, the
+  //            text of a link to it. Authored title flattened to plain text, else
+  //            the first 60 characters of the body (`_derived-title`, pure.typ),
+  //            else `none`.
   //
-  // AN EXPLICIT TITLE ALWAYS WINS. Only `title: none` derives, and an empty body
-  // derives `none` — the one case every "no title" branch downstream still exists
-  // for.
-  let resolved-title = if title != none { title } else { _derived-title(body) }
+  // WHY THEY CANNOT BE ONE VALUE. MEASURED on a real project's content
+  // (`phdash/rookery`, which has ten-odd bare `#idea[..]`/`#todo[..]` notes):
+  // deriving into `title` printed the body twice —
+  //
+  //   <h2><span class="idea-title">Call scooter palace about the title</span></h2>
+  //   </div>Call scooter palace about the title</div>
+  //
+  // — and the same on the note's minted page, `<h1>` then `<p>`. An AUTHORED title
+  // never does this because it differs from the body; a DERIVED one IS the body,
+  // and the reader is already looking at it. So a derived name is only ever useful
+  // where the body is absent.
+  //
+  // THAT THE LABEL IS WANTED is not in doubt: the same phdash template hand-rolls
+  // `if r.text == "" { r.name } else { r.title }` in eight places, deriving a name
+  // badly because rookery published none. `ideas()` now carries `label` so nobody
+  // has to.
+  //
+  // A STRING, never content, so a consumer can put it in an attribute, a
+  // `lower(..)`, a sort key or a JSON index without asking what shape it is.
+  //
+  // Resolved out here — above the figure, outside every `#context` — so one value
+  // reaches BOTH channels a note's names travel by: the `#metadata` payload just
+  // below (read by `_flatten`'s IK rule and by `#ideas-outline`) and the registry
+  // record in the context block further down. It can live here because
+  // `_derived-title` and `_plain` are PURE: no state, no context, no query.
+  // NOT NAMED `label`, and this is a hard trap rather than a style choice: a local
+  // `let label = ..` SHADOWS Typst's built-in `label()` function for the rest of
+  // this function, and `#label(id)` further down (the note's referenceable anchor)
+  // then fails with `expected function, found string`. MEASURED: it broke every
+  // cross-page `@idea:x` and `#link(label("idea:x"))` in the demo at once, with an
+  // error pointing at the anchor rather than at the shadowing binding. The RECORD
+  // FIELD is still called `label` — that is the public name — but the local is not.
+  let note-label = if title != none { _plain(title) } else { _derived-title(body) }
 
   // The marker wraps the whole idea. Its body carries the RAW body as
   // metadata so a later _flatten can render a nested idea's content without
@@ -148,7 +171,10 @@
     //
     // `tags` here is the DICTIONARY, as of 0.5.0 — `_flatten`'s IK rule and
     // `#ideas-outline` both read it back and must take `.keys()` for names.
-    #metadata((body: body, title: resolved-title, named: named, base: base, level: level, tags: tags))
+    // `title` is the AUTHORED one — `_flatten`'s IK rule PRINTS it as a heading, so
+    // it must never be the derived label (see the banner above). `label` rides
+    // along for `#ideas-outline`, which NAMES rather than renders.
+    #metadata((body: body, title: title, label: note-label, named: named, base: base, level: level, tags: tags))
     // counter.step() RETURNS CONTENT: emit it here, never inside a code block
     // whose value is used, or it silently turns the id into content.
     #if not named { counter("rheo-ideas-seq").step() }
@@ -251,17 +277,12 @@
       // order no longer collide — which is correct now that order carries no
       // meaning. Two whose tag VALUES differ do collide, exactly as they
       // already did when `raw` or `origin` differed.
-      // `resolved-title` comes from above the figure — see its banner there for
-      // why it is hoisted out of this block.
-      //
-      // It is a STRING where this field has until now held CONTENT or `none`.
-      // Every consumer treats it as content — `html.elem(.., ttl)`,
-      // `strong(rec.title)`, `link(.., rec.title)`, `_plain(rec.title)` — and a
-      // str IS content in Typst for all of those, VERIFIED by both demos. If a
-      // site ever does need a cast, wrap at the derivation rather than at the
-      // consumer, so the record carries exactly one shape.
+      // TWO FIELDS, not one: `title` is the authored one and is what gets printed
+      // as a heading; `label` is what to call this note elsewhere. See the banner
+      // above the figure for why conflating them printed the body twice.
       let rec = (
-        title: resolved-title,
+        title: title,
+        label: note-label,
         raw: body,
         body: _flatten(body),
         minted: resolved-minted,
@@ -294,9 +315,11 @@
         [#figure([], kind: "rheo-idea-anchor", supplement: none)#label(id)]
       }
 
-      // `resolved-title`, so a titleless note renders the heading its record
-      // carries rather than no heading at all. Still `none` for an empty body.
-      let ttl = resolved-title
+      // THE AUTHORED TITLE ONLY. A titleless note renders an EMPTY heading, as it
+      // did before 0.6.0 — the element survives to carry the `id` anchor and
+      // `h*.idea:empty` collapses it. Putting the derived label here is what
+      // printed the body twice; see the banner above the figure.
+      let ttl = if title == none { none } else { title }
       // CLASSES COVER EVERY KEY, valued tags included: `.idea-tag-<key>` is the
       // hook a project styles a tag by, and a tag that carries metadata is no
       // less a tag for it. Only the PILLS below are restricted to flat tags.

@@ -6,9 +6,9 @@ rheo-aware where rheo is present.
 A note exists ONLY where you write `#idea("name")[...]`. There is no document
 show rule and no "every heading is a note" behaviour — a labeled heading is
 just a labeled heading. `#idea[body]` (no name, no title) works too: it takes a
-sequential id, titles itself from its own opening words (see "Derived titles"),
-and wears that id as a `[idea:1]`-style permalink — which is how you discover a
-generated id in order to paste it into a `#window`.
+sequential id, names itself by its own opening words wherever it is referred to
+(see "Derived labels"), and wears that id as a `[idea:1]`-style permalink — which
+is how you discover a generated id in order to paste it into a `#window`.
 
 ```typst
 #import "@rheo/rookery:0.6.0": idea
@@ -38,27 +38,35 @@ tag's pill, its `idea-tag-<tag>` class and its generated `tags-color` rule
 everywhere, while leaving it fully filterable. For a tag used at the build level
 that should leave no visual trace. See "Invisible tags".
 
-**A titleless note titles itself from its body.** The first 60 characters as plain
-text, with `...` when there is more. See "Derived titles". This is what makes the
-bare `#idea[body]` form nameable — before it, an auto-numbered note's minted page
-was titled `1`, its index row showed its bare id, and `#ideas-outline` skipped it.
+**A titleless note names itself from its body.** The first 60 characters as plain
+text, with `...` when there is more, published as `#ideas()`'s new `label` field.
+See "Derived labels". This is what makes the bare `#idea[body]` form nameable —
+before it, an auto-numbered note's minted page was titled `1`, its index row showed
+its bare id, and `#ideas-outline` skipped it.
+
+A LABEL, NOT A HEADING: it is used wherever the note is referred to, and
+deliberately not printed above the note's own body, where it would render the body
+twice. A titleless note's own heading is as empty as it was in 0.5.0.
 
 NOT BREAKING for the two tag parameters: both default to `()`, and a project that
 sets neither gets exactly 0.5.0's behaviour.
 
-THE DERIVED TITLE IS A BEHAVIOUR CHANGE, though no signature moved, and a project
+THE DERIVED LABEL IS A BEHAVIOUR CHANGE, though no signature moved, and a project
 whose notes are all explicitly titled sees nothing. What differs, for one that uses
 the bare form:
 
 - an untitled note now APPEARS in `#ideas-outline`, where it was skipped;
-- its minted page's `<h1>` and `<title>` name its opening words, not its slug;
+- its minted page's `<title>` names its opening words, not its slug — though its
+  `<h1>` stays empty, as before;
 - its `ideas/index.html` row and its `<feeds:item>` title do the same;
-- a depth-exhausted `#window` on it renders a titled row, not a bare permalink;
-- `#ideas()`'s `title`/`text` are populated where they were `none`/`""`;
-- a `@idea:1` reference renders the derived title instead of the id.
+- a depth-exhausted `#window` on it renders a named row, not a bare permalink;
+- a `#window` summary on it is named rather than blank;
+- a `@idea:1` reference renders the label instead of the id;
+- `#ideas()` gains a `label` field. `title` and `text` are UNCHANGED — still the
+  authored title — so nothing reading them is affected.
 
 A note with an EMPTY body is unaffected in every one of those: it derives nothing
-and stays untitled.
+and has no label.
 
 ## 0.5.0
 
@@ -550,9 +558,9 @@ levels.
 not the author-set `level:`, which is a heading-size knob most notes never
 touch. So the tree is right with no ceremony, matching `#idea`'s own "hatch
 without ceremony" design. A note with no title of its own is listed under its
-DERIVED title (see "Derived titles"), so an auto-numbered note is no longer
-skipped — only one with an empty body is, since there is then nothing to label
-it with at all.
+DERIVED label (see "Derived labels"), so an auto-numbered note is no longer
+skipped — only one with an empty body is, since there is then nothing to name
+it by at all.
 
 **`rookery-wide: true`** lists every note in the rookery instead of only this
 page's — one tree, nested by the same real containment. The whole spine
@@ -1349,48 +1357,70 @@ protected ones anywhere — so it goes on `invisible-tags` as well.
 build both notes are present, `protected` wears its pill, and nothing anywhere
 says `private`.
 
-## Derived titles
+## Derived labels
 
-A note with no `title:` takes one from its own body: the first 60 characters as
-plain text, with `...` appended when there is more body than that.
+A note with no `title:` gets a naming LABEL from its own body: the first 60
+characters as plain text, with `...` appended when there is more.
 
 ```typst
-#idea[A short body becomes the title verbatim.]
-// titled: "A short body becomes the title verbatim."
+#idea[A short body becomes the label verbatim.]
+// label: "A short body becomes the label verbatim."
 
-#idea[Deriving a title means a note is nameable with no ceremony at all.]
-// titled: "Deriving a title means a note is nameable with no ceremony a..."
+#idea[Deriving a label means a note is nameable with no ceremony at all.]
+// label: "Deriving a label means a note is nameable with no ceremony a..."
 
-#idea("etal", title: [Et al.])[...]     // an explicit title always wins
-
-#idea("stub")[]                         // nothing to derive from: stays untitled
+#idea("etal", title: [Et al.])[...]     // an authored title is the label too
+#idea("stub")[]                         // nothing to derive from: no label
 ```
 
-This is what makes the bare `#idea[body]` form usable rather than merely terse.
-Before it, an auto-numbered note was identifiable only by its `[idea:1]`
-permalink, so every place a note gets NAMED for a reader fell back to something
-unhelpful: its minted page was titled `1`, its `ideas/index.html` row showed its
-bare id, a bottomed-out `#window` showed the permalink instead of the note, and
-`#ideas-outline` skipped it outright.
+**A LABEL, NOT A HEADING**, and the distinction is the whole design. A label is
+what to call this note SOMEWHERE ELSE. It is *not* printed above the note's own
+body, because the body is the thing the reader is already looking at — an authored
+title never has that problem because it differs from the body, but a derived one
+*is* the body.
+
+Where the label is used:
+
+| | |
+| --- | --- |
+| the note's minted page `<title>` | the browser tab, never beside the body |
+| an `ideas/index.html` row | |
+| an `#ideas-outline` entry | a titleless note used to be skipped outright |
+| a `<feeds:item>` title | |
+| a `#window` summary | a folded window shows the summary alone |
+| a depth-exhausted `#window` | a titled row rather than a bare `[idea:1]` |
+| the text of `@idea:x` / `#hyperlink` | |
+| `#ideas()`'s `label` field | for your own index, feed or graph |
+
+Where it is deliberately NOT used — every place a heading sits above the body:
+the note's own card, its minted page's `<h1>`, and a transcluded card's heading.
+A titleless note's heading stays empty there, exactly as in 0.5.0; the element
+survives only to carry the `id` anchor, and the stylesheet collapses it.
+
+`#ideas()` therefore publishes three fields where it published two:
+
+- `title` — the AUTHORED title as content, `none` when there is none. Unchanged.
+- `text` — the same, flattened to a string, `""` when there is none. Unchanged.
+- `label` — **never empty**: the authored title flattened, else the derived
+  opening words, else the note's own `name`.
+
+That last fallback is the point. Before it, a consumer wanting to name a note in a
+list had to write `if r.text == "" { r.name } else { r.title }` — a real project
+had **eight** copies of exactly that. Now it is `r.label`.
 
 The details, all of which have a reason:
 
 - **Whitespace collapses first**, so a multi-paragraph, multi-line body yields one
   clean line — the same normalization `#ideas()`'s `body` field uses.
-- **An explicit `title:` always wins.** Only `title: none` (the default) derives.
-- **An EMPTY body derives nothing** and the note stays untitled. `#idea("x")[]` is
-  legal and has no text to name itself with, and this is now the only case the
-  package's own `h*.idea:empty` CSS is reached by.
+- **An authored `title:` always wins**, and becomes the label too (flattened).
+- **An EMPTY body gets no label**, and the note has none. `#idea("x")[]` is legal
+  and has no text to name itself with, so it stays out of `#ideas-outline` and its
+  minted page falls back to its slug.
 - **60 characters means 60 grapheme clusters**, not bytes, so accented text, em
-  dashes and Typst's own smart quotes all count as a reader would count them —
-  and none of them can split a character.
+  dashes and Typst's own smart quotes count as a reader would count them — and
+  none of them can split a character.
 - **The limit is not configurable.** There is no argument for it on `#idea` and no
   key for it on `rookery.with()`.
-
-A derived title is an ordinary title everywhere downstream: it is what
-`#ideas()`'s `title`/`text` carry, what a `#window` summary shows, what the note's
-minted page puts in its `<h1>` and its `<title>`, what its `<feeds:item>` beacon
-syndicates under, and what an `#ideas-outline` entry reads.
 
 ## Dates
 

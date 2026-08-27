@@ -27,6 +27,7 @@
 //    name:    "etal",          // the id with the prefix stripped
 //    title:   [Et al.],        // the title as CONTENT, or none
 //    text:    "Et al.",        // the same title as plain text, "" if none
+//    label:   "Et al.",         // what to CALL it — never empty; see below
 //    tags:    ("note", "draft"), // as the author gave them, () if untagged
 //    body:    "Et al. is ...", // the note's body as plain text, "" if empty
 //    href:    "ideas/etal.html", // depth-relative, or none — see `note-href`
@@ -96,6 +97,28 @@
         name: _norm(id),
         title: rec.at("title", default: none),
         text: _plain(rec.at("title", default: none)),
+        // WHAT TO CALL THIS NOTE, and NEVER `none`: the authored title as plain
+        // text, else the first 60 characters of the body, else the note's own
+        // name. See `#idea`'s title-vs-label banner for why this is separate from
+        // `title`/`text` above — those are the AUTHORED title and stay exactly as
+        // they were, because printing a derived name as a heading above the note's
+        // own body prints the body twice.
+        //
+        // Use this wherever a note is REFERRED TO rather than rendered: a row in
+        // an index, an entry in a list, a node in a graph, a sort key, a search
+        // string. It exists precisely so a consumer stops writing
+        // `if r.text == "" { r.name } else { r.title }` — a real project had eight
+        // copies of that before this field existed.
+        //
+        // A `str`, always, so it drops into `lower(..)`, an HTML attribute or a
+        // JSON index with no cast. The fallback to `name` is what makes it total.
+        label: {
+          let t = _plain(rec.at("title", default: none))
+          if t != "" { t } else {
+            let l = rec.at("label", default: none)
+            if l != none { l } else { _norm(id) }
+          }
+        },
         // TAG NAMES ONLY, as a flat array of every key — valued tags included.
         // The VALUES are deliberately kept off this row, and that is load-
         // bearing rather than tidiness: `@rheo/rookery-search` puts this field

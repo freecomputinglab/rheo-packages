@@ -1,16 +1,21 @@
-// titles.typ — DERIVED TITLES (`_derived-title`, src/pure.typ; `resolved-title`
-// in src/idea.typ).
+// titles.typ — DERIVED LABELS (`_derived-title`, src/pure.typ; `note-label` in
+// src/idea.typ, and `ideas().label` in src/data.typ).
 //
-// A note with no `title:` takes the first 60 characters of its body as plain
-// text, with `...` when there is more. Asserted by grep from this demo's own
-// `Justfile` check recipe against `build/root.html`:
+// A note with no `title:` gets a naming LABEL from its body: the first 60
+// characters as plain text, with `...` when there is more. It is used wherever the
+// note is REFERRED TO — an outline entry, an index row, a minted page's `<title>`,
+// a feed item, the text of a link — and deliberately NOT as the note's own
+// heading, because the body is right there below it. Printing it there printed the
+// text twice, which is the defect the title/label split fixed.
 //
-//   - the SHORT body appears verbatim as an `.idea-title` and ends in no ellipsis;
-//   - the LONG body is cut to exactly 60 characters and ends in `...`;
-//   - an EMPTY body derives nothing, so that note has no `.idea-title` at all —
-//     the one case the package's `h*.idea:empty` CSS is still reached by;
-//   - the derived title reaches `#ideas-outline` too, where an untitled note used
-//     to be skipped outright.
+// Asserted by grep from this demo's own `Justfile` check recipe against
+// `build/root.html`:
+//
+//   - the SHORT body's label appears verbatim in an `#ideas-outline` entry;
+//   - the LONG one is cut to exactly 60 characters and ends in `...`;
+//   - NO `.idea-title` span carries either — that is the no-duplication guard;
+//   - an EMPTY body has no label at all, so that note stays out of the outline and
+//     keeps the empty heading `h*.idea:empty` collapses.
 #import "../../src/lib.typ": idea, ideas-outline
 
 == Derived titles

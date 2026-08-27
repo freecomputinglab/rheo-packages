@@ -286,8 +286,16 @@ dp="$H/ideas/derived-note.html"
 if [ -f "$dp" ]; then
   grep -q '<title>DERIVEDBODY' "$dp" ||
     note "ideas/derived-note.html <title> is not the derived title: $(grep -oE '<title>[^<]*' "$dp")"
-  grep -q '<span class="idea-title">DERIVEDBODY' "$dp" ||
-    note "ideas/derived-note.html <h1> carries no derived title"
+  #   AND THE <h1> IS EMPTY, which is the other half of the split and the
+  #   regression guard for the defect it fixed: a derived name is a LABEL for
+  #   referring to the note, not a heading to print above the note's own body.
+  #   MEASURED before the split — the minted page rendered `<h1>DERIVEDBODY..</h1>`
+  #   and then `<p>DERIVEDBODY..</p>`, the same text twice.
+  grep -q '<h1 id="idea:derived-note" class="idea"></h1>' "$dp" ||
+    note "ideas/derived-note.html <h1> is not empty — a label is being printed as a heading"
+  if grep -q '<span class="idea-title">DERIVEDBODY' "$dp"; then
+    note "ideas/derived-note.html prints its derived label as a heading"
+  fi
   #   Cut to sixty characters with an ellipsis, on the minted page as on a card.
   grep -qE '<title>DERIVEDBODY[^<]{40,50}\.\.\.</title>' "$dp" ||
     note "the minted page's derived title was not truncated with an ellipsis"

@@ -312,23 +312,26 @@
     let m = el.body.children.find(x => x.func() == metadata)
     if m == none { continue }
     let v = m.value
-    // ONLY AN EMPTY-BODIED NOTE IS SKIPPED NOW. This used to skip every
-    // titleless note, on the reasoning that there was "nothing to label them
-    // with" — `#idea` now derives a label from the body (`_derived-title`,
-    // pure.typ) and puts it on the `#metadata` payload this reads, so a titleless
-    // note appears here like any other. MEASURED before and after: a
-    // `#idea[A titleless note...]` was absent from the outline and is now listed
-    // by its first 60 characters.
+    // AN OUTLINE ENTRY NAMES A NOTE, so it reads `label` rather than `title` — the
+    // authored title, or the note's opening words when it has none (see `#idea`'s
+    // title-vs-label banner). This used to skip every titleless note on the
+    // reasoning that there was "nothing to label them with"; there is now.
     //
-    // The branch stays because `_derived-title` returns `none` for a body with no
-    // text, and an outline entry still needs something to say.
-    if v.title == none { continue }
+    // The skip survives for a note whose LABEL is `none` — an empty body, with no
+    // text to name it by at all — because an entry still needs something to say.
+    // `.at` with a default, not `v.label`, so a payload written by an older
+    // rookery in the same document does not panic here.
+    let name = v.at("label", default: none)
+    if name == none { continue }
     // `tags` with a default, not `v.tags`: this metadata is read on the paged
     // and no-rheo paths too, and a default costs nothing where a missing key
     // would panic.
     out.push((
       depth: idea-depth,
-      title: v.title,
+      // The entry's own text. Named `title` on the entry dict because that is the
+      // shape `#ideas-outline` and any `filter:` predicate already read; the VALUE
+      // is now the label.
+      title: name,
       loc: el.location(),
       handle: handle,
       tags: v.at("tags", default: (:)),
