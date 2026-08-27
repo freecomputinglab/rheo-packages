@@ -71,7 +71,7 @@
 // the default rather than a sidecar beside it.
 //
 //   #import "@rheo/rookery-timeline:0.1.0": idea, window, rookery
-//   #idea("ship", deadline: d, log: (submitted: d2))[..]
+//   #idea("ship", deadline: d, timeline: (submitted: d2))[..]
 //
 // HOW IT WORKS, and all three facts were verified before this was written:
 //
@@ -89,7 +89,7 @@
 #import "@rheo/rookery:0.6.0": *
 #import "@rheo/rookery:0.6.0" as _rk
 
-// A rookery note that also takes `log:`/`scheduled:`/`deadline:`.
+// A rookery note that also takes `timeline:`/`scheduled:`/`deadline:`.
 #let idea = dated(_rk.idea)
 
 // The FACTORY, decorated too, so a consumer building its own family over this skin

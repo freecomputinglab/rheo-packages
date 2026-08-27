@@ -43,7 +43,7 @@
 // Sorted at write time so the stored value is unambiguous and no reader has to
 // sort. The order it was WRITTEN in cannot lie about the timeline.
 #assert.eq(
-  entries(log: (
+  entries(timeline: (
     rejected: d(2027, 2, 3),
     submitted: d(2026, 10, 28),
     longlisted: d(2026, 12, 15),
@@ -54,17 +54,17 @@
 // insertion order, so this is sound — and the sort decorates with the written
 // index rather than trusting `array.sorted`, which is not documented as stable.
 #assert.eq(
-  entries(log: (b: d(2026, 5, 1), a: d(2026, 5, 1))).at("timeline-log").map(e => e.stage),
+  entries(timeline: (b: d(2026, 5, 1), a: d(2026, 5, 1))).at("timeline-log").map(e => e.stage),
   ("b", "a"),
 )
-// `scheduled:`/`deadline:` fold into the same log as `log:`'s own entries.
+// `scheduled:`/`deadline:` fold into the same log as `timeline:`'s own entries.
 #assert.eq(
-  entries(deadline: d(2026, 11, 1), log: (submitted: d(2026, 10, 28))).at("timeline-log"),
+  entries(deadline: d(2026, 11, 1), timeline: (submitted: d(2026, 10, 28))).at("timeline-log"),
   ((stage: "submitted", timestamp: d(2026, 10, 28)), (stage: "deadline", timestamp: d(2026, 11, 1))),
 )
 // A hyphenated stage name is fine — it has to survive being a CSS class fragment.
 #assert.eq(
-  entries(log: ("first-interview": d(2027, 1, 20))).at("timeline-log").first().stage,
+  entries(timeline: ("first-interview": d(2027, 1, 20))).at("timeline-log").first().stage,
   "first-interview",
 )
 
@@ -145,15 +145,15 @@
 // The worked case from the design: submitted, longlisted, and a first interview
 // BOOKED but not yet held, read against a `today:` that falls between the last
 // two. Future-dated entries are the ordinary shape of a plan, not an edge case.
-#let _flight = entries(log: (
+#let _flight = entries(timeline: (
   submitted: d(2026, 10, 28),
   longlisted: d(2026, 12, 15),
   "first-interview": d(2027, 1, 20),
 ))
 #let _JAN5 = d(2027, 1, 5)
 
-#assert.eq(log-of(_flight).len(), 3)
-#assert.eq(log-of((:)), ())
+#assert.eq(timeline-of(_flight).len(), 3)
+#assert.eq(timeline-of((:)), ())
 #assert.eq(entered-of(_flight), d(2026, 10, 28))
 #assert.eq(entered-of((:)), none)
 #assert.eq(stage-date(_flight, "longlisted"), d(2026, 12, 15))
@@ -194,7 +194,7 @@
 #assert.eq(created-of((:)), none)
 
 // ---- timeline — one view over two stores -----------------------------------
-// `created` LEADS and is not written into the log: one store per fact.
+// `created` LEADS and is not written into the timeline: one store per fact.
 #assert.eq(
   timeline((created: d(2026, 10, 1)), _flight).map(e => e.stage),
   ("created", "submitted", "longlisted", "first-interview"),
@@ -215,7 +215,7 @@
   terminal: ("published", "rejected", "desk-rejected", "withdrawn"),
 )
 
-#let _at(stage) = entries(log: ((stage): d(2026, 6, 1)))
+#let _at(stage) = entries(timeline: ((stage): d(2026, 6, 1)))
 #let _T = d(2026, 12, 1)
 
 #assert.eq(is-settled(_at("first-interview"), ladder: JOB, today: _T), false)
@@ -264,7 +264,7 @@
 #assert.eq((as-rung(ladder: JOB, today: _JAN5))(_flight), 1)
 #assert.eq((as-settled(ladder: JOB, today: _JAN5))(_flight), false)
 #assert.eq(
-  (as-settled(ladder: JOB, today: _JAN5))(entries(log: (offered: d(2026, 12, 1)))),
+  (as-settled(ladder: JOB, today: _JAN5))(entries(timeline: (offered: d(2026, 12, 1)))),
   true,
 )
 #assert.eq((as-days-in-flight(today: _JAN5))(_flight), 69)
@@ -285,29 +285,29 @@
 #let _t15 = datetime(year: 2026, month: 8, day: 27, hour: 15, minute: 0, second: 0)
 #let _t16 = datetime(year: 2026, month: 8, day: 27, hour: 16, minute: 0, second: 0)
 #assert.eq(
-  entries(log: (closed: _t16, activated: _t15)).at("timeline-log").map(e => e.stage),
+  entries(timeline: (closed: _t16, activated: _t15)).at("timeline-log").map(e => e.stage),
   ("activated", "closed"),
 )
 // A DATE-ONLY entry sorts as the start of its day, so a bare `deadline` precedes a
 // timed event on the same date rather than landing after it.
 #assert.eq(
-  entries(deadline: d(2026, 8, 27), log: (activated: _t15)).at("timeline-log").map(e => e.stage),
+  entries(deadline: d(2026, 8, 27), timeline: (activated: _t15)).at("timeline-log").map(e => e.stage),
   ("deadline", "activated"),
 )
 // Two DATE-ONLY entries on one day still tie, and still resolve by written order —
 // the existing behaviour, unchanged, because neither carries a time to compare.
 #assert.eq(
-  entries(log: (b: d(2026, 5, 1), a: d(2026, 5, 1))).at("timeline-log").map(e => e.stage),
+  entries(timeline: (b: d(2026, 5, 1), a: d(2026, 5, 1))).at("timeline-log").map(e => e.stage),
   ("b", "a"),
 )
 // The stored value keeps its time; only the sort key reads it.
-#assert.eq(entries(log: (activated: _t15)).at("timeline-log").first().timestamp.hour(), 15)
+#assert.eq(entries(timeline: (activated: _t15)).at("timeline-log").first().timestamp.hour(), 15)
 
 // ---- timeline-view — the past/booked/expected split -----------------------------
 // The rendering is HTML and this fixture is a paged compile, so what is asserted
 // here is the SPLIT the view computes, through the same readers it uses. The
 // markup itself is covered by the demo.
-#let _straddle = entries(log: (
+#let _straddle = entries(timeline: (
   submitted: d(2026, 10, 28),
   longlisted: d(2026, 12, 15),
   "first-interview": d(2027, 1, 20),
@@ -316,10 +316,10 @@
 #assert.eq(stage-of(_straddle, today: _JAN5b), "longlisted")
 #assert.eq(next-of(_straddle, today: _JAN5b).stage, "first-interview")
 // Two past, one booked -> the divider belongs, because both sides exist.
-#assert.eq(log-of(_straddle).filter(e => e.timestamp <= _JAN5b).len(), 2)
-#assert.eq(log-of(_straddle).filter(e => e.timestamp > _JAN5b).len(), 1)
+#assert.eq(timeline-of(_straddle).filter(e => e.timestamp <= _JAN5b).len(), 2)
+#assert.eq(timeline-of(_straddle).filter(e => e.timestamp > _JAN5b).len(), 1)
 // Every event past -> nothing booked, so no divider.
-#assert.eq(log-of(_straddle).filter(e => e.timestamp > d(2027, 6, 1)).len(), 0)
+#assert.eq(timeline-of(_straddle).filter(e => e.timestamp > d(2027, 6, 1)).len(), 0)
 
 // The expected rungs, which is what `ladder:` adds. `rung` is 1 at longlisted, so
 // what remains ahead is everything after index 1 that the log has not reached.
@@ -329,11 +329,11 @@
 )
 #assert.eq(rung(_straddle, ladder: _LAD, today: _JAN5b), 1)
 #assert.eq(
-  _LAD.transit.slice(2).filter(n => n not in log-of(_straddle).map(e => e.stage)),
+  _LAD.transit.slice(2).filter(n => n not in timeline-of(_straddle).map(e => e.stage)),
   ("finalist",),
 )
 // Settled -> `rung` is past the transit list, so nothing is expected ahead.
-#assert.eq(rung(entries(log: (offered: d(2026, 12, 1))), ladder: _LAD, today: _JAN5b), 4)
+#assert.eq(rung(entries(timeline: (offered: d(2026, 12, 1))), ladder: _LAD, today: _JAN5b), 4)
 
 // `#timeline-view` ITSELF IS NOT ASSERTED HERE. It is a context function — it branches
 // on `target()` — so it returns content rather than a value, and a context block's
@@ -343,14 +343,14 @@
 // ---- an entry carrying its own content -------------------------------------
 // The motivating case: prose ABOUT one event, which used to end up on the note and
 // read as a claim about the whole thing.
-#let _rich = entries(log: (
+#let _rich = entries(timeline: (
   closed: (
     timestamp: d(2026, 8, 27),
     note: [Landed as rookery's derived `label`.],
     estimated: true,
   ),
 ))
-#let _e = log-of(_rich).first()
+#let _e = timeline-of(_rich).first()
 #assert.eq(_e.stage, "closed")
 #assert.eq(_e.timestamp, d(2026, 8, 27))
 #assert.eq(_e.note, [Landed as rookery's derived `label`.])
@@ -363,13 +363,13 @@
 
 // The shorthand and the dict form agree but for the extras.
 #assert.eq(
-  log-of(entries(log: (closed: d(2026, 8, 27)))).first(),
+  timeline-of(entries(timeline: (closed: d(2026, 8, 27)))).first(),
   (timestamp: d(2026, 8, 27), stage: "closed"),
 )
 
 // Ordering is unaffected — it reads `timestamp` whichever form wrote it.
 #assert.eq(
-  log-of(entries(log: (
+  timeline-of(entries(timeline: (
     closed: (timestamp: d(2026, 9, 1), note: [later]),
     activated: d(2026, 8, 1),
   ))).map(e => e.stage),
@@ -378,7 +378,7 @@
 
 // A note may be a plain string as well as content, since both are `html.elem`
 // bodies.
-#assert.eq(log-of(entries(log: (closed: (timestamp: d(2026, 8, 27), note: "plain")))).first().note, "plain")
+#assert.eq(timeline-of(entries(timeline: (closed: (timestamp: d(2026, 8, 27), note: "plain")))).first().note, "plain")
 
 // ---- the skin over rookery -------------------------------------------------
 // This package re-exports rookery's whole surface and overrides two names. The

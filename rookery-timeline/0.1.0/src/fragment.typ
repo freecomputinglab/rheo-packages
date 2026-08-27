@@ -80,9 +80,9 @@
   if d.hour() == none { day + "000000" } else { day + d.display("[hour][minute][second]") }
 }
 
-// ---- _log-entries — the normalized, sorted array --------------------------
+// ---- _timeline-entries — the normalized, sorted array --------------------------
 //
-//   _log-entries((submitted: d1, longlisted: d2, "first-interview": d3))
+//   _timeline-entries((submitted: d1, longlisted: d2, "first-interview": d3))
 //     -> ((stage: "submitted", timestamp: d1), (stage: "longlisted", timestamp: d2), ..)
 //
 // SORTED BY DATE HERE, once, rather than in every reader. Two consequences, both
@@ -171,7 +171,7 @@
 // Sorted by `timestamp`, ties held by the written index — see `_stamp-of` above for
 // why the key carries the time of day where an entry has one. The index is dropped
 // on the way out: it exists to hold a tie, not to be read back.
-#let _log-entries(entries) = {
+#let _timeline-entries(entries) = {
   let rows = entries.pairs().enumerate().map(p => {
     let (i, pair) = p
     let (stage, given) = pair
@@ -187,7 +187,7 @@
 // ---- entries(..) — the tag fragment ----------------------------------------
 //
 //   #idea("ship", tags: entries(deadline: datetime(year: 2026, month: 9, day: 1)))[..]
-//   #idea("wolf", tags: entries(deadline: d, log: (submitted: d2, rejected: d3)))[..]
+//   #idea("wolf", tags: entries(deadline: d, timeline: (submitted: d2, rejected: d3)))[..]
 //
 // MERGE IT THROUGH `tags:`. Rookery accepts a dictionary there directly, so
 // composing with ordinary tags is dictionary merge:
@@ -196,7 +196,7 @@
 //
 // `scheduled:` and `deadline:` stay named arguments even though they are now log
 // stages, because they are the two a note most often has and because every
-// existing call site writes them that way. They fold into the same log the `log:`
+// existing call site writes them that way. They fold into the same log the `timeline:`
 // argument builds, so all three arguments have ONE destination.
 //
 // AN OMITTED DATE EMITS NO KEY AT ALL rather than a key with value `none`. That
@@ -214,7 +214,7 @@
 // `created` IS NOT IN THE LOG. Rookery core resolves and stores it (from
 // `#idea(created:)`, else the document's own date), and `read.typ` reads it off an
 // `ideas()` row rather than keeping a second copy that could only disagree.
-#let entries(scheduled: none, deadline: none, log: none) = {
+#let entries(scheduled: none, deadline: none, timeline: none) = {
   assert(
     scheduled == none or type(scheduled) == datetime,
     message: "@rheo/rookery-timeline: `scheduled` must be none or a datetime — got " + repr(scheduled),
@@ -226,12 +226,13 @@
   let entries = (:)
   if scheduled != none { entries.insert(SCHEDULED-STAGE, scheduled) }
   if deadline != none { entries.insert(DEADLINE-STAGE, deadline) }
-  if log != none {
+  if timeline != none {
     assert(
-      type(log) == dictionary,
-      message: "@rheo/rookery-timeline: `log` takes a dictionary of stage-name -> datetime — got " + repr(log),
+      type(timeline) == dictionary,
+      message: "@rheo/rookery-timeline: `timeline` takes a dictionary of stage-name -> datetime — got "
+        + repr(timeline),
     )
-    for (stage, on) in log.pairs() {
+    for (stage, on) in timeline.pairs() {
       // A stage given twice is a contradiction, not a merge: which of the two
       // dates the author meant is unknowable, and picking one silently would put
       // a wrong date in a timeline that reads as authoritative.
@@ -241,19 +242,19 @@
           + stage
           + "` was given twice — once as the `"
           + stage
-          + ":` argument and once inside `log:`. Give it once.",
+          + ":` argument and once inside `timeline:`. Give it once.",
       )
       entries.insert(stage, on)
     }
   }
   if entries.len() == 0 { return (:) }
-  ((LOG-KEY): _log-entries(entries))
+  ((LOG-KEY): _timeline-entries(entries))
 }
 
 // ---- dated(mint) — the decorator -----------------------------------------
 //
 //   #let dated-note = dated(tagged-idea("note"))
-//   #dated-note("ship", deadline: d, log: (submitted: d2))[..]
+//   #dated-note("ship", deadline: d, timeline: (submitted: d2))[..]
 //
 // TAKES A MINTING FUNCTION and returns one that also accepts this package's date
 // arguments. A DECORATOR rather than a finished constructor, and that is the whole
@@ -292,11 +293,11 @@
       + "`idea`, a `tagged-idea(..)` factory, or another decorated one. Got "
       + repr(mint),
   )
-  (scheduled: none, deadline: none, log: none, tags: none, ..args) => mint(
+  (scheduled: none, deadline: none, timeline: none, tags: none, ..args) => mint(
     // Caller's own tags on the LEFT, this package's fragment on the right. The
     // two cannot collide by accident, since `timeline-log` is namespaced, and a
     // caller who wrote that key by hand meant to.
-    tags: _norm-tags(tags) + entries(scheduled: scheduled, deadline: deadline, log: log),
+    tags: _norm-tags(tags) + entries(scheduled: scheduled, deadline: deadline, timeline: timeline),
     ..args,
   )
 }

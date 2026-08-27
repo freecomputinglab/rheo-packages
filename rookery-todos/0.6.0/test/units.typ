@@ -31,7 +31,7 @@
 
 // `closed` on `todo-tags` is a BOOL, and it is DERIVED: `#todo` passes
 // `CLOSED-STAGE in log`, never a date. The date lives in the log alone. There is
-// no `closed:` argument on `#todo` any more — a close is `log: (closed: d)`.
+// no `closed:` argument on `#todo` any more — a close is `timeline: (closed: d)`.
 #assert.eq(todo-tags(closed: true).at("todo-closed"), none)
 #assert.eq(todo-tags(closed: true).keys(), ("todo", "todo-closed"))
 // `closed: false` emits NO KEY. A key valued `false` would read as closed to
@@ -75,17 +75,17 @@
 // THE LOG ALONE decides. The flat marker is an index into it, not a second
 // source: with one write path the two cannot disagree, so `is-closed` reads the
 // log and a marker without an entry (which `#todo` cannot produce) is not closed.
-#assert.eq(is-closed(entries(log: (closed: d(2026, 8, 1)))), true)
+#assert.eq(is-closed(entries(timeline: (closed: d(2026, 8, 1)))), true)
 #assert.eq(is-closed(todo-tags()), false)
 #assert.eq(is-closed(todo-tags(closed: true)), false)
-#assert.eq(closed-on(entries(log: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
+#assert.eq(closed-on(entries(timeline: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
 
 // `status-of` — closed wins over a declared status, absent reads as open, and
 // `blocked` never appears because it is derived from the graph, not declared.
 #assert.eq(status-of(todo-tags()), "open")
 #assert.eq(status-of(todo-tags(status: "draft")), "draft")
-#assert.eq(status-of(todo-tags(closed: true) + entries(log: (closed: d(2026, 8, 1)))), "closed")
-#assert.eq(status-of(todo-tags(status: "draft", closed: true) + entries(log: (closed: d(2026, 8, 1)))), "closed")
+#assert.eq(status-of(todo-tags(closed: true) + entries(timeline: (closed: d(2026, 8, 1)))), "closed")
+#assert.eq(status-of(todo-tags(status: "draft", closed: true) + entries(timeline: (closed: d(2026, 8, 1)))), "closed")
 
 // ---- the graph, cycles, and derived state ---------------------------------
 //
@@ -215,7 +215,7 @@
 // It used to read core's `updated`, which fell back to the DOCUMENT's date, so
 // staleness measured document age on any project that did not hand-write one.
 #assert.eq(
-  updated-of((created: d(2026, 1, 1)), entries(log: (activated: d(2026, 7, 1)))),
+  updated-of((created: d(2026, 1, 1)), entries(timeline: (activated: d(2026, 7, 1)))),
   d(2026, 7, 1),
 )
 #assert.eq(updated-of((created: d(2026, 1, 1)), (:)), d(2026, 1, 1))
@@ -227,15 +227,15 @@
 #assert.eq(TODO-LADDER.terminal, ("closed",))
 #assert.eq(TODO-LADDER.transit, ("scheduled", "activated"))
 #assert.eq(
-  is-settled(entries(log: (closed: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  is-settled(entries(timeline: (closed: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   true,
 )
 #assert.eq(
-  is-settled(entries(log: (activated: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  is-settled(entries(timeline: (activated: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   false,
 )
 #assert.eq(
-  next-stage(entries(log: (scheduled: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
+  next-stage(entries(timeline: (scheduled: d(2026, 8, 1))), ladder: TODO-LADDER, today: _T),
   "activated",
 )
 // `deadline` is deliberately NOT a rung, so a todo carrying one has not advanced.

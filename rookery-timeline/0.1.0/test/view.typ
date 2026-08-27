@@ -23,7 +23,7 @@
 
 = 1. Straddling today
 
-#let straddling = entries(log: (
+#let straddling = entries(timeline: (
   submitted: d(2026, 10, 28),
   "under-review": d(2026, 11, 15),
   "revise-resubmit": d(2026, 12, 20),
@@ -33,14 +33,14 @@
 
 = 2. Every event past
 
-#timeline-view((created: d(2026, 1, 1)), entries(log: (
+#timeline-view((created: d(2026, 1, 1)), entries(timeline: (
   submitted: d(2026, 2, 1),
   rejected: d(2026, 3, 1),
 )), today: NOW)
 
 = 3. Two events on one day
 
-#timeline-view((:), entries(log: (
+#timeline-view((:), entries(timeline: (
   activated: t(2026, 8, 27, 15),
   closed: t(2026, 8, 27, 16),
 )), today: NOW)
@@ -54,7 +54,7 @@
 // The case that caught the bug: a date-only `today:` — which is what a site
 // passes — against events carrying times on that very day. Both have HAPPENED, and
 // a rail that called them booked would be wrong about the commonest call there is.
-#timeline-view((:), entries(log: (
+#timeline-view((:), entries(timeline: (
   activated: t(2027, 1, 5, 15),
   closed: t(2027, 1, 5, 16),
 )), today: NOW)
@@ -64,7 +64,7 @@
 // The prose that is ABOUT one event, which used to end up on the note's body and
 // read as a claim about the whole thing. One event has a note, one does not — a
 // rail that drew an empty one for the second would be worse than drawing none.
-#timeline-view((:), entries(log: (
+#timeline-view((:), entries(timeline: (
   submitted: (
     timestamp: d(2026, 5, 1),
     note: [Sent the 500-word abstract, not the full paper.],

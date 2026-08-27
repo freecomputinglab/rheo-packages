@@ -19,9 +19,9 @@
 //
 // EVERY DATE A TODO CARRIES BELONGS TO @rheo/rookery-timeline, in its entirety.
 // `#todo` is built on that package's `dated(..)` decorator, so `scheduled:`,
-// `deadline:` and `log:` are its named arguments passed straight through:
+// `deadline:` and `timeline:` are its named arguments passed straight through:
 //
-//   #todo("ship", deadline: d, log: (activated: d2, closed: d3))[..]
+//   #todo("ship", deadline: d, timeline: (activated: d2, closed: d3))[..]
 //
 // WHAT THIS PACKAGE IS, stated plainly because the boundary moved: a LIFECYCLE
 // declared over @rheo/rookery-timeline. It contributes the stage names `activated`
@@ -31,7 +31,7 @@
 // draws one all live there, and a todo is one vocabulary among several — a
 // submission tracker declares another over the same machinery.
 //
-// There is no `closed:` argument — a close is `log: (closed: d)`, one way to write
+// There is no `closed:` argument — a close is `timeline: (closed: d)`, one way to write
 // one fact. An entry may carry its own `note` too, which is where prose about a
 // particular transition belongs.
 //
@@ -71,10 +71,10 @@
   deps: (),
   metadata: (:),
   tags: none,
-  log: none,
+  timeline: none,
   ..args,
 ) = (dated(tagged-idea(TODO-KEY)))(
-  log: log,
+  timeline: timeline,
   tags: todo-tags(
     tags: tags,
     priority: priority,
@@ -83,9 +83,9 @@
     kind: type,
     status: status,
     // THE FLAT MARKER IS DERIVED FROM THE LOG, not from an argument. There used
-    // to be a `closed:` parameter beside `log:`, and the two were not
+    // to be a `closed:` parameter beside `timeline:`, and the two were not
     // equivalent: MEASURED, `#todo("a", closed: d)` carried `todo-closed` while
-    // `#todo("b", log: (closed: d))` did not, so the second read as closed to
+    // `#todo("b", timeline: (closed: d))` did not, so the second read as closed to
     // `is-closed` and as OPEN to `tags:todo&!todo-closed` — the query this
     // package's own header calls the payoff of the flat-tag surface. Two ways to
     // write one fact, one of them silently unfilterable.
@@ -93,7 +93,7 @@
     // Deriving it here is what makes them one way. `todo-tags` cannot do it: it
     // builds this package's keys and never sees the log, which belongs to
     // @rheo/rookery-timeline.
-    closed: log != none and CLOSED-STAGE in log,
+    closed: timeline != none and CLOSED-STAGE in timeline,
     deps: deps,
     metadata: metadata,
     // Rookery's own name normalizer, so a dep written as a bare name, a full

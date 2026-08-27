@@ -228,7 +228,7 @@
 
 // THE LOG ALONE, which it can be now that there is one write path. It used to
 // read "the flat marker OR a `closed` log entry", because `#todo(closed: d)` wrote
-// the marker and `entries(log: (closed: d))` wrote the entry and neither wrote both.
+// the marker and `entries(timeline: (closed: d))` wrote the entry and neither wrote both.
 // With the marker derived from the log the two cannot disagree, so reading both
 // would only hide a bug rather than tolerate one.
 #let is-closed(tags) = has-stage(tags, CLOSED-STAGE)

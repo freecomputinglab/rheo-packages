@@ -27,7 +27,7 @@ is what marks it closed; the value says when.
   title: [Fetch the source],
   priority: 0,
   type: "task",
-  log: (closed: datetime(year: 2026, month: 8, day: 1)),
+  timeline: (closed: datetime(year: 2026, month: 8, day: 1)),
 )[Pull the upstream tarball and verify its checksum.]
 
 A todo with every attribute this package maps, including a metadata bag for

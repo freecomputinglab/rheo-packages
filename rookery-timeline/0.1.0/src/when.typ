@@ -108,17 +108,17 @@
 // `none` covers two different situations and deliberately does not distinguish
 // them, because no consumer has yet needed to: an empty log, and a log whose every
 // entry is still in the future (an open call nothing has been sent to). A consumer
-// that does need the difference asks `log-of(tags).len()`.
+// that does need the difference asks `timeline-of(tags).len()`.
 #let stage-of(tags, today: none) = {
   let now = _stamp(_today(today))
-  let past = log-of(tags).filter(e => _stamp(e.timestamp) <= now)
+  let past = timeline-of(tags).filter(e => _stamp(e.timestamp) <= now)
   if past.len() == 0 { none } else { past.last().stage }
 }
 
 // That same entry's date, for "how long has it been at this stage".
 #let stage-on(tags, today: none) = {
   let now = _stamp(_today(today))
-  let past = log-of(tags).filter(e => _stamp(e.timestamp) <= now)
+  let past = timeline-of(tags).filter(e => _stamp(e.timestamp) <= now)
   if past.len() == 0 { none } else { past.last().timestamp }
 }
 
@@ -129,7 +129,7 @@
 // this is the reader that finds it.
 #let next-of(tags, today: none) = {
   let now = _stamp(_today(today))
-  let future = log-of(tags).filter(e => _stamp(e.timestamp) > now)
+  let future = timeline-of(tags).filter(e => _stamp(e.timestamp) > now)
   if future.len() == 0 { none } else { future.first() }
 }
 

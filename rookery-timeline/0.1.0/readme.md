@@ -44,13 +44,13 @@ on this exact line.
 | --- | --- |
 | `@rheo/rookery-dates` 0.5.0 and 0.6.0 | `@rheo/rookery-timeline:0.1.0` |
 | the `date-log` tag key | `timeline-log` |
-| `dates(scheduled:, deadline:, log:)` | `entries(scheduled:, deadline:, log:)` |
+| `dates(scheduled:, deadline:, timeline:)` | `entries(scheduled:, deadline:, timeline:)` |
 | `log-view(..)` | `timeline-view(..)` |
 | `src/rookery-dates.css`, `@layer rookery-dates` | `src/rookery-timeline.css`, `@layer rookery-timeline` |
 | `.date-log`, `.date-log-event`, `--date-log-*` | `.timeline`, `.timeline-event`, `--timeline-*` |
 | an entry's `on` field | `timestamp`, matching the write key |
 
-Everything else keeps its name: `dated`, `dated-idea`, `log-of`, `stage-date`,
+Everything else keeps its name: `dated`, `dated-idea`, `timeline-of`, `stage-date`,
 `has-stage`, `entered-of`, `deadline-of`, `scheduled-of`, `created-of`,
 `updated-of`, `timeline`, `stage-of`, `stage-on`, `next-of`, `days-at-stage`,
 `days-in-flight`, `is-settled`, `rung`, `next-stage`, the `as-*` extractors and the
@@ -80,7 +80,7 @@ versions that take its date arguments:
 #import "@rheo/rookery-timeline:0.1.0": idea, rookery, window
 #show: rookery
 
-#idea("ship", deadline: d, log: (submitted: d2))[Cut the release.]
+#idea("ship", deadline: d, timeline: (submitted: d2))[Cut the release.]
 #window("ship")   // rookery's own, unchanged
 ```
 
@@ -133,7 +133,7 @@ finds every note carrying any dates at all.
 ```typst
 #idea("wolf", tags: entries(
   deadline: datetime(year: 2026, month: 11, day: 1),
-  log: (
+  timeline: (
     submitted:         datetime(year: 2026, month: 10, day: 28),
     longlisted:        datetime(year: 2026, month: 12, day: 15),
     "first-interview": datetime(year: 2027, month: 1, day: 20),
@@ -160,7 +160,7 @@ that has actually happened" — which is why `stage-of` takes a `today:` and
 Two write forms, and the shorthand is the common one:
 
 ```typst
-log: (
+timeline: (
   activated: datetime(..),                  // a bare date
   closed: (
     timestamp: datetime(..),                // reserved, required
@@ -186,7 +186,7 @@ needing to know what it means.
 Read back, an entry is `(stage:, timestamp:, ..your keys)`:
 
 ```typst
-#let e = log-of(tags).first()
+#let e = timeline-of(tags).first()
 e.stage      // "closed"
 e.timestamp  // datetime
 e.note       // content, if it has one
@@ -207,7 +207,7 @@ is neither a datetime nor a dictionary.
 | --- | --- | --- |
 | `scheduled` | `entries(scheduled: ..)` | `SCHEDULED-STAGE` |
 | `deadline` | `entries(deadline: ..)` | `DEADLINE-STAGE` |
-| `closed` | your own `log:` | `CLOSED-STAGE` |
+| `closed` | your own `timeline:` | `CLOSED-STAGE` |
 
 Everything else in a log is the CONSUMER's vocabulary. `@rheo/rookery-todos` owns
 `activated`; a submission tracker owns `submitted`/`review`/`accepted`. The three
@@ -228,7 +228,7 @@ consumer's view will put it.
 
 // or put your own tag family on top:
 #let submission = dated(tagged-idea("submission"))
-#submission("wolf", deadline: d, log: (submitted: d2))[...]
+#submission("wolf", deadline: d, timeline: (submitted: d2))[...]
 ```
 
 A DECORATOR rather than a finished constructor, and that is what makes the
@@ -260,13 +260,13 @@ functions and need no registry read of their own. Walking the corpus is one
 ### The log's own readers
 
 ```typst
-log-of(t)                  // -> ((stage: "submitted", on: ..), ..) or ()
+timeline-of(t)                  // -> ((stage: "submitted", on: ..), ..) or ()
 stage-date(t, "longlisted")// -> that entry's date; the LATEST where it repeats
 has-stage(t, "offered")    // -> bool
 entered-of(t)              // -> the FIRST entry's date — "in flight since"
 ```
 
-`log-of` returns `()` rather than `none` when absent, so you can map over it
+`timeline-of` returns `()` rather than `none` when absent, so you can map over it
 without a guard: an empty log and no log are the same question.
 
 `stage-date` returns the LATEST where a stage appears more than once. A todo
@@ -338,7 +338,7 @@ days-in-flight(t, today: NOW)    // whole days since the first entry
 Each takes a `today:` because entries may be future-dated. `stage-of` is `none`
 for an empty log AND for a log whose every entry is still to come — an open call
 nothing has been sent to — and deliberately does not distinguish them; ask
-`log-of(t).len()` if you need to.
+`timeline-of(t).len()` if you need to.
 
 `next-of` is what gives a view a real "next appointment" column: a booked
 interview or a promised decision is an ordinary entry, and this finds it.

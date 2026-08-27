@@ -1,6 +1,6 @@
 // Reading dates back off a tag dictionary or an `ideas()` row.
 //
-// Readers split across two sources on purpose. The log readers — `log-of`,
+// Readers split across two sources on purpose. The log readers — `timeline-of`,
 // `stage-date`, `has-stage`, `entered-of`, and the `scheduled-of`/`deadline-of`
 // pair built on them — read THIS package's own `timeline-log` out of a tag
 // dictionary. `created-of` reads ROOKERY CORE's own row field, because rookery
@@ -46,7 +46,7 @@
 
 // The whole log, in date order. `()` rather than `none` when absent, so a caller
 // can map over it without a guard: an empty log and no log are the same question.
-#let log-of(tags) = tags.at(LOG-KEY, default: ())
+#let timeline-of(tags) = tags.at(LOG-KEY, default: ())
 
 // One named stage's date, or none.
 //
@@ -55,16 +55,16 @@
 // current deferral rather than the first one ever set. Entries are stored sorted
 // by date, so the last match is the latest.
 #let stage-date(tags, name) = {
-  let hits = log-of(tags).filter(e => e.stage == name)
+  let hits = timeline-of(tags).filter(e => e.stage == name)
   if hits.len() == 0 { none } else { hits.last().timestamp }
 }
 
 // Does the log record this stage at all, whatever its date?
-#let has-stage(tags, name) = log-of(tags).any(e => e.stage == name)
+#let has-stage(tags, name) = timeline-of(tags).any(e => e.stage == name)
 
 // The FIRST entry's date — "in flight since". `none` for an empty log.
 #let entered-of(tags) = {
-  let l = log-of(tags)
+  let l = timeline-of(tags)
   if l.len() == 0 { none } else { l.first().timestamp }
 }
 
@@ -105,7 +105,7 @@
 // first time this function means something the note itself knows. It takes BOTH
 // the row and the tag dictionary, because the answer now comes from two sources.
 #let updated-of(entry, tags) = {
-  let l = log-of(tags)
+  let l = timeline-of(tags)
   if l.len() > 0 { l.last().timestamp } else { created-of(entry) }
 }
 
@@ -125,5 +125,5 @@
 // note down) the honest reading is still that the record starts at `created`.
 #let timeline(entry, tags) = {
   let c = created-of(entry)
-  (if c == none { () } else { ((stage: "created", timestamp: c),) }) + log-of(tags)
+  (if c == none { () } else { ((stage: "created", timestamp: c),) }) + timeline-of(tags)
 }

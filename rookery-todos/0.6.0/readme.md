@@ -55,13 +55,13 @@ A todo already had a lifecycle — filed, scheduled, activated, closed — and i
 spread across three owners: rookery core's `minted`/`updated`,
 `@rheo/rookery-timeline`' two date keys, and this package's own valued `todo-closed`.
 That last one was a dated event wearing a tag's clothes. As of 0.6.0 every date a
-todo carries lives in one log:
+todo carries lives in one timeline:
 
 ```typst
-#todo("ship", deadline: d, log: (activated: d2, closed: d3))[...]
+#todo("ship", deadline: d, timeline: (activated: d2, closed: d3))[...]
 ```
 
-- **`#todo` takes `scheduled:`, `deadline:` and `log:` as named arguments**, being
+- **`#todo` takes `scheduled:`, `deadline:` and `timeline:` as named arguments**, being
   built on rookery-timeline's `dated(..)` decorator. The old `tags: entries(deadline: d)`
   form still works and is still supported.
 - **`closed:` is a date, and it writes a log entry.** `closed: true` used to mean
@@ -160,7 +160,7 @@ payoff named at the top of surface 1 — would have been lost to buy tidiness.
 
 So `todo-closed` is now a FLAT presence marker valued `none`, carrying no date and
 duplicating nothing. `is-closed` reads either it or a `closed` entry in the log, so
-a note written straight through `entries(log: (closed: d))` without `#todo` still
+a note written straight through `entries(timeline: (closed: d))` without `#todo` still
 reads as closed; `closed-on` reads only the log, the one place the date is stored.
 `closed: false` still emits no key at all.
 
@@ -170,7 +170,7 @@ reads as closed; `closed-on` reads only the log, the one place the date is store
   A todo's labels *are* rookery tags, and namespacing them would break exactly
   the filtering and theming that is the point.
 - **Dates come from [`@rheo/rookery-timeline`](../../rookery-timeline)** —
-  `#todo("x", deadline: d, log: (activated: d2))`, or the older
+  `#todo("x", deadline: d, timeline: (activated: d2))`, or the older
   `#todo("x", tags: entries(deadline: d))`. One concept, one package, and as of
   0.6.0 one log.
 - **`created` is rookery core's own**, forwarded straight through `#todo`. There
