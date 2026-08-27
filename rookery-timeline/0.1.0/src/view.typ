@@ -64,10 +64,10 @@
   // A bare reference date means the whole DAY. So both sides drop to day
   // granularity unless both carry a time, in which case the clock decides.
   let happened(e) = {
-    if _has-time(e.on) and _has-time(now) {
-      _stamp-of(e.on) <= _stamp-of(now)
+    if _has-time(e.timestamp) and _has-time(now) {
+      _stamp-of(e.timestamp) <= _stamp-of(now)
     } else {
-      _day-of(e.on) <= _day-of(now)
+      _day-of(e.timestamp) <= _day-of(now)
     }
   }
   let past = events.filter(happened)
@@ -97,10 +97,10 @@
   // a lone timed event still reads as a date.
   let dated = past + booked
   let shares-day(i) = {
-    let d = dated.at(i).on
+    let d = dated.at(i).timestamp
     if not _has-time(d) { return false }
     let day = d.display("[year][month][day]")
-    let others = dated.enumerate().filter(p => p.at(0) != i).map(p => p.at(1).on)
+    let others = dated.enumerate().filter(p => p.at(0) != i).map(p => p.at(1).timestamp)
     others.any(o => o.display("[year][month][day]") == day)
   }
 
@@ -112,7 +112,7 @@
         .enumerate()
         .map(p => {
           let (i, e) = p
-          let when = if shares-day(i) { _fmt-day(e.on) + " " + _fmt-time(e.on) } else { _fmt-day(e.on) }
+          let when = if shares-day(i) { _fmt-day(e.timestamp) + " " + _fmt-time(e.timestamp) } else { _fmt-day(e.timestamp) }
           [#when — #e.stage.replace("-", " ")]
         })
         + expected.map(n => [— #n.replace("-", " ") (expected)]),
@@ -140,7 +140,7 @@
   )
 
   html.elem("ol", attrs: (class: "timeline-log"), {
-    for (i, e) in past.enumerate() { row("timeline-past", e.stage, e.on, timed: shares-day(i)) }
+    for (i, e) in past.enumerate() { row("timeline-past", e.stage, e.timestamp, timed: shares-day(i)) }
     // ONLY WHERE BOTH SIDES EXIST. A rail whose every event is past needs no line
     // saying where now is — it would be a divider at the bottom, marking nothing.
     if past.len() > 0 and booked.len() > 0 {
@@ -151,7 +151,7 @@
       ))
     }
     for (i, e) in booked.enumerate() {
-      row("timeline-future", e.stage, e.on, timed: shares-day(past.len() + i))
+      row("timeline-future", e.stage, e.timestamp, timed: shares-day(past.len() + i))
     }
     for n in expected { row("timeline-expected", n, none) }
   })

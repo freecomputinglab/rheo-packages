@@ -41,6 +41,7 @@ rookery's `created` with the log.
 | `log-view(..)` | `timeline-view(..)` |
 | `src/rookery-dates.css`, `@layer rookery-dates` | `src/rookery-timeline.css`, `@layer rookery-timeline` |
 | `.date-log`, `.date-log-event`, `--date-log-*` | `.timeline`, `.timeline-event`, `--timeline-*` |
+| an entry's `on` field | `timestamp`, matching the write key |
 
 Everything else keeps its name: `dated`, `dated-idea`, `log-of`, `stage-date`,
 `has-stage`, `entered-of`, `deadline-of`, `scheduled-of`, `created-of`,
@@ -120,6 +121,52 @@ interview is booked before it is held; a decision is promised before it comes. S
 the log doubles as a calendar, and "what stage is this at" means "the last thing
 that has actually happened" — which is why `stage-of` takes a `today:` and
 `deadline-of` does not.
+
+### An entry may carry its own content
+
+Two write forms, and the shorthand is the common one:
+
+```typst
+log: (
+  activated: datetime(..),                  // a bare date
+  closed: (
+    timestamp: datetime(..),                // reserved, required
+    note: [Landed as rookery's derived `label`.],  // reserved, rendered by the rail
+    estimated: true,                        // FREE — yours, stored and ignored here
+  ),
+)
+```
+
+**Why an entry needs content of its own.** Prose about an event kept ending up on
+the note, where it reads as a claim about the whole thing. In the project this was
+built for, seven submission bodies carried a sentence that belonged to one event —
+*"Offered and accepted, for autumn 2026"*, *"Dropped — not a good fit"*, *"Read and
+let go"* — and one file opened with a **fourteen-line comment** explaining
+per-entry date provenance at file level, invisible on the built site, because no
+entry could carry it.
+
+`timestamp` and `note` are reserved. **Every other key is yours**, stored verbatim
+and ignored by everything here — which is what lets per-entry provenance
+(`estimated: true`, a reference number, whatever) exist without this package
+needing to know what it means.
+
+Read back, an entry is `(stage:, timestamp:, ..your keys)`:
+
+```typst
+#let e = log-of(tags).first()
+e.stage      // "closed"
+e.timestamp  // datetime
+e.note       // content, if it has one
+```
+
+**A `note` can never be projected.** rookery's `tag-index` asserts scalars, because
+`json.encode` of content silently emits a structural blob — so a note is
+Typst-side rendering only. The log already could not ride on an `#ideas()` row, so
+this costs nothing new, but it is worth knowing rather than discovering.
+
+Each refusal names the stage: a dictionary with no `timestamp`, a `timestamp` that
+is not a datetime, a `note` that is neither content nor a string, and an entry that
+is neither a datetime nor a dictionary.
 
 ### Three reserved stages, and no more
 

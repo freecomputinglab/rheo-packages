@@ -56,7 +56,7 @@
 // by date, so the last match is the latest.
 #let stage-date(tags, name) = {
   let hits = log-of(tags).filter(e => e.stage == name)
-  if hits.len() == 0 { none } else { hits.last().on }
+  if hits.len() == 0 { none } else { hits.last().timestamp }
 }
 
 // Does the log record this stage at all, whatever its date?
@@ -65,7 +65,7 @@
 // The FIRST entry's date — "in flight since". `none` for an empty log.
 #let entered-of(tags) = {
   let l = log-of(tags)
-  if l.len() == 0 { none } else { l.first().on }
+  if l.len() == 0 { none } else { l.first().timestamp }
 }
 
 // `none` when the stage is absent, which is also what a note that never named a
@@ -106,14 +106,14 @@
 // the row and the tag dictionary, because the answer now comes from two sources.
 #let updated-of(entry, tags) = {
   let l = log-of(tags)
-  if l.len() > 0 { l.last().on } else { created-of(entry) }
+  if l.len() > 0 { l.last().timestamp } else { created-of(entry) }
 }
 
 // The display seam: core's `created` and the log's own entries as ONE sequence,
 // for a view rendering a note's history.
 //
 //   timeline(row, tags)
-//     -> ((stage: "created", on: ..), (stage: "deadline", on: ..), ..)
+//     -> ((stage: "created", timestamp: ..), (stage: "deadline", timestamp: ..), ..)
 //
 // `created` is PREPENDED here rather than written into the log, which is the whole
 // point: one store per fact, one view over both. Writing it into the log would
@@ -125,5 +125,5 @@
 // note down) the honest reading is still that the record starts at `created`.
 #let timeline(entry, tags) = {
   let c = created-of(entry)
-  (if c == none { () } else { ((stage: "created", on: c),) }) + log-of(tags)
+  (if c == none { () } else { ((stage: "created", timestamp: c),) }) + log-of(tags)
 }

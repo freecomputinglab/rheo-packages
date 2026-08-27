@@ -16,11 +16,11 @@
 // rather than two keys of their own. One destination for all three arguments.
 #assert.eq(
   entries(deadline: d(2026, 9, 1)),
-  ("timeline-log": ((stage: "deadline", on: d(2026, 9, 1)),)),
+  ("timeline-log": ((stage: "deadline", timestamp: d(2026, 9, 1)),)),
 )
 #assert.eq(
   entries(scheduled: d(2026, 9, 1)),
-  ("timeline-log": ((stage: "scheduled", on: d(2026, 9, 1)),)),
+  ("timeline-log": ((stage: "scheduled", timestamp: d(2026, 9, 1)),)),
 )
 #assert.eq(entries(scheduled: d(2026, 1, 2), deadline: d(2026, 3, 4)).keys().len(), 1)
 
@@ -36,7 +36,7 @@
 // Merges into an ordinary tag dictionary without disturbing it.
 #assert.eq(
   (phd: none) + entries(deadline: d(2026, 9, 1)),
-  (phd: none, "timeline-log": ((stage: "deadline", on: d(2026, 9, 1)),)),
+  (phd: none, "timeline-log": ((stage: "deadline", timestamp: d(2026, 9, 1)),)),
 )
 
 // ---- the log — SORTED BY DATE, written order only breaking ties ------------
@@ -60,7 +60,7 @@
 // `scheduled:`/`deadline:` fold into the same log as `log:`'s own entries.
 #assert.eq(
   entries(deadline: d(2026, 11, 1), log: (submitted: d(2026, 10, 28))).at("timeline-log"),
-  ((stage: "submitted", on: d(2026, 10, 28)), (stage: "deadline", on: d(2026, 11, 1))),
+  ((stage: "submitted", timestamp: d(2026, 10, 28)), (stage: "deadline", timestamp: d(2026, 11, 1))),
 )
 // A hyphenated stage name is fine — it has to survive being a CSS class fragment.
 #assert.eq(
@@ -77,7 +77,7 @@
 #assert.eq(
   _dated-spy(deadline: d(2026, 9, 1), tags: (phd: none), title: "T"),
   (
-    tags: (phd: none, "timeline-log": ((stage: "deadline", on: d(2026, 9, 1)),)),
+    tags: (phd: none, "timeline-log": ((stage: "deadline", timestamp: d(2026, 9, 1)),)),
     rest: (title: "T"),
   ),
 )
@@ -100,8 +100,8 @@
 // re-deferred means the current deferral, not the first one ever set.
 #assert.eq(
   scheduled-of(("timeline-log": (
-    (stage: "scheduled", on: d(2026, 1, 1)),
-    (stage: "scheduled", on: d(2026, 6, 1)),
+    (stage: "scheduled", timestamp: d(2026, 1, 1)),
+    (stage: "scheduled", timestamp: d(2026, 6, 1)),
   ))),
   d(2026, 6, 1),
 )
@@ -165,7 +165,7 @@
 #assert.eq(stage-of(_flight, today: _JAN5), "longlisted")
 #assert.eq(stage-on(_flight, today: _JAN5), d(2026, 12, 15))
 // ...and the booked interview is the NEXT appointment.
-#assert.eq(next-of(_flight, today: _JAN5), (stage: "first-interview", on: d(2027, 1, 20)))
+#assert.eq(next-of(_flight, today: _JAN5), (stage: "first-interview", timestamp: d(2027, 1, 20)))
 #assert.eq(next-of(_flight, today: d(2027, 2, 1)), none)
 // A log whose every entry is still future: nothing has happened yet.
 #assert.eq(stage-of(_flight, today: d(2026, 1, 1)), none)
@@ -301,7 +301,7 @@
   ("b", "a"),
 )
 // The stored value keeps its time; only the sort key reads it.
-#assert.eq(entries(log: (activated: _t15)).at("timeline-log").first().on.hour(), 15)
+#assert.eq(entries(log: (activated: _t15)).at("timeline-log").first().timestamp.hour(), 15)
 
 // ---- timeline-view — the past/booked/expected split -----------------------------
 // The rendering is HTML and this fixture is a paged compile, so what is asserted
@@ -316,10 +316,10 @@
 #assert.eq(stage-of(_straddle, today: _JAN5b), "longlisted")
 #assert.eq(next-of(_straddle, today: _JAN5b).stage, "first-interview")
 // Two past, one booked -> the divider belongs, because both sides exist.
-#assert.eq(log-of(_straddle).filter(e => e.on <= _JAN5b).len(), 2)
-#assert.eq(log-of(_straddle).filter(e => e.on > _JAN5b).len(), 1)
+#assert.eq(log-of(_straddle).filter(e => e.timestamp <= _JAN5b).len(), 2)
+#assert.eq(log-of(_straddle).filter(e => e.timestamp > _JAN5b).len(), 1)
 // Every event past -> nothing booked, so no divider.
-#assert.eq(log-of(_straddle).filter(e => e.on > d(2027, 6, 1)).len(), 0)
+#assert.eq(log-of(_straddle).filter(e => e.timestamp > d(2027, 6, 1)).len(), 0)
 
 // The expected rungs, which is what `ladder:` adds. `rung` is 1 at longlisted, so
 // what remains ahead is everything after index 1 that the log has not reached.
@@ -339,3 +339,43 @@
 // on `target()` — so it returns content rather than a value, and a context block's
 // result cannot be compared. Its markup is covered by the demo instead, which is
 // where a rendered rail can actually be inspected.
+
+// ---- an entry carrying its own content -------------------------------------
+// The motivating case: prose ABOUT one event, which used to end up on the note and
+// read as a claim about the whole thing.
+#let _rich = entries(log: (
+  closed: (
+    timestamp: d(2026, 8, 27),
+    note: [Landed as rookery's derived `label`.],
+    estimated: true,
+  ),
+))
+#let _e = log-of(_rich).first()
+#assert.eq(_e.stage, "closed")
+#assert.eq(_e.timestamp, d(2026, 8, 27))
+#assert.eq(_e.note, [Landed as rookery's derived `label`.])
+// A FREE key is stored verbatim and this package does nothing with it — which is
+// what lets per-entry provenance exist without the package knowing what it means.
+#assert.eq(_e.estimated, true)
+// The written index that holds a sort tie is dropped on the way out: it exists to
+// break a tie, not to be read back.
+#assert.eq("i" in _e, false)
+
+// The shorthand and the dict form agree but for the extras.
+#assert.eq(
+  log-of(entries(log: (closed: d(2026, 8, 27)))).first(),
+  (timestamp: d(2026, 8, 27), stage: "closed"),
+)
+
+// Ordering is unaffected — it reads `timestamp` whichever form wrote it.
+#assert.eq(
+  log-of(entries(log: (
+    closed: (timestamp: d(2026, 9, 1), note: [later]),
+    activated: d(2026, 8, 1),
+  ))).map(e => e.stage),
+  ("activated", "closed"),
+)
+
+// A note may be a plain string as well as content, since both are `html.elem`
+// bodies.
+#assert.eq(log-of(entries(log: (closed: (timestamp: d(2026, 8, 27), note: "plain")))).first().note, "plain")

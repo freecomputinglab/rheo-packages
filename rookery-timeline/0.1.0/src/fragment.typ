@@ -8,7 +8,7 @@
 
 // ---- The one key, and the stage names this package reserves ---------------
 //
-// NAMESPACED with a `date-` prefix, per the rookery key convention: a tag key
+// NAMESPACED with a `timeline-` prefix, per the rookery key convention: a tag key
 // becomes a CSS class fragment (`.idea-tag-timeline-log`), and a bare `log` would be
 // a generic name two packages could both reach for and silently collide over.
 #let LOG-KEY = "timeline-log"
@@ -83,7 +83,7 @@
 // ---- _log-entries — the normalized, sorted array --------------------------
 //
 //   _log-entries((submitted: d1, longlisted: d2, "first-interview": d3))
-//     -> ((stage: "submitted", on: d1), (stage: "longlisted", on: d2), ..)
+//     -> ((stage: "submitted", timestamp: d1), (stage: "longlisted", timestamp: d2), ..)
 //
 // SORTED BY DATE HERE, once, rather than in every reader. Two consequences, both
 // wanted: the stored value is unambiguous, and the order it was WRITTEN in cannot
@@ -95,25 +95,93 @@
 // the sequence the author wrote them in. `array.sorted` is NOT documented as
 // stable, so that tie is held by decorating each row with its written index and
 // sorting on the pair, rather than by trusting the sort to preserve it.
+// ---- An entry, and what it may carry --------------------------------------
+//
+// TWO WRITE FORMS, and the shorthand is the common one:
+//
+//   closed: datetime(..)                    a bare date
+//   closed: (
+//     timestamp: datetime(..),              reserved, required
+//     note: [Landed as .. ],                reserved, rendered by #timeline-view
+//     estimated: true,                      FREE — yours, stored and ignored here
+//   )
+//
+// WHY AN ENTRY NEEDS CONTENT OF ITS OWN. Prose about an event kept ending up on
+// the NOTE, where it reads as a claim about the whole thing. In the project this
+// was built for, seven submission bodies carried a sentence that belonged to one
+// event — "Offered and accepted, for autumn 2026", "Dropped — not a good fit",
+// "Read and let go" — and one file opened with a FOURTEEN-LINE comment explaining
+// per-entry date provenance at file level, invisible on the built site, because no
+// entry could carry it.
+//
+// `timestamp` and `note` are reserved; every other key is the consumer's, stored
+// verbatim and ignored by everything here. That is what lets per-entry provenance
+// exist without this package needing to know what it means.
+//
+// A `note` CAN NEVER BE PROJECTED. rookery's `tag-index` asserts scalars, because
+// `json.encode` of content silently emits a structural blob — so a note is
+// Typst-side rendering only. The log already could not ride on an `ideas()` row,
+// so this costs nothing new, but it is worth saying rather than discovering.
+#let _norm-entry(stage, given) = {
+  _assert-stage(stage)
+  let e = if type(given) == datetime {
+    (timestamp: given)
+  } else if type(given) == dictionary {
+    assert(
+      "timestamp" in given,
+      message: "@rheo/rookery-timeline: log stage `"
+        + stage
+        + "` is a dictionary with no `timestamp`. An entry without a date is not an "
+        + "entry — give `timestamp: datetime(..)`, or write the bare datetime "
+        + "instead of a dictionary.",
+    )
+    given
+  } else {
+    panic(
+      "@rheo/rookery-timeline: log stage `"
+        + stage
+        + "` must be a datetime, or a dictionary carrying `timestamp:` — got "
+        + repr(given)
+        + ".",
+    )
+  }
+  assert(
+    type(e.timestamp) == datetime,
+    message: "@rheo/rookery-timeline: log stage `"
+      + stage
+      + "`'s `timestamp` must be a datetime — got "
+      + repr(e.timestamp)
+      + ". Every date here is author-supplied; there is no clock to stamp one from.",
+  )
+  // Asserted because it reaches `html.elem` as a body in `#timeline-view`, where a
+  // wrong type fails somewhere unrecognisable rather than here.
+  if "note" in e {
+    assert(
+      type(e.note) in (content, str),
+      message: "@rheo/rookery-timeline: log stage `"
+        + stage
+        + "`'s `note` must be content or a string — got "
+        + repr(type(e.note))
+        + ".",
+    )
+  }
+  (..e, stage: stage)
+}
+
+// Sorted by `timestamp`, ties held by the written index — see `_stamp-of` above for
+// why the key carries the time of day where an entry has one. The index is dropped
+// on the way out: it exists to hold a tie, not to be read back.
 #let _log-entries(entries) = {
-  let rows = entries
-    .pairs()
-    .enumerate()
-    .map(p => {
-      let (i, pair) = p
-      let (stage, on) = pair
-      _assert-stage(stage)
-      assert(
-        type(on) == datetime,
-        message: "@rheo/rookery-timeline: log stage `"
-          + stage
-          + "` must be a datetime — got "
-          + repr(on)
-          + ". Every date here is author-supplied; there is no clock to stamp one from.",
-      )
-      (i: i, stage: stage, on: on)
-    })
-  rows.sorted(key: r => (_stamp-of(r.on), r.i)).map(r => (stage: r.stage, on: r.on))
+  let rows = entries.pairs().enumerate().map(p => {
+    let (i, pair) = p
+    let (stage, given) = pair
+    (i: i, .._norm-entry(stage, given))
+  })
+  rows.sorted(key: r => (_stamp-of(r.timestamp), r.i)).map(r => {
+    let out = r
+    let _ = out.remove("i")
+    out
+  })
 }
 
 // ---- entries(..) — the tag fragment ----------------------------------------

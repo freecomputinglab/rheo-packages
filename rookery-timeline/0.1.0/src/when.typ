@@ -111,25 +111,25 @@
 // that does need the difference asks `log-of(tags).len()`.
 #let stage-of(tags, today: none) = {
   let now = _stamp(_today(today))
-  let past = log-of(tags).filter(e => _stamp(e.on) <= now)
+  let past = log-of(tags).filter(e => _stamp(e.timestamp) <= now)
   if past.len() == 0 { none } else { past.last().stage }
 }
 
 // That same entry's date, for "how long has it been at this stage".
 #let stage-on(tags, today: none) = {
   let now = _stamp(_today(today))
-  let past = log-of(tags).filter(e => _stamp(e.on) <= now)
-  if past.len() == 0 { none } else { past.last().on }
+  let past = log-of(tags).filter(e => _stamp(e.timestamp) <= now)
+  if past.len() == 0 { none } else { past.last().timestamp }
 }
 
-// The first entry dated AFTER the reference date, as `(stage:, on:)`, or none.
+// The first entry dated AFTER the reference date, as `(stage:, timestamp:)`, or none.
 //
 // This is what gives a view a real "next appointment" column: a booked interview
 // or a promised decision is an ordinary log entry rather than a special slot, and
 // this is the reader that finds it.
 #let next-of(tags, today: none) = {
   let now = _stamp(_today(today))
-  let future = log-of(tags).filter(e => _stamp(e.on) > now)
+  let future = log-of(tags).filter(e => _stamp(e.timestamp) > now)
   if future.len() == 0 { none } else { future.first() }
 }
 
