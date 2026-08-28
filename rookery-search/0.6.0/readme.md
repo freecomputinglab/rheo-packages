@@ -31,6 +31,12 @@ from the bar and the modal, and the difference is the point: those two rank the
 whole corpus against a query and pop a dropdown, while a panel filters a list that
 is ALREADY ON THE PAGE, by facets you declare. See "#panel" below.
 
+**`#filter-panel` — the same chrome over TAGS instead of facets.** Its rows are the
+ideas carrying one tag, its pills are tag names you write down, and pressing two of
+them INTERSECTS rather than ORs. It takes one call and no site-side wrapper, and its
+rows are `#idea-row` from `@rheo/rookery`, shared with that package's other lists. See
+"#filter-panel" below.
+
 **The browse ordering reads `created`.** Rookery 0.6.0 removed its `updated` field,
 and the empty-query listing sorted on it. Left alone that branch would have found
 `none` on every row, dropped every note into the undated bucket, and silently
@@ -1189,6 +1195,70 @@ to it.
 `#panel` closes both gaps: facets are declared rather than baked in, and a DERIVED
 value reaches a facet through a projection. `panel.js` imports `score` rather than
 porting it a fourth time.
+
+## `#filter-panel` — the same chrome, over tags
+
+`#panel` above facets on PROJECTED FIELDS, and two values of one facet mean *either*.
+`#filter-panel` is the other shape, and both halves differ:
+
+- its rows are **the ideas carrying one tag**, read here rather than passed in;
+- its pills are **tag names you write down**, not values derived from a projection;
+- pressing two pills **INTERSECTS** — a row survives only if it carries both — so a
+  second pill always narrows and never widens.
+
+```typst
+#import "@rheo/rookery-search:0.6.0": filter-panel
+
+#filter-panel(tag: "todo", pills: ("ready", "blocked", "epic-jobs"))
+```
+
+That is the whole call. There is no index to build and no wrapper to write, which is
+the point of the export: the widget a site kept re-implementing was this one.
+
+**IT READS `ideas()` ITSELF**, which is a deliberate departure from `#panel`'s "panels
+take an index, they never build one". That rule exists to stop a per-view walk of the
+value store; keeping it here would have cost every consuming site a wrapper. One walk
+per panel, and a caller that already has rows passes them instead (below).
+
+**A PILL NO ROW CARRIES IS DROPPED.** `pills` is authored rather than derived, so a
+typo or a tag nothing has yet would otherwise ship as a button that can only ever
+return nothing.
+
+### The date column, and rows from elsewhere
+
+The left column is an ADAPTER, not a field name. Its default is rookery's own
+`created`, which is what an index of open work wants; a caller ordering by something
+derived hands in both the rows and the reader:
+
+```typst
+#import "@rheo/rookery-timeline:0.1.0": upcoming-rows
+#import "@rheo/rookery-search:0.6.0": filter-panel
+
+#filter-panel(
+  rows: upcoming-rows(tags: "submission", within: 90),
+  when: r => r.when,
+  pills: ("sort-job", "sort-conference", "sort-journal"),
+)
+```
+
+**A project doing this must import `@rheo/rookery-search` in its OWN files** — see
+"Import both packages, in your own files" above. rheo scans only a project's imports,
+never a package's, so if `@rheo/rookery-timeline` wrapped this widget for you, the
+pills would render and silently do nothing: no script, no stylesheet, no warning. That
+is why the composition is shaped this way round — rows there, rendering here, and no
+edge between the two packages.
+
+Rows are ordered **newest first, undated last**. An undated row is not a recent one,
+and floating it to the top of a list sorted by date would read as urgent when it is
+merely unset.
+
+### The row is not this package's
+
+Each row is `#idea-row` from [`@rheo/rookery`](../../rookery/0.6.0) — the same row
+`#upcoming` draws — so its markup, its date column and its chips are documented there,
+and a project that has themed `.idea-tag-<tag>` for a note's hat has already themed
+the chips here. What this package styles is the panel's own chrome around them: the
+input, the pills, the count and the scroll box.
 
 ## Working on it locally
 

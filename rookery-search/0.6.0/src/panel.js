@@ -42,7 +42,11 @@ const passesFacets = (row, facets) => {
 // pill always narrows and never widens — which is the opposite of a facet group,
 // where two values of one field can only mean "either". An empty set passes
 // everything, exactly as above.
-const passesTags = (row, pressed) => {
+// EXPORTED for the node suite, not for consumers: `src/rookery-search.js` — the
+// package's public surface — does not re-export it, the same line `test/internal.mjs`
+// draws for the three helpers it bridges. A predicate this small is exactly the kind
+// of thing a test should pin directly rather than through a DOM.
+export const passesTags = (row, pressed) => {
   for (const t of pressed) if (!row.tags.has(t)) return false;
   return true;
 };

@@ -100,9 +100,18 @@ import os, re, sys
 H = sys.argv[1]
 h = open(os.path.join(H, "index.html")).read()
 
+# THREE PANELS: two `#panel`s over the projection, and one `#filter-panel` over tags.
+# The facet assertions below are about the first two, so they are separated by MODE
+# rather than by position — `data-panel-mode="tags"` is the attribute one script uses
+# to tell the two kinds apart, and it is the honest discriminator here too.
 panels = re.findall(r'<div class="panel"[^>]*>', h)
-if len(panels) != 2:
-    print(f"FAIL: expected 2 panels on index.html, found {len(panels)}"); sys.exit(1)
+if len(panels) != 3:
+    print(f"FAIL: expected 3 panels on index.html, found {len(panels)}"); sys.exit(1)
+faceted = [p for p in panels if 'data-panel-mode="tags"' not in p]
+tagged = [p for p in panels if 'data-panel-mode="tags"' in p]
+if len(faceted) != 2 or len(tagged) != 1:
+    print(f"FAIL: expected 2 faceted panels and 1 tag panel, got {len(faceted)}/{len(tagged)}")
+    sys.exit(1)
 
 # NO JSON ISLAND OF ITS OWN. A panel's facts ride as `data-` attributes on the
 # rows, so the markup IS the payload and the two cannot disagree. Asserted as
@@ -121,6 +130,10 @@ if not all('data-panel-ready="false"' in p for p in panels):
 
 # The projected facet values reach the rows as `data-<field>`, and the pills are
 # one per value A ROW ACTUALLY HAS — never per value the vocabulary permits.
+# `<li class="panel-row"` MATCHES ONLY THE FACETED PANELS' ROWS, which is what keeps
+# these assertions honest now that a third panel exists: a `#filter-panel` row is an
+# `#idea-row` and its class list opens `idea-row panel-row`, so it cannot be confused
+# for one of these.
 kinds = set(re.findall(r'<li class="panel-row"[^>]*data-kind="([^"]*)"', h))
 if not {"prose", "cited"} <= kinds:
     print(f"FAIL: panel rows do not carry projected data-kind values, got {kinds}"); sys.exit(1)
@@ -189,5 +202,29 @@ if not any(x.endswith("|name") for x in hits):
     print(f"FAIL: titleless note matched only in the body tier: {hits}"); sys.exit(1)
 print(f"  label: 'marginalia' ranks {hits}")
 LABEL
+
+# ---- #filter-panel: tag pills, intersecting, over the shared #idea-row --------
+#
+# The other panel shape. Everything here is about what only a real rheo build can
+# show: the row markup came from @rheo/rookery (`.idea-row`), and a pill nothing
+# carries was dropped before it reached the page.
+FP=build/html/index.html
+grep -q 'data-panel-mode="tags"' "$FP" || note "the filter panel did not emit data-panel-mode=tags"
+grep -q 'data-panel-tag="demo-a"' "$FP" || note "no demo-a pill"
+grep -q 'data-panel-tag="demo-b"' "$FP" || note "no demo-b pill"
+if grep -q 'data-panel-tag="never-carried"' "$FP"; then
+  note "a pill no row carries reached the page; it must be dropped"
+fi
+# Three rows, and their tag attributes are what the script intersects on. The
+# attribute is space-padded at both ends so a prefix cannot half-match.
+fp_rows=$(grep -o 'data-panel-tags="[^"]*"' "$FP" | wc -l)
+[ "$fp_rows" -eq 3 ] || note "expected 3 filter-panel rows, found $fp_rows"
+grep -q 'data-panel-tags=" demo-a demo-b "' "$FP" || note "the both-pills row's tags are wrong"
+grep -q 'data-panel-tags=" demo-a "' "$FP" || note "the one-pill row's tags are wrong"
+grep -q 'data-panel-tags="  "' "$FP" || note "the no-pills row should carry an empty padded list"
+# THE ROW IS ROOKERY'S. If this fails, the panel is drawing its own markup again.
+grep -q 'class="idea-row panel-row' "$FP" || note "filter-panel rows are not #idea-row"
+grep -q 'class="idea-row-badges"' "$FP" || note "no shared badge strip in the filter panel"
+grep -q 'class="idea-tag idea-tag-demo-a"' "$FP" || note "a pill tag did not become a chip on its row"
 
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

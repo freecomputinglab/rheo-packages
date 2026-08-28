@@ -19,3 +19,4 @@ export { matchRanges } from "../src/marks.js";
 export { selection } from "../src/selection.js";
 export { extractNote } from "../src/preview.js";
 export { renderRow } from "../src/row.js";
+export { passesTags } from "../src/panel.js";

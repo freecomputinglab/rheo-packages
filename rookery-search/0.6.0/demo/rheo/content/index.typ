@@ -73,7 +73,7 @@ the only thing that produces a page backlink:
 // `#search-modal` is the overlay. All three read the corpus through
 // `@rheo/rookery`'s own `ideas()`, so a passing build here proves the two
 // packages agree about the registry as well as proving this one compiles.
-#import "@rheo/rookery-search:0.6.0": panel, search-bar, search-ideas, search-index, search-modal
+#import "@rheo/rookery-search:0.6.0": filter-panel, panel, search-bar, search-ideas, search-index, search-modal
 
 #search-index()
 #search-bar()
@@ -135,3 +135,40 @@ the only thing that produces a page backlink:
     )
   ]
 }
+
+// ---- #filter-panel — the same chrome over TAGS ----------------------------
+//
+// THE THIRD WIDGET ON THIS PAGE, and the one that proves the OTHER shape: `#panel`
+// above facets on projected fields and ORs within a group; this scopes to the notes
+// carrying one tag, takes its pills as authored TAG NAMES, and INTERSECTS them.
+//
+// WHAT IT IS RENDERED WITH is the other half of the demo's job: each row is
+// `#idea-row` from @rheo/rookery, so this page is where that shared row's CSS is
+// proved in a real rheo build rather than in a scratch file.
+//
+// THE FIXTURE IS DELIBERATE. `filter-me` carries BOTH pill tags, `filter-one` carries
+// one, and `filter-none` carries neither — so pressing one pill drops a row, pressing
+// both drops another, and one row has no chips at all. `demo-pill` scopes the three
+// away from every other note on the page, and `never-carried` is a pill nothing has:
+// it must not render, which is the "a pill that can only return nothing" rule.
+#idea("filter-me", title: [Carries both pills], tags: ("demo-pill": none, "demo-a": none, "demo-b": none))[
+  Pressing either pill keeps this row; pressing both still keeps it.
+]
+
+#idea("filter-one", title: [Carries one pill], tags: ("demo-pill": none, "demo-a": none))[
+  Pressing `demo-b` drops this row, which is what makes the pills an INTERSECTION
+  rather than a union.
+]
+
+#idea("filter-none", title: [Carries neither pill], tags: ("demo-pill": none))[
+  No chips at all, which is the row a shared-row stylesheet gets wrong first: an empty
+  badge strip must take no space.
+]
+
+#filter-panel(
+  tag: "demo-pill",
+  pills: ("demo-a", "demo-b", "never-carried"),
+  visible: 2,
+  noun: "pill notes",
+  placeholder: "Filter pill notes",
+)
