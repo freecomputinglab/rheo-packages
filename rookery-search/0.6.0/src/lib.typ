@@ -40,3 +40,8 @@
 #import "corpus.typ": *
 #import "ui.typ": *
 #import "panel.typ": *
+// AFTER `panel.typ`, and the order matters for the reason this manifest states: a
+// closure captures its definition scope. `#filter-panel` is panel's sibling — same
+// chrome, a tag scope and authored pills instead of projected facets — and it reaches
+// `#idea-row` from @rheo/rookery, which the top of this file already imports from.
+#import "filter-panel.typ": *

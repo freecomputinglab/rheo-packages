@@ -36,6 +36,12 @@
     + "there; this row draws the grid the HTML branch needs."
 )
 
+// `attrs:` EXISTS FOR THE FILTERING VIEWS, and it is the one hole in "the row asks no
+// questions": @rheo/rookery-search's panels put their own `data-panel-*` attributes on
+// the row a script reads back, and the alternative was that package re-emitting this
+// markup so it could add two attributes — which is precisely the duplication this
+// function exists to end. Merged UNDER the class attribute this function computes, so
+// a caller cannot accidentally drop the row's own classes.
 #let idea-row(
   when: none,
   iso: none,
@@ -46,6 +52,7 @@
   tags: (),
   extra: (),
   cells: (),
+  attrs: (:),
 ) = context {
   assert(target() == "html", message: _paged-panic)
 
@@ -61,9 +68,10 @@
 
   html.elem(
     "li",
-    attrs: (
-      class: (("idea-row",) + extra + tags.map(t => "idea-tag-" + t)).join(" "),
-    ),
+    attrs: attrs
+      + (
+        class: (("idea-row",) + extra + tags.map(t => "idea-tag-" + t)).join(" "),
+      ),
     {
       html.elem(
         "span",
