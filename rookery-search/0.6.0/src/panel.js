@@ -125,11 +125,19 @@ export const wirePanel = (container, n) => {
     const q = input.value.trim();
     const kept = [];
     for (const row of rows) {
-      // `score` returns -1 for no match and 0 for an EMPTY query, which is what
-      // leaves the build-time order untouched until someone types.
+      // `0` FOR AN EMPTY QUERY is what leaves the build-time order untouched until
+      // someone types: every row scores the same and the index tiebreak decides.
+      // `score` RETURNS `null` FOR NO MATCH, and `0` for an empty query. NOT `-1`:
+      // this line tested `s < 0`, and `null < 0` is FALSE in JavaScript, so every
+      // non-matching row was KEPT and the text input did nothing but reorder. MEASURED
+      // against `score("beta reference", "abstract")`, which is `null`: typing
+      // `abstract` left both rows visible and the count reading "2 todos".
+      //
+      // `== null` rather than `=== null`, so an `undefined` from a caller's own
+      // `haystack:` returning nothing is treated the same way rather than kept.
       const ok = tagMode ? passesTags(row, pressed, pillMatch) : passesFacets(row, facets);
-      const s = ok ? score(row.text, q) : -1;
-      if (s < 0) {
+      const s = ok ? score(row.text, q) : null;
+      if (s == null) {
         row.el.hidden = true;
       } else {
         kept.push({ row, s });
