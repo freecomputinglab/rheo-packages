@@ -1,4 +1,4 @@
-/* rookery-timeline — the rail `#timeline-view` draws.
+/* rookery-timeline — the rail `#timeline-view` draws, and the list `#upcoming` does.
 
    Thin on purpose, like rookery's own stylesheet: enough that a log reads
    correctly out of the box, and nothing that presumes a page design. No fonts, no
@@ -25,6 +25,15 @@
      --timeline-gap      vertical space between events
      --timeline-gutter   width of the date column, left of the line
      --timeline-note     an entry's own prose (defaults to --timeline-muted)
+
+   `#upcoming`'s own rules sit at the foot of the layer and take the same
+   `--timeline-*` colours, plus one knob of their own:
+
+     --upcoming-gutter   width of that view's date column (see --timeline-gutter)
+
+   They also read rookery's `--idea-tag-bg`/`--idea-tag-color`/`--idea-tag-line` on
+   the stage chip, which is what lets a project's `theme: (tags-color: ..)` colour a
+   stage here without this file naming a single hue.
 */
 @layer rookery-timeline {
   /* THE RAIL IS ONE ABSOLUTELY-POSITIONED LINE, spanning the list top to bottom.
@@ -183,5 +192,143 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-size: 0.7em;
+  }
+
+  /* ============================================================
+     `#upcoming` — one row per note, ordered by what is coming.
+
+     A SIBLING OF THE RAIL, not a variant: the rail draws one note's log down a
+     line, this draws many notes' next dates down a page. Nothing above applies to
+     it, and it deliberately reuses the rail's own colour knobs rather than
+     introducing a second palette — one package, one set of properties.
+     ============================================================ */
+  .upcoming-list {
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0;
+  }
+
+  /* A GRID, NOT A FLEX LINE, and the reason is measured rather than aesthetic: a
+     flex item's basis is a HYPOTHETICAL size, so content wider than it renders at
+     its own width and pushes what follows along — which lands every title at a
+     different x. A grid track is the same width on every row whatever sits in it.
+
+     `--upcoming-gutter` mirrors `--timeline-gutter` and defaults to the same 7.5em,
+     so a project that widens one column can widen both to match and the two views
+     read as one family.
+
+     NO `max-height` AND NO `overflow` ANYWHERE HERE. This list flows down the page.
+     A scroll box inside a document cuts a row in half and hides the rest behind a
+     gesture nothing on the page advertises; a caller wanting fewer rows passes
+     `limit:`, which is a claim about the DATA rather than a lie about the height. */
+  .upcoming-row {
+    display: grid;
+    grid-template-columns: var(--upcoming-gutter, var(--timeline-gutter, 7.5em)) 1fr auto;
+    gap: 0 0.9rem;
+    align-items: baseline;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--timeline-line, currentColor);
+  }
+
+  /* The rule belongs BETWEEN rows. On the last one it draws a floor under the list,
+     which reads as an end where the list may well continue past what was queried. */
+  .upcoming-row:last-child {
+    border-bottom: none;
+  }
+
+  /* `tabular-nums` is what makes this a column: without it the `.` in `7.9.26` and
+     `14.10.26` lands in a different place on every row and there is nothing to scan
+     down. Same reasoning as `.timeline-when` above, same properties. */
+  .upcoming-when {
+    color: var(--timeline-fg, inherit);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* THE DATE THE CALLER DID NOT ASK FOR. A soft row's date came from whatever the
+     log had booked next rather than from the stage the call queued by (see `when-of`
+     in `upcoming.typ`). It answers the same question — when does this next need me
+     — so it keeps the column, and it has to read as the softer of the two rather
+     than as a date of the same standing. */
+  .upcoming-when.soft {
+    color: var(--timeline-muted, gray);
+    font-style: italic;
+  }
+
+  /* INHERITS ITS COLOUR, and the underline appears only on hover. A whole column of
+     titles drawn as links reads as a link list rather than as a table, and every
+     row here is a link. */
+  .upcoming-name {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .upcoming-name:hover {
+    text-decoration: underline;
+  }
+
+  /* THE STAGE CHIP, and it must read as the same object rookery's own tag pills do.
+
+     THE SHAPE IS COPIED from `.idea-tab > .idea-tag` in rookery's own stylesheet —
+     radius, letter-spacing, horizontal padding, `line-height: 1`, `nowrap` — rather
+     than inherited from it. Wearing rookery's `.idea-tab` to pick that rule up was
+     rejected: `.idea-tab::before` draws a stub of rule for the card's corner, which
+     inside a table row renders as a stray dash before the chip.
+     @rheo/rookery-search solves the same problem the same way, with its own
+     `.rookery-search-tag`.
+
+     THE COLOURS ARE NOT COPIED. They are read from the same three custom properties
+     rookery's generated `@layer rookery-tags` rules publish on `.idea-tag-<tag>` —
+     which the chip also wears — so a project that themes a stage gets it coloured
+     here for free, and one that does not gets the muted default. The `--idea-tag-line`
+     border is what keeps an unthemed chip visible at all.
+
+     UPPERCASE, because a stage is a label rather than prose — the same treatment
+     `.timeline-stage` gives the same words on the rail. */
+  .upcoming-stage {
+    font-size: 0.85em;
+    line-height: 1;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.1em 0.5em;
+    border-radius: var(--idea-tag-radius, 999px);
+    white-space: nowrap;
+    color: var(--idea-tag-color, var(--timeline-muted, gray));
+    background-color: var(--idea-tag-bg, transparent);
+    border: 1px solid var(--idea-tag-line, transparent);
+  }
+
+  /* A LABEL, NOT A HEADING, and the view emits a `<div>` for it precisely so it
+     claims no place in the page's outline above the real headings around it. Styled
+     as one, so it does not read as one. */
+  .upcoming-title {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--timeline-muted, gray);
+  }
+
+  .upcoming-empty {
+    color: var(--timeline-muted, gray);
+    font-style: italic;
+  }
+
+  /* THE DATE COLUMN STOPS PAYING FOR ITSELF at phone width: a fixed 7.5em beside a
+     title leaves the title two words per line. So the date spans the row and sits
+     above the name.
+
+     BOTH RULES ARE REQUIRED TOGETHER. Flattening the tracks without also spanning
+     the date puts the title in the narrow first track — MEASURED as exactly that
+     bug in the project this view was extracted from, at a 390px viewport, where
+     every title wrapped at two words with two thirds of the row empty. */
+  @media (max-width: 768px) {
+    .upcoming-row {
+      grid-template-columns: 1fr auto;
+    }
+
+    .upcoming-when {
+      grid-column: 1 / -1;
+    }
   }
 }
