@@ -40,7 +40,7 @@
 // and nothing else here imports rookery at all. Keep the three in step: a spec
 // naming a version the cache cannot resolve fails with a bare "package not found"
 // that says nothing about which file asked for it.
-#import "@rheo/rookery:0.6.0": ideas
+#import "@rheo/rookery:0.6.0": idea-row, ideas
 
 // ---- when-of — which entry dates a row -------------------------------------
 //
@@ -128,7 +128,23 @@
 //
 // SORTED ASCENDING, oldest first, which puts a date already behind you at the TOP
 // rather than the bottom. An overdue row is the most urgent thing on the list.
-#let upcoming(
+//
+// ---- #upcoming-rows — the queue as DATA -------------------------------------
+//
+// SPLIT OUT AND PUBLIC, and not merely as tidiness: it is what lets a project put an
+// upcoming queue INSIDE a filter widget —
+// `#filter-panel(rows: upcoming-rows(..), when: r => r.when)` — without this package
+// importing @rheo/rookery-search. It must not: rheo scans only a PROJECT's own
+// imports, never a package's, so a timeline that wrapped search's panel would hand a
+// project markup with neither that package's stylesheet nor its script, silently.
+// Computing rows here and rendering them there costs no package edge, because the
+// project names both packages itself.
+//
+// Every argument means exactly what it means on `#upcoming`, which is now this plus
+// the rendering. Returns the row dictionaries: rookery's own `ideas()` fields, plus
+// `shown` (what to call it), `link-to`, `when`, `firm`, `key` (the sort stamp) and
+// `at` (the stage reached).
+#let upcoming-rows(
   tags: none,
   match: "any",
   filter: none,
@@ -138,9 +154,7 @@
   from: none,
   within: none,
   limit: none,
-  title: none,
-  empty: [Nothing upcoming.],
-) = context {
+) = {
   assert(
     within == none or (type(within) == int and within >= 0),
     message: "@rheo/rookery-timeline: #upcoming's `within` must be none or a "
@@ -206,6 +220,37 @@
 
   let rows = rows.sorted(key: r => (r.key, r.name))
   if limit != none { rows = rows.slice(0, calc.min(limit, rows.len())) }
+  rows
+}
+
+// ---- #upcoming — the queue as a LIST ----------------------------------------
+//
+// `#upcoming-rows` above plus the drawing, and nothing else: the signature and the
+// output are what they were before the split.
+#let upcoming(
+  tags: none,
+  match: "any",
+  filter: none,
+  stage: DEADLINE-STAGE,
+  name-from: none,
+  today: none,
+  from: none,
+  within: none,
+  limit: none,
+  title: none,
+  empty: [Nothing upcoming.],
+) = context {
+  let rows = upcoming-rows(
+    tags: tags,
+    match: match,
+    filter: filter,
+    stage: stage,
+    name-from: name-from,
+    today: today,
+    from: from,
+    within: within,
+    limit: limit,
+  )
 
   // PAGED FIRST. A PDF or EPUB page has no anchor to click and no grid to align, so
   // the same rows render as an ordinary Typst list — the same fallback every view in
@@ -249,53 +294,34 @@
       "ul",
       attrs: (class: "upcoming-list"),
       rows
-        .map(r => html.elem(
-          "li",
-          // The note's own tags ride on the row as `idea-tag-<tag>` classes, the
-          // same convention rookery's outline rows and @rheo/rookery-todos' list
-          // rows both follow — so a project theming a tag on a card has already
-          // themed it here.
-          attrs: (class: (("upcoming-row",) + r.tags-dict.keys().map(k => "idea-tag-" + k)).join(" ")),
-          {
-            html.elem(
-              "span",
-              // `soft` SAYS SOMETHING ABOUT A DATE, so an undated row does not wear
-              // it: the class means "this date came from an entry other than the one
-              // you queued by", and a row rendering `—` has no such claim to make.
-              // Caught by the fixture, which read every undated row as soft.
-              attrs: (
-                class: if r.when == none or r.firm { "upcoming-when" } else { "upcoming-when soft" },
-              ),
-              if r.when == none { [—] } else {
-                html.elem("time", attrs: (datetime: _iso(r.when)), _fmt-day(r.when))
-              },
-            )
-            if r.link-to == none {
-              html.elem("span", attrs: (class: "upcoming-name"), r.shown)
-            } else {
-              html.elem("a", attrs: (class: "upcoming-name", href: r.link-to), r.shown)
-            }
-            // TWO CLASSES ON THE BADGE, and the second is what carries a project's
-            // colours: `idea-tag-<stage>` is the class rookery's generated
-            // `@layer rookery-tags` rules publish `--idea-tag-bg`/`--idea-tag-color`/
-            // `--idea-tag-line` on, so a themed stage colours itself with no code
-            // here. `idea-tag` marks it as one of that family for a project's own
-            // rules. A stage name that is not usable as a class is rejected by
-            // rookery when the tag is authored, so nothing is validated again here.
-            //
-            // NOT WRAPPED IN `.idea-tab`, which would inherit rookery's own pill
-            // rule directly: that element draws a stub of rule through its
-            // `::before`, which inside a table row renders as a stray dash. The
-            // stylesheet copies the SHAPE instead, the same way
-            // @rheo/rookery-search's own chips do.
-            if r.at != none {
-              html.elem(
-                "span",
-                attrs: (class: "upcoming-stage idea-tag idea-tag-" + r.at),
-                _words(r.at),
-              )
-            }
-          },
+        .map(r => idea-row(
+          // THE ROW IS `#idea-row`, from rookery core, and this file no longer draws
+          // one. It used to emit its own `<li>` with its own `.upcoming-when` /
+          // `.upcoming-name` / `.upcoming-stage` cells, and the stylesheet carried a
+          // hand copy of the chip's shape — which its own comment admitted was copied
+          // from @rheo/rookery-search's. One object, three copies, and this was one
+          // of them.
+          //
+          // `extra:` keeps this package's own hook on the row, so a project that
+          // wrote a `.upcoming-row` rule still reaches it, and so does the stylesheet
+          // here.
+          extra: ("upcoming-row",),
+          // The note's own tags, which the row turns into `idea-tag-<tag>` classes —
+          // the same convention rookery's outline rows follow, so a project theming a
+          // tag on a card has already themed it here.
+          tags: r.tags-dict.keys(),
+          when: if r.when == none { none } else { _fmt-day(r.when) },
+          iso: if r.when == none { none } else { _iso(r.when) },
+          // WHAT `soft` MEANS: this date came from an entry other than the one you
+          // queued by. The row itself drops the flag on an undated row, so the bug
+          // this package's fixture once caught cannot come back through either side.
+          soft: not r.firm,
+          title: r.shown,
+          href: r.link-to,
+          // ONE BADGE, THE STAGE REACHED. `#idea-row` puts `idea-tag` and
+          // `idea-tag-<stage>` on it, which is what a themed stage colours itself
+          // through — see rookery's own generated `@layer rookery-tags`.
+          badges: if r.at == none { () } else { ((text: _words(r.at), tag: r.at),) },
         ))
         .join(),
     )

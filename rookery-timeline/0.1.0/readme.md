@@ -682,6 +682,33 @@ over one typo would take a whole site down with it.
 `name-from:` is a KEY, not a callback. There is no render hook here (see below), and
 this stays on the declarative side of that line — the same register as `stage:`.
 
+### `#upcoming-rows` — the same queue, as data
+
+`#upcoming` is `#upcoming-rows` plus the drawing, and the row half is public because a
+project may want the queue inside somebody else's widget:
+
+```typst
+#import "@rheo/rookery-timeline:0.1.0": upcoming-rows
+#import "@rheo/rookery-search:0.1.0": filter-panel
+
+#filter-panel(
+  rows: upcoming-rows(tags: "submission", within: 90, today: NOW),
+  pills: ("sort-job", "sort-conference"),
+  when: r => r.when,
+)
+```
+
+It takes every argument `#upcoming` does except `title:` and `empty:` (which are about
+drawing), and returns the row dictionaries: rookery's own `ideas()` fields plus `shown`
+(what to call the row), `link-to`, `when`, `firm`, `key` (the zero-padded sort stamp)
+and `at` (the stage reached).
+
+**A project doing this must import `@rheo/rookery-search` in its own files.** rheo
+scans only a project's own imports, never a package's — so if this package wrapped that
+one for you, the panel's stylesheet and its script would never arrive and the widget
+would render as an inert list with no explanation. That is also why the composition is
+shaped this way round: rows here, rendering there, and no edge between the packages.
+
 ### What it deliberately is not
 
 **It takes no ladder and cannot tell you a note is finished.** Whether `accepted`
@@ -703,24 +730,24 @@ same rows render as an ordinary list.
 
 ### Styling it
 
-Every class is a published contract: `.upcoming` on the wrapper, `.upcoming-title`
-on the label, `.upcoming-list` on the list, `.upcoming-row` per row — plus one
-`idea-tag-<tag>` class per tag the note carries, so a project theming a tag on a
-card has already themed it here — and inside a row `.upcoming-when` (with `.soft`
-where the date came from a booked entry), `.upcoming-name`, and `.upcoming-stage`.
-An empty result is `.upcoming-empty`.
+**The row is `#idea-row`, from `@rheo/rookery`.** Its cells and its chips are that
+package's contract — `.idea-row`, `.idea-row-when` (with `.soft` where the date came
+from a booked entry), `.idea-row-title`, `.idea-row-badges` holding `.idea-tag
+idea-tag-<tag>` chips — and styling them once, there, is why every list in this family
+now draws the same object. A themed stage colours its own chip through rookery's
+generated `@layer rookery-tags` rules; this package names no hue at all.
 
-The stage chip also wears rookery's own `idea-tag` and `idea-tag-<stage>`, which is
-how a project's `theme: (tags-color: ..)` colours a stage here without this package
-naming a single hue: those generated rules publish `--idea-tag-bg`,
-`--idea-tag-color` and `--idea-tag-line`, and the chip reads all three. Its SHAPE is
-copied from rookery's own pill rather than inherited from it — wearing `.idea-tab`
-to pick that rule up would also draw that element's `::before` stub of rule, which
-inside a table row reads as a stray dash.
+What is this view's own: `.upcoming` on the wrapper, `.upcoming-title` on the label,
+`.upcoming-list` on the list, `.upcoming-row` on each row alongside `.idea-row` (the
+hook this package keeps, and where the rule between rows is drawn), and
+`.upcoming-empty` for an empty result. The note's tags also ride on the row as
+`idea-tag-<tag>` classes, so a project theming a tag on a card has already themed it
+here.
 
 Colours come from the rail's own properties (`--timeline-fg`, `--timeline-muted`,
-`--timeline-line`), and there is one knob of its own: `--upcoming-gutter`, the width
-of the date column, defaulting to `--timeline-gutter`'s 7.5em.
+`--timeline-line`), and there is one knob of its own: `--upcoming-gutter`, the width of
+the date column, forwarded to the shared row's `--idea-row-gutter` and defaulting to
+`--timeline-gutter`'s 7.5em.
 
 The list **flows down the page**: no `max-height`, no `overflow`, no scroll box. A
 caller wanting fewer rows passes `limit:`, which is a claim about the data rather

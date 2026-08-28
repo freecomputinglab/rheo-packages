@@ -148,15 +148,20 @@ if len(lists) != 3:
     print(f"FAIL: expected 3 upcoming lists (all rows, the cutoff, `name-from`), found {len(lists)}")
     sys.exit(1)
 
+# THE CELLS ARE `#idea-row`'s NOW, from @rheo/rookery — `.idea-row-when` /
+# `.idea-row-title` / `.idea-row-badges`, with this package's own `.upcoming-row`
+# riding alongside `.idea-row` as its hook. The old `.upcoming-when` / `.upcoming-name`
+# / `.upcoming-stage` cells were this file's own copy of that row and are gone.
 def rows(lst):
-    return re.findall(r'<li class="upcoming-row([^"]*)">(.*?)</li>', lst, re.S)
+    return [(c, b) for c, b in re.findall(r'<li class="([^"]*)">(.*?)</li>', lst, re.S)
+            if "upcoming-row" in c]
 
 def when(row):
-    m = re.search(r'class="upcoming-when([^"]*)"[^>]*>(?:<time datetime="([^"]+)")?', row)
+    m = re.search(r'class="idea-row-when([^"]*)"[^>]*>(?:<time datetime="([^"]+)")?', row)
     return (m.group(1).strip(), m.group(2))
 
 def name(row):
-    return re.search(r'class="upcoming-name"[^>]*>([^<]*)', row).group(1)
+    return re.search(r'class="idea-row-title"[^>]*>([^<]*)', row).group(1)
 
 # 1. ORDER, and it is the whole point of the view: the notes are written
 # later/sooner/booked/watched and must come out in date order.
@@ -184,7 +189,7 @@ if soft != ["Booked"]:
 
 # 3. THE BADGE is what has HAPPENED, not what is coming — so the booked row
 # reads `submitted`, and a row nothing has happened to has no badge at all.
-stages = {name(b): re.findall(r'class="upcoming-stage[^"]*">([^<]*)', b) for _, b in all_rows}
+stages = {name(b): re.findall(r'class="idea-tag idea-tag-[^"]*">([^<]*)', b) for _, b in all_rows}
 if stages["Booked"] != ["submitted"]:
     print(f"FAIL: Booked's badge is {stages['Booked']}, wanted submitted")
     sys.exit(1)
@@ -216,7 +221,7 @@ if [name(b) for _, b in named] != ["A Real Venue", "A Real Venue", "Dangling poi
 # @rheo/rookery-todos' own row code documents for degrading to unlinked text. What
 # IS asserted is that no row links anywhere at all, so a dangling pointer cannot
 # have invented one.
-if 'class="upcoming-name" href=' in lists[2]:
+if 'class="idea-row-title" href=' in lists[2]:
     print("FAIL: a link appeared where nothing mints pages — check where href came from")
     sys.exit(1)
 
