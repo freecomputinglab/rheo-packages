@@ -51,6 +51,22 @@
   // Tag names, in order. Each becomes one pill AND, where a row carries it, one chip.
   // AUTHORED rather than derived, which is the difference from `#panel`'s facets.
   pills: (),
+  // HOW TWO PRESSED PILLS COMPOSE. `"any"` (the default) keeps a row carrying EITHER,
+  // so a second pill widens; `"all"` keeps only a row carrying BOTH, so it narrows.
+  //
+  // WHY "any" IS THE DEFAULT, and it is a fact about real pill rows rather than a
+  // preference: the tags worth making pills of are usually mutually exclusive in
+  // practice — one epic per todo, one sort per submission — so intersecting two of
+  // them returns nothing at all. A filter whose commonest two-press outcome is an
+  // empty list teaches a reader not to press twice.
+  //
+  // `"all"` IS STILL RIGHT where tags genuinely stack: `urgent` and `epic-jobs` are
+  // both true of one todo, and a reader pressing both means the conjunction.
+  //
+  // NOT THE SAME ARGUMENT AS `match:` above, which scopes WHICH NOTES ARE ROWS before
+  // any pill is pressed. This one composes the pills. Two questions, two arguments —
+  // and the names deliberately differ so a call site cannot read as if one did both.
+  pill-match: "any",
   // Pre-computed rows. When given, `tag:` is not consulted and no registry walk
   // happens — this is the composition hook: a caller can hand in rows built from
   // another package's projection (a log-derived queue, say) and pass a `when:` adapter
@@ -96,6 +112,13 @@
   // a genuinely different row, not as the ordinary path.
   render: none,
 ) = context {
+  assert(
+    pill-match in ("any", "all"),
+    message: "@rheo/rookery-search: #filter-panel's `pill-match` must be \"any\" (a row "
+      + "carrying either pressed tag) or \"all\" (only a row carrying both) — got "
+      + repr(pill-match),
+  )
+
   let hay = if haystack != none { haystack } else {
     r => (
       r.at("label", default: ""),
@@ -175,9 +198,13 @@
       class: if visible == none { "panel panel-flow" } else { "panel" },
       // `data-panel-mode` IS HOW ONE SCRIPT TELLS THE TWO PANELS APART. `#panel`'s
       // pills carry `data-panel-facet`/`data-panel-value` and filter on a row's
-      // `data-<field>`; these carry `data-panel-tag` and intersect on
-      // `data-panel-tags`.
+      // `data-<field>`; these carry `data-panel-tag` and compose `data-panel-tags`
+      // the way `data-panel-pill-match` says.
       "data-panel-mode": "tags",
+      // HOW THE PILLS COMPOSE, read by `panel.js`. Emitted always rather than only for
+      // the non-default, so the markup states the behaviour a reader is looking at
+      // instead of leaving it to be inferred from an absence.
+      "data-panel-pill-match": pill-match,
       // `false` until the script has wired itself. The stylesheet hides the input, the
       // pills and the scroll cap while it says so, which is how the widget degrades:
       // with no JavaScript the chrome that would do nothing never appears, and what is

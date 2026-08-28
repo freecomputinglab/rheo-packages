@@ -203,20 +203,22 @@ if not any(x.endswith("|name") for x in hits):
 print(f"  label: 'marginalia' ranks {hits}")
 LABEL
 
-# ---- #filter-panel: tag pills, intersecting, over the shared #idea-row --------
+# ---- #filter-panel: tag pills over the shared #idea-row -----------------------
 #
 # The other panel shape. Everything here is about what only a real rheo build can
 # show: the row markup came from @rheo/rookery (`.idea-row`), and a pill nothing
 # carries was dropped before it reached the page.
 FP=build/html/index.html
 grep -q 'data-panel-mode="tags"' "$FP" || note "the filter panel did not emit data-panel-mode=tags"
+grep -q 'data-panel-pill-match="all"' "$FP" || note "the declared pill-match did not reach the markup"
 grep -q 'data-panel-tag="demo-a"' "$FP" || note "no demo-a pill"
 grep -q 'data-panel-tag="demo-b"' "$FP" || note "no demo-b pill"
 if grep -q 'data-panel-tag="never-carried"' "$FP"; then
   note "a pill no row carries reached the page; it must be dropped"
 fi
-# Three rows, and their tag attributes are what the script intersects on. The
-# attribute is space-padded at both ends so a prefix cannot half-match.
+# Three rows, and their tag attributes are what the script composes. The attribute is
+# space-padded at both ends so a prefix cannot half-match. This panel declares
+# `pill-match="all"`, the non-default, so the markup has to say so.
 fp_rows=$(grep -o 'data-panel-tags="[^"]*"' "$FP" | wc -l)
 [ "$fp_rows" -eq 3 ] || note "expected 3 filter-panel rows, found $fp_rows"
 grep -q 'data-panel-tags=" demo-a demo-b "' "$FP" || note "the both-pills row's tags are wrong"

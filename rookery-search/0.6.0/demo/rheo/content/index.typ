@@ -139,8 +139,10 @@ the only thing that produces a page backlink:
 // ---- #filter-panel — the same chrome over TAGS ----------------------------
 //
 // THE THIRD WIDGET ON THIS PAGE, and the one that proves the OTHER shape: `#panel`
-// above facets on projected fields and ORs within a group; this scopes to the notes
-// carrying one tag, takes its pills as authored TAG NAMES, and INTERSECTS them.
+// above facets on projected fields; this scopes to the notes carrying one tag and takes
+// its pills as authored TAG NAMES. `pill-match: "all"` here deliberately, because the
+// DEFAULT is "any" and a union of two pills over this fixture cannot tell a working
+// intersection from a broken one — `check.sh` needs the mode where a row DROPS.
 //
 // WHAT IT IS RENDERED WITH is the other half of the demo's job: each row is
 // `#idea-row` from @rheo/rookery, so this page is where that shared row's CSS is
@@ -156,8 +158,8 @@ the only thing that produces a page backlink:
 ]
 
 #idea("filter-one", title: [Carries one pill], tags: ("demo-pill": none, "demo-a": none))[
-  Pressing `demo-b` drops this row, which is what makes the pills an INTERSECTION
-  rather than a union.
+  Pressing `demo-b` drops this row under `pill-match: "all"`, which is what makes that
+  mode an INTERSECTION. Under the default "any" it would stay.
 ]
 
 #idea("filter-none", title: [Carries neither pill], tags: ("demo-pill": none))[
@@ -168,6 +170,7 @@ the only thing that produces a page backlink:
 #filter-panel(
   tag: "demo-pill",
   pills: ("demo-a", "demo-b", "never-carried"),
+  pill-match: "all",
   visible: 2,
   noun: "pill notes",
   placeholder: "Filter pill notes",

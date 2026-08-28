@@ -33,7 +33,8 @@ is ALREADY ON THE PAGE, by facets you declare. See "#panel" below.
 
 **`#filter-panel` — the same chrome over TAGS instead of facets.** Its rows are the
 ideas carrying one tag, its pills are tag names you write down, and pressing two of
-them INTERSECTS rather than ORs. It takes one call and no site-side wrapper, and its
+them keeps a row carrying EITHER (`pill-match: "all"` intersects instead). It takes one
+call and no site-side wrapper, and its
 rows are `#idea-row` from `@rheo/rookery`, shared with that package's other lists. See
 "#filter-panel" below.
 
@@ -1203,8 +1204,8 @@ porting it a fourth time.
 
 - its rows are **the ideas carrying one tag**, read here rather than passed in;
 - its pills are **tag names you write down**, not values derived from a projection;
-- pressing two pills **INTERSECTS** — a row survives only if it carries both — so a
-  second pill always narrows and never widens.
+- pressing two pills keeps a row carrying **either** — so a second pill widens.
+  `pill-match: "all"` intersects instead, keeping only a row that carries both.
 
 ```typst
 #import "@rheo/rookery-search:0.6.0": filter-panel
@@ -1256,6 +1257,27 @@ per panel, and a caller that already has rows passes them instead (below).
 **A PILL NO ROW CARRIES IS DROPPED.** `pills` is authored rather than derived, so a
 typo or a tag nothing has yet would otherwise ship as a button that can only ever
 return nothing.
+
+### `pill-match:` — how two pressed pills compose
+
+`"any"` (the default) keeps a row carrying EITHER pressed tag, so a second pill widens
+the result. `"all"` keeps only a row carrying every pressed tag, so a second pill
+narrows it.
+
+```typst
+#filter-panel(tag: "todo", pills: ("epic-jobs", "epic-code"))                    // either
+#filter-panel(tag: "todo", pills: ("urgent", "epic-jobs"), pill-match: "all")     // both
+```
+
+**"any" is the default because of what a pill row usually holds.** The tags worth
+making pills of tend to be mutually exclusive in practice — one epic per todo, one sort
+per submission — so intersecting two of them returns nothing at all. A filter whose
+commonest two-press outcome is an empty list teaches a reader not to press twice.
+`"all"` is right where tags genuinely stack: `urgent` and `epic-jobs` are both true of
+one todo.
+
+Not to be confused with `match:` above, which scopes WHICH NOTES ARE ROWS before any
+pill is pressed. Two questions, two arguments.
 
 ### The date column, and rows from elsewhere
 

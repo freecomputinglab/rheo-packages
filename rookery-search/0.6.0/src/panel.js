@@ -15,9 +15,9 @@
 //
 // TWO PANEL KINDS, TOLD APART BY `data-panel-mode`. `#panel` (no mode) filters on
 // projected fields, ORing within a group and ANDing across groups. `#filter-panel`
-// (`mode="tags"`) intersects bare tag names off `data-panel-tags`, so each pill
-// pressed narrows further. One `wirePanel` serves both and only the predicate
-// branches.
+// (`mode="tags"`) filters on bare tag names off `data-panel-tags`, composing them the
+// way `data-panel-pill-match` says — "any" by default, "all" to intersect. One
+// `wirePanel` serves both and only the predicate branches.
 //
 // THE SCORER IS `score` FROM `score.js`, imported rather than re-ported. That
 // function had three copies across this repo and a consuming site before panels
@@ -37,18 +37,35 @@ const passesFacets = (row, facets) => {
   return true;
 };
 
-// THE TAG PANEL'S PREDICATE (`#filter-panel`, `data-panel-mode="tags"`): pressed
-// tags INTERSECT. A row survives only if it carries every one of them, so a second
-// pill always narrows and never widens — which is the opposite of a facet group,
-// where two values of one field can only mean "either". An empty set passes
-// everything, exactly as above.
+// THE TAG PANEL'S PREDICATE (`#filter-panel`, `data-panel-mode="tags"`), and it reads
+// the panel's declared composition rather than picking one:
+//
+//   "any" (THE DEFAULT) — a row survives if it carries ANY pressed tag, so a second
+//   pill WIDENS the result. Default because the tags a pill row is built from are
+//   usually MUTUALLY EXCLUSIVE in practice — one epic per todo, one sort per
+//   submission — and ANDing two of those can only ever return nothing. A filter whose
+//   commonest two-press outcome is an empty list is the wrong default whatever the set
+//   theory says.
+//
+//   "all" — a row survives only if it carries EVERY pressed tag, so a second pill
+//   narrows. Right where tags genuinely stack (a todo that is `urgent` AND
+//   `epic-jobs`), and declared per panel.
+//
+// AN EMPTY SET PASSES EVERYTHING in both modes, which is what makes "no pills pressed"
+// show the whole list rather than none of it — the same rule the facet path relies on.
+//
 // EXPORTED for the node suite, not for consumers: `src/rookery-search.js` — the
 // package's public surface — does not re-export it, the same line `test/internal.mjs`
 // draws for the three helpers it bridges. A predicate this small is exactly the kind
 // of thing a test should pin directly rather than through a DOM.
-export const passesTags = (row, pressed) => {
-  for (const t of pressed) if (!row.tags.has(t)) return false;
-  return true;
+export const passesTags = (row, pressed, mode) => {
+  if (pressed.size === 0) return true;
+  if (mode === "all") {
+    for (const t of pressed) if (!row.tags.has(t)) return false;
+    return true;
+  }
+  for (const t of pressed) if (row.tags.has(t)) return true;
+  return false;
 };
 
 export const wirePanel = (container, n) => {
@@ -57,11 +74,14 @@ export const wirePanel = (container, n) => {
   if (input === null || list === null) return null;
 
   // TWO PANELS, ONE WIRING. `#panel` facets on projected FIELDS; `#filter-panel`
-  // intersects bare TAGS. Everything else — the input, the count, the scroll reset,
+  // filters on bare TAGS. Everything else — the input, the count, the scroll reset,
   // the score-and-reorder loop, the `hidden` handling — is identical, and a second
   // copy of that is precisely what `#panel` was written to stop. So the mode picks a
   // predicate and nothing else.
   const tagMode = container.dataset.panelMode === "tags";
+  // "any" unless the panel says otherwise, including when the attribute is absent — an
+  // older page's markup keeps working and gets the default.
+  const pillMatch = container.dataset.panelPillMatch === "all" ? "all" : "any";
 
   // The facet fields, read off the groups the Typst side emitted. A panel with no
   // pills is legal and gets an empty map; a tag panel emits no groups at all.
@@ -107,7 +127,7 @@ export const wirePanel = (container, n) => {
     for (const row of rows) {
       // `score` returns -1 for no match and 0 for an EMPTY query, which is what
       // leaves the build-time order untouched until someone types.
-      const ok = tagMode ? passesTags(row, pressed) : passesFacets(row, facets);
+      const ok = tagMode ? passesTags(row, pressed, pillMatch) : passesFacets(row, facets);
       const s = ok ? score(row.text, q) : -1;
       if (s < 0) {
         row.el.hidden = true;
