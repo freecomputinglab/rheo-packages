@@ -9,7 +9,7 @@ Todos, epics and a dependency DAG over [`@rheo/rookery`](../../rookery) notes.
 
 #let TODAY = datetime(year: 2026, month: 8, day: 25)
 
-#todo("fetch", title: [Fetch the source], priority: 0, closed: true)[...]
+#todo("fetch", title: [Fetch the source], priority: 0, done: datetime(year: 2026, month: 8, day: 1))[...]
 #todo("parse", title: [Parse it], priority: 1, type: "bug", deps: ("fetch",))[...]
 
 #todos-ready(today: TODAY)
@@ -47,9 +47,36 @@ a shortcoming.
 | `br dep --type parent-child` | — | see "No parent edges" |
 | `pinned`, `ephemeral`, `compaction_*`, `source_*`, `agent_context` | — | beads infrastructure |
 
+## Closing a todo
+
+Three spellings, one log entry — the third and the second fold into the first
+before anything reads them, so they cannot disagree:
+
+```typst
+#todo("fetch", timeline: (closed: d))[...]   // the store, written directly
+#todo("fetch", done: d)[...]                 // the shorthand
+#let shipped = done(d)                       // the factory, for a shared date
+#shipped("fetch", priority: 0)[...]
+```
+
+- **A close is a DATE.** `done: true` is refused with a message: a log entry
+  needs a date, and nothing here auto-stamps one because there is no clock to
+  stamp from — `datetime.today()` returns 1980-01-01 under a reproducible-build
+  `SOURCE_DATE_EPOCH` and fails silently while doing it.
+- **`done:` takes whatever a log entry takes**, so a close can carry its own
+  prose: `done: (timestamp: d, note: [Landed as ..])`.
+- **`#done(date)` is a factory**, the same shape as `#epic(name)`: it returns a
+  `#todo` variant with `done:` bound and keeps the entire call surface —
+  content bodies, all three id forms, `priority`, `deps`, `tags`, a further
+  `timeline:` of other stages. It curries rather than taking the date as a
+  leading positional argument because `#todo`'s first positional is the note's
+  ID, and a date there would take that slot.
+- **Closing twice is refused** — `done:` together with `timeline: (closed: ..)`
+  leaves the date the todo closed on unknowable, so write one of them.
+
 ## 0.6.0 — a todo's dates are one log
 
-**Breaking.** `closed:` requires a `datetime`; `closed: true` is refused.
+**Breaking.** A close requires a `datetime`; `closed: true` is refused.
 
 A todo already had a lifecycle — filed, scheduled, activated, closed — and it was
 spread across three owners: rookery core's `minted`/`updated`,
@@ -64,10 +91,11 @@ todo carries lives in one timeline:
 - **`#todo` takes `scheduled:`, `deadline:` and `timeline:` as named arguments**, being
   built on rookery-timeline's `dated(..)` decorator. The old `tags: entries(deadline: d)`
   form still works and is still supported.
-- **`closed:` is a date, and it writes a log entry.** `closed: true` used to mean
-  "closed, when unknown"; a log entry needs a date, and this package has no clock
-  to stamp one from, so an undated close is simply a caller who did not say when.
-  The message says so.
+- **The `closed:` ARGUMENT is gone**, and a close is a log entry: write it as
+  `timeline: (closed: d)` or as the `done: d` shorthand above. `closed: true`
+  used to mean "closed, when unknown"; an entry needs a date, and this package
+  has no clock to stamp one from, so an undated close is simply a caller who did
+  not say when. The message says so.
 - **`todo-closed` survives as a FLAT marker** carrying no date. See surface 2
   below for why that is not a second copy.
 - **`activated` joins the vocabulary** — the moment a todo went from ready to
@@ -80,9 +108,9 @@ todo carries lives in one timeline:
 - **`updated:` is gone from `#idea`**, so passing it to `#todo` does nothing.
   Rookery 0.6.0 removed the field.
 
-Migrating: change every `closed: true` to the date it closed, and every
-`closed: <datetime>` keeps working. If you read `closed-on`, it now comes from the
-log; if you filtered on `tags:todo-closed`, that still works.
+Migrating: change every `closed: true` to `done: <the date it closed>`, and every
+`closed: <datetime>` to `done: <datetime>`. If you read `closed-on`, it now comes
+from the log; if you filtered on `tags:todo-closed`, that still works.
 
 ## A skin over rookery
 

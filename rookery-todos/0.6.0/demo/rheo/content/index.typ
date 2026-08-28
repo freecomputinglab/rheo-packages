@@ -4,7 +4,7 @@
 // this demo exists to exercise: the name is rookery's, the version here knows about
 // todos, and importing it from the wrapper is the whole of opting in.
 #import "@rheo/rookery-todos:0.6.0": (
-  epic, todo, todo-graph-view, todos-blocked, todos-list, todos-ready,
+  done, epic, todo, todo-graph-view, todos-blocked, todos-list, todos-ready,
   todos-search, todos-stale, todos-stats, todos-validate, window,
 )
 #import "@rheo/rookery-timeline:0.1.0": entries
@@ -19,15 +19,16 @@ every view on this page is derived from it at build time.
 
 == The todos
 
-A closed todo, carrying the date it closed. Its presence in the tag dictionary
-is what marks it closed; the value says when.
+A closed todo, carrying the date it closed. `done:` is the shorthand for exactly
+one log entry — `timeline: (closed: ..)` writes the same thing, and the two
+cannot disagree because the first folds into the second.
 
 #todo(
   "fetch",
   title: [Fetch the source],
   priority: 0,
   type: "task",
-  timeline: (closed: datetime(year: 2026, month: 8, day: 1)),
+  done: datetime(year: 2026, month: 8, day: 1),
 )[Pull the upstream tarball and verify its checksum.]
 
 A todo with every attribute this package maps, including a metadata bag for
@@ -116,6 +117,19 @@ no dependency, so these two are unrelated until one names the other.
 #let launch = epic("launch")
 #launch("launch-plan", title: [Draft the launch plan], priority: 1)[Kick-off.]
 #launch("launch-post", title: [Announce the launch], deps: ("launch-plan",))[Follows the plan.]
+
+== A close as a factory
+
+`#done(date)` is the other shorthand and the same fold: a `#todo` variant with
+`done:` bound, so it keeps every other argument. It is a factory rather than a
+function taking the date first because `#todo`'s first positional is the note's
+ID, and a date there would take that slot.
+
+#let closed-in-july = done(datetime(year: 2026, month: 7, day: 20))
+#closed-in-july("spike", title: [Spike the parser], type: "task")[Threw it away, as intended.]
+#closed-in-july("triage", title: [Triage the backlog], priority: 3, tags: ("phd",))[
+  Same date, said once — which is the case this form is for.
+]
 
 == Ready — `br ready`
 

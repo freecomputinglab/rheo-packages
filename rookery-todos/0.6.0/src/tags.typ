@@ -182,7 +182,7 @@
       status in STATUSES,
       message: "@rheo/rookery-todos: `status` must be one of "
         + STATUSES.join(", ") + " — got " + repr(status)
-        + ". A CLOSED todo is expressed by `closed:`, not by `status:`, and a "
+        + ". A CLOSED todo is expressed by `done:`, not by `status:`, and a "
         + "BLOCKED one is derived from its dependencies rather than declared.",
     )
     out.insert("todo-" + status, none)

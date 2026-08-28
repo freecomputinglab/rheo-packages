@@ -80,6 +80,43 @@
 #assert.eq(is-closed(todo-tags(closed: true)), false)
 #assert.eq(closed-on(entries(timeline: (closed: d(2026, 8, 1)))), d(2026, 8, 1))
 
+// ---- `done:` — the shorthand, folded into the same log --------------------
+//
+// `_closing` is the fold itself, tested here rather than through `#todo`: the
+// latter mints a rookery note and needs a document, while the fold is a pure
+// function of two arguments and is where every claim about `done:` lives.
+//
+// THE POINT OF EVERY ASSERT BELOW is that `done:` produces the SAME log as
+// `timeline: (closed: ..)` — one write path, per this package's 0.6.0 note. The
+// two refusals (`done: true`, and a close given twice) cannot be asserted on:
+// Typst has no way to catch a panic, so they are covered by the messages in
+// `todo.typ` and by reading them.
+#assert.eq(_closing(none, none), none)
+#assert.eq(_closing(none, (activated: d(2026, 8, 1))), (activated: d(2026, 8, 1)))
+#assert.eq(_closing(d(2026, 8, 1), none), (closed: d(2026, 8, 1)))
+// Folded INTO a timeline of other stages rather than replacing it.
+#assert.eq(
+  _closing(d(2026, 8, 2), (activated: d(2026, 8, 1))),
+  (activated: d(2026, 8, 1), closed: d(2026, 8, 2)),
+)
+// An entry dictionary rides through untouched — that is how a close carries its
+// own `note`, and rookery-timeline validates the shape, not this.
+#assert.eq(
+  _closing((timestamp: d(2026, 8, 1), note: [Landed.]), none).closed.timestamp,
+  d(2026, 8, 1),
+)
+// The equivalence, end to end through the fragment: same tags, same readers.
+#assert.eq(
+  entries(timeline: _closing(d(2026, 8, 1), none)),
+  entries(timeline: (closed: d(2026, 8, 1))),
+)
+#assert.eq(is-closed(entries(timeline: _closing(d(2026, 8, 1), none))), true)
+#assert.eq(closed-on(entries(timeline: _closing(d(2026, 8, 1), none))), d(2026, 8, 1))
+
+// `#done(date)` is a FACTORY, like `#epic` — it hands back a `#todo` variant, so
+// what can be asserted without a document is that a function comes back at all.
+#assert.eq(std.type(done(d(2026, 8, 1))), function)
+
 // `status-of` — closed wins over a declared status, absent reads as open, and
 // `blocked` never appears because it is derived from the graph, not declared.
 #assert.eq(status-of(todo-tags()), "open")
@@ -143,9 +180,9 @@
 #assert.eq(blockers-of(chain.nodes.at("b"), chain), ("a",))
 
 // Closing the dependency unblocks the dependent.
-#let done = g(row("a", closed: true), row("b", deps: ("a",)))
-#assert.eq(is-blocked(done.nodes.at("b"), done), false)
-#assert.eq(blockers-of(done.nodes.at("b"), done), ())
+#let settled = g(row("a", closed: true), row("b", deps: ("a",)))
+#assert.eq(is-blocked(settled.nodes.at("b"), settled), false)
+#assert.eq(blockers-of(settled.nodes.at("b"), settled), ())
 
 // An UNRESOLVED dep does not block: it names nothing, so it can never close,
 // and treating it as a blocker would wedge a todo forever on a typo.
@@ -156,9 +193,9 @@
 #let NOW = d(2026, 8, 25)
 #assert.eq(is-ready(chain.nodes.at("a"), chain, today: NOW), true)
 #assert.eq(is-ready(chain.nodes.at("b"), chain, today: NOW), false)
-#assert.eq(is-ready(done.nodes.at("b"), done, today: NOW), true)
+#assert.eq(is-ready(settled.nodes.at("b"), settled, today: NOW), true)
 // A closed todo is never ready.
-#assert.eq(is-ready(done.nodes.at("a"), done, today: NOW), false)
+#assert.eq(is-ready(settled.nodes.at("a"), settled, today: NOW), false)
 
 // Deferral is what makes this br's `ready` and not merely "not blocked".
 // Built through `entries(..)` rather than by hardcoding `the `scheduled` log stage`, which is
