@@ -227,7 +227,13 @@
           {
             html.elem(
               "span",
-              attrs: (class: if r.firm { "upcoming-when" } else { "upcoming-when soft" }),
+              // `soft` SAYS SOMETHING ABOUT A DATE, so an undated row does not wear
+              // it: the class means "this date came from an entry other than the one
+              // you queued by", and a row rendering `—` has no such claim to make.
+              // Caught by the fixture, which read every undated row as soft.
+              attrs: (
+                class: if r.when == none or r.firm { "upcoming-when" } else { "upcoming-when soft" },
+              ),
               if r.when == none { [—] } else {
                 html.elem("time", attrs: (datetime: _iso(r.when)), _fmt-day(r.when))
               },

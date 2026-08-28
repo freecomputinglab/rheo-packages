@@ -437,3 +437,40 @@
   is-settled(_at2("withdrawn-late"), ladder: (transit: ("submitted",), terminal: ("withdrawn-*",)), today: _T2),
   true,
 )
+
+// ---- when-of — WHICH ENTRY DATES A ROW, for `#upcoming` --------------------
+//
+// The whole of that view's date policy, kept as a pure function precisely so it can
+// be pinned here: the view returns content and branches on `target()`, so nothing
+// about it is assertable, while this is what a caller actually has to predict.
+//
+// `stage:` takes one name or an array of names IN PRIORITY ORDER, because the log is
+// a dictionary of named dates and only the caller knows which one it is queued by.
+#let _wdead = entries(deadline: d(2026, 9, 1))
+#assert.eq(when-of(_wdead, today: NOW), (date: d(2026, 9, 1), stage: "deadline", firm: true))
+
+// PRIORITY ORDER IS HONOURED, and the array form is the reason this argument is not
+// simply a single name: a submissions tracker queues by the deadline where a call
+// has published one, and by the date the call is expected to POST where it has not.
+#let _wboth = entries(deadline: d(2026, 9, 1), scheduled: d(2026, 8, 1))
+#assert.eq(
+  when-of(_wboth, stage: (DEADLINE-STAGE, SCHEDULED-STAGE), today: NOW).date,
+  d(2026, 9, 1),
+)
+#assert.eq(when-of(_wboth, stage: SCHEDULED-STAGE, today: NOW).date, d(2026, 8, 1))
+
+// NEITHER NAMED STAGE, BUT SOMETHING BOOKED. The row keeps its place in the queue —
+// an interview dated next month is exactly what is imminent about it — and `firm` is
+// false to say the date answers from a different entry than the one asked for.
+#let _wbooked = entries(timeline: (submitted: d(2026, 8, 1), "first-interview": d(2026, 9, 20)))
+#assert.eq(
+  when-of(_wbooked, today: NOW),
+  (date: d(2026, 9, 20), stage: "first-interview", firm: false),
+)
+
+// EVERY ENTRY IN THE PAST: nothing is coming, so there is no date at all and the
+// view sorts the row last rather than pretending its history is a queue position.
+#assert.eq(
+  when-of(entries(timeline: (submitted: d(2026, 1, 1), rejected: d(2026, 2, 1))), today: NOW),
+  (date: none, stage: none, firm: false),
+)

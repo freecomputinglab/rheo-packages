@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Asserts on `test/view.typ`'s OUTPUT, not merely that it compiled. `units.typ`
-# covers every value; this covers the markup, which is the only thing `#timeline-view`
-# actually produces.
+# Asserts on the rendered fixtures' OUTPUT, not merely that they compiled.
+# `units.typ` covers every value; this covers the markup, which is the only thing
+# the two views actually produce — `#timeline-view` in `view.typ`, `#upcoming` in
+# `upcoming.typ` (a separate file because it needs `#show: rookery`; see its header).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 H=test/build/view.html
+U=test/build/upcoming.html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
 [ -f "$H" ] || { echo "FAIL: no $H — run 'just test' first"; exit 1; }
+[ -f "$U" ] || { echo "FAIL: no $U — run 'just test' first"; exit 1; }
 
 python3 - "$H" <<'PY' || fail=1
 import re, sys
@@ -136,4 +139,75 @@ print(f"  timeline-view: 8 rails, one current row each, divider only where both 
       f"{three[0].split()[-1]}/{three[1].split()[-1]}, 1 expected rung with a ladder and 0 without")
 PY
 
-if [ "$fail" -eq 0 ]; then echo "view OK"; else echo "view FAILED"; exit 1; fi
+python3 - "$U" <<'PY' || fail=1
+import re, sys
+h = open(sys.argv[1]).read()
+
+lists = re.findall(r'<ul class="upcoming-list">(.*?)</ul>', h, re.S)
+if len(lists) != 2:
+    print(f"FAIL: expected 2 upcoming lists (all rows, then the cutoff), found {len(lists)}")
+    sys.exit(1)
+
+def rows(lst):
+    return re.findall(r'<li class="upcoming-row([^"]*)">(.*?)</li>', lst, re.S)
+
+def when(row):
+    m = re.search(r'class="upcoming-when([^"]*)"[^>]*>(?:<time datetime="([^"]+)")?', row)
+    return (m.group(1).strip(), m.group(2))
+
+def name(row):
+    return re.search(r'class="upcoming-name"[^>]*>([^<]*)', row).group(1)
+
+# 1. ORDER, and it is the whole point of the view: the notes are written
+# later/sooner/booked/watched and must come out in date order.
+all_rows = rows(lists[0])
+names = [name(b) for _, b in all_rows]
+if names != ["Sooner", "Booked", "Later", "Watched"]:
+    print(f"FAIL: rows came out {names}, wanted Sooner, Booked, Later, Watched")
+    sys.exit(1)
+
+dates = [when(b)[1] for _, b in all_rows]
+dated = [x for x in dates if x]
+if dated != sorted(dated):
+    print(f"FAIL: dates are not ascending: {dated}")
+    sys.exit(1)
+if dates[-1] is not None:
+    print("FAIL: the undated row did not sort last")
+    sys.exit(1)
+
+# 2. SOFT is the row whose date came from a booked entry rather than from the
+# stage the call queued by. Exactly one row here is like that.
+soft = [name(b) for _, b in all_rows if "soft" in when(b)[0]]
+if soft != ["Booked"]:
+    print(f"FAIL: soft rows are {soft}, wanted just Booked")
+    sys.exit(1)
+
+# 3. THE BADGE is what has HAPPENED, not what is coming — so the booked row
+# reads `submitted`, and a row nothing has happened to has no badge at all.
+stages = {name(b): re.findall(r'class="upcoming-stage[^"]*">([^<]*)', b) for _, b in all_rows}
+if stages["Booked"] != ["submitted"]:
+    print(f"FAIL: Booked's badge is {stages['Booked']}, wanted submitted")
+    sys.exit(1)
+if stages["Sooner"] != []:
+    print(f"FAIL: a note nothing has happened to drew a badge: {stages['Sooner']}")
+    sys.exit(1)
+if "idea-tag-submitted" not in lists[0]:
+    print("FAIL: the badge does not wear `idea-tag-<stage>`, so no theme can reach it")
+    sys.exit(1)
+
+# 4. THE CUTOFF drops what is too old and keeps what has no date to be too old.
+cut = [name(b) for _, b in rows(lists[1])]
+if cut != ["Booked", "Later", "Watched"]:
+    print(f"FAIL: `from:` left {cut}, wanted Booked, Later, Watched")
+    sys.exit(1)
+
+# 5. NOTHING SELECTED renders the empty line rather than an empty list.
+if h.count('class="upcoming-empty"') != 1:
+    print("FAIL: the empty selection did not render exactly one .upcoming-empty")
+    sys.exit(1)
+
+print(f"  upcoming: {len(all_rows)} rows in date order, undated last, 1 soft, "
+      f"badges from the log, cutoff kept {cut}")
+PY
+
+if [ "$fail" -eq 0 ]; then echo "views OK"; else echo "views FAILED"; exit 1; fi

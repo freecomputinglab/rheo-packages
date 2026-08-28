@@ -105,8 +105,10 @@ The CORE of this package does not import `@rheo/rookery`, and `@rheo/rookery`
 knows nothing about this package. A tag fragment is just a dictionary, so
 composition needs no import relationship in either direction: any package, and any
 hand-written `#idea`, can use it. `dated(mint)` keeps that true for the decorator
-too, by taking the minting function as an argument; the single `dated-idea`
-binding is the one line here that imports rookery. Rookery accepts a dictionary
+too, by taking the minting function as an argument. Two things here do import
+rookery: the one-line `dated-idea` binding, and `#upcoming`, which reads the note
+REGISTRY through `ideas()` because it draws one row per note across a corpus and no
+argument could hand it that corpus. Rookery accepts a dictionary
 for `tags:` directly, so composing with ordinary tags is dictionary merge:
 
 ```typst
@@ -463,8 +465,8 @@ uses in its own id sorting.
 
 ## `#timeline-view` — the log as a vertical rail
 
-The one function here that draws something, and the reason this package ships a
-stylesheet at all.
+One of the two functions here that draw something (`#upcoming` below is the other),
+and the reason this package ships a stylesheet at all.
 
 ```typst
 #import "@rheo/rookery-timeline:0.1.0": timeline-view
@@ -573,13 +575,126 @@ width of the date column, and what the line's position is measured from).
 
 A horizontal track (crowds past four events, and gives a long stage name nowhere
 to go), a definition list (says nothing about order, or about whether an event has
-happened), an inline sparkline (a different component, for a table of many notes),
+happened), an inline sparkline (a different component, for a table of many notes — which
+`#upcoming` below now is),
 and **no durations of any kind** — no "126 days in flight", no per-event gaps. The
 reader can subtract, and a computed interval resting on a stand-in date looks more
 precise than it is.
 
 On a paged or EPUB target there is no rail to draw, so the same events render as
 an ordinary list.
+
+## `#upcoming` — the log as a dated list across many notes
+
+The rail's sibling: `#timeline-view` draws ONE note's log down a line, this draws
+ONE ROW PER NOTE across a whole corpus, ordered by what is coming next.
+
+```typst
+#import "@rheo/rookery-timeline:0.1.0": upcoming, DEADLINE-STAGE, SCHEDULED-STAGE
+
+#upcoming(
+  tags: "submission",
+  stage: (DEADLINE-STAGE, SCHEDULED-STAGE),
+  today: NOW,
+  from: datetime(year: 2026, month: 1, day: 1),
+)
+```
+
+```
+ 1.9.26   Cornell Society for the Humanities            POSTDOC
+ 7.9.26   Lecturer in Artificial Intelligence           SUBMITTED
+20.9.26   Media Theory Conference 2027                  UNDER REVIEW
+   —      Temporalities of AI, Bibliotheca Hertziana
+```
+
+Three columns: when, the note's name, and the stage it is CURRENTLY at. Every row
+links to the note.
+
+### The arguments
+
+| | |
+|---|---|
+| `tags:` / `match:` | rookery's own selection vocabulary, passed straight to `ideas()` |
+| `filter:` | a predicate over the note's tag dictionary, ANDed with the above |
+| `stage:` | which log entry dates the row — see below |
+| `today:` | the reference date, as everywhere else here |
+| `from:` | a `datetime`; drops a row dated before it |
+| `within:` | days; drops a row dated later than `today + within` |
+| `limit:` | truncate after sorting |
+| `title:` | optional label above the list |
+| `empty:` | what to show when nothing survives |
+
+### `stage:` — which entry dates the row
+
+**The log is a dictionary of named dates, and only the caller knows which name it is
+waiting on.** A job application is queued by its `deadline`; a call whose dates are
+not published yet is queued by the `scheduled` date it is expected to post on; a
+conference is queued by whichever of the two it has. So `stage:` takes one name, or
+an array of names in **priority order**:
+
+```typst
+#upcoming(stage: (DEADLINE-STAGE, SCHEDULED-STAGE))   // deadline, else the watch date
+#upcoming(stage: "campus-visit")                      // queued by one booked event
+```
+
+The date resolves in three steps:
+
+1. the first of `stage:` the log carries — that date, rendered firm;
+2. otherwise the next entry dated **after** `today:` (`next-of`) — that date,
+   rendered **soft**;
+3. otherwise nothing: the row renders `—` and sorts after every dated row.
+
+Step 2 is the row with no deadline that nonetheless has something booked, and it
+belongs in the queue — an interview next month is exactly what is imminent about it.
+The soft styling says only that the date came from a different entry than the one you
+asked to be queued by; it is not a claim about the date's reliability.
+
+Rows sort **ascending, oldest first**, which puts a date already behind you at the
+TOP. An overdue row is the most urgent thing on the list, not the stalest.
+
+### What it deliberately is not
+
+**It takes no ladder and cannot tell you a note is finished.** Whether `accepted`
+ends a process is vocabulary this package refuses to own, for the reason
+`is-settled` lives in `ladder.typ` and takes one as a parameter. A caller that wants
+settled rows gone passes `filter:`:
+
+```typst
+#upcoming(tags: "submission", filter: t => not is-settled(t, ladder: JOB, today: NOW))
+```
+
+**Three fixed columns, and no render hook.** A fourth column — a submission's host
+school, a path to a manuscript — is a question about the caller's own data model,
+which this package cannot see; a project needing one keeps its own view. Fixed
+columns are what make one call over two unrelated corpora read as one table.
+
+On a paged or EPUB target there is no grid to align and no anchor to click, so the
+same rows render as an ordinary list.
+
+### Styling it
+
+Every class is a published contract: `.upcoming` on the wrapper, `.upcoming-title`
+on the label, `.upcoming-list` on the list, `.upcoming-row` per row — plus one
+`idea-tag-<tag>` class per tag the note carries, so a project theming a tag on a
+card has already themed it here — and inside a row `.upcoming-when` (with `.soft`
+where the date came from a booked entry), `.upcoming-name`, and `.upcoming-stage`.
+An empty result is `.upcoming-empty`.
+
+The stage chip also wears rookery's own `idea-tag` and `idea-tag-<stage>`, which is
+how a project's `theme: (tags-color: ..)` colours a stage here without this package
+naming a single hue: those generated rules publish `--idea-tag-bg`,
+`--idea-tag-color` and `--idea-tag-line`, and the chip reads all three. Its SHAPE is
+copied from rookery's own pill rather than inherited from it — wearing `.idea-tab`
+to pick that rule up would also draw that element's `::before` stub of rule, which
+inside a table row reads as a stray dash.
+
+Colours come from the rail's own properties (`--timeline-fg`, `--timeline-muted`,
+`--timeline-line`), and there is one knob of its own: `--upcoming-gutter`, the width
+of the date column, defaulting to `--timeline-gutter`'s 7.5em.
+
+The list **flows down the page**: no `max-height`, no `overflow`, no scroll box. A
+caller wanting fewer rows passes `limit:`, which is a claim about the data rather
+than a lie about the height.
 
 ## Every date is author-supplied, and here is why
 
@@ -607,15 +722,15 @@ its own environment and write the resulting literal into the `.typ`.
 
 ## Requirements
 
-- `@rheo/rookery` 0.6.0, for `created` on an `#ideas()` row and for `tag-index`.
-  The CORE of this package imports it not at all — a tag fragment is a plain
-  dictionary, and `dated(mint)` takes its constructor as an argument — but the
-  one-line `dated-idea` binding does.
+- `@rheo/rookery` 0.6.0, for `created` on an `#ideas()` row, for `tag-index`, and
+  for the `ideas()` registry read `#upcoming` does. The CORE of this package imports
+  it not at all — a tag fragment is a plain dictionary, and `dated(mint)` takes its
+  constructor as an argument — but the `dated-idea` binding and `#upcoming` both do.
 - No build step and no JavaScript. `typst.toml`'s `entrypoint` points straight at
-  `src/`, so an edit takes effect immediately. It DOES ship one CSS file now —
-  `src/rookery-timeline.css`, for `#timeline-view` below — inside
-  `@layer rookery-timeline`, so an unlayered rule in your own stylesheet beats it
-  whatever the specificity.
+  `src/`, so an edit takes effect immediately. It DOES ship one CSS file —
+  `src/rookery-timeline.css`, for the two views that draw something
+  (`#timeline-view` and `#upcoming`) — inside `@layer rookery-timeline`, so an
+  unlayered rule in your own stylesheet beats it whatever the specificity.
 
 ## Development
 
