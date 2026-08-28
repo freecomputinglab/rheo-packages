@@ -101,6 +101,21 @@
   // panel's own ancestor is a search dropdown). It does not earn it in a page's main
   // list, where it cuts a row in half and hides the rest behind a gesture nothing
   // advertises — which is the same argument `#upcoming` makes for having no cap at all.
+  // WHICH END OF THE DATE COLUMN LEADS. `"newest"` (the default) puts the most recent
+  // date first, which is what a `created` column wants — an index of work is a list of
+  // what was written lately. `"soonest"` puts the earliest first, which is what a
+  // DEADLINE column wants: a date already behind you belongs at the TOP, because an
+  // overdue row is the most urgent thing on the page, and next week's should not be
+  // below next year's.
+  //
+  // A CALLER PASSING `when:` USUALLY WANTS `"soonest"`, and the two are not folded into
+  // one argument on purpose: `when:` says WHICH date and this says WHICH WAY, and a
+  // caller reading `created` descending is a real combination (the default).
+  //
+  // UNDATED ROWS SORT LAST IN BOTH, and that is the reason this is a partition rather
+  // than a `.rev()` of one sorted list: reversed, the undated rows — last ascending —
+  // would land at the TOP, reading as the most recent thing on the page.
+  order: "newest",
   visible: 8,
   placeholder: "Filter",
   noun: "ideas",
@@ -112,6 +127,12 @@
   // a genuinely different row, not as the ordinary path.
   render: none,
 ) = context {
+  assert(
+    order in ("newest", "soonest"),
+    message: "@rheo/rookery-search: #filter-panel's `order` must be \"newest\" (the most "
+      + "recent date first) or \"soonest\" (the earliest first) — got "
+      + repr(order),
+  )
   assert(
     pill-match in ("any", "all"),
     message: "@rheo/rookery-search: #filter-panel's `pill-match` must be \"any\" (a row "
@@ -129,15 +150,16 @@
 
   let rows = if rows != none { rows } else { ideas(tags: tag, values: true) }
 
-  // NEWEST FIRST, UNDATED LAST, done as a PARTITION rather than by reversing a sorted
-  // list. Reversing would put the undated rows — which sort last ascending — at the
-  // TOP, where they read as the most recent thing on the page. Inverting the key would
-  // work too; a partition says what it means in one line.
+  // THE ORDER `order:` NAMES, UNDATED LAST EITHER WAY — see that argument for why this
+  // is a partition rather than a `.rev()` of the whole list. The stamp is a zero-padded
+  // `[year][month][day]` STRING, so this is a plain string sort in date order and no
+  // `datetime` comparison happens anywhere.
   let stamp = r => {
     let d = when(r)
     if d == none { none } else { d.display("[year][month][day]") }
   }
-  let dated = rows.filter(r => stamp(r) != none).sorted(key: stamp).rev()
+  let asc = rows.filter(r => stamp(r) != none).sorted(key: stamp)
+  let dated = if order == "soonest" { asc } else { asc.rev() }
   let undated = rows.filter(r => stamp(r) == none)
   let rows = dated + undated
 

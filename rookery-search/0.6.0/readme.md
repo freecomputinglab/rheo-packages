@@ -1303,9 +1303,24 @@ pills would render and silently do nothing: no script, no stylesheet, no warning
 is why the composition is shaped this way round — rows there, rendering here, and no
 edge between the two packages.
 
-Rows are ordered **newest first, undated last**. An undated row is not a recent one,
-and floating it to the top of a list sorted by date would read as urgent when it is
-merely unset.
+### `order:` — which end of the date column leads
+
+`"newest"` (the default) puts the most recent date first, which is what a `created`
+column wants. `"soonest"` puts the earliest first, which is what a **deadline** column
+wants: a date already behind you belongs at the top, because an overdue row is the most
+urgent thing on the page and next week's should not sit below next year's.
+
+```typst
+#filter-panel(
+  rows: todos(),
+  when: r => deadline-of(r.tags-dict),
+  order: "soonest",
+)
+```
+
+**Undated rows are last in both orders.** An undated row is not a recent one, and
+floating it to the top of a list sorted by date would read as urgent when it is merely
+unset.
 
 ### The row is not this package's
 
