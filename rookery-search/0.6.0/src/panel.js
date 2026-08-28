@@ -13,6 +13,12 @@
 // here, which is what lets one implementation serve submissions, todos and
 // anything else.
 //
+// TWO PANEL KINDS, TOLD APART BY `data-panel-mode`. `#panel` (no mode) filters on
+// projected fields, ORing within a group and ANDing across groups. `#filter-panel`
+// (`mode="tags"`) intersects bare tag names off `data-panel-tags`, so each pill
+// pressed narrows further. One `wirePanel` serves both and only the predicate
+// branches.
+//
 // THE SCORER IS `score` FROM `score.js`, imported rather than re-ported. That
 // function had three copies across this repo and a consuming site before panels
 // existed; adding a fourth here would have been the whole problem again.
@@ -23,11 +29,21 @@ import { score } from "./score.js";
 // mean "either" — and across facets they AND. An EMPTY set means that facet is
 // unconstrained, which is what makes "no pills pressed" show everything rather
 // than nothing.
-const passes = (row, facets) => {
+const passesFacets = (row, facets) => {
   for (const [field, wanted] of facets) {
     if (wanted.size === 0) continue;
     if (!wanted.has(row.values[field] ?? "")) return false;
   }
+  return true;
+};
+
+// THE TAG PANEL'S PREDICATE (`#filter-panel`, `data-panel-mode="tags"`): pressed
+// tags INTERSECT. A row survives only if it carries every one of them, so a second
+// pill always narrows and never widens — which is the opposite of a facet group,
+// where two values of one field can only mean "either". An empty set passes
+// everything, exactly as above.
+const passesTags = (row, pressed) => {
+  for (const t of pressed) if (!row.tags.has(t)) return false;
   return true;
 };
 
@@ -36,8 +52,15 @@ export const wirePanel = (container, n) => {
   const list = container.querySelector(".panel-results");
   if (input === null || list === null) return null;
 
+  // TWO PANELS, ONE WIRING. `#panel` facets on projected FIELDS; `#filter-panel`
+  // intersects bare TAGS. Everything else — the input, the count, the scroll reset,
+  // the score-and-reorder loop, the `hidden` handling — is identical, and a second
+  // copy of that is precisely what `#panel` was written to stop. So the mode picks a
+  // predicate and nothing else.
+  const tagMode = container.dataset.panelMode === "tags";
+
   // The facet fields, read off the groups the Typst side emitted. A panel with no
-  // pills is legal and gets an empty map.
+  // pills is legal and gets an empty map; a tag panel emits no groups at all.
   const facets = new Map();
   for (const group of container.querySelectorAll(".panel-pill-group")) {
     const field = group.dataset.panelGroup;
@@ -45,13 +68,23 @@ export const wirePanel = (container, n) => {
   }
   const fields = [...facets.keys()];
 
+  // The tag panel's own state: which pills are pressed, as tag names.
+  const pressed = new Set();
+
   // Read ONCE. The rows never change after this — filtering only toggles `hidden`
   // and re-appends — so the original index survives as the tiebreak that
   // preserves the order Typst sorted them into.
   const rows = [...list.querySelectorAll(".panel-row")].map((el, index) => {
     const values = {};
     for (const f of fields) values[f] = el.getAttribute(`data-${f}`) ?? "";
-    return { el, index, text: el.getAttribute("data-panel-text") || "", values };
+    // The attribute is space-padded at both ends by the Typst side, so that a
+    // substring test cannot half-match a tag that is another's prefix. Split here
+    // anyway and keep a Set: an exact membership test is better than any string
+    // test, and the padding then costs nothing but the two empties this filters.
+    const tags = new Set(
+      (el.getAttribute("data-panel-tags") || " ").split(" ").filter(Boolean),
+    );
+    return { el, index, text: el.getAttribute("data-panel-text") || "", values, tags };
   });
   const total = rows.length;
 
@@ -70,7 +103,8 @@ export const wirePanel = (container, n) => {
     for (const row of rows) {
       // `score` returns -1 for no match and 0 for an EMPTY query, which is what
       // leaves the build-time order untouched until someone types.
-      const s = passes(row, facets) ? score(row.text, q) : -1;
+      const ok = tagMode ? passesTags(row, pressed) : passesFacets(row, facets);
+      const s = ok ? score(row.text, q) : -1;
       if (s < 0) {
         row.el.hidden = true;
       } else {
@@ -115,11 +149,15 @@ export const wirePanel = (container, n) => {
     }
   });
 
+  // `aria-pressed` IS THE STATE, in both modes: the sets above mirror it, and
+  // nothing carries a pressed CLASS — a class would be a second source of truth and
+  // the stylesheets already key off the attribute.
   for (const pill of container.querySelectorAll(".panel-pill")) {
     pill.addEventListener("click", () => {
-      const set = facets.get(pill.dataset.panelFacet);
+      const set = tagMode ? pressed : facets.get(pill.dataset.panelFacet);
       if (!set) return;
-      const value = pill.dataset.panelValue;
+      const value = tagMode ? pill.dataset.panelTag : pill.dataset.panelValue;
+      if (!value) return;
       if (set.has(value)) {
         set.delete(value);
         pill.setAttribute("aria-pressed", "false");
