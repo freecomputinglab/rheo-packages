@@ -1158,6 +1158,20 @@ h6.idea {
   padding: 0.45rem 0;
 }
 
+/* HIDING A ROW HAS TO WORK FROM A DOWNSTREAM PACKAGE, and without this rule it does
+   not. `.idea-row` above sets its own `display`, which beats the UA's `[hidden]`
+   rule — and a filtering view lives in another package whose CSS is inside a cascade
+   LAYER, so ITS `[hidden]` override loses to this unlayered file however specific it
+   is. MEASURED as exactly that: @rheo/rookery-search's `.panel-row[hidden]` stopped
+   biting the moment its rows became `#idea-row`s. So the package that sets `display`
+   is the one that has to take it away again.
+
+   `!important` IS NOT USED and must not be: the point is to lose to a project's own
+   unlayered rule, which is the whole contract of this stylesheet. */
+.idea-row[hidden] {
+  display: none;
+}
+
 /* `tabular-nums` is what makes the first column a COLUMN: without it the separators
    in `7.9.26` and `14.10.26` land in different places and there is nothing to scan
    down. `nowrap` because a date that wraps is not a date. */

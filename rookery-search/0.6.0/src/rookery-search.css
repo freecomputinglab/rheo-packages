@@ -807,22 +807,46 @@
 
   /* A SCROLL BOX, not a truncated list: every row is in the markup and
      `--panel-rows` (set by the Typst call's `visible:`) is only how many show
-     before the rest is a scroll away. 2.5em is one row's line box plus its
-     padding and rule, so the row past the cap is cut mid-height and the list
-     reads as continuing rather than as ending. */
+     before the rest is a scroll away. The multiplier is one row's line box plus its
+     padding and rule, so the row past the cap is cut mid-height and the list reads
+     as continuing rather than as ending.
+
+     ONE MULTIPLIER FOR TWO ROW HEIGHTS, and it is approximate on purpose. A
+     `#panel` flex row measures ~2.5em; a `#filter-panel` row is an `#idea-row`,
+     whose 0.45rem grid padding makes it a shade taller. MEASURED in a browser at
+     16px: 40px against 43px. Splitting the two would need a mode-scoped rule to say
+     something no reader of the page can perceive — the cap is a height budget, not
+     a promise about which row the cut lands in. 2.6em sits between them, so neither
+     kind ends exactly on a row boundary. */
   .panel-results {
     list-style: none;
     margin: 0.5rem 0 0;
     padding: 0;
-    max-height: calc(var(--panel-rows, 8) * 2.5em);
+    max-height: calc(var(--panel-rows, 8) * 2.6em);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
-  .panel-row {
+  /* TWO KINDS OF ROW WEAR THIS CLASS NOW, and the difference is what these rules
+     had to shrink to. `#panel` renders whatever its caller's `render:` returns, so
+     the flex line below is that row's whole layout. `#filter-panel` renders
+     `#idea-row` from @rheo/rookery, which brings its own grid — and rookery.css is
+     UNLAYERED, so its `display: grid` beats this layered `display: flex` however
+     specific this gets. MEASURED, and it is the RIGHT outcome rather than one to
+     work around: a shared row should lay itself out the same way wherever it is
+     drawn.
+
+     So `display` is stated only for the row that has none of its own, and the rest
+     — the padding and the rule between rows — is the panel's own frame and applies
+     to both. A `#filter-panel` row therefore keeps rookery's grid and picks up this
+     border, which is exactly what it should look like. */
+  .panel-row:not(.idea-row) {
     display: flex;
     gap: 0.6rem;
     align-items: baseline;
+  }
+
+  .panel-row {
     padding: 0.35em 0;
     border-bottom: 1px solid var(--rookery-search-hover, rgba(127, 127, 127, 0.15));
   }
@@ -833,7 +857,10 @@
 
   /* NEEDED, and not redundant with the UA's own `[hidden]` rule: `.panel-row`
      sets its own `display`, and an author rule beats the UA's whatever the
-     specificity. Without this, hiding a row would do nothing visible. */
+     specificity. Without this, hiding a row would do nothing visible.
+     `#idea-row`'s own `[hidden]` lives in rookery.css for the same reason and has
+     to: this rule is inside a layer and cannot reach past that file's unlayered
+     `display: grid`. */
   .panel-row[hidden] {
     display: none;
   }
