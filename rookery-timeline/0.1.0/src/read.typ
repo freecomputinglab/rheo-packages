@@ -48,6 +48,19 @@
 // can map over it without a guard: an empty log and no log are the same question.
 #let timeline-of(tags) = tags.at(LOG-KEY, default: ())
 
+// ---- How this package writes a date ----------------------------------------
+//
+// SHORT FORM, because a date here is a COLUMN rather than text beside a stage:
+// `27.8.26` is unpadded and numeric, so a run of them reads as a column at a
+// glance where "27 Aug 2026" would be three words per row. The same form the
+// consuming project already uses for its own dated lists.
+//
+// ONE COPY FOR TWO VIEWS. It began in `view.typ` when the rail was the only thing
+// this package drew; `#upcoming` draws the same column, so it sits with the readers
+// and both views import it. The ISO form a `<time datetime=..>` attribute needs is
+// deliberately NOT this one — see either view for that.
+#let _fmt-day(d) = d.display("[day padding:none].[month padding:none].[year repr:last_two]")
+
 // One named stage's date, or none.
 //
 // THE LATEST entry wins where a stage appears more than once. A todo deferred and

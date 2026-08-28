@@ -50,11 +50,19 @@
 //   - a predicate needing a "now" takes an explicit `today:`, falling back to
 //     the document's own `#set document(date:)`, and panics rather than guess
 //
-// This package reads no rheo context, no `sys.inputs`, no state and no registry.
-// Every function is a function of its arguments — with ONE exception, and it is
-// the reason this package now ships a stylesheet: `#timeline-view` (`view.typ`) draws
-// the log as a vertical rail, so it emits HTML and needs CSS to be usable. There
-// is still no JavaScript, and nothing here reads rheo context even now.
+// This package reads no rheo context, no `sys.inputs` and no state, and there is
+// still no JavaScript. TWO functions are not pure functions of their arguments,
+// and they are the two that DRAW something:
+//
+//   `#timeline-view` (`view.typ`) emits HTML — one note's log as a vertical rail —
+//   which is why this package ships a stylesheet at all.
+//
+//   `#upcoming` (`upcoming.typ`) emits HTML AND READS THE NOTE REGISTRY, through
+//   rookery's `ideas()`, because it draws one row per note across a whole corpus
+//   and a caller cannot hand it that corpus as an argument. That is a real
+//   widening of what this package touches, stated here rather than buried: it is
+//   the same thing @rheo/rookery-todos' own views do, and nothing else here
+//   follows it.
 
 #import "fragment.typ": *
 #import "read.typ": *
@@ -62,6 +70,7 @@
 #import "ladder.typ": *
 #import "index.typ": *
 #import "view.typ": *
+#import "upcoming.typ": *
 
 // ---- The SKIN over @rheo/rookery ------------------------------------------
 //

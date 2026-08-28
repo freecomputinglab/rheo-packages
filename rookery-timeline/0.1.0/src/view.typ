@@ -35,11 +35,10 @@
 // datetime (insufficient information)", and `.hour()` on one is `none`.
 #let _has-time(d) = d.hour() != none
 
-// SHORT FORM, because the dates are a COLUMN now rather than text beside a stage:
-// `27.8.26` is unpadded and numeric, so a run of them reads as a column at a
-// glance where "27 Aug 2026" would be three words per row. The same form the
-// consuming project already uses for its own dated lists.
-#let _fmt-day(d) = d.display("[day padding:none].[month padding:none].[year repr:last_two]")
+// `_fmt-day` USED TO LIVE HERE and now comes in from `read.typ` with the rest of
+// the readers, because `#upcoming` (`upcoming.typ`) draws a column of the same
+// dates and a second copy of the format would be a second answer to "how does
+// this package write a date". Its reasoning moved with it.
 #let _fmt-time(d) = d.display("[hour]:[minute]")
 
 // A CONTEXT FUNCTION, because it branches on `target()` — the same shape every
