@@ -1104,8 +1104,19 @@ h6.idea {
    Scoped to `.idea-tab > .idea-tag` specifically, not `.idea-tab *`:
    `#ideas-outline`'s title also wears `.idea-tab` (a prior bead), and it has
    no `.idea-tag` children of its own — this rule must not leak into it. */
-.idea-tab > .idea-tag {
-  font-size: var(--idea-tag-size, var(--idea-label-size, 0.57rem));
+/* THE CHIP'S SHAPE, DECLARED ONCE for both places a chip appears: the hat pill
+   (`.idea-tab > .idea-tag`) and a badge in a shared row (`.idea-row-badges >
+   .idea-tag`, `#idea-row`). It used to be one rule for the hat, hand-copied into
+   `@rheo/rookery-search`'s and `@rheo/rookery-timeline`'s own stylesheets for their
+   own chips — three copies of one object, which is what `#idea-row` exists to end.
+
+   THE SIZE IS NOT SHARED, and that is the whole reason this is two rules rather than
+   one. The hat's chip is keyed to `--idea-label-size` because `.idea-tab` is a flex
+   row as tall as its tallest item: anything taller than the label drags the rule —
+   and the card's corner — down with it, MEASURED at 5.38px before that sizing landed.
+   A row has no such constraint and takes an ordinary relative size. */
+.idea-tab > .idea-tag,
+.idea-row-badges > .idea-tag {
   line-height: 1;
   font-family: var(--idea-label-font, monospace);
   letter-spacing: 0.03em;
@@ -1115,6 +1126,96 @@ h6.idea {
   color: var(--idea-tag-color, var(--idea-id-color, gray));
   background-color: var(--idea-tag-bg, rgba(128, 128, 128, 0.18));
   background-color: var(--idea-tag-bg, color-mix(in oklab, currentColor 14%, transparent));
+}
+
+.idea-tab > .idea-tag {
+  font-size: var(--idea-tag-size, var(--idea-label-size, 0.57rem));
+}
+
+/* SET AS WRITTEN, not uppercased. A chip in a row is the same object as a chip on a
+   hat, and the two sit on one page — so core draws them one way and a project that
+   wants status labels shouting says so in its own stylesheet. */
+.idea-row-badges > .idea-tag {
+  font-size: var(--idea-tag-size, 0.85em);
+}
+
+/* ============================================
+   `#idea-row` — the shared row (`src/row.typ`)
+
+   A GRID, NOT A FLEX LINE. A flex item's basis is a HYPOTHETICAL size: content wider
+   than it renders at its own width and pushes what follows along, so titles land at a
+   different x on every row. A grid track is the same width on every row whatever sits
+   in it — which is the entire point of a column of dates.
+
+   The row emits an `<li>` and nothing around it: whether the list is a plain `<ul>`,
+   a scroll box or a table is the VIEW's business, so no rule here touches the parent.
+   ============================================ */
+.idea-row {
+  display: grid;
+  grid-template-columns: var(--idea-row-gutter, 7.5em) 1fr auto auto;
+  gap: 0 0.9rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+}
+
+/* `tabular-nums` is what makes the first column a COLUMN: without it the separators
+   in `7.9.26` and `14.10.26` land in different places and there is nothing to scan
+   down. `nowrap` because a date that wraps is not a date. */
+.idea-row-when {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* THE ONE PRESENTATIONAL FACT `soft:` CARRIES: this date answers a different question
+   than the list asked — a booked event standing in for a deadline, a rung merely
+   expected. It keeps the column, because it answers the same question a reader is
+   scanning for, and it has to read as the softer of the two. */
+.idea-row-when.soft {
+  color: var(--idea-muted-color, gray);
+  font-style: italic;
+}
+
+.idea-row-title {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.idea-row-title:hover {
+  text-decoration: underline;
+}
+
+/* A caller's own extra column — a host institution, a path. Muted and non-wrapping,
+   because it is a fact about the row rather than part of naming it. */
+.idea-row-cell {
+  color: var(--idea-muted-color, gray);
+  white-space: nowrap;
+}
+
+/* HARD RIGHT, and the strip is one flex line so several chips read as a group rather
+   than as separate columns. A badge glued to the end of a variable-length title lands
+   somewhere different on every row, which is nothing to scan. */
+.idea-row-badges {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* NARROW: the date column stops paying for itself — a fixed 7.5em beside a title
+   leaves the title two words per line — so the date spans the row and everything
+   stacks under it. BOTH RULES ARE REQUIRED TOGETHER: flattening the tracks without
+   also spanning the date puts the title in the narrow first track, MEASURED as
+   exactly that bug in a consumer at a 390px viewport. */
+@media (max-width: 768px) {
+  .idea-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .idea-row-when,
+  .idea-row-cell {
+    grid-column: 1 / -1;
+  }
 }
 
 /* An open window needs more room beneath it than a closed one, or a column of

@@ -48,6 +48,10 @@
 #import "transclusion.typ": *
 #import "links.typ": *
 #import "idea.typ": *
+// `row.typ` DEPENDS ON NOTHING HERE — a row takes formatted cells and emits an `<li>`
+// — so its position in this order is free. It sits with the drawing modules rather
+// than the reading ones, which is where a reader will look for it.
+#import "row.typ": *
 #import "window.typ": *
 #import "outline.typ": *
 #import "template.typ": *
