@@ -113,6 +113,19 @@
 // being watched with nothing announced yet is precisely what a queue should still
 // show.
 //
+// `name-from:` IS FOR A CORPUS WHERE THE DATED NOTE IS AN INSTANCE OF SOMETHING
+// ELSE, which is the ordinary shape of a tracker: the durable note is the place —
+// a conference series, a journal, a programme — and the dated note is one attempt at
+// it, carrying a valued tag that points back. Such a note has no name of its own and
+// should not be given one, because a title stored in two places drifts. So this takes
+// the TAG KEY holding the pointer, and the row is named and linked by whatever it
+// points at. Without it, a row is named by its own note, which is the right answer
+// whenever the dated note IS the thing.
+//
+// A KEY, NOT A CALLBACK: there is no render hook here on purpose (see the header),
+// and this stays on the declarative side of that line — the same register as
+// `stage:`, which also names a key rather than computing anything.
+//
 // SORTED ASCENDING, oldest first, which puts a date already behind you at the TOP
 // rather than the bottom. An overdue row is the most urgent thing on the list.
 #let upcoming(
@@ -120,6 +133,7 @@
   match: "any",
   filter: none,
   stage: DEADLINE-STAGE,
+  name-from: none,
   today: none,
   from: none,
   within: none,
@@ -149,10 +163,28 @@
   let rows = ideas(tags: tags, match: match, values: true)
   if filter != none { rows = rows.filter(r => filter(r.tags-dict)) }
 
+  // ONE PASS FOR THE WHOLE LOOKUP, not one per row: `ideas()` walks the registry, and
+  // doing that inside the row map would walk it once per row. `values:` is left off —
+  // a target is read for its name and its link, never its tags.
+  let by-name = if name-from == none { (:) } else {
+    ideas().map(r => (r.name, r)).to-dict()
+  }
+
   let rows = rows.map(r => {
     let w = when-of(r.tags-dict, stage: stage, today: today)
+    // WHERE THE ROW'S NAME COMES FROM. Without `name-from:` it is the dated note's
+    // own. With it, the note this one POINTS AT — see the argument's own note above.
+    // A pointer naming a note that is not there falls back silently to the dated
+    // note: a missing target is an authoring gap in the corpus, and a view that
+    // panicked over one typo would take a whole site down with it.
+    let target = if name-from == none { none } else {
+      let of = r.tags-dict.at(name-from, default: none)
+      if type(of) == str { by-name.at(of, default: none) } else { none }
+    }
     (
       ..r,
+      shown: if target == none { _name-of(r) } else { _name-of(target) },
+      link-to: if target == none { r.href } else { target.at("href", default: none) },
       when: w.date,
       firm: w.firm,
       key: _key(w.date),
@@ -194,7 +226,7 @@
             if r.when != none {
               [#_fmt-day(r.when)#if not r.firm { [ (booked)] } — ]
             }
-            _name-of(r)
+            r.shown
             if r.at != none { [ #text(gray, "(" + _words(r.at) + ")")] }
           }),
         )
@@ -238,10 +270,10 @@
                 html.elem("time", attrs: (datetime: _iso(r.when)), _fmt-day(r.when))
               },
             )
-            if r.href == none {
-              html.elem("span", attrs: (class: "upcoming-name"), _name-of(r))
+            if r.link-to == none {
+              html.elem("span", attrs: (class: "upcoming-name"), r.shown)
             } else {
-              html.elem("a", attrs: (class: "upcoming-name", href: r.href), _name-of(r))
+              html.elem("a", attrs: (class: "upcoming-name", href: r.link-to), r.shown)
             }
             // TWO CLASSES ON THE BADGE, and the second is what carries a project's
             // colours: `idea-tag-<stage>` is the class rookery's generated

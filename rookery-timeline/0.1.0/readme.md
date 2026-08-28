@@ -617,6 +617,7 @@ links to the note.
 | `tags:` / `match:` | rookery's own selection vocabulary, passed straight to `ideas()` |
 | `filter:` | a predicate over the note's tag dictionary, ANDed with the above |
 | `stage:` | which log entry dates the row — see below |
+| `name-from:` | a tag key naming the note whose name and link the row takes — see below |
 | `today:` | the reference date, as everywhere else here |
 | `from:` | a `datetime`; drops a row dated before it |
 | `within:` | days; drops a row dated later than `today + within` |
@@ -651,6 +652,35 @@ asked to be queued by; it is not a claim about the date's reliability.
 
 Rows sort **ascending, oldest first**, which puts a date already behind you at the
 TOP. An overdue row is the most urgent thing on the list, not the stalest.
+
+### `name-from:` — when the dated note is an instance of something else
+
+**A tracker's dated note usually has no name of its own, and should not be given
+one.** The durable note is the place — a conference series, a journal, a programme —
+and the dated note is one attempt at it, carrying a valued tag that points back;
+storing the title on both is how the two drift apart. So `name-from:` takes the TAG
+KEY holding that pointer, and the row is named and linked by whatever it points at:
+
+```typst
+#upcoming(tags: "submission", name-from: "submission-of")
+```
+
+```
+30.7.26   History and Philosophy of Computing (HaPoC)     SUBMITTED
+ 1.9.26   Cornell Society for the Humanities
+```
+
+rather than the opening words of each submission's own body, which is what rookery's
+`label` falls back to for an untitled note.
+
+The row links to the note it names — the durable one, which is what a reader clicking
+a place's name wants, and which lists the dated note among its own backlinks anyway.
+A pointer naming a note that does not exist falls back to the dated note's own name
+silently: a missing target is an authoring gap in the corpus, and a view that panicked
+over one typo would take a whole site down with it.
+
+`name-from:` is a KEY, not a callback. There is no render hook here (see below), and
+this stays on the declarative side of that line — the same register as `stage:`.
 
 ### What it deliberately is not
 

@@ -10,25 +10,42 @@
 //   2. a row with no deadline but something BOOKED — soft, and still in the queue
 //   3. `from:` — a cutoff drops what is too old, and keeps an undated row
 //   4. nothing selected — the empty line, not a bare empty list
+//   5. `name-from:` — a dated note named by the durable note it points at
+//
+// EVERY CALL IS TAG-SCOPED, because the registry is the whole document: the
+// `name-from` notes below would otherwise join the first two lists and the assertions
+// would be counting each other's fixtures.
 #import "/src/lib.typ": *
 #show: rookery
 
 #let d(y, m, dd) = datetime(year: y, month: m, day: dd)
 #let NOW = d(2026, 8, 27)
 
-#idea("later", title: [Later], deadline: d(2026, 10, 1))[Body.]
-#idea("sooner", title: [Sooner], deadline: d(2026, 9, 1))[Body.]
-#idea("booked", title: [Booked], timeline: (submitted: d(2026, 8, 1), "first-interview": d(2026, 9, 20)))[Body.]
-#idea("watched", title: [Watched], tags: ("watch",))[Nothing announced yet.]
+#idea("later", title: [Later], tags: ("queued",), deadline: d(2026, 10, 1))[Body.]
+#idea("sooner", title: [Sooner], tags: ("queued",), deadline: d(2026, 9, 1))[Body.]
+#idea("booked", title: [Booked], tags: ("queued",), timeline: (submitted: d(2026, 8, 1), "first-interview": d(2026, 9, 20)))[Body.]
+#idea("watched", title: [Watched], tags: ("watch", "queued"))[Nothing announced yet.]
+
+// `name-from:`'s case: the DURABLE note holds the title, and the dated note is one
+// attempt at it, carrying a pointer and no name of its own — which is what every
+// tracker looks like. The third one's pointer names nothing, and must still render.
+#idea("venue-x", title: [A Real Venue])[The durable note.]
+#idea("try-1", tags: ("attempt": "venue-x"), deadline: d(2026, 9, 3))[Sent the abstract.]
+#idea("try-2", tags: ("attempt": "venue-x"), deadline: d(2026, 9, 4))[Sent a second one.]
+#idea("try-lost", tags: ("attempt": "no-such-note"), deadline: d(2026, 9, 5))[Dangling pointer.]
 
 = 1. Every row, soonest first
 
-#upcoming(today: NOW, stage: (DEADLINE-STAGE, SCHEDULED-STAGE))
+#upcoming(tags: "queued", today: NOW, stage: (DEADLINE-STAGE, SCHEDULED-STAGE))
 
 = 2. With a cutoff
 
-#upcoming(today: NOW, from: d(2026, 9, 15))
+#upcoming(tags: "queued", today: NOW, from: d(2026, 9, 15))
 
 = 3. Nothing selected
 
 #upcoming(tags: "no-note-carries-this", today: NOW)
+
+= 4. Named from the note a tag points at
+
+#upcoming(tags: "attempt", today: NOW, name-from: "attempt")

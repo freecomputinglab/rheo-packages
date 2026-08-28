@@ -144,8 +144,8 @@ import re, sys
 h = open(sys.argv[1]).read()
 
 lists = re.findall(r'<ul class="upcoming-list">(.*?)</ul>', h, re.S)
-if len(lists) != 2:
-    print(f"FAIL: expected 2 upcoming lists (all rows, then the cutoff), found {len(lists)}")
+if len(lists) != 3:
+    print(f"FAIL: expected 3 upcoming lists (all rows, the cutoff, `name-from`), found {len(lists)}")
     sys.exit(1)
 
 def rows(lst):
@@ -201,7 +201,26 @@ if cut != ["Booked", "Later", "Watched"]:
     print(f"FAIL: `from:` left {cut}, wanted Booked, Later, Watched")
     sys.exit(1)
 
-# 5. NOTHING SELECTED renders the empty line rather than an empty list.
+# 5. `name-from:` NAMES AND LINKS THE ROW BY THE NOTE IT POINTS AT. The dated notes
+# here have no titles at all, so without it every row would read as its own body.
+named = rows(lists[2])
+# The third row's pointer names nothing, so it falls back to its OWN label — which
+# for an untitled note is rookery's own fallback, the body's opening. That is the
+# documented behaviour: a dangling pointer renders, it does not panic.
+if [name(b) for _, b in named] != ["A Real Venue", "A Real Venue", "Dangling pointer."]:
+    print(f"FAIL: name-from rows read {[name(b) for _, b in named]}")
+    sys.exit(1)
+# THE LINK CANNOT BE ASSERTED HERE, and that is a property of the fixture rather
+# than of the view: under a plain `typst compile` nothing mints note pages, so every
+# row's `href` is `none` and each name renders as a <span>. Same reason
+# @rheo/rookery-todos' own row code documents for degrading to unlinked text. What
+# IS asserted is that no row links anywhere at all, so a dangling pointer cannot
+# have invented one.
+if 'class="upcoming-name" href=' in lists[2]:
+    print("FAIL: a link appeared where nothing mints pages — check where href came from")
+    sys.exit(1)
+
+# 6. NOTHING SELECTED renders the empty line rather than an empty list.
 if h.count('class="upcoming-empty"') != 1:
     print("FAIL: the empty selection did not render exactly one .upcoming-empty")
     sys.exit(1)
