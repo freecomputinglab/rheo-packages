@@ -1215,6 +1215,39 @@ porting it a fourth time.
 That is the whole call. There is no index to build and no wrapper to write, which is
 the point of the export: the widget a site kept re-implementing was this one.
 
+### How a tag reads: `tag-display:`
+
+Pills and chips show the tag name with its hyphens turned into spaces. A project whose
+tags share a namespacing prefix strips it here:
+
+```typst
+#filter-panel(
+  tag: "todo",
+  pills: ("epic-jobs", "epic-writing"),
+  tag-display: t => if t.starts-with("epic-") { t.slice(5) } else { t },
+)
+```
+
+```
+(jobs)(writing)          <- pills
+ —   Apply to Cornell Society for the Humanities   JOBS
+```
+
+**Display only.** The row's `idea-tag-<tag>` classes, the chip's own class and the
+pill's `data-panel-tag` all keep the real tag, so theme rules and the script are
+untouched by anything written here. Two tags that display alike make two pills that
+read alike, which the panel cannot detect — that one is yours to avoid.
+
+### `visible:` is a height, and `none` removes it
+
+`visible: 8` shows eight rows and scrolls the rest; `visible: none` lets the list flow
+down the page for as long as there are matching rows. Neither is a data cap — every row
+is in the markup either way.
+
+A scroll box earns its place in a widget opened to find one thing. It does not earn it
+in a page's main list, where the row at the cap is cut in half and the rest sits behind
+a gesture nothing on the page advertises.
+
 **IT READS `ideas()` ITSELF**, which is a deliberate departure from `#panel`'s "panels
 take an index, they never build one". That rule exists to stop a per-view walk of the
 value store; keeping it here would have cost every consuming site a wrapper. One walk

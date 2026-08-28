@@ -840,6 +840,16 @@
      — the padding and the rule between rows — is the panel's own frame and applies
      to both. A `#filter-panel` row therefore keeps rookery's grid and picks up this
      border, which is exactly what it should look like. */
+  /* `#filter-panel(visible: none)` — THE LIST FLOWS. A cap is right for a widget a
+     reader opens to find one thing; it is wrong for a page's main list, where the row
+     at the cap is cut in half and the rest is behind a gesture nothing on the page
+     advertises. The class is what the rule hangs on, because CSS cannot ask whether
+     `--panel-rows` was set. */
+  .panel-flow .panel-results {
+    max-height: none;
+    overflow-y: visible;
+  }
+
   .panel-row:not(.idea-row) {
     display: flex;
     gap: 0.6rem;

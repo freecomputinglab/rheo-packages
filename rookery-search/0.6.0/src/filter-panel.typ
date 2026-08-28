@@ -61,9 +61,30 @@
   // — which is what an index of open work wants. A caller ordering by something derived
   // passes its own reader. Returns a `datetime` or `none`.
   when: r => r.at("created", default: none),
-  // Pill and chip text from a tag name. A hyphen is a naming convention, not something
-  // a reader should have to see.
-  label: t => t.replace("-", " "),
+  // HOW A TAG READS, in a pill and in a chip. The default turns a hyphen into a space,
+  // because a hyphen is a naming convention rather than something a reader should have
+  // to see. A caller whose tags share a namespacing prefix strips it here:
+  //
+  //   tag-display: t => if t.starts-with("epic-") { t.slice(5) } else { t }
+  //
+  // DISPLAY ONLY, and that is the whole contract: the row's `idea-tag-<tag>` class,
+  // the chip's own class and the pill's `data-panel-tag` all keep the REAL tag, so a
+  // project's theme rules and this package's script are untouched by anything written
+  // here. Two tags that display the same string produce two pills reading alike, which
+  // the panel cannot detect and will not warn about — that is the caller's to avoid.
+  //
+  // NOT `label:`, which is what this argument was called for about an hour: `label` is
+  // already a rookery ROW FIELD (a note's own name, read three lines below as
+  // `r.at("label")`), so one word meant two things inside one function.
+  tag-display: t => t.replace("-", " "),
+  // HOW MANY ROWS SHOW BEFORE THE LIST SCROLLS, and `none` means IT DOES NOT: the
+  // list flows down the page for as long as there are matching rows. Not a data cap
+  // either way — every row is in the markup regardless, and the cap is only a height.
+  //
+  // A scroll box earns its place in a widget a reader opens to find one thing (the
+  // panel's own ancestor is a search dropdown). It does not earn it in a page's main
+  // list, where it cuts a row in half and hides the rest behind a gesture nothing
+  // advertises — which is the same argument `#upcoming` makes for having no cap at all.
   visible: 8,
   placeholder: "Filter",
   noun: "ideas",
@@ -112,7 +133,7 @@
         title: r.at("label", default: r.at("name", default: "")),
         href: r.at("href", default: none),
         tags: _tags-of(r),
-        badges: mine.map(t => (text: label(t), tag: t)),
+        badges: mine.map(t => (text: tag-display(t), tag: t)),
         // The panel's own row hook, kept so the script and the stylesheet reach these
         // rows exactly as they reach `#panel`'s.
         extra: ("panel-row",),
@@ -148,7 +169,10 @@
   html.elem(
     "div",
     attrs: (
-      class: "panel",
+      // `panel-flow` IS THE UNCAPPED CASE, as a class rather than as an absent custom
+      // property: CSS cannot test whether `--panel-rows` was set, so the stylesheet
+      // needs something positive to hang "no max-height" on.
+      class: if visible == none { "panel panel-flow" } else { "panel" },
       // `data-panel-mode` IS HOW ONE SCRIPT TELLS THE TWO PANELS APART. `#panel`'s
       // pills carry `data-panel-facet`/`data-panel-value` and filter on a row's
       // `data-<field>`; these carry `data-panel-tag` and intersect on
@@ -159,7 +183,7 @@
       // with no JavaScript the chrome that would do nothing never appears, and what is
       // left is an ordinary complete list.
       "data-panel-ready": "false",
-      style: "--panel-rows: " + str(visible),
+      ..if visible == none { (:) } else { (style: "--panel-rows: " + str(visible)) },
     ),
     {
       html.elem(
@@ -185,7 +209,7 @@
                 "data-panel-tag": t,
                 "aria-pressed": "false",
               ),
-              label(t),
+              tag-display(t),
             ))
             .join(),
         )
