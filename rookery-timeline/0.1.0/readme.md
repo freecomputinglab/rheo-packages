@@ -631,6 +631,7 @@ rather than visibly absent, and Typst has no wall clock to check them against (s
 | `from:` | a `datetime`; drops a row dated before it |
 | `within:` | days; drops a row dated later than `today + within` |
 | `limit:` | truncate after sorting |
+| `countdown:` | draw how long you have, as a chip on the right — see below |
 | `title:` | optional label above the list |
 | `empty:` | what to show when nothing survives |
 
@@ -661,6 +662,45 @@ asked to be queued by; it is not a claim about the date's reliability.
 
 Rows sort **ascending, oldest first**, which puts a date already behind you at the
 TOP. An overdue row is the most urgent thing on the list, not the stalest.
+
+### `countdown:` — how long you have, on the right of the row
+
+Off by default. With it on, a row whose date falls within a fortnight gains a chip at
+the right-hand end reading `today`, `tomorrow`, `yesterday`, `in 5 days` or
+`9 days ago`:
+
+```typst
+#upcoming(tags: "submission", today: NOW, within: 90, countdown: true)
+```
+
+```
+20.8.26   Media Theory Conference 2027       UNDER REVIEW   7 DAYS AGO
+27.8.26   Cornell Society for the Humanities                TODAY
+ 2.9.26   Lecturer in Artificial Intelligence               IN 6 DAYS
+ 8.9.26   Temporalities of AI                               IN 12 DAYS
+ 1.11.26  Bibliotheca Hertziana
+```
+
+Two bands, and the cutoffs are fixed:
+
+| | |
+|---|---|
+| **urgent** | seven days or less — and today, tomorrow, and anything overdue |
+| **soon** | eight to fourteen days |
+| *(nothing)* | further off than a fortnight, or no date at all |
+
+**Overdue counts as urgent, and has no floor.** Rows sort ascending, so a date already
+behind you sits at the TOP of the list; a row that fell out of the band after a
+fortnight would go quiet exactly as it got worse. `100 days ago` is a countdown too.
+
+**The edges are words.** Nobody writes `in 1 days`, and the three dates a reader acts
+on today are the three worth naming.
+
+The chip is an ordinary `.idea-tag` wearing `idea-tag-due-urgent` or
+`idea-tag-due-soon`, appended LAST to the row's badge strip — which is what puts it on
+the right, since that strip is `justify-content: flex-end`. So this needs no new
+column in `#idea-row` and nothing at all from `@rheo/rookery`. On a paged target the
+same words render in parentheses after the stage, with no colour.
 
 ### `name-from:` — when the dated note is an instance of something else
 
@@ -707,10 +747,16 @@ project may want the queue inside somebody else's widget:
 )
 ```
 
-It takes every argument `#upcoming` does except `title:` and `empty:` (which are about
-drawing), and returns the row dictionaries: rookery's own `ideas()` fields plus `shown`
-(what to call the row), `link-to`, `when`, `firm`, `key` (the zero-padded sort stamp)
-and `at` (the stage reached).
+It takes every argument `#upcoming` does except `title:`, `empty:` and `countdown:`
+(which are about drawing), and returns the row dictionaries: rookery's own `ideas()`
+fields plus `shown` (what to call the row), `link-to`, `when`, `firm`, `key` (the
+zero-padded sort stamp), `at` (the stage reached) and `in-days`.
+
+`in-days` is whole days until the row's date — negative where it is already behind
+you, `none` where the row has no date at all. It ships on **every** row regardless of
+`countdown:`, because this is the data half of the pair: a project rendering these
+rows inside somebody else's widget draws its own urgency column and never calls
+`#upcoming` at all.
 
 **A project doing this must import `@rheo/rookery-search` in its own files.** rheo
 scans only a project's own imports, never a package's — so if this package wrapped that
@@ -734,6 +780,12 @@ school, a path to a manuscript — is a question about the caller's own data mod
 which this package cannot see; a project needing one keeps its own view. Fixed
 columns are what make one call over two unrelated corpora read as one table.
 
+`countdown:` is not an exception to that. It draws a fourth thing, but it asks the
+caller for nothing: the words come from the log and the reference date, which this
+view already holds and already sorts by. What the rule refuses is a column only the
+caller can fill, because that is the one that stops two corpora looking like one
+table. A countdown is the same column whatever the corpus.
+
 On a paged or EPUB target there is no grid to align and no anchor to click, so the
 same rows render as an ordinary list.
 
@@ -753,10 +805,23 @@ hook this package keeps, and where the rule between rows is drawn), and
 `idea-tag-<tag>` classes, so a project theming a tag on a card has already themed it
 here.
 
+The `countdown:` chip adds two classes of this view's own, `.idea-tag-due-urgent` and
+`.idea-tag-due-soon`, riding on an otherwise ordinary `.idea-tag`.
+
 Colours come from the rail's own properties (`--timeline-fg`, `--timeline-muted`,
-`--timeline-line`), and there is one knob of its own: `--upcoming-gutter`, the width of
-the date column, forwarded to the shared row's `--idea-row-gutter` and defaulting to
-`--timeline-gutter`'s 7.5em.
+`--timeline-line`), and there are three knobs of its own:
+
+| | |
+|---|---|
+| `--upcoming-gutter` | the date column's width, forwarded to the shared row's `--idea-row-gutter` (defaults to `--timeline-gutter`'s 7.5em) |
+| `--upcoming-due-urgent` | the countdown chip at seven days or less, and at today, tomorrow or overdue (defaults to `#b3261e`) |
+| `--upcoming-due-soon` | the same chip between eight and fourteen days (defaults to `#b3611e`) |
+
+**There is a second route to those two colours, and it wins.** The chip wears an
+ordinary `idea-tag-<tag>` class, so theming `due-urgent` or `due-soon` through
+rookery's own `tags-color` colours it like any other tag — and those generated rules
+live in `@layer rookery-tags`, declared after this package's layer, so a themed tag
+beats the defaults above without needing to know they exist.
 
 The list **flows down the page**: no `max-height`, no `overflow`, no scroll box. A
 caller wanting fewer rows passes `limit:`, which is a claim about the data rather
