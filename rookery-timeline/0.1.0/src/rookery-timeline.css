@@ -29,10 +29,14 @@
    `#upcoming` draws its rows with `#idea-row` from @rheo/rookery, so the row's grid,
    its date column and its chips are styled in THAT package's stylesheet — including
    the `--idea-tag-*` properties a themed stage colours itself through. What is left
-   here is the list's own frame, plus one knob:
+   here is the list's own frame, plus three knobs:
 
-     --upcoming-gutter   width of that view's date column, forwarded to the shared
-                         row's `--idea-row-gutter` (defaults to --timeline-gutter)
+     --upcoming-gutter      width of that view's date column, forwarded to the shared
+                            row's `--idea-row-gutter` (defaults to --timeline-gutter)
+     --upcoming-due-urgent  the `countdown:` chip at seven days or less, and at
+                            today, tomorrow or overdue (defaults to #b3261e)
+     --upcoming-due-soon    the same chip between eight and fourteen days
+                            (defaults to #b3611e)
 */
 @layer rookery-timeline {
   /* THE RAIL IS ONE ABSOLUTELY-POSITIONED LINE, spanning the list top to bottom.
@@ -245,5 +249,41 @@
      narrow-width behaviour is its rule, not this one's. */
   .upcoming-row {
     --idea-row-gutter: var(--upcoming-gutter, var(--timeline-gutter, 7.5em));
+  }
+
+  /* THE `countdown:` CHIP, at its two bands. Urgent is seven days or less — and
+     today, tomorrow, and anything already overdue; soon is eight to fourteen.
+     Further off draws no chip at all, so there is no third rule to write.
+
+     SET AS CUSTOM PROPERTIES, NOT AS `color`/`background-color`, and that is
+     forced rather than stylistic. @rheo/rookery's chip rule
+     (`.idea-row-badges > .idea-tag`, rookery.css) is UNLAYERED, and unlayered CSS
+     beats layered CSS whatever the specificity — so a `color:` declared here,
+     inside this file's layer, would lose to it every time. What that rule does is
+     READ `var(--idea-tag-color, ..)` and `var(--idea-tag-bg, ..)`, and it never
+     sets them. Setting the two properties is therefore the only route in, and it
+     is the same route a themed tag takes.
+
+     WHICH IS ALSO HOW A PROJECT OVERRIDES THIS. Theming `due-urgent` or
+     `due-soon` through rookery's own `tags-color` generates
+     `.idea-tag-due-urgent { --idea-tag-bg: ..; --idea-tag-color: .. }` into
+     `@layer rookery-tags`, from a `<style>` in the document BODY. Layer order is
+     fixed by first appearance and rheo links package stylesheets in the HEAD, so
+     `rookery-timeline` is declared first and `rookery-tags` — being later — wins
+     however specific these selectors are. The chip is an ordinary
+     `idea-tag-<tag>` chip, and themes it like any other.
+
+     THE 14% WASH is copied deliberately from the
+     `color-mix(in oklab, currentColor 14%, transparent)` default in that same core
+     rule, so the countdown chip and the stage chip beside it read as one object
+     rather than as two conventions sharing a row. */
+  .upcoming-row .idea-tag-due-urgent {
+    --idea-tag-color: var(--upcoming-due-urgent, #b3261e);
+    --idea-tag-bg: color-mix(in oklab, var(--upcoming-due-urgent, #b3261e) 14%, transparent);
+  }
+
+  .upcoming-row .idea-tag-due-soon {
+    --idea-tag-color: var(--upcoming-due-soon, #b3611e);
+    --idea-tag-bg: color-mix(in oklab, var(--upcoming-due-soon, #b3611e) 14%, transparent);
   }
 }
