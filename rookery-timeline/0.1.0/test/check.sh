@@ -144,8 +144,9 @@ import re, sys
 h = open(sys.argv[1]).read()
 
 lists = re.findall(r'<ul class="upcoming-list">(.*?)</ul>', h, re.S)
-if len(lists) != 3:
-    print(f"FAIL: expected 3 upcoming lists (all rows, the cutoff, `name-from`), found {len(lists)}")
+if len(lists) != 4:
+    print(f"FAIL: expected 4 upcoming lists (all rows, the cutoff, `name-from`, "
+          f"the countdown), found {len(lists)}")
     sys.exit(1)
 
 # THE CELLS ARE `#idea-row`'s NOW, from @rheo/rookery — `.idea-row-when` /
@@ -230,8 +231,48 @@ if h.count('class="upcoming-empty"') != 1:
     print("FAIL: the empty selection did not render exactly one .upcoming-empty")
     sys.exit(1)
 
+# 7. `countdown:` — THE CHIP ON THE RIGHT. Both bands, both edges, both silences,
+# counted from the fixture's NOW = 27.8.26.
+#
+# THE `deadline` CHIPS ON THE FIRST TWO ROWS ARE NOT A BUG: `stage-of` returns the
+# last log entry dated ON OR BEFORE the reference date, and a deadline today or in
+# the past is exactly that. They are what makes the ordering assertion below mean
+# something — a row with two chips is the only place "last in the strip" can fail.
+def chips(row):
+    return re.findall(r'class="idea-tag (idea-tag-[^"]*)">([^<]*)', row)
+
+due = {name(b): chips(b) for _, b in rows(lists[3])}
+want = {
+    "Overdue":   ("idea-tag-due-urgent", "7 days ago"),
+    "Due today": ("idea-tag-due-urgent", "today"),
+    "Tomorrow":  ("idea-tag-due-urgent", "tomorrow"),
+    "This week": ("idea-tag-due-urgent", "in 6 days"),
+    "Fortnight": ("idea-tag-due-soon", "in 12 days"),
+}
+if set(due) != set(want) | {"Far off", "Undated"}:
+    print(f"FAIL: the countdown list holds {sorted(due)}")
+    sys.exit(1)
+for row, (cls, text) in want.items():
+    # LAST IN THE STRIP is what puts it on the right — `.idea-row-badges` is
+    # `justify-content: flex-end`, so a prepended chip would sit in the middle.
+    if due[row][-1] != (cls, text):
+        print(f"FAIL: {row}'s last chip is {due[row][-1]}, wanted {(cls, text)}")
+        sys.exit(1)
+for row in ("Far off", "Undated"):
+    if any(c.startswith("idea-tag-due-") for c, _ in due[row]):
+        print(f"FAIL: {row} drew a countdown chip: {due[row]}")
+        sys.exit(1)
+
+# THE DEFAULT IS OFF. None of the three lists above asked for a countdown, and a
+# chip leaking into them would mean the flag is not the opt-in it claims to be.
+for i in (0, 1, 2):
+    if "idea-tag-due-" in lists[i]:
+        print(f"FAIL: list {i} drew a countdown chip without asking for one")
+        sys.exit(1)
+
 print(f"  upcoming: {len(all_rows)} rows in date order, undated last, 1 soft, "
-      f"badges from the log, cutoff kept {cut}")
+      f"badges from the log, cutoff kept {cut}, countdown chips last in the strip "
+      f"across {len(want)} bands with 2 silent")
 PY
 
 if [ "$fail" -eq 0 ]; then echo "views OK"; else echo "views FAILED"; exit 1; fi
