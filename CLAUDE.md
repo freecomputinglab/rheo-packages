@@ -7,12 +7,20 @@ A collection of [Rheo](https://rheo.ohrg.org) Typst packages published under the
 Most packages also ship JS via `package.json`/vite — see "Pure-Typst
 packages" below for the one that doesn't.
 
-One dependency between packages so far: `@rheo/rookery-search` (fuzzy search
+Two dependencies between packages so far. `@rheo/rookery-search` (fuzzy search
 over a rookery — ranking, a JSON index, an embeddable search bar, and an
 overlay search modal) imports `@rheo/rookery` for its `ideas()` and
 `note-href()` primitives. It is built like every other JS package here;
 rookery is not. A project using it must
 import BOTH in its own `.typ` files — see that package's readme for why.
+
+`@rheo/rookery-todos` then imports `@rheo/rookery-search` in ONE file,
+`panel.typ`, which skins `#filter-panel` into a version whose pills know the
+todo graph. That edge was forbidden until it was needed: `ready` and `blocked`
+are derived in rookery-todos and nowhere else, so a panel that cannot press
+them is the one thing every consuming site hand-rolls. `#todos-search` still
+reaches for nothing in search — see that package's `search.typ` for which half
+of the old rule still holds.
 
 ## Build
 

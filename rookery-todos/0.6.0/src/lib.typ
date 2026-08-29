@@ -22,6 +22,11 @@
 #import "graph.typ": *
 #import "views.typ": *
 #import "search.typ": *
+// AFTER `graph.typ`, whose `is-ready`/`is-blocked` it projects, and after
+// `search.typ`, where the reasoning about this package's relationship to
+// @rheo/rookery-search lives. `#filter-panel` is the ONE name here sourced from that
+// package — see `panel.typ`'s own header for why the edge now exists.
+#import "panel.typ": *
 
 // LAST, and the order is as load-bearing here as it is above. `skin.typ`
 // star-imports @rheo/rookery-timeline and shadows `window`; importing it last means

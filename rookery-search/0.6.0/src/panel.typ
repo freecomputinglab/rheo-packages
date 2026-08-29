@@ -88,6 +88,13 @@
   // a preview of the corpus rather than the corpus — you could not reach the
   // thirty-third place without narrowing the query enough to lift it into the
   // top five, and if you did not know its name you could not narrow at all".
+  //
+  // `none` MEANS IT DOES NOT SCROLL: the list flows down the page for as long as
+  // there are matching rows. `#filter-panel` has taken this since it was written —
+  // a scroll box earns its place in a widget a reader opens to find one thing, and
+  // not in a page's main list, where it cuts a row in half and hides the rest behind
+  // a gesture nothing advertises. This function was the odd one out, and `str(none)`
+  // is what a caller trying it hit.
   visible: 8,
   // The haystack the text input filters on, per row. Defaults to the row's own
   // label, name and body — searching the BODY is what finds a note by a phrase
@@ -96,6 +103,16 @@
   // How to draw one row. Content, free-form: this package renders the chrome and
   // the row's own markup is the site's business.
   render: r => [#r.at("label", default: r.at("name", default: ""))],
+  // EXTRA CLASSES ON THE `<li>`, per row — an adapter, not a list, because the
+  // classes worth adding are the row's own (`idea-tag-<tag>`) rather than the
+  // panel's. Mirrors `#idea-row`'s `extra:`, and exists for the same reason
+  // `#idea-row` has `attrs:`: without it a caller rendering the shared row shape
+  // through `render:` cannot also wear `.idea-row`, which is the GRID
+  // (`grid-template-columns: <gutter> 1fr auto auto`) and not decoration. This
+  // package's own stylesheet already expects both shapes — see
+  // `.panel-row:not(.idea-row)`. `#filter-panel` never needed this: it builds its
+  // own `<ul>` and uses `#idea-row` AS the `<li>`.
+  row-class: none,
   placeholder: "Filter",
   // Plural noun for the live count, e.g. "12 submissions".
   noun: "rows",
@@ -148,7 +165,11 @@
   html.elem(
     "div",
     attrs: (
-      class: "panel",
+      // `panel-flow` IS THE UNCAPPED CASE, as a class rather than as an absent custom
+      // property: CSS cannot test whether `--panel-rows` was set, so the stylesheet
+      // needs something positive to hang "no max-height" on. Same device, same class,
+      // as `#filter-panel`.
+      class: if visible == none { "panel panel-flow" } else { "panel" },
       // `false` until the script has wired itself up. The stylesheet hides the
       // input, the pills and the scroll cap while it says so, which is how the
       // widget degrades: with no JavaScript the chrome that would do nothing
@@ -156,7 +177,7 @@
       "data-panel-ready": "false",
       // The visible height goes to CSS as a custom property rather than as a
       // rule, so the number lives once, here, in the call that sets it.
-      style: "--panel-rows: " + str(visible),
+      ..if visible == none { (:) } else { (style: "--panel-rows: " + str(visible)) },
     ),
     {
       html.elem(
@@ -198,7 +219,12 @@
             "li",
             attrs: (
               (
-                class: "panel-row",
+                // `panel-row` FIRST and unconditionally: the script and the
+                // stylesheet both hang off it, so a `row-class` adapter cannot
+                // drop it by returning the wrong thing.
+                class: (
+                  ("panel-row",) + if row-class == none { () } else { row-class(r) }
+                ).join(" "),
                 "data-panel-text": lower(hay(r)),
               )
                 // One `data-<field>` per faceted field, on the row carrying it.

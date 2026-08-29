@@ -14,9 +14,16 @@
 //      list already on the page. The todos stay visible and typing narrows them
 //      where they sit.
 //
-// This package therefore MUST NOT depend on `@rheo/rookery-search`. They are
-// independent, a project may install either alone, and they share nothing but
-// `@rheo/rookery`.
+// THIS WIDGET therefore reaches for nothing in `@rheo/rookery-search`: it renders
+// its own bar, its own pills and its own list, and a project wanting only
+// `#todos-search` needs nothing but this package and `@rheo/rookery`.
+//
+// THAT USED TO BE WRITTEN AS A RULE ABOUT THE WHOLE PACKAGE — "MUST NOT depend on
+// @rheo/rookery-search" — and it was too strong. `panel.typ` now skins that
+// package's `#filter-panel`, for the reason point 1 above states: `ready` and
+// `blocked` are derived HERE and nowhere else, so a panel that cannot press them is
+// the one thing every consuming site ends up hand-rolling. The two facts sit side by
+// side — this file needs no panel, and the panel needs this file's graph.
 //
 // LINKS, NOT TRANSCLUSIONS. Every match is the same link row the other views
 // emit. (`windows: true` on those views is a separate feature and this widget

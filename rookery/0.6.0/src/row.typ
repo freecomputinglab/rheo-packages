@@ -36,6 +36,75 @@
     + "there; this row draws the grid the HTML branch needs."
 )
 
+// THE ROW'S CHILDREN, WITHOUT THE `<li>` AROUND THEM, and the split is forced by a
+// caller rather than chosen for tidiness. @rheo/rookery-search ships TWO widgets that
+// want this shape and disagree about who owns the list item: `#filter-panel` builds
+// its own `<ul>` and uses `#idea-row` AS the `<li>`, while `#panel` wraps whatever its
+// `render:` returns in an `<li class="panel-row" data-<field>=..>` of its own — so a
+// `#panel` row rendered with `#idea-row` nests one `<li>` inside another.
+//
+// The alternative was a consumer re-emitting these four spans to drop the wrapper,
+// which is the fifth hand copy this file's header exists to prevent. So: the shape
+// lives here once, and the wrapper is the part a caller can decline.
+//
+// NO `tags`, `extra` OR `attrs` — those all describe the `<li>`, and a caller reaching
+// for this function has its own.
+#let idea-row-body(
+  when: none,
+  iso: none,
+  soft: false,
+  title: [],
+  href: none,
+  badges: (),
+  cells: (),
+) = {
+  html.elem(
+    "span",
+    attrs: (class: if soft { "idea-row-when soft" } else { "idea-row-when" }),
+    if when == none { [—] } else if iso == none { when } else {
+      html.elem("time", attrs: (datetime: iso), when)
+    },
+  )
+  if href == none {
+    html.elem("span", attrs: (class: "idea-row-title"), title)
+  } else {
+    html.elem("a", attrs: (class: "idea-row-title", href: href), title)
+  }
+  // ONE SPAN PER `cells` ENTRY, between the title and the badges — a host
+  // institution, a path to a manuscript, whatever a caller's own model has that
+  // a reader scans DOWN for rather than reads inside the title. They are content,
+  // not data: the row neither formats nor labels them.
+  for c in cells {
+    html.elem("span", attrs: (class: "idea-row-cell"), c)
+  }
+  // THE BADGE STRIP, and an empty one is omitted entirely rather than drawn
+  // empty: a `<span>` with no children still takes a grid track, which on a
+  // stacked narrow row costs a whole line.
+  //
+  // TWO CLASSES PER CHIP. `idea-tag` is the shape's hook; `idea-tag-<tag>` is the
+  // same class this package puts on a card, a heading, an outline row and a hat
+  // pill, and the class its generated `@layer rookery-tags` rules publish a
+  // themed tag's colours on — so a badge colours itself with no code here.
+  //
+  // NOT WRAPPED IN `.idea-tab`, which carries the hat's own pill rule: that
+  // element draws a stub of rule through its `::before`, which inside a row reads
+  // as a stray dash. The stylesheet shares the SHAPE between the two selectors
+  // instead.
+  if badges.len() > 0 {
+    html.elem(
+      "span",
+      attrs: (class: "idea-row-badges"),
+      badges
+        .map(b => html.elem(
+          "span",
+          attrs: (class: "idea-tag idea-tag-" + b.tag),
+          b.text,
+        ))
+        .join(),
+    )
+  }
+}
+
 // `attrs:` EXISTS FOR THE FILTERING VIEWS, and it is the one hole in "the row asks no
 // questions": @rheo/rookery-search's panels put their own `data-panel-*` attributes on
 // the row a script reads back, and the alternative was that package re-emitting this
@@ -72,52 +141,14 @@
       + (
         class: (("idea-row",) + extra + tags.map(t => "idea-tag-" + t)).join(" "),
       ),
-    {
-      html.elem(
-        "span",
-        attrs: (class: if soft { "idea-row-when soft" } else { "idea-row-when" }),
-        if when == none { [—] } else if iso == none { when } else {
-          html.elem("time", attrs: (datetime: iso), when)
-        },
-      )
-      if href == none {
-        html.elem("span", attrs: (class: "idea-row-title"), title)
-      } else {
-        html.elem("a", attrs: (class: "idea-row-title", href: href), title)
-      }
-      // ONE SPAN PER `cells` ENTRY, between the title and the badges — a host
-      // institution, a path to a manuscript, whatever a caller's own model has that
-      // a reader scans DOWN for rather than reads inside the title. They are content,
-      // not data: the row neither formats nor labels them.
-      for c in cells {
-        html.elem("span", attrs: (class: "idea-row-cell"), c)
-      }
-      // THE BADGE STRIP, and an empty one is omitted entirely rather than drawn
-      // empty: a `<span>` with no children still takes a grid track, which on a
-      // stacked narrow row costs a whole line.
-      //
-      // TWO CLASSES PER CHIP. `idea-tag` is the shape's hook; `idea-tag-<tag>` is the
-      // same class this package puts on a card, a heading, an outline row and a hat
-      // pill, and the class its generated `@layer rookery-tags` rules publish a
-      // themed tag's colours on — so a badge colours itself with no code here.
-      //
-      // NOT WRAPPED IN `.idea-tab`, which carries the hat's own pill rule: that
-      // element draws a stub of rule through its `::before`, which inside a row reads
-      // as a stray dash. The stylesheet shares the SHAPE between the two selectors
-      // instead.
-      if badges.len() > 0 {
-        html.elem(
-          "span",
-          attrs: (class: "idea-row-badges"),
-          badges
-            .map(b => html.elem(
-              "span",
-              attrs: (class: "idea-tag idea-tag-" + b.tag),
-              b.text,
-            ))
-            .join(),
-        )
-      }
-    },
+    idea-row-body(
+      when: when,
+      iso: iso,
+      soft: soft,
+      title: title,
+      href: href,
+      badges: badges,
+      cells: cells,
+    ),
   )
 }
