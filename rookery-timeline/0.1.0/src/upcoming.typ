@@ -26,6 +26,14 @@
 //   and should keep its own view for that. Fixed columns are what make one call on
 //   two unrelated corpora look like one table.
 //
+// THE ONE THING `countdown:` ADDS, and why it is not a breach of the rule above.
+// It draws a fourth thing — a chip reading `in 5 days` — but it asks the CALLER
+// for nothing: the words are computed from the log and the reference date, which
+// is data this file already holds and already sorts by. What the fixed-columns
+// rule refuses is a column only the caller can fill, because that is the one that
+// makes two corpora stop looking like one table. A countdown is the same column
+// whatever the corpus, so it stays a flag rather than becoming the render hook.
+//
 // THIS FILE READS THE NOTE REGISTRY, through rookery's `ideas()`. That makes it the
 // second exception to `lib.typ`'s "every function is a function of its arguments",
 // and a bigger one than `#timeline-view` (which only emits HTML). It is not a new
@@ -175,6 +183,21 @@
 // SORTED ASCENDING, oldest first, which puts a date already behind you at the TOP
 // rather than the bottom. An overdue row is the most urgent thing on the list.
 //
+// `countdown:` DRAWS HOW LONG YOU HAVE, off by default. With it on, a row whose
+// date falls within a fortnight gains a chip on the right reading `today`,
+// `tomorrow`, `yesterday`, `in 5 days` or `9 days ago`. Two bands: SEVEN DAYS OR
+// LESS — and today, tomorrow, and anything overdue — is `urgent`; eight to
+// fourteen days is `soon`; anything further off, or undated, draws nothing at all.
+// The bands are fixed; their colours are two custom properties in this package's
+// stylesheet, and a project may also theme `due-urgent`/`due-soon` through
+// rookery's own `tags-color`, because the chip wears an ordinary `idea-tag-<tag>`
+// class like any other.
+//
+// IT IS THE LAST BADGE IN THE STRIP, which is what puts it on the right: rookery's
+// `.idea-row-badges` is `justify-content: flex-end`, so the final chip is the
+// row's rightmost element. That is also why this needs no new column in
+// `#idea-row` and no change to @rheo/rookery at all.
+//
 // ---- #upcoming-rows — the queue as DATA -------------------------------------
 //
 // SPLIT OUT AND PUBLIC, and not merely as tidiness: it is what lets a project put an
@@ -295,8 +318,9 @@
 
 // ---- #upcoming — the queue as a LIST ----------------------------------------
 //
-// `#upcoming-rows` above plus the drawing, and nothing else: the signature and the
-// output are what they were before the split.
+// `#upcoming-rows` above plus the drawing, and nothing else — plus `countdown:`,
+// which is a drawing argument and so lives only here. `#upcoming-rows` computes
+// `in-days` unconditionally and leaves what to do with it to whoever renders.
 #let upcoming(
   tags: none,
   match: "any",
@@ -307,6 +331,7 @@
   from: none,
   within: none,
   limit: none,
+  countdown: false,
   title: none,
   empty: [Nothing upcoming.],
 ) = context {
@@ -348,6 +373,13 @@
             }
             r.shown
             if r.at != none { [ #text(gray, "(" + _words(r.at) + ")")] }
+            // THE COUNTDOWN AS PLAIN TEXT, and no colour: a paged target has no
+            // chip to tint, and red ink in a PDF is a decision about the page
+            // rather than about the deadline.
+            if countdown {
+              let c = _countdown(r.in-days)
+              if c != none { [ #text(gray, "(" + c.text + ")")] }
+            }
           }),
         )
       }
@@ -396,7 +428,16 @@
           // ONE BADGE, THE STAGE REACHED. `#idea-row` puts `idea-tag` and
           // `idea-tag-<stage>` on it, which is what a themed stage colours itself
           // through — see rookery's own generated `@layer rookery-tags`.
-          badges: if r.at == none { () } else { ((text: _words(r.at), tag: r.at),) },
+          badges: {
+            let bs = if r.at == none { () } else { ((text: _words(r.at), tag: r.at),) }
+            // APPENDED LAST, which is the whole of "a column on the right":
+            // rookery's `.idea-row-badges` is `justify-content: flex-end`, so the
+            // final chip is the rightmost thing on the row. No new column in
+            // `#idea-row`, and so no edit to @rheo/rookery.
+            let c = if countdown { _countdown(r.in-days) } else { none }
+            if c != none { bs.push((text: c.text, tag: "due-" + c.level)) }
+            bs
+          },
         ))
         .join(),
     )
