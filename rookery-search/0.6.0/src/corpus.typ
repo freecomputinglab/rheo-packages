@@ -392,10 +392,14 @@
   tags,
   match,
 ) = {
+  // `none` IS UNCAPPED, the same word `#panel`/`#filter-panel`'s `visible: none`
+  // already uses — one vocabulary across the package for "do not cap this". It is a
+  // RENDER cap either way: the island carries every row regardless, and `score.js`
+  // has always read a null limit as "all of them".
   assert(
-    type(limit) == int and limit > 0,
+    limit == none or (type(limit) == int and limit > 0),
     message: "@rheo/rookery-search: " + where + " `limit` must be a positive "
-      + "integer — got " + repr(limit),
+      + "integer, or `none` for every match — got " + repr(limit),
   )
   assert(
     class == none or type(class) == str,

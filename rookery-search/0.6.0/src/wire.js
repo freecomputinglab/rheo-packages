@@ -10,11 +10,26 @@ import { KEYWORD_LIMIT, appendMarked, markTermsInNode, matchRanges } from "./mar
 import { parseTagQuery, positiveAtoms } from "./tagquery.js";
 import { fold } from "./text.js";
 
+// The `limit` attribute, which is a NUMBER, the string "none", or absent.
+//
+// `null` is what `search()` already reads as uncapped (`score.js`: `limit == null ?
+// out : out.slice(0, limit)`), so "none" resolves to that rather than to Infinity —
+// the core has meant this all along and only the attribute could not say it.
+//
+// ABSENT IS NOT UNCAPPED. It means an older page's markup, or one rendered before
+// this attribute existed, and both want the widget's own default — which is why the
+// fallback is a parameter here rather than a constant.
+const readLimit = (raw, fallback) => {
+  if (raw === "none") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
 export const wire = (root, rows, n) => {
   const input = root.querySelector(".rookery-search-input");
   const list = root.querySelector(".rookery-search-results");
   if (input === null || list === null) return;
-  const limit = Number(root.dataset.rookerySearchLimit || "8");
+  const limit = readLimit(root.dataset.rookerySearchLimit, 8);
 
   // Assigned here, not in the markup: a bar has to be placeable more than once
   // on a page, and duplicate ids would break both `aria-controls` and any CSS
@@ -120,7 +135,7 @@ export const wireModal = (dialog, rows) => {
   // a dropdown under an input does not, which is why `#search-modal`'s own
   // default is 30 (`src/lib.typ:416`) where `#search-bar`'s is 8. Do not tidy
   // the two into agreement.
-  const limit = Number(dialog.dataset.rookerySearchLimit || "30");
+  const limit = readLimit(dialog.dataset.rookerySearchLimit, 30);
 
   let hits = [];
   // Bumped by every `renderPreview`, so a `fetch` that lands after the reader

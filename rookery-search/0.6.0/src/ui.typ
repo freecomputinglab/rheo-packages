@@ -80,7 +80,10 @@
     attrs: (
       class: _search-class("rookery-search", class),
       "data-rookery-search": elem-id,
-      "data-rookery-search-limit": str(limit),
+      // EMITTED EVEN WHEN UNCAPPED, and that is the trap: `wire.js` falls back to
+      // this widget's own default when the attribute is ABSENT, so omitting it for
+      // `none` would silently re-cap the very case that asked not to be.
+      "data-rookery-search-limit": if limit == none { "none" } else { str(limit) },
       "data-rookery-search-open": "false",
     ),
     html.elem("input", attrs: (
@@ -227,7 +230,10 @@
     attrs: (
       class: _search-class("rookery-search-modal", class),
       "data-rookery-search": elem-id,
-      "data-rookery-search-limit": str(limit),
+      // EMITTED EVEN WHEN UNCAPPED, and that is the trap: `wire.js` falls back to
+      // this widget's own default when the attribute is ABSENT, so omitting it for
+      // `none` would silently re-cap the very case that asked not to be.
+      "data-rookery-search-limit": if limit == none { "none" } else { str(limit) },
     ),
     html.elem(
       "div",
