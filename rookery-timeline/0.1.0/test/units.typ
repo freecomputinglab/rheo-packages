@@ -474,3 +474,31 @@
   when-of(entries(timeline: (submitted: d(2026, 1, 1), rejected: d(2026, 2, 1))), today: NOW),
   (date: none, stage: none, firm: false),
 )
+
+// ---- _countdown — HOW LONG YOU HAVE, as words -----------------------------
+//
+// Private to `upcoming.typ`, and reachable here only because Typst's `*` export
+// carries underscore-prefixed names too (there is no privacy rule, only the
+// convention). Asserted directly rather than through `#upcoming` because the view
+// reads the note registry and returns content — this is the whole of the policy,
+// and it is a pure function of one integer.
+#assert.eq(_countdown(none), none)
+// PAST THE BAND, and silent. A deadline a month out is not news.
+#assert.eq(_countdown(15), none)
+#assert.eq(_countdown(14), (text: "in 14 days", level: "soon"))
+#assert.eq(_countdown(8), (text: "in 8 days", level: "soon"))
+// THE BAND EDGE, and the one assertion that pins 7 as the boundary rather than 8.
+#assert.eq(_countdown(7), (text: "in 7 days", level: "urgent"))
+#assert.eq(_countdown(2), (text: "in 2 days", level: "urgent"))
+// WORDS AT THE EDGES: nobody writes `in 1 days`.
+#assert.eq(_countdown(1), (text: "tomorrow", level: "urgent"))
+#assert.eq(_countdown(0), (text: "today", level: "urgent"))
+#assert.eq(_countdown(-1), (text: "yesterday", level: "urgent"))
+// OVERDUE HAS NO FLOOR — the view sorts ascending, so these rows are at the TOP.
+#assert.eq(_countdown(-7), (text: "7 days ago", level: "urgent"))
+#assert.eq(_countdown(-400), (text: "400 days ago", level: "urgent"))
+
+// ---- _days-until — signed, and rounded to whole days -----------------------
+#assert.eq(_days-until(d(2026, 9, 1), d(2026, 8, 27)), 5)
+#assert.eq(_days-until(d(2026, 8, 27), d(2026, 8, 27)), 0)
+#assert.eq(_days-until(d(2026, 8, 20), d(2026, 8, 27)), -7)

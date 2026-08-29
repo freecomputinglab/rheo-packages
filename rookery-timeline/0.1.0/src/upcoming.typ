@@ -90,6 +90,38 @@
 // `_fmt-day`.
 #let _iso(d) = d.display("[year]-[month]-[day]")
 
+// Whole days from the reference date to `d`, NEGATIVE where the date is already
+// behind you. `datetime - datetime` yields a `duration` whose `.days()` is a
+// float, so this rounds to an int — the same idiom `days-at-stage` uses in
+// `when.typ`, rather than a second way of subtracting two dates.
+#let _days-until(d, today) = int(calc.round((d - today).days()))
+
+// HOW LONG YOU HAVE, AS WORDS, or `none` where the row should say nothing at all.
+// Returns `(text: .., level: ..)`; the level is a presentation band, and the view
+// turns it into the class a stylesheet colours.
+//
+// THE EDGES ARE WORDS, not arithmetic. `in 1 days` is not something anyone writes,
+// and the three dates a reader acts on today are exactly the three worth naming.
+//
+// OVERDUE IS URGENT, AND HAS NO FLOOR. `#upcoming` sorts ASCENDING, so a date
+// already behind you sits at the TOP of the list — it is the most urgent thing on
+// it, not the stalest, and a row that fell out of the band after a fortnight would
+// go quiet precisely as it got worse.
+//
+// THE CUTOFFS ARE FIXED at 7 and 14 and take no arguments. What a project retunes
+// is the COLOUR — two custom properties in this package's stylesheet — because a
+// palette is a property of a page and "urgent" is a property of a deadline.
+#let _countdown(days) = {
+  if days == none { return none }
+  if days > 14 { return none }
+  if days < -1 { return (text: str(-days) + " days ago", level: "urgent") }
+  if days == -1 { return (text: "yesterday", level: "urgent") }
+  if days == 0 { return (text: "today", level: "urgent") }
+  if days == 1 { return (text: "tomorrow", level: "urgent") }
+  if days <= 7 { return (text: "in " + str(days) + " days", level: "urgent") }
+  (text: "in " + str(days) + " days", level: "soon")
+}
+
 // What to call a note in a row: its authored title where it has one, and rookery's
 // own `label` otherwise — which is never empty (the title flattened, else the
 // body's first 60 characters, else the note's name). Rendering `label` when there
@@ -156,8 +188,9 @@
 //
 // Every argument means exactly what it means on `#upcoming`, which is now this plus
 // the rendering. Returns the row dictionaries: rookery's own `ideas()` fields, plus
-// `shown` (what to call it), `link-to`, `when`, `firm`, `key` (the sort stamp) and
-// `at` (the stage reached).
+// `shown` (what to call it), `link-to`, `when`, `firm`, `key` (the sort stamp),
+// `at` (the stage reached) and `in-days` (whole days until the row's date,
+// negative where it is overdue and `none` where it has no date).
 //
 // ---- `today:` IS REQUIRED HERE, and only here --------------------------------
 //
@@ -235,6 +268,14 @@
       // the reference date. A note nothing has happened to yet has none, and draws
       // no badge rather than an empty one.
       at: stage-of(r.tags-dict, today: today),
+      // HOW LONG YOU HAVE: whole days until this row's date, negative where it is
+      // already behind you, `none` where the row has no date at all.
+      //
+      // SHIPPED ON EVERY ROW rather than behind the view's `countdown:` flag. It
+      // is one subtraction, and this is the DATA half of the pair — a project
+      // feeding these rows into @rheo/rookery-search's `#filter-panel` draws its
+      // own urgency column and never calls `#upcoming` at all.
+      in-days: if w.date == none { none } else { _days-until(w.date, _today(today)) },
     )
   })
 
