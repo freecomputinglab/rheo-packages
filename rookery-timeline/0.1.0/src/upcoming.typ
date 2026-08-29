@@ -100,6 +100,20 @@
 // naming convention in a ladder, not something a reader should have to see.
 #let _words(s) = s.replace("-", " ")
 
+// THE ONE PLACE THE REFERENCE DATE IS DEMANDED, called by both views below so the
+// message cannot drift into two versions of itself. See the note above
+// `#upcoming-rows` for why these two functions refuse the document-date fallback
+// every predicate in `when.typ` accepts.
+#let _require-today(today) = assert(
+  type(today) == datetime,
+  message: "@rheo/rookery-timeline: #upcoming and #upcoming-rows need an explicit "
+    + "`today:` datetime — e.g. `today: datetime(year: 2026, month: 8, day: 27)`. "
+    + "Typst has no wall clock (`datetime.today()` returns 1980-01-01 under a "
+    + "reproducible build), and unlike the predicates in `when.typ` these two views "
+    + "do not fall back to the document's own date. Got "
+    + repr(today),
+)
+
 // ---- #upcoming --------------------------------------------------------------
 //
 // `tags:`/`match:`/`filter:` are rookery's OWN selection vocabulary, passed
@@ -144,6 +158,20 @@
 // the rendering. Returns the row dictionaries: rookery's own `ideas()` fields, plus
 // `shown` (what to call it), `link-to`, `when`, `firm`, `key` (the sort stamp) and
 // `at` (the stage reached).
+//
+// ---- `today:` IS REQUIRED HERE, and only here --------------------------------
+//
+// The predicates in `when.typ` resolve a missing `today:` through `_today` — the
+// explicit argument, else the document's own `#set document(date:)`, else a panic.
+// THESE TWO VIEWS DO NOT. They assert on the argument itself and take no document
+// date, which is a deliberate narrowing rather than an oversight.
+//
+// The reason is what a QUEUE claims. A predicate answers a question the caller
+// asked; a queue asserts an ordering, a window and a set of stage badges, all of
+// which read as facts about the reader's today. A document date the author set
+// once and stopped thinking about would make every one of them silently wrong
+// rather than visibly absent. So the reference date is named at the call site,
+// where it can be seen.
 #let upcoming-rows(
   tags: none,
   match: "any",
@@ -155,6 +183,7 @@
   within: none,
   limit: none,
 ) = {
+  _require-today(today)
   assert(
     within == none or (type(within) == int and within >= 0),
     message: "@rheo/rookery-timeline: #upcoming's `within` must be none or a "
@@ -240,6 +269,11 @@
   title: none,
   empty: [Nothing upcoming.],
 ) = context {
+  // ASSERTED HERE TOO, not only inside `#upcoming-rows`: this is the function a
+  // caller named, and a failure surfacing from the row builder would point at a
+  // function the caller has never heard of.
+  _require-today(today)
+
   let rows = upcoming-rows(
     tags: tags,
     match: match,

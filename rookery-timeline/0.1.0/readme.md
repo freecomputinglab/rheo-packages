@@ -610,6 +610,15 @@ ONE ROW PER NOTE across a whole corpus, ordered by what is coming next.
 Three columns: when, the note's name, and the stage it is CURRENTLY at. Every row
 links to the note.
 
+**`today:` is required here**, and this is the one place in the package where it is.
+The predicates in `when.typ` fall back to the document's own `#set document(date:)`
+before they panic; these two views do not, and assert on the argument instead. A
+predicate answers a question you asked, but a queue asserts an ordering, a window and
+a set of stage badges — all of which read as facts about the reader's today. A
+document date set once and then forgotten makes every one of them quietly wrong
+rather than visibly absent, and Typst has no wall clock to check them against (see
+[Every date is author-supplied](#every-date-is-author-supplied-and-here-is-why)).
+
 ### The arguments
 
 | | |
@@ -618,7 +627,7 @@ links to the note.
 | `filter:` | a predicate over the note's tag dictionary, ANDed with the above |
 | `stage:` | which log entry dates the row — see below |
 | `name-from:` | a tag key naming the note whose name and link the row takes — see below |
-| `today:` | the reference date, as everywhere else here |
+| `today:` | the reference date — **required here**, see below |
 | `from:` | a `datetime`; drops a row dated before it |
 | `within:` | days; drops a row dated later than `today + within` |
 | `limit:` | truncate after sorting |
@@ -634,8 +643,8 @@ conference is queued by whichever of the two it has. So `stage:` takes one name,
 an array of names in **priority order**:
 
 ```typst
-#upcoming(stage: (DEADLINE-STAGE, SCHEDULED-STAGE))   // deadline, else the watch date
-#upcoming(stage: "campus-visit")                      // queued by one booked event
+#upcoming(today: NOW, stage: (DEADLINE-STAGE, SCHEDULED-STAGE))  // deadline, else the watch date
+#upcoming(today: NOW, stage: "campus-visit")                     // queued by one booked event
 ```
 
 The date resolves in three steps:
@@ -662,7 +671,7 @@ storing the title on both is how the two drift apart. So `name-from:` takes the 
 KEY holding that pointer, and the row is named and linked by whatever it points at:
 
 ```typst
-#upcoming(tags: "submission", name-from: "submission-of")
+#upcoming(tags: "submission", today: NOW, name-from: "submission-of")
 ```
 
 ```
@@ -717,7 +726,7 @@ ends a process is vocabulary this package refuses to own, for the reason
 settled rows gone passes `filter:`:
 
 ```typst
-#upcoming(tags: "submission", filter: t => not is-settled(t, ladder: JOB, today: NOW))
+#upcoming(tags: "submission", today: NOW, filter: t => not is-settled(t, ladder: JOB, today: NOW))
 ```
 
 **Three fixed columns, and no render hook.** A fourth column — a submission's host
