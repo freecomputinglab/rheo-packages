@@ -762,6 +762,34 @@
     margin: 0.5rem 0 0;
   }
 
+  /* `facet-rows:` PUTS ROWS INSIDE, and a row is a full-width line rather than
+     another wrapping item, so the container becomes a column when it holds them.
+     `:has()` rather than a class on the container: the Typst side already says
+     which shape this is by what it emits, and a second signal could disagree
+     with the first. */
+  .panel-pills:has(> .panel-pill-row) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .panel-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+
+  /* The row's header. Muted and small, because it names the pills rather than
+     competing with them, and unwrappable so a two-word label never breaks across
+     lines away from the pills it introduces. */
+  .panel-pill-label {
+    font-size: 0.8em;
+    color: var(--rookery-search-muted, gray);
+    white-space: nowrap;
+    margin-right: 0.15rem;
+  }
+
   /* Each declared facet is its own group, so two facets read as two sets of
      choices rather than as one undifferentiated row of pills. */
   .panel-pill-group {
@@ -770,6 +798,9 @@
     gap: 0.35rem;
   }
 
+  /* WITHIN A ROW ONLY. Across rows the line break already separates them, and a
+     left margin on the first group of the second row would indent it out of
+     line with the first. */
   .panel-pill-group + .panel-pill-group {
     margin-left: 0.9rem;
   }

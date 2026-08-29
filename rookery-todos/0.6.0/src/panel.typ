@@ -56,6 +56,11 @@
 // The last rung is `scheduled` rather than `deferred`: it names the MECHANISM — a
 // `scheduled` stage dated after `today` — and leaves `deferred` to mean what
 // `status-of` already makes it mean, a todo declared as put off.
+// THE FACETS THIS PACKAGE DERIVES, as against the ones a site authors. The split is
+// what `state-label` lays out on two lines; naming it here keeps the two places that
+// care — the projection below and the row split — reading off one list.
+#let _DERIVED = ("state", "priority")
+
 #let _state-of(row, graph, today) = {
   if row.closed { return "closed" }
   if is-blocked(row, graph) { return "blocked" }
@@ -75,7 +80,18 @@
   today: none,
   // The pill groups, in order. Each is a field this function projects below; a caller
   // dropping one gets a narrower panel, not a broken one.
-  facets: ("state", "epic", "priority"),
+  //
+  // `epic` FIRST, because the derived two are laid out on a line of their own below it
+  // — see `state-label`. Within the facets list the order only decides the order of
+  // the groups on their line.
+  facets: ("epic", "state", "priority"),
+  // THE HEADER OVER THE DERIVED PILLS, which sit on a line beneath the authored ones.
+  //
+  // `epic` is a tag the SITE wrote; `state` and `priority` are read back off the graph
+  // and the tag keys by this package. One undifferentiated row of pills asks a reader
+  // to know which is which, so the two kinds get a line each and the derived line says
+  // what it is. `none` puts every group back on one line.
+  state-label: [todo states:],
   // WHICH ROWS ARE ROWS, before any pill is pressed. The default is the only one that
   // is always right — a closed todo is not outstanding work. A site with a second way
   // of finishing (a call answered before its deadline lapsed, say) passes its own.
@@ -171,9 +187,20 @@
     }
   }
 
+  // AUTHORED ABOVE, DERIVED BELOW — and split by membership rather than by a
+  // hardcoded pair, so a site adding a facet of its own lands on the authored line
+  // without touching this. An empty line is dropped, not rendered blank.
+  let derived = facets.filter(f => f in _DERIVED)
+  let authored = facets.filter(f => f not in _DERIVED)
+  let authored-row = if authored.len() > 0 { ((facets: authored),) } else { () }
+  let facet-rows = if state-label == none or derived.len() == 0 { none } else {
+    authored-row + ((label: state-label, facets: derived),)
+  }
+
   panel(
     rows: rows,
     facets: facets,
+    facet-rows: facet-rows,
     sort: "when",
     descending: order == "newest",
     // WHAT `#idea-row` WOULD HAVE PUT ON THE `<li>` ITSELF. `#panel` owns the list
