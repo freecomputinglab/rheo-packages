@@ -2,7 +2,9 @@
 
    Thin on purpose, like rookery's own stylesheet: enough that the input and
    its dropdown read correctly out of the box, and nothing that presumes a page
-   design. No fonts, no font sizes, no page colours — only the affordances.
+   design. No fonts, no page colours, and no ABSOLUTE font size anywhere — the
+   sizes that are here are all factors of whatever the page already sets, so
+   they scale with it rather than replacing it.
 
    RHEO ONLY, but there is nothing to guard. `#search-bar` emits no markup
    without rheo, so these selectors simply never match; the file is inert
@@ -37,6 +39,39 @@
                                   that, so this is a ceiling, not a width
      --rookery-search-max-height  the dropdown's scroll cap
      --rookery-search-z           the dropdown's stacking order
+     --rookery-search-modal-width   the modal's width
+     --rookery-search-modal-height  the modal's scroll cap (its own height,
+                                    not the dropdown's --max-height, since a
+                                    modal is a fixed panel rather than a
+                                    hugging-its-content dropdown)
+     --rookery-search-modal-font-size
+                                    the size of every piece of text inside the
+                                    modal, as a factor of the page's own body
+                                    size (default `0.67em`) — see the rule on
+                                    `.rookery-search-modal` for why the modal
+                                    is the one place this file does set a size
+     --rookery-search-backdrop      the modal's `::backdrop` dimming
+     --rookery-search-mark          the highlighted-term background, in a result
+                                    row, in a fetched preview, and in a keyword
+                                    chip alike
+     --rookery-search-tag-color     the text of a tag pill on a modal result row
+     --rookery-search-tag-bg        that pill's fill
+     --rookery-search-tag-size      that pill's text size, as a factor of the
+                                    row's own (which in the modal is already
+                                    --rookery-search-modal-font-size)
+     --rookery-search-tag-radius    that pill's corner radius — `999px` is a
+                                    pill, `0` is a rectangle; the one default
+                                    here that is a design statement rather than
+                                    a measurement
+     --rookery-search-tag-gap       the space between two pills on a row
+
+   THE MODAL'S BREAKPOINT IS NOT A PROPERTY. Every other size above is a
+   custom property because a site only ever needs to change a VALUE. The
+   point at which the preview pane disappears is different: a CSS custom
+   property cannot be read inside a `@media` condition, so a `40em` literal
+   sits directly in this file's `@media (max-width: 40em)` block below. A
+   site that wants a different breakpoint overrides that whole block (in its
+   own, unlayered stylesheet — same escape hatch as everything else here).
 
    Three of those colours fall back to ROOKERY's own theme properties before
    their literals — `var(--rookery-search-hover, var(--idea-link-color, ...))`,
@@ -46,10 +81,23 @@
    its notes for free, and the two packages stay uncoupled in Typst: the
    agreement is made here, in CSS, by name.
 
-   That fallback only reaches the bar where a rookery element is an ANCESTOR of
-   it, since `--idea-*` arrives as an inline property on `.idea-box` and its
-   kin. A bar in a site's header — the usual place — inherits from `<body>` and
-   sees none of them, so set `--rookery-search-border` there explicitly. */
+   THAT FALLBACK USED TO BE UNREACHABLE, and this is the one thing to know about
+   it. `--idea-*` arrives as an INLINE property on `.idea-box` and its kin, and a
+   custom property inherits down the DOM — so a bar or a dialog in a site's
+   header, which is nobody's descendant but `<body>`'s, saw none of them and every
+   rule below shipped its last-resort literal whatever the project's theme said.
+   MEASURED on rookery.ohrg.org: `getComputedStyle(dialog).getPropertyValue(
+   "--idea-border-color")` was the empty string. `#search-bar` and `#search-modal`
+   now emit the theme onto their OWN containers as well, from the same
+   `state("rheo-idea-theme")` rookery writes — see the theme block near the top of
+   `src/lib.typ`. Setting `--rookery-search-border` on a wrapper still wins, since
+   it is the first link in every chain; it is no longer the only thing that works.
+
+   THE LAST RESORT IS ROOKERY'S, deliberately: `rgba(128, 0, 255, 0.12)`, the
+   literal ending `.idea-box`'s left rule and `.idea-tab`'s top rule. It was
+   `rgba(0, 0, 0, 0.25)` here, so an UNTHEMED site drew its note frames faint
+   purple and its search rules grey — two colours for one system, on the one kind
+   of site that has no theme to reconcile them. Change one and change the other. */
 
 @layer rookery-search {
   .rookery-search {
@@ -66,10 +114,42 @@
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     padding: 0.25em 0.5em;
     width: var(--rookery-search-width, 16em);
+  }
+
+  /* FOCUS IS THE BORDER GETTING THICKER, and nothing else. The browser's own
+     indicator is an `outline: auto` in `-webkit-focus-ring-color` — blue in a
+     default profile, and a colour no project's theme can move. Replacing it with
+     the border this element already has means an active field reads as the same
+     object, drawn harder, in whatever colour the site chose.
+
+     `:focus-visible`, not `:focus`. It is also what draws the UA ring, so
+     suppressing the outline here suppresses it in every case the UA would have
+     drawn one — and a text field matches it on CLICK as well as on Tab (the UA
+     always considers focus visible on an element that takes keyboard input), so
+     the thickened rule IS a complete replacement rather than a keyboard-only one.
+     MEASURED, headless chromium 151: `input.matches(":focus-visible")` is true
+     after focus, `outline-style` goes `auto` -> `none`, and the border-width goes
+     1px -> 2px.
+
+     THE PADDING PAYS FOR THE PIXEL. Taking `border-width` from 1px to 2px would
+     otherwise grow the box on all four sides and shove the line of text, so the
+     padding gives back exactly what the border takes: MEASURED, the input's
+     `getBoundingClientRect()` is 156 x 28 focused and unfocused alike. The
+     alternative — a permanently 2px border that merely changes contrast — was
+     rejected because thickening is the whole affordance.
+
+     SCOPED TO THE BAR with `>`, and that is not decoration: the modal's input
+     carries this same class, has its own borderless rule below, and gets its own
+     focus rule beside it. Unscoped, the two would collide at equal specificity
+     and be settled by source order. */
+  .rookery-search > .rookery-search-input:focus-visible {
+    outline: none;
+    border-width: 2px;
+    padding: calc(0.25em - 1px) calc(0.5em - 1px);
   }
 
   .rookery-search-results {
@@ -112,7 +192,7 @@
     color: var(--rookery-search-fg, inherit);
     background-color: var(--rookery-search-bg, white);
     border: 1px solid
-      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(0, 0, 0, 0.25))));
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
     border-radius: var(--rookery-search-radius, 4px);
     max-height: var(--rookery-search-max-height, 20em);
     overflow-y: auto;
@@ -162,5 +242,667 @@
     color: var(--rookery-search-id-color, var(--idea-id-color, gray));
     margin-left: 0.4em;
     white-space: nowrap;
+  }
+
+  /* THE SECOND LINE, and it is a span with `display: flex` rather than a
+     `<div>`/`<ul>` for the reason the whole package uses phrasing content only:
+     a bar must be legal inside a paragraph. Emitted only for a note that has
+     tags, so an untagged row stays one line and the modal's fixed-height list
+     keeps its result count.
+
+     HIDDEN BY DEFAULT, shown only inside the modal's list (next rule). The
+     chips are in the dropdown's DOM too — `renderRow` is shared on purpose and
+     building rows two ways is what that sharing exists to prevent — but a
+     dropdown is a few titles under an input, and doubling every row's height
+     there buys a reader nothing they were looking for. A site that wants them
+     writes one rule:
+       .rookery-search-results .rookery-search-tags { display: flex }
+     The CONTAINER is what is hidden, not the chips, so a project's own
+     `.idea-tag-*` rules cannot resurrect them in the dropdown by accident. */
+  .rookery-search-tags {
+    display: none;
+  }
+
+  /* `.rookery-search-list` is the MODAL's listbox; the dropdown's is
+     `.rookery-search-results` (both emitted in `src/lib.typ`, by
+     `#search-modal` and `#search-bar` respectively). That one class is the
+     whole modal-only mechanism. */
+  .rookery-search-list .rookery-search-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--rookery-search-tag-gap, 0.3em);
+    margin-top: 0.3em;
+  }
+
+  /* PILLS: fully rounded and filled, one shape at one size for every tag, so a
+     tag reads as a discrete thing in a list where every other line is prose.
+     Shape taken from ficarelli.github.io/hacker-archives, which invented it in
+     its own stylesheet because this package shipped nothing — its colours stay
+     its own. Every chip also carries rookery's `idea-tag-<tag>` class, so a
+     project restyles one tag without touching the rest.
+
+     THE MODAL NOW HAS TWO CHIP-LIKE THINGS and they are deliberately not the
+     same shape: `.rookery-search-keyword` in the preview pane is a
+     `--rookery-search-radius` rectangle with a border and NO fill, this is a
+     filled 999px pill with no border. They are different KINDS of thing — a
+     keyword is a term lifted out of the note's compressed body, a tag is
+     something the author wrote — and they never appear in the same pane, so one
+     shape for both would only make the reader work out which they were looking
+     at. The fill/no-fill split is also load-bearing there and not here: a
+     keyword chip is left unfilled so `.rookery-search-mark`'s tint on the
+     matched term inside it stays the first thing the eye lands on, and a tag
+     carries no mark at all (see `renderRow`).
+
+     The fill deliberately does NOT chain to `--idea-link-color` the way
+     `.rookery-search-mark` does: that is also the row's hover/selected
+     background (`.rookery-search-row:hover` and
+     `[data-rookery-search-selected="true"]`), and the modal always has a
+     selected row — a chip keyed off it would dissolve into exactly the row a
+     reader is looking at. (The dropdown starts with NO selected row, by design;
+     the modal is the case that matters here, since pills only show there.) A currentColor tint instead, which follows the row's
+     own ink into a dark theme; the gray literal above it is the fallback for an
+     engine without `color-mix`.
+
+     CHAINING TO `--idea-tag-*` IS A DIFFERENT CASE from the `--idea-link-color`
+     one just refused, and the two look alike enough to be worth separating.
+     `--idea-link-color` is the row's own hover background, which every row has;
+     `--idea-tag-bg`/`--idea-tag-color` exist ONLY for a tag the author themed BY
+     NAME through rookery's `theme: (tags-color: ..)`, which delivers them as a
+     generated `.idea-tag-<tag>` rule — and every chip here already wears that
+     class (`renderRow` sets `rookery-search-tag idea-tag-<tag>`), so the rule
+     reaches a chip JavaScript inserts long after Typst has run. Nothing on the JS
+     side is involved; the chain below is the whole mechanism.
+
+     ORDER IS THE POINT. `--rookery-search-tag-*` is what a project set for EVERY
+     chip in this modal, so it still wins outright — a project wanting uniform
+     chips keeps setting `--rookery-search-tag-bg` and nothing changes for it.
+     `--idea-tag-*` is what an author themed for ONE tag, so it beats only this
+     package's own defaults, which stay last.
+
+     `0.85em` IS A CHOSEN DEFAULT, NOT A MEASUREMENT — nothing here has been
+     counted against a real site's row density. If a project's modal visibly
+     loses results to the second line, turn `--rookery-search-tag-size` down
+     rather than `--rookery-search-modal-font-size`, which has its own reason on
+     `.rookery-search-modal`. */
+  .rookery-search-tag {
+    font-size: var(--rookery-search-tag-size, 0.85em);
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+    border-radius: var(--rookery-search-tag-radius, 999px);
+    padding: 0.15em 0.6em;
+    white-space: nowrap;
+    color: var(--rookery-search-tag-color, var(--idea-tag-color, var(--rookery-search-id-color, var(--idea-id-color, gray))));
+    background-color: var(--rookery-search-tag-bg, var(--idea-tag-bg, rgba(128, 128, 128, 0.18)));
+    background-color: var(--rookery-search-tag-bg, var(--idea-tag-bg, color-mix(in oklab, currentColor 14%, transparent)));
+  }
+
+  /* ---- #search-modal — the overlay's telescope-style two-pane layout ---- */
+
+  .rookery-search-modal {
+    /* THE ONE PLACE THIS FILE SETS A SIZE, and the dropdown deliberately does
+       not. A dropdown shows titles only, a few of them, hanging off an input
+       the reader is looking straight at; it should read at the page's own size.
+       The modal is a two-pane telescope panel: a list on the left and a whole
+       note's body on the right, both inside a fixed box. At body size a site
+       with generous prose type (16pt, say) fits four or five results and a
+       paragraph of preview, which is not enough of either to choose between
+       them — and the panel cannot grow, since it is already capped to the
+       viewport. Smaller text is the only axis left, and it buys roughly half
+       again as many results and a preview long enough to recognise a note by.
+       `em`, so a site that scales its body type scales the modal with it. */
+    font-size: var(--rookery-search-modal-font-size, 0.67em);
+    color: var(--rookery-search-fg, inherit);
+    background-color: var(--rookery-search-bg, white);
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+    border-radius: var(--rookery-search-radius, 4px);
+    padding: 0;
+    width: var(--rookery-search-modal-width, min(56rem, calc(100vw - 2rem)));
+    max-height: var(--rookery-search-modal-height, min(32rem, calc(100vh - 8rem)));
+    /* Near the top of the viewport, not vertically centred: the list grows
+       downward as results come in, and a vertically centred dialog would jump
+       with every keystroke. This overrides the UA stylesheet's own
+       `margin: auto` centring for a modal `<dialog>` — safely, because UA
+       origin styles always lose to an author declaration, layered or not; the
+       layer only has to win against the SITE's CSS, never the browser's. */
+    margin-block-start: 4rem;
+    margin-inline: auto;
+  }
+
+  /* `display: flex`, scoped to `[open]` — MEASURED REGRESSION, now fixed: an
+     unconditional `display: flex` on `.rookery-search-modal` overrode the UA
+     stylesheet's `dialog { display: none }` for the CLOSED state too (any
+     author declaration beats a UA one, open or not), so the modal rendered
+     inline in the page flow — visible in the header at all times — instead
+     of staying hidden until `showModal()` opens it. `[open]` is the boolean
+     attribute the dialog element itself carries only while open, so this
+     rule now only ever applies then.
+
+     This is also what makes `max-height` actually CAP the box while open —
+     see `.rookery-search-modal-inner` below for the rest of that story. A
+     percentage `height: 100%` on a child only resolves against a DEFINITE
+     parent height; `max-height` alone leaves this box's computed height
+     `auto`, so the inner column grew to fit ALL of a long preview instead of
+     being capped, and the whole DIALOG grew past the viewport with it. Flex
+     children size by CONTENT unless told to grow, which is why this needs no
+     percentage at all: `.rookery-search-modal-inner` becomes `flex: 1`
+     below instead, filling whatever height this box actually ends up with —
+     the real rendered height, already bounded by `max-height`. */
+  .rookery-search-modal[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rookery-search-modal::backdrop {
+    background-color: var(--rookery-search-backdrop, rgba(0, 0, 0, 0.5));
+  }
+
+  .rookery-search-modal-inner {
+    display: flex;
+    flex-direction: column;
+    /* `flex: 1`, not `height: 100%` — see the comment on `.rookery-search-
+       modal` above for why the percentage never worked. This fills whatever
+       height the dialog actually has. */
+    flex: 1;
+    /* Lets the flex children shrink below their content size so the panes
+       below can scroll internally instead of pushing the dialog taller than
+       its own cap. */
+    min-height: 0;
+  }
+
+  /* Overrides the dropdown input's own width/border/radius — full width of
+     the modal, flat top, a rule beneath it instead of a box all the way
+     round, in place of a boxed input floating inside a boxed dialog. */
+  .rookery-search-modal .rookery-search-input {
+    width: auto;
+    border: none;
+    border-bottom: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+    border-radius: 0;
+    padding: 0.75em 1em;
+  }
+
+  /* THE ONE RULE IN THE MODAL THAT MOVES, and it only gets thicker. The divider
+     between the input and the panes below it is the modal's most prominent line,
+     and the browser's focus ring landed right on top of it: the input is
+     full-width and square, so the ring's top and side edges have the dialog's own
+     edges behind them and only its bottom edge reads — as that divider, turned
+     blue. So focusing the search now thickens the divider instead, in the theme's
+     own colour.
+
+     NO COLOUR HERE, deliberately: `border-bottom` above already carries the
+     `--rookery-search-border` -> `--idea-border-color` chain, so naming only the
+     WIDTH leaves one place where a rule's colour is decided (and this width
+     doubles whatever that chain resolved to, themed or not).
+
+     `padding-bottom` gives back the pixel the border takes, so the panes do not
+     jump down by 1px when the field takes focus. MEASURED, headless chromium 151:
+     the input is 29.0625px tall and `.rookery-search-panes` sits at y=94.0625,
+     focused and unfocused alike. See the bar's own focus rule above for why
+     `:focus-visible` is the right pseudo-class and why the ring is the UA's. */
+  .rookery-search-modal .rookery-search-input:focus-visible {
+    outline: none;
+    border-bottom-width: 2px;
+    padding-bottom: calc(0.75em - 1px);
+  }
+
+  .rookery-search-panes {
+    display: grid;
+    /* The preview gets the larger share, as in telescope. `minmax(0, …)` on
+       both tracks — not just `1fr`/`2fr` — is what stops a long unbroken
+       token in either pane from blowing its track (and the grid) wider than
+       the dialog. */
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    flex: 1;
+    min-height: 0;
+  }
+
+  .rookery-search-list {
+    /* The pane's OWN overflow, not the dialog's — the input and hint stay
+       pinned while only the results scroll. */
+    overflow-y: auto;
+    border-right: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+  }
+
+  .rookery-search-preview {
+    overflow-y: auto;
+    padding: 1em;
+    /* A long id or URL cannot overflow the pane — real content wraps like the
+       block-level elements it is made of, and a keyword chip inherits this, so
+       a term too long for the column breaks inside the chip instead of pushing
+       it out of the pane. */
+    overflow-wrap: anywhere;
+    /* The containing block for the loading indicator below, which is pinned to
+       this pane's own corner rather than to the dialog's. */
+    position: relative;
+  }
+
+  /* THE LOADING INDICATOR. `data-rookery-search-loading` is set on the pane for
+     as long as the selected note's minted page is being fetched — see the comment
+     beside it in rookery-search.js. The pane is EMPTY while it spins: the excerpt
+     no longer renders up front, so the fetched rendering is the first text the
+     pane shows and this is the only thing in it until then.
+
+     Still a pseudo-element rather than a node, for the three reasons it always
+     was: it must not participate in the content flow, must not be scrolled away
+     by the content's own overflow once that content lands, and must not survive a
+     `replaceChildren` as a stray node.
+
+     `position: sticky` in the corner, not `absolute`: the pane scrolls, and an
+     absolutely positioned indicator would ride the scrolled content up out of
+     sight. Sticky with a zero-height `float`-free box keeps it in view at the
+     top-right for as long as the fetch is in flight. */
+  .rookery-search-preview[data-rookery-search-loading]::after {
+    content: "";
+    position: sticky;
+    float: right;
+    top: 0;
+    display: block;
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: 50%;
+    /* Two of the four sides drawn, so the rotation is legible as motion — a
+       full ring would look identical at every angle. The colour comes from the
+       same custom-property chain as every other border in this file, so it
+       follows a project's theme rather than introducing a colour of its own. */
+    border: 2px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+    border-top-color: transparent;
+    border-right-color: transparent;
+    opacity: 0.6;
+    animation: rookery-search-spin 0.7s linear infinite;
+  }
+
+  @keyframes rookery-search-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* Reduced motion keeps the affordance and drops the spinning: the same circle,
+     static, which still reads as "something is pending" in an empty pane. */
+  @media (prefers-reduced-motion: reduce) {
+    .rookery-search-preview[data-rookery-search-loading]::after {
+      animation: none;
+    }
+  }
+
+  /* The pane's own `padding` is the only top gap it should show. Without
+     this, the first thing inside it carries its own top margin — a
+     browser's UA default `margin` on the FALLBACK path's bare `<p>`, or on
+     the first block `#idea-body` renders, three levels down inside
+     `.idea-window .idea-window-body` for the real-content path — stacking
+     with the pane's padding into visibly TOO MUCH top space. MEASURED.
+     Both selectors, because the two paths nest their first block at
+     different depths. */
+  .rookery-search-preview > :first-child,
+  .rookery-search-preview .idea-window-body > :first-child {
+    margin-top: 0;
+  }
+
+  /* NOTHING HERE strips `.idea-window`'s box (border, padding, hover tint)
+     for content inside this pane — `extractNote` wraps a fetched note in
+     rookery's own `.idea-window-plain` modifier, which exists for exactly that
+     reason. A downstream override attempted from here cannot win:
+     rookery.css is UNLAYERED throughout, so a rule in THIS package's
+     `@layer rookery-search` — however specific — always loses to it,
+     MEASURED. See rookery.css's own comment beside
+     `.idea-window.idea-window-plain`. */
+
+  /* Three lines wear this, and they are all the same kind of thing — a note
+     ABOUT the pane rather than content in it: "No preview" for a note with no
+     terms, "No match found" for a query that matches nothing, and the line
+     above the keyword row saying the note's page could not be loaded. One muted
+     italic register for all three, rather than a third class that would have to
+     be kept looking identical by hand. */
+  .rookery-search-preview-empty {
+    opacity: 0.6;
+    font-style: italic;
+  }
+
+  /* Figures reach this pane now that its content is the note's own minted page
+     — the container this pane used to read from had to strip every image, since
+     Typst's HTML export inlines each one as base64 and the container shipped on
+     every page (312 MB of build output on a 57-note site, MEASURED). A fetched
+     page costs the build nothing, so its images come along. Typst writes
+     literal `width`/`height` attributes on them, so an unconstrained figure
+     lays out at its intrinsic size and overflows the column. */
+  .rookery-search-preview img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Strips `#ideas-outline` — a note that nests one inside its own body (a
+     weekly index note, say) would otherwise preview its own table of
+     contents: a list of links to OTHER notes, which is noise in a pane meant
+     to preview THIS note. `display: none`, not removed from the DOM: safe
+     to leave `markTermsInNode` walking it (a hidden match highlights
+     nothing visible, costs nothing else), and safer than trying to strip it
+     Typst-side — `#idea-body` has no reason to know this package exists.
+     No cascade fight either: rookery.css sets no `display` on these classes
+     at all, so this layered rule only has to beat the UA default, which any
+     author declaration always does. */
+  .rookery-search-preview .idea-outline-title,
+  .rookery-search-preview .idea-outline {
+    display: none;
+  }
+
+  /* ---- The keyword row: what the pane shows when the fetch fails -------- */
+
+  /* A `white-space: pre-wrap` ON `.rookery-search-preview > p` WAS HERE, and it
+     is gone with the thing it existed for: the plain-text excerpt was one
+     unstructured `<p>` whose own whitespace and "…" truncation markers had to
+     survive verbatim. Nothing in this pane is preformatted now — the fallback is
+     the chip row below plus an ordinary sentence above it, and both wrap like
+     prose. Left in place it would only make that sentence preserve stray
+     whitespace for no reason. */
+
+  /* CHIPS, NOT A PARAGRAPH OF LOOSE WORDS. `renderKeywords` fills this with a
+     note's most distinctive terms, in the weight order the compression pass put
+     them in (MEASURED on a weeknotes copy: `entry actual notes general
+     introductory site first weeknotes wrote post posted blog writing`). Set as
+     running text that reads as debug output; a box per term makes the row read
+     as deliberate, and makes the ordering visible as an ordering rather than as
+     a sentence that has lost its grammar.
+     A flex row that wraps, not `inline` chips in a text flow: the gap between
+     two chips then has one definition (`gap`) instead of being a margin plus
+     whatever word-spacing the page's own type sets. */
+  .rookery-search-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    /* Separates the row from the line above it that explains why it is showing.
+       The row is never the pane's first child — that line always is — so this
+       margin cannot fight `.rookery-search-preview > :first-child`. */
+    margin-top: 0.6em;
+  }
+
+  /* Border, radius and colour from the same custom-property chain as every
+     other edge in this file, so a chip follows a project's theme instead of
+     introducing a colour of its own. NO background fill, deliberately: a filled
+     chip competes with `.rookery-search-mark`'s tint on the matched term inside
+     it, and the mark has to stay the first thing the eye lands on. */
+  .rookery-search-keyword {
+    padding: 0.1em 0.45em;
+    border: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+    border-radius: var(--rookery-search-radius, 4px);
+    /* NO `white-space: nowrap` HERE, though a term carrying an internal `-` or
+       `.` (`rheo-context`, `0.3.0` — the compression preserves both precisely so
+       a reader can type them) is one term and should read as one. `nowrap` would
+       also suppress the pane's `overflow-wrap: anywhere`, which only ever
+       applies where a soft wrap is possible at all — so a term wider than the
+       column would spill out of the pane instead of breaking. Flex already gives
+       the better behaviour without the risk: a wrapping flex line moves a chip
+       that does not fit onto the next line whole, and only shrinks one to
+       min-content (breaking it at its hyphen) when it cannot fit the column at
+       any width. That is the case where breaking beats overflowing. */
+  }
+
+  /* The selected row and the hovered row must look identical, because in the
+     MODAL hovering selects — reusing `--rookery-search-hover` rather than a
+     second colour keeps that true by construction, not by convention.
+
+     UNSCOPED, and now deliberately so: `#search-bar`'s dropdown drives the same
+     attribute from the same `selection` helper (see `rookery-search.js`), so its
+     arrow-key highlight is this rule without a second one to keep in step.
+     Hovering does NOT select in the dropdown — there is no preview pane for it to
+     drive — so there the two states are independent and merely look alike. */
+  .rookery-search-row[data-rookery-search-selected="true"] {
+    background-color: var(
+      --rookery-search-hover,
+      var(--idea-link-color, rgba(128, 0, 255, 0.12))
+    );
+  }
+
+  /* `color: inherit`, deliberately: a browser's default `<mark>` is black
+     text on bright yellow, and that combination fights every dark theme. */
+  .rookery-search-mark {
+    background-color: var(--rookery-search-mark, var(--idea-link-color, rgba(128, 0, 255, 0.25)));
+    color: inherit;
+  }
+
+  .rookery-search-hint {
+    padding: 0.4em 1em;
+    font-size: 0.85em;
+    opacity: 0.6;
+    border-top: 1px solid
+      var(--rookery-search-border, var(--idea-border-color, var(--idea-link-color, rgba(128, 0, 255, 0.12))));
+  }
+
+  /* An unstyled-looking icon button: transparent background, inherited
+     colour, no border by default — a site's own button reset should not have
+     to fight this one for the right to look like nothing. */
+  .rookery-search-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 0.25em 0.5em;
+  }
+
+  .rookery-search-icon {
+    width: 1.1em;
+    height: 1.1em;
+    fill: currentColor;
+  }
+
+  .rookery-search-key {
+    font-size: 0.75em;
+    opacity: 0.6;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 0.05em 0.3em;
+  }
+
+  /* A preview column narrow enough to fit beside a list on a phone shows
+     about four words and is worse than none — below this width the list
+     takes the full pane instead. See the header comment for why this
+     breakpoint is a literal here rather than a custom property. */
+  @media (max-width: 40em) {
+    .rookery-search-panes {
+      grid-template-columns: 1fr;
+    }
+
+    .rookery-search-preview {
+      display: none;
+    }
+
+    .rookery-search-key {
+      display: none;
+    }
+  }
+
+  /* ---- #panel ------------------------------------------------------------
+     A filter-and-sort widget over a `tag-index` projection. Thin, like
+     everything else here: enough that the input, the pills and the scroll box
+     read correctly out of the box, and nothing that presumes a page design.
+
+     Every colour and size reuses the bar's own custom properties above rather
+     than introducing a second palette, so theming the bar themes the panel and
+     a page cannot end up with two widgets from one package that disagree. */
+  .panel {
+    margin: 1rem 0;
+  }
+
+  /* DEGRADATION, and the whole reason the attribute exists. Until `panel.js`
+     sets `data-panel-ready="true"`, the chrome that would do nothing is not
+     drawn: no input to type into, no pill to press, and no scroll cap cutting
+     a list nothing can scroll. What is left is an ordinary complete list. */
+  .panel[data-panel-ready="false"] .panel-input,
+  .panel[data-panel-ready="false"] .panel-pills,
+  .panel[data-panel-ready="false"] .panel-count {
+    display: none;
+  }
+
+  .panel-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4em 0.6em;
+    font: inherit;
+    color: var(--rookery-search-fg, inherit);
+    background: var(--rookery-search-bg, transparent);
+    border: 1px solid var(--rookery-search-border, currentColor);
+    border-radius: var(--rookery-search-radius, 3px);
+  }
+
+  .panel-input::placeholder {
+    color: var(--rookery-search-muted, gray);
+  }
+
+  .panel-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.5rem 0 0;
+  }
+
+  /* `facet-rows:` PUTS ROWS INSIDE, and a row is a full-width line rather than
+     another wrapping item, so the container becomes a column when it holds them.
+     `:has()` rather than a class on the container: the Typst side already says
+     which shape this is by what it emits, and a second signal could disagree
+     with the first. */
+  .panel-pills:has(> .panel-pill-row) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .panel-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+
+  /* The row's header. Muted and small, because it names the pills rather than
+     competing with them, and unwrappable so a two-word label never breaks across
+     lines away from the pills it introduces. */
+  .panel-pill-label {
+    font-size: 0.8em;
+    color: var(--rookery-search-muted, gray);
+    white-space: nowrap;
+    margin-right: 0.15rem;
+  }
+
+  /* Each declared facet is its own group, so two facets read as two sets of
+     choices rather than as one undifferentiated row of pills. */
+  .panel-pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  /* WITHIN A ROW ONLY. Across rows the line break already separates them, and a
+     left margin on the first group of the second row would indent it out of
+     line with the first. */
+  .panel-pill-group + .panel-pill-group {
+    margin-left: 0.9rem;
+  }
+
+  .panel-pill {
+    font: inherit;
+    font-size: 0.85em;
+    line-height: 1.4;
+    padding: 0.1em 0.6em;
+    cursor: pointer;
+    color: var(--rookery-search-muted, gray);
+    background: transparent;
+    border: 1px solid var(--rookery-search-border, currentColor);
+    border-radius: 999px;
+  }
+
+  .panel-pill:hover {
+    color: var(--rookery-search-fg, inherit);
+  }
+
+  /* PRESSED IS THE STATE, and it is read off `aria-pressed` rather than a class
+     the script would have to keep in step with it. One source of truth for
+     "this filter is on", and it is the one assistive technology reads. */
+  .panel-pill[aria-pressed="true"] {
+    color: var(--rookery-search-fg, inherit);
+    border-color: currentColor;
+    background: var(--rookery-search-hover, rgba(127, 127, 127, 0.15));
+  }
+
+  .panel-count {
+    margin: 0.5rem 0 0;
+    font-size: 0.85em;
+    color: var(--rookery-search-muted, gray);
+  }
+
+  /* A SCROLL BOX, not a truncated list: every row is in the markup and
+     `--panel-rows` (set by the Typst call's `visible:`) is only how many show
+     before the rest is a scroll away. The multiplier is one row's line box plus its
+     padding and rule, so the row past the cap is cut mid-height and the list reads
+     as continuing rather than as ending.
+
+     ONE MULTIPLIER FOR TWO ROW HEIGHTS, and it is approximate on purpose. A
+     `#panel` flex row measures ~2.5em; a `#filter-panel` row is an `#idea-row`,
+     whose 0.45rem grid padding makes it a shade taller. MEASURED in a browser at
+     16px: 40px against 43px. Splitting the two would need a mode-scoped rule to say
+     something no reader of the page can perceive — the cap is a height budget, not
+     a promise about which row the cut lands in. 2.6em sits between them, so neither
+     kind ends exactly on a row boundary. */
+  .panel-results {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    max-height: calc(var(--panel-rows, 8) * 2.6em);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* TWO KINDS OF ROW WEAR THIS CLASS NOW, and the difference is what these rules
+     had to shrink to. `#panel` renders whatever its caller's `render:` returns, so
+     the flex line below is that row's whole layout. `#filter-panel` renders
+     `#idea-row` from @rheo/rookery, which brings its own grid — and rookery.css is
+     UNLAYERED, so its `display: grid` beats this layered `display: flex` however
+     specific this gets. MEASURED, and it is the RIGHT outcome rather than one to
+     work around: a shared row should lay itself out the same way wherever it is
+     drawn.
+
+     So `display` is stated only for the row that has none of its own, and the rest
+     — the padding and the rule between rows — is the panel's own frame and applies
+     to both. A `#filter-panel` row therefore keeps rookery's grid and picks up this
+     border, which is exactly what it should look like. */
+  /* `#filter-panel(visible: none)` — THE LIST FLOWS. A cap is right for a widget a
+     reader opens to find one thing; it is wrong for a page's main list, where the row
+     at the cap is cut in half and the rest is behind a gesture nothing on the page
+     advertises. The class is what the rule hangs on, because CSS cannot ask whether
+     `--panel-rows` was set. */
+  .panel-flow .panel-results {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .panel-row:not(.idea-row) {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+  }
+
+  .panel-row {
+    padding: 0.35em 0;
+    border-bottom: 1px solid var(--rookery-search-hover, rgba(127, 127, 127, 0.15));
+  }
+
+  .panel-row:last-child {
+    border-bottom: none;
+  }
+
+  /* NEEDED, and not redundant with the UA's own `[hidden]` rule: `.panel-row`
+     sets its own `display`, and an author rule beats the UA's whatever the
+     specificity. Without this, hiding a row would do nothing visible.
+     `#idea-row`'s own `[hidden]` lives in rookery.css for the same reason and has
+     to: this rule is inside a layer and cannot reach past that file's unlayered
+     `display: grid`. */
+  .panel-row[hidden] {
+    display: none;
   }
 }

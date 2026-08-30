@@ -1,7 +1,0 @@
-build:
-    pnpm install
-    pnpm run build
-
-# Pin the Typst and JavaScript copies of the ranking rule to the same numbers.
-parity:
-    node test/parity.mjs

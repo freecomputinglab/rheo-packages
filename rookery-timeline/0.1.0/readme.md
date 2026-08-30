@@ -5,7 +5,7 @@ tag metadata — the events, the ladders that order them, and the rail that draw
 them.
 
 ```typst
-#import "@rheo/rookery:0.6.0": idea
+#import "@rheo/rookery:0.1.0": idea
 #import "@rheo/rookery-timeline:0.1.0": dates
 
 #idea("ship", tags: entries(deadline: datetime(year: 2026, month: 9, day: 1)))[
@@ -223,7 +223,7 @@ consumer's view will put it.
 ### `dated(mint)` — dates as named arguments
 
 ```typst
-#import "@rheo/rookery:0.6.0": idea, tagged-idea
+#import "@rheo/rookery:0.1.0": idea, tagged-idea
 #import "@rheo/rookery-timeline:0.1.0": dated, dated-idea
 
 #dated-idea("ship", deadline: d)[Cut the release.]
@@ -439,7 +439,7 @@ Rookery keeps tag values off `#ideas()` rows, so a log is reachable only through
 the functions to hand it:
 
 ```typst
-#import "@rheo/rookery:0.6.0": tag-index
+#import "@rheo/rookery:0.1.0": tag-index
 #import "@rheo/rookery-timeline:0.1.0": (
   DEADLINE-STAGE, as-date, as-days-in-flight, as-rung, as-settled, as-stage,
 )

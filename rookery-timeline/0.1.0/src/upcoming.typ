@@ -52,7 +52,7 @@
 // and nothing else here imports rookery at all. Keep the three in step: a spec
 // naming a version the cache cannot resolve fails with a bare "package not found"
 // that says nothing about which file asked for it.
-#import "@rheo/rookery:0.6.0": idea-row, ideas
+#import "@rheo/rookery:0.1.0": idea-row, ideas
 
 // ---- when-of — which entry dates a row -------------------------------------
 //

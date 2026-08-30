@@ -13,9 +13,12 @@
 // No dependencies, and it should stay that way — vite is bundling one file.
 //
 // PARITY. `score` below is a line-for-line port of `fuzzy-score` in
-// `src/lib.typ`. The two must agree, and `just parity` is what enforces it —
-// it feeds one list of (hay, query) pairs through both and diffs the scores.
-// Change one, change the other, re-run the fixture.
+// `src/lib.typ`, and `bodyScore` is the same port of `body-score`. The two
+// pairs must agree, and `just parity` is what enforces it — it feeds two
+// fixtures through both languages and diffs the scores. Change one side,
+// change the other, re-run the fixture. Every exported ranking function now has
+// a Typst twin: the one exception used to be `snippet`, and it is gone along
+// with the preview excerpt it built.
 //
 // EMBEDDING. Every bar on the page is found by its `data-rookery-search`
 // attribute, whose VALUE is the id of the island it reads. So several bars can
@@ -23,142 +26,34 @@
 // its own — ids are assigned here at runtime, because markup that carries a
 // hardcoded id cannot be placed twice on a page.
 
-export const fold = (s) => s.toLowerCase().replaceAll("-", " ").replaceAll("_", " ");
 
-// Port of `fuzzy-score`. `null` (Typst `none`) when the query's characters do
-// not all appear in `hay` in order; otherwise an integer, higher better.
-export const score = (hay, query) => {
-  const h = fold(hay);
-  const q = fold(query);
-  if (q === "") return 0;
-  const hc = [...h];
-  const qc = [...q];
-  let i = 0;
-  let first = null;
-  let prev = null;
-  let points = 0;
-  for (const ch of qc) {
-    let found = null;
-    for (let j = i; j < hc.length; j++) {
-      if (hc[j] === ch) {
-        found = j;
-        break;
-      }
-    }
-    if (found === null) return null;
-    if (first === null) first = found;
-    points += prev !== null && found === prev + 1 ? 3 : 1;
-    prev = found;
-    i = found + 1;
-  }
-  if (h.startsWith(q)) points += 10;
-  else if (h.includes(q)) points += 5;
-  points += Math.max(0, 5 - first);
-  points += Math.max(0, 10 - (hc.length - qc.length));
-  return points;
-};
+import { readIndex } from "./island.js";
+import { wire, wireModal } from "./wire.js";
+import { initPanels, wirePanel } from "./panel.js";
 
-// Same rule as `search-ideas`: match on the id AND the title, take the better
-// of the two, rank best-first, break ties by id so the order is stable.
-export const search = (rows, query, limit) => {
-  const out = [];
-  for (const row of rows) {
-    const sName = score(row.name, query);
-    const sText = row.text === "" ? null : score(row.text, query);
-    const s =
-      sName === null ? sText : sText === null ? sName : Math.max(sName, sText);
-    if (s === null) continue;
-    out.push({ ...row, score: s });
-  }
-  out.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return limit == null ? out : out.slice(0, limit);
-};
-
-export const readIndex = (elemId) => {
-  const el = document.getElementById(elemId);
-  if (el === null) return null;
-  try {
-    return JSON.parse(el.textContent);
-  } catch {
-    return null;
-  }
-};
-
-const wire = (root, rows, n) => {
-  const input = root.querySelector(".rookery-search-input");
-  const list = root.querySelector(".rookery-search-results");
-  if (input === null || list === null) return;
-  const limit = Number(root.dataset.rookerySearchLimit || "8");
-
-  // Assigned here, not in the markup: a bar has to be placeable more than once
-  // on a page, and duplicate ids would break both `aria-controls` and any CSS
-  // or script keyed off them.
-  list.id = `rookery-search-listbox-${n}`;
-  input.setAttribute("aria-controls", list.id);
-
-  // Set by a click outside this bar, cleared the moment the reader types
-  // again. It is a separate piece of state from "the query is empty", because
-  // a dismissed dropdown must STAY shut while its query is still in the input
-  // — including when the reader clicks back into the field. Only new typing
-  // brings it back, which is the one unambiguous signal that they want it.
-  let dismissed = false;
-
-  const render = () => {
-    const q = input.value.trim();
-    list.replaceChildren();
-    const open = q !== "" && !dismissed;
-    root.dataset.rookerySearchOpen = open ? "true" : "false";
-    input.setAttribute("aria-expanded", open ? "true" : "false");
-    if (!open) return;
-    for (const hit of search(rows, q, limit)) {
-      const a = document.createElement("a");
-      a.className = "rookery-search-row";
-      a.setAttribute("role", "option");
-      a.href = hit.href;
-      const title = document.createElement("span");
-      title.className = "rookery-search-title";
-      title.textContent = hit.text === "" ? hit.name : hit.text;
-      const id = document.createElement("span");
-      id.className = "rookery-search-id";
-      // Bracketed, because that is how an id reads everywhere else in a
-      // rookery: `[idea:etal]` beside a note's title, in a window's summary,
-      // in an outline row. A result should look like the thing it points at.
-      id.textContent = `[${hit.id}]`;
-      a.append(title, id);
-      list.append(a);
-    }
-  };
-
-  input.addEventListener("input", () => {
-    dismissed = false;
-    render();
-  });
-  input.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
-      input.value = "";
-      dismissed = false;
-      render();
-      input.blur();
-    }
-  });
-
-  return {
-    root,
-    // Called for every click that lands outside this bar. Leaves the query in
-    // the input: the reader dismissed a dropdown, they did not ask to lose
-    // what they had typed.
-    dismiss: () => {
-      if (dismissed) return;
-      dismissed = true;
-      render();
-    },
-  };
-};
+export { fold, clusters } from "./text.js";
+export { parseTagQuery, evalTagQuery, positiveAtoms } from "./tagquery.js";
+export { splitQuery, score, bodyScore, search } from "./score.js";
+export { readIndex } from "./island.js";
+export { initPanels, wirePanel } from "./panel.js";
 
 export const init = () => {
-  const roots = document.querySelectorAll("[data-rookery-search]");
-  if (roots.length === 0) return;
+  // Panels are wired FIRST and unconditionally, because they are independent of
+  // the search bar: a page may carry panels and no bar at all, and the early
+  // return below would otherwise skip them.
+  initPanels();
+
+  // The dialog ALSO carries `data-rookery-search` (it shares the bar's
+  // island-lookup attribute), so the bar query must exclude it — otherwise a
+  // page with both a bar and a modal would wire the dialog as a second,
+  // broken dropdown.
+  const roots = document.querySelectorAll("[data-rookery-search]:not(dialog)");
+  const dialogs = document.querySelectorAll("dialog[data-rookery-search]");
+  if (roots.length === 0 && dialogs.length === 0) return;
+
+  // Shared across bars AND modals, so a page with both parses the JSON once.
   const cache = new Map();
+
   const bars = [];
   let n = 0;
   for (const root of roots) {
@@ -172,24 +67,54 @@ export const init = () => {
     const bar = wire(root, rows, n++);
     if (bar) bars.push(bar);
   }
-  if (bars.length === 0) return;
+  if (bars.length > 0) {
+    // ONE listener for every bar on the page, not one each: the question a
+    // click asks is "which bars was this outside of", and that is naturally a
+    // single pass. Two bars therefore close independently and correctly — a
+    // click on one is outside the other, and dismisses only it.
+    //
+    // `pointerdown`, not `click`: it fires before focus moves, so the
+    // dropdown is gone by the time the reader's press lands and nothing
+    // flickers. A result link is INSIDE its own bar, so following one never
+    // counts as a click outside — navigation is unaffected.
+    document.addEventListener("pointerdown", (ev) => {
+      for (const bar of bars) {
+        if (!bar.root.contains(ev.target)) bar.dismiss();
+      }
+    });
+  }
 
-  // ONE listener for every bar on the page, not one each: the question a click
-  // asks is "which bars was this outside of", and that is naturally a single
-  // pass. Two bars therefore close independently and correctly — a click on
-  // one is outside the other, and dismisses only it.
-  //
-  // `pointerdown`, not `click`: it fires before focus moves, so the dropdown is
-  // gone by the time the reader's press lands and nothing flickers. A result
-  // link is INSIDE its own bar, so following one never counts as a click
-  // outside — navigation is unaffected.
-  document.addEventListener("pointerdown", (ev) => {
-    for (const bar of bars) {
-      if (!bar.root.contains(ev.target)) bar.dismiss();
-    }
+  const modals = new Map();
+  for (const dialog of dialogs) {
+    const elemId = dialog.dataset.rookerySearch || "rookery-search-index";
+    if (!cache.has(elemId)) cache.set(elemId, readIndex(elemId));
+    const rows = cache.get(elemId);
+    if (rows === null) continue;
+    const modal = wireModal(dialog, rows);
+    if (modal !== null) modals.set(elemId, modal);
+  }
+  if (modals.size === 0) return;
+
+  for (const trigger of document.querySelectorAll(".rookery-search-trigger")) {
+    const modal = modals.get(trigger.dataset.rookerySearchModal);
+    if (modal === undefined) continue;
+    trigger.addEventListener("click", () => modal.open());
+  }
+
+  // Registered once per page, not once per modal — opens the FIRST modal in
+  // document order, matching telescope's own convention of one global
+  // shortcut. `preventDefault()` because Ctrl+K is a browser binding in some
+  // browsers and the page must win here.
+  document.addEventListener("keydown", (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey) || ev.key.toLowerCase() !== "k") return;
+    // A reader typing in some other field means the literal keystroke, not
+    // the shortcut.
+    const t = ev.target;
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+    ev.preventDefault();
+    modals.values().next().value?.open();
   });
 };
-
 // Auto-init in a browser. Guarded so the parity fixture can `import` this module
 // under node, where there is no document and nothing to wire.
 if (typeof document !== "undefined") {

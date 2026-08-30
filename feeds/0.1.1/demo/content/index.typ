@@ -1,5 +1,5 @@
 #import "@rheo/feeds:0.1.1": feed, configure, feeds-modal, mail-icon, spine
-#import "@rheo/rookery:0.5.0": ideas
+#import "@rheo/rookery:0.1.0": ideas
 
 // A project-level feeds SOURCE built on rookery's `ideas(tags:)` — with NO
 // import coupling between the two packages. A source is just a plain
@@ -13,8 +13,13 @@
 // "#ideas — every registered note, as data"): `href` is the note's minted
 // page, or `none` when nothing is minted (plain `typst compile`, or the
 // combined PDF target); `text` is the title as a plain string;
-// `minted`/`updated` are `datetime` or `none`; `tags` is the author's own tag
-// list. NOTE the two packages spell the same thing differently — rookery's
+// `created` is a `datetime` or `none`; `tags` is the author's own tag
+// list. NOTE that rookery has NO `updated` field — it was removed, and the
+// question "when did this last change?" is answered from the todo log by
+// `@rheo/rookery-timeline`'s `updated-of`, not by a hand-maintained date. An
+// Atom entry still requires an `updated`, so this source feeds `created` to
+// both: a note whose body has not changed since it was written is exactly what
+// that says. NOTE also the two packages spell the same thing differently — rookery's
 // row calls it `href`, the feeds entry model calls it `page` — which is the
 // whole reason this function exists: reshaping one vocabulary into the other
 // is the project's job, not either package's. Getting it wrong is not subtle,
@@ -52,14 +57,14 @@
 
 #let from-ideas(tags: none, match: "any") = cfg => (
   ideas(tags: tags, match: match)
-    .filter(e => e.href != none and e.updated != none)
+    .filter(e => e.href != none and e.created != none)
     .map(e => (
       id: e.id,
       title: e.text,
       // rookery calls it `href`; the feeds entry model calls it `page`.
       page: root-relative(e.href),
-      updated: e.updated,
-      published: e.minted,
+      updated: e.created,
+      published: e.created,
       // rookery's `body` is the note as plain text, carried as the entry's
       // `summary` alongside the full content the feed below now also mints —
       // see the `content: "html"` note there.

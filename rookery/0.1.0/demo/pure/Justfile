@@ -1,5 +1,5 @@
 default:
-    @echo "demo/pure: run 'just watch' to live-rebuild root.typ as HTML"
+    @echo "demo/pure: run 'just watch' to live-rebuild root.typ as HTML, or 'just build' to compile every root"
 
 # --features html is required always (epic decision 8) — see root.typ. `mkdir`
 # first: unlike `rheo watch`, `typst watch` does not create its output
@@ -8,3 +8,122 @@ default:
 watch:
     mkdir -p build
     typst watch --features html --format html --root ../.. root.typ build/root.html
+
+# Compiles every root in this demo, HTML and PDF, both with --features html
+# (mandatory regardless of format — see root.typ). The repo-root
+# .github/workflows/check.yml runs THIS RECIPE ("rookery pure demo compiles",
+# `cd rookery/0.6.0/demo/pure && just build`), so a root added here is picked up
+# by CI with no second edit. It did once invoke `typst compile` directly, which
+# is why this comment used to warn that both needed updating — it no longer does.
+#
+# `excluded.typ` and `invisible.typ` are HTML ONLY, deliberately: neither asserts
+# anything about the paged target, and a PDF line each would double their runtime
+# for no coverage. Every other root here is built both ways because the paged
+# branch is exactly what it is testing.
+#
+# `excluded.typ` IS COMPILED TWICE, and that pair is the only test in this repo
+# that can make its point: the SAME source file, one `--input` apart. The file
+# declares `private` excluded, so the first compile drops those notes and the
+# second (`--input rookery-include=private`) puts them back — exactly the
+# dev-vs-CD split the feature exists for. `rheo compile` forwards no `--input`
+# today (see `_resolve-excluded`, src/base.typ), so `demo/rheo` cannot vary the
+# env half at all and this is where that half is covered.
+#
+# Comments belong in THIS header, not inside the recipe body: `just` echoes a
+# `#` line in a body as if it were a command, so an explanation written there is
+# printed to the user on every build.
+build:
+    mkdir -p build
+    typst compile --features html --format html --root ../.. root.typ build/root.html
+    typst compile --features html --root ../.. root.typ build/root.pdf
+    typst compile --features html --root ../.. paged.typ build/paged.pdf
+    typst compile --features html --format html --root ../.. root-prefix.typ build/root-prefix.html
+    typst compile --features html --root ../.. root-prefix.typ build/root-prefix.pdf
+    typst compile --features html --format html --root ../.. tag-index.typ build/tag-index.html
+    typst compile --features html --root ../.. tag-index.typ build/tag-index.pdf
+    typst compile --features html --format html --root ../.. invisible.typ build/invisible.html
+    typst compile --features html --format html --root ../.. excluded.typ build/excluded.html
+    typst compile --features html --format html --root ../.. --input rookery-include=private excluded.typ build/excluded-dev.html
+    @just check
+
+# Greps on what `build` produced. The assertions live here rather than as
+# `assert`s inside the roots because what these two roots claim is about the
+# OUTPUT — that a string is absent from the HTML — and a Typst `assert` cannot
+# see its own rendering. Same reason `demo/rheo/check.sh` exists.
+check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail=0
+    note() { echo "FAIL: $*"; fail=1; }
+
+    # 1. An excluded note is ABSENT, not hidden: neither its body nor its id
+    #    appears anywhere. Covers the plain form, a `tagged-idea` wrapper, and a
+    #    VALUED tag — three ways in, one gate.
+    if grep -qE 'DROPBODY|idea:gone' build/excluded.html; then
+      note "excluded note leaked into build/excluded.html"
+    fi
+    # 2. The surviving note is untouched.
+    grep -q 'idea:keeper' build/excluded.html || note "keeper missing from excluded.html"
+    grep -q KEEPBODY build/excluded.html || note "keeper body missing from excluded.html"
+    # 3. `#ideas()` sees one note — the assertion that also covers the registry,
+    #    and through it every minted page, the search index and the feeds beacon.
+    grep -q 'count=1' build/excluded.html || note "ideas() count is not 1 in excluded.html"
+    # 4. Graceful degradation: `#hyperlink` keeps its body as plain text (deleting
+    #    it would break the author's sentence), and nothing panicked getting here.
+    grep -q 'HLBODY' build/excluded.html || note "hyperlink body dropped in excluded.html"
+    # 5. THE DEV BUILD, same file, one --input apart: the notes come back.
+    grep -q DROPBODY build/excluded-dev.html || note "rookery-include did not restore the excluded notes"
+    grep -q 'count=4' build/excluded-dev.html || note "ideas() count is not 4 in excluded-dev.html"
+
+    # 6. An invisible tag leaves NO trace: no pill, no class, no generated CSS
+    #    rule. A flat grep, with no documented exception — `invisible.typ` reports
+    #    its filtering assertions as a count and a 0/1 flag precisely so this line
+    #    can stay this simple.
+    if grep -q private build/invisible.html; then
+      note "invisible tag 'private' leaked into build/invisible.html"
+    fi
+    # 7. A VISIBLE tag on the same note keeps everything: pill, class, themed rule.
+    grep -q 'idea-tag-draft' build/invisible.html || note "visible tag class missing"
+    grep -q '>draft</span>' build/invisible.html || note "visible tag pill missing"
+    grep -q '.idea-tag-draft {' build/invisible.html || note "tags-color rule missing for draft"
+    # 8. FILTERING SURVIVES, which is the boundary of the feature: `tags-of` still
+    #    reports both tags and still matches the invisible one.
+    grep -q 'tagcount=2' build/invisible.html || note "tags-of lost a tag"
+    grep -q 'filterable=1' build/invisible.html || note "invisible tag is no longer filterable"
+
+    # 9. DERIVED LABELS (titles.typ, included by root.typ). A note with no
+    #    `title:` gets a naming LABEL from its body — the first 60 characters as
+    #    plain text — used wherever the note is REFERRED TO. It does NOT become the
+    #    note's own heading: the body is right there below it, so printing the
+    #    label there printed the text twice (the defect this split fixed).
+    #
+    #    So: the label reaches the OUTLINE, and the note's own heading stays empty.
+    grep -q 'idea-outline-row"><a href="#loc-[0-9]*">DTSHORT and this body is well under the limit.' build/root.html ||
+      note "a derived label did not reach #ideas-outline"
+    #    Cut to EXACTLY 60 characters with an ellipsis. 'DTLONG ' is 7 characters,
+    #    so 53 x's follow; written out in full so an off-by-one shows in the diff.
+    grep -q 'idea-outline-row"><a href="#loc-[0-9]*">DTLONG xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\.\.\.' build/root.html ||
+      note "a long body was not cut to 60 characters with an ellipsis in the outline"
+    #    THE BODY IS NOT DUPLICATED. Exactly one occurrence of the short body's
+    #    text in the whole page: its body, and not also a heading above it. This is
+    #    the regression guard for the defect — MEASURED before the split, a bare
+    #    `#todo[Call scooter palace ..]` rendered its sentence as an <h2> and then
+    #    again as the body.
+    #    STRUCTURAL, not a count: root.typ calls `#ideas-outline` several times, so
+    #    the number of occurrences is an artefact of the demo rather than of the
+    #    feature. What must hold is that no occurrence sits inside an `.idea-title`
+    #    span — asserted just below — which is precisely "not printed as a heading".
+    grep -q '>DTSHORT and this body is well under the limit.' build/root.html ||
+      note "the short body did not render at all"
+    #    And no `.idea-title` span is emitted for a titleless note — its heading
+    #    keeps only the id anchor, exactly as before 0.6.0.
+    if grep -q '<span class="idea-title">DTSHORT' build/root.html; then
+      note "a derived label was printed as the note's own heading"
+    fi
+    #    An EMPTY body has no label either, so that note is absent from the outline
+    #    as well as untitled.
+    grep -q 'id="idea:dt-empty"[^>]*></h' build/root.html ||
+      note "an empty-bodied note did not stay untitled"
+
+    if [ "$fail" -ne 0 ]; then exit 1; fi
+    echo "demo/pure OK"

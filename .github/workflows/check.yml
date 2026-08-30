@@ -43,19 +43,20 @@ jobs:
       # yet, so this step is the only thing enforcing it.
       #
       # THE FLOOR MOVED to 0.6.0, and this is not the "bump it to whatever just
-      # shipped" that the previous version of this comment forbade. rookery 0.5.0
+      # shipped" that the previous version of this comment forbade. rookery
       # declares `[tool.rheo] min_version = "0.6.0"` because it REQUIRES a 0.6.0
-      # surface: `_resolve-dest` (rookery/0.6.0/src/urls.typ) emits a reserved
+      # surface: `_resolve-dest` (rookery/0.1.0/src/urls.typ) emits a reserved
       # `rheo-page:<handle>` link dest, and only rheo 0.6.0 rewrites it into a
       # depth-correct href. Under 0.5.2 the dest passes straight through and every
       # page ships a literal `href="rheo-page:ideas:<slug>"`, which is what
-      # `rookery/0.6.0/demo/rheo/check.sh` catches. Following a floor that moved is
+      # `rookery/0.1.0/demo/rheo/check.sh` catches. Following a floor that moved is
       # still testing the floor; head-of-line coverage would be a second matrix
       # entry, and still is not a replacement for this.
       #
-      # The older rookery and rookery-search directories remain in the tree and
-      # still declare their own floors. They are NOT exercised here — that is the second matrix entry, not
-      # this step.
+      # THERE ARE NO OTHER ROOKERY-FAMILY DIRECTORIES LEFT to exercise. The
+      # 0.1.0-0.5.0 alpha lineage was retired wholesale when the family was reset to an
+      # aligned 0.1.0, so each of the four packages now has exactly one version
+      # directory and one declared floor, and this step tests all of them.
       #
       # Pinned URL AND pinned digest, for the same auditability reason the Typst
       # step gives: a re-uploaded asset fails this step rather than silently
@@ -85,14 +86,14 @@ jobs:
         run: just check-versions
 
       - name: rookery unit fixture
-        run: cd rookery/0.6.0 && just test
+        run: cd rookery/0.1.0 && just test
 
       # `@rheo` IS A CUSTOM NAMESPACE, NOT A TYPST-UNIVERSE ONE, so there is no
       # registry to download it from: it resolves only where the package cache
-      # already holds it. `rookery-search/0.6.0/src/lib.typ` imports
-      # `@rheo/rookery:0.6.0` for `ideas` and `note-href`, and `just parity` compiles
+      # already holds it. `rookery-search/0.1.0/src/lib.typ` imports
+      # `@rheo/rookery:0.1.0` for `ideas` and `note-href`, and `just parity` compiles
       # that file through `typst eval` — so without this the next step dies with
-      # `error: package not found (searched for @rheo/rookery:0.6.0)`. MEASURED by
+      # `error: package not found (searched for @rheo/rookery:0.1.0)`. MEASURED by
       # running `just parity` under a scratch HOME with no namespace: three such
       # errors, then green the moment the link exists.
       #
@@ -112,10 +113,10 @@ jobs:
           mkdir -p "$cache"
           ln -s "$PWD" "$cache/rheo"
           # Fail HERE with something legible rather than inside a typst error later.
-          test -f "$cache/rheo/rookery-search/0.6.0/typst.toml"
+          test -f "$cache/rheo/rookery-search/0.1.0/typst.toml"
       # AFTER the namespace-symlink step, unlike the rookery-dates step this
       # replaced: that package imported nothing by spec, but
-      # @rheo/rookery-timeline binds `#dated-idea` from `@rheo/rookery:0.6.0` —
+      # @rheo/rookery-timeline binds `#dated-idea` from `@rheo/rookery:0.1.0` —
       # one line, and enough to need the cache. Still buildless, like rookery
       # itself, so no vite step.
       #
@@ -131,7 +132,7 @@ jobs:
       # above them. `just build` first: parity imports `src/`, but a build failure
       # is worth catching here too, since publish-packages.yml only builds on main.
       - name: rookery-search build and parity
-        run: cd rookery-search/0.6.0 && just build && just parity
+        run: cd rookery-search/0.1.0 && just build && just parity
 
       # This repo's definition of "lint" is that a package's demo compiles
       # (CLAUDE.md, "Build"). `demo/pure` is plain `typst compile`, so it runs
@@ -149,7 +150,7 @@ jobs:
       # step gates both, for the same reason recorded above — a check added to the
       # Justfile is picked up here automatically.
       - name: rookery pure demo compiles and checks, HTML and PDF
-        run: cd rookery/0.6.0/demo/pure && just build
+        run: cd rookery/0.1.0/demo/pure && just build
 
       # The rheo half of rookery's coverage, and the only thing that proves
       # package-`.marrow.typ` still mints: `check.sh` asserts on the OUTPUT —
@@ -157,13 +158,13 @@ jobs:
       # `@layer rookery-tags` rules — none of which `demo/pure` can reach.
       #
       # AFTER the namespace-symlink step above, not before: the demo's
-      # `.marrow.typ` needs `@rheo/rookery:0.6.0` to resolve from the cache.
+      # `.marrow.typ` needs `@rheo/rookery:0.1.0` to resolve from the cache.
       #
       # This ran nowhere until rheo 0.5.2 shipped package-marrow support (PR #164,
       # released 2026-08-16). MEASURED at that release: `demo/rheo OK`, all eight
       # blocks.
       - name: rookery rheo demo compiles and asserts, under the declared floor
-        run: cd rookery/0.6.0/demo/rheo && just check
+        run: cd rookery/0.1.0/demo/rheo && just check
 
       # rookery-search's own rheo fixture, and the reason it exists: until it did,
       # this was the one package here whose rheo path had NO demo — it shipped
@@ -181,18 +182,18 @@ jobs:
       # `rookery-search build and parity` step above, because `dist/` is gitignored
       # and rheo cannot resolve the package until vite has written it.
       - name: rookery-search rheo demo compiles and asserts
-        run: cd rookery-search/0.6.0/demo/rheo && just check
+        run: cd rookery-search/0.1.0/demo/rheo && just check
 
       # @rheo/rookery-todos needs three things in this order, which is why it
       # sits here rather than beside the unit fixtures above:
       #   - it is a BUILT package (`typst.toml` points at `dist/`, gitignored),
       #     so vite has to run before rheo can resolve it at all;
-      #   - it hard-imports BOTH `@rheo/rookery:0.6.0` and
+      #   - it hard-imports BOTH `@rheo/rookery:0.1.0` and
       #     `@rheo/rookery-timeline:0.1.0`, so it must follow the namespace symlink;
       #   - `just test-js` covers the graph layout, which is the half of this
       #     package the Typst fixture cannot reach.
       - name: rookery-todos build, unit fixture and graph tests
-        run: cd rookery-todos/0.6.0 && just build && just test && just test-js
+        run: cd rookery-todos/0.1.0 && just build && just test && just test-js
 
       # `just check` builds the demo and then asserts on its OUTPUT. The one
       # assertion it exists for is the `.todo-search-row[hidden]` CSS rule:
@@ -201,7 +202,7 @@ jobs:
       # removes nothing. That compiles clean, passes the unit and JS suites, and
       # looks correct in the markup — it is only wrong on screen.
       - name: rookery-todos rheo demo compiles and asserts
-        run: cd rookery-todos/0.6.0 && just check
+        run: cd rookery-todos/0.1.0 && just check
 
       # @rheo/feeds, gated at last. This step did not exist through 0.1.0 and the
       # workflow carried a comment saying why: the package declares
@@ -222,7 +223,7 @@ jobs:
       #     the rows that are SUPPOSED to fail (a feed with no title) and a
       #     project that imports the package but never configures a feed.
       #
-      # AFTER the namespace-symlink step: the demo imports `@rheo/rookery:0.5.0`
+      # AFTER the namespace-symlink step: the demo imports `@rheo/rookery:0.1.0`
       # for `ideas()`, which is the whole point of its second feed.
       # @rheo/sidebar's rheo demo. It had no in-repo coverage of any kind until
       # 0.1.1 — no demo, no tests, no readme — which mattered little while the

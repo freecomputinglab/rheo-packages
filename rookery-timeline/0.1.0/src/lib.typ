@@ -95,8 +95,8 @@
 // WHAT IS OVERRIDDEN, and it is only these two. Everything else is rookery's,
 // unchanged, and a consumer importing it from here gets exactly what it would get
 // from there.
-#import "@rheo/rookery:0.6.0": *
-#import "@rheo/rookery:0.6.0" as _rk
+#import "@rheo/rookery:0.1.0": *
+#import "@rheo/rookery:0.1.0" as _rk
 
 // A rookery note that also takes `timeline:`/`scheduled:`/`deadline:`.
 #let idea = dated(_rk.idea)

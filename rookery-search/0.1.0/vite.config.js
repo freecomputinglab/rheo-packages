@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [
     viteStaticCopy({
       targets: [
-        { src: "src/lib.typ", dest: "", rename: { stripBase: 1 } },
+        { src: "src/*.typ", dest: "", rename: { stripBase: 1 } },
         { src: "src/rookery-search.css", dest: "", rename: { stripBase: 1 } },
       ],
     }),
