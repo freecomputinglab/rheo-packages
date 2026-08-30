@@ -7,3 +7,4 @@
 # revert a close, and every mutation on two machines is a whole-file conflict in
 # a file no one reads by hand.
 .beads/**
+.abacus/**
