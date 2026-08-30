@@ -7,8 +7,8 @@ default:
 #
 # `--root .` so the fixture's `#import "/src/lib.typ"` resolves against THIS
 # package. `--features html` is kept for parity with this repo's other
-# Justfiles (rookery's `test:` needs it because its `src/lib.typ` reads
-# `std.target` at import time) even though this package's `src/lib.typ` reads
+# Justfiles (a package whose `src/lib.typ` reads `std.target` at import time
+# needs it) even though this package's `src/lib.typ` reads
 # no target and no rheo context at all — see its own header comment.
 # `--format pdf` with a `/dev/null` output because typst cannot infer a
 # format from that path, and nothing here is rendered — only asserted.
@@ -17,13 +17,15 @@ test:
     @echo "units OK"
 
 # NOT WIRED INTO CI, and the reason is the rheo VERSION, not rheo's absence:
-# CI can install a rheo release (it pins 0.5.2 for rookery's demo), but this
-# package needs rheo >= 0.6.0, which is unreleased. Until it ships there is no
-# release for CI to install, so this stays a local check run against a built
-# `feat/transclusion` binary.
+# CI can install a rheo release, but this package needs rheo >= 0.6.0, which is
+# unreleased. Until it ships there is no release for CI to install, so this
+# stays a local check run against a built binary.
 #
-# It proves the headline capability — ONE project, TWO Atom feeds, the second
-# sourced from `@rheo/rookery`'s `ideas(tags:)`. On a rheo below the floor the
+# It proves the headline capability — a project minting an Atom feed from its
+# own marrow. The demo's second feed, sourced from another package's accessor,
+# was dropped when the rookery family moved to its own repository; the readme's
+# "Sourcing from another package" section carries that example now. On a rheo
+# below the floor the
 # package's own guard now stops the build with a legible message instead of
 # quietly writing no feed; see `_assert-rheo-floor` in src/lib.typ and the
 # readme's "## Requirements".
