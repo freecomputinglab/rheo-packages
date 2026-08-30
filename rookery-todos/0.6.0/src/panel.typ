@@ -109,18 +109,21 @@
   // the earliest date first, because a deadline already behind you is the most urgent
   // thing on the page. Undated rows sort last either way — see `#panel`.
   order: "soonest",
-  // HOW LONG YOU HAVE, as a chip at the right-hand end of the row — the same bands
-  // @rheo/rookery-timeline draws on `#upcoming`, wearing the same
-  // `idea-tag-due-<band>` classes, so one theme colours both surfaces.
+  // HOW LONG YOU HAVE, as a WASH ON THE DATE CELL — the same three bands
+  // @rheo/rookery-timeline draws on `#upcoming`, off the same `countdown()`, on the
+  // same family `--rookery-heat-*` ramp. What differs is where the colour lands: that
+  // view draws a chip, this one paints the date. The phrase rides as a tooltip.
   //
   // ON BY DEFAULT here, where `#upcoming`'s flag is off: a panel of OUTSTANDING WORK
-  // is read for what is due next, which is the question the chip answers. A row
-  // further off than a fortnight, or with no date at all, draws nothing either way.
+  // is read for what is due next, which is the question the band answers. A row
+  // further off than a fortnight draws no band from the countdown — priority is the
+  // fallback there, see `draw` below — and a row with no date draws nothing at all.
   //
   // IT NEEDS A `today:`. Nothing in this package may call `datetime.today()` (it
   // returns 1980-01-01 under a reproducible build and does not error), and unlike the
-  // predicates in `when.typ` a chip has no tag dictionary to resolve a document-date
-  // fallback from — so with no `today:` passed, no row is measured and no chip drawn.
+  // predicates in `when.typ` a countdown has no tag dictionary to resolve a
+  // document-date fallback from — so with no `today:` passed, no row is measured and
+  // no countdown band drawn (priority still bands where it applies).
   countdown: true,
   visible: 8,
   placeholder: "Filter",
@@ -200,24 +203,64 @@
           if c != none { [ #text(gray, "(" + c.text + ")")] }
         }
       }
+      // THE BAND IS THE DATE CELL, not a fifth thing beside it. It was a chip on the
+      // badge strip, which made the strip say two different kinds of thing at once —
+      // what this todo IS (its facets) and how soon it is due — and spent a chip slot
+      // on a reading the eye takes without words. So the colour paints the date's own
+      // background and the phrase becomes a tooltip: the colour is the reading at a
+      // glance, the words are there for whoever asks. `#upcoming` keeps its chips —
+      // that view has a different grid and a different question.
+      let band = if c == none { none } else { "todo-when-" + c.level }
+      // PRIORITY, ONLY WHERE THE COUNTDOWN HAS NOTHING TO SAY. A todo three weeks out
+      // earns no countdown band, so a p0 sitting far out would read exactly like the
+      // p4 beside it — which is the gap this closes, on the same cell rather than a
+      // second one. Where both could apply the countdown WINS: a deadline actually due
+      // soon is the more pressing read regardless of how it was prioritised.
+      //
+      // `r.priority` HERE IS THE PROJECTED STRING (`"p0"`), not the number — the map
+      // above turned it into one so it could ride as a facet attribute.
+      //
+      // NO p3 OR p4, deliberately: a ramp of three has three steps, and a backlog item
+      // colouring itself is exactly the noise the ramp exists to cut through.
+      let p = r.at("priority", default: none)
+      let pri-band = if band != none or d == none or p not in ("p0", "p1", "p2") {
+        none
+      } else { "todo-when-" + p }
+      // A ROW WITH NO DATE GETS NEITHER. A wash behind an em dash says nothing.
+      let phrase = if c != none { c.text } else if pri-band != none {
+        "priority " + p.slice(1)
+      } else { none }
       idea-row-body(
         when: if d == none { none } else { _fmt-day(d) },
         iso: if d == none { none } else { _iso(d) },
+        // `when-class:`/`when-attrs:` ARE @rheo/rookery's OWN HOLE for exactly this
+        // (see `row.typ`): the caller computes the band, the row still asks nothing
+        // about what a date means. With no band, neither is passed and the cell's
+        // markup is what it always was.
+        when-class: if band != none { (band,) } else if pri-band != none {
+          (pri-band,)
+        } else { () },
+        // `data-countdown` carries the words for the drawn tooltip; `aria-label` says
+        // them to a reader who cannot see a colour. Not `title:` — a native tooltip
+        // cannot be styled and would open BESIDE the drawn one rather than instead of
+        // it. `tabindex` is what makes the tooltip reachable without a pointer, which
+        // is also how it opens on a touch screen.
+        when-attrs: if phrase == none { (:) } else {
+          (
+            "data-countdown": phrase,
+            "aria-label": _fmt-day(d) + ", " + phrase,
+            "tabindex": "0",
+          )
+        },
         title: r.at("label", default: r.at("name", default: "")),
         href: r.at("href", default: none),
         // ONE CHIP PER FACET THIS ROW HAS A VALUE FOR, in the caller's facet order, so
-        // the chips read in the same order as the pill groups above them — and the
-        // countdown APPENDED LAST, which is the whole of "a chip on the right":
-        // rookery's `.idea-row-badges` is `justify-content: flex-end`, so the final
-        // chip is the row's rightmost element and no new column is needed.
-        badges: {
-          let bs = facets
-            .map(f => r.at(f, default: none))
-            .filter(v => v != none and v != "")
-            .map(v => (text: v.replace("-", " "), tag: v))
-          if c != none { bs.push((text: c.text, tag: "due-" + c.level)) }
-          bs
-        },
+        // the chips read in the same order as the pill groups above them. The strip is
+        // about facets and nothing else — urgency is the date cell's job now.
+        badges: facets
+          .map(f => r.at(f, default: none))
+          .filter(v => v != none and v != "")
+          .map(v => (text: v.replace("-", " "), tag: v)),
       )
     }
   }

@@ -393,32 +393,45 @@ the graph alike.
 
 ### The heat ramp: how close, and how urgent
 
-`#filter-panel` draws a **countdown chip** at the right-hand end of every row whose
-date falls within a fortnight — `today`, `tomorrow`, `in 5 days`, `9 days ago` — in
-the three bands `@rheo/rookery-timeline` defines (`countdown`, `when.typ`): urgent is
-today, tomorrow and anything overdue; soon is two to seven days; later is eight to
-fourteen. It is **on by default** here, where `#upcoming`'s own `countdown:` is off,
-because a panel of outstanding work is read for what is due next. Pass
-`countdown: false` to drop it, and note that it needs a `today:` — with none passed
-no row can be measured and no chip is drawn.
+`#filter-panel` **bands the date cell itself** on every row whose date falls within a
+fortnight, in the three bands `@rheo/rookery-timeline` defines (`countdown`,
+`when.typ`): urgent is today, tomorrow and anything overdue; soon is two to seven
+days; later is eight to fourteen. The colour is the reading at a glance; the words —
+`today`, `tomorrow`, `in 5 days`, `9 days ago` — ride as a tooltip drawn above the
+cell on hover and on focus, and as its `aria-label` for a reader who cannot see a
+colour. The badge strip stays about facets.
 
-Priority wears the **same three colours** on its own chip: `p0` urgent, `p1` soon,
-`p2` later. `p3` and `p4` are left plain — a ramp of three has three steps, and a
-backlog item colouring itself is the noise the ramp exists to cut through.
+It is **on by default** here, where `#upcoming`'s own `countdown:` is off, because a
+panel of outstanding work is read for what is due next. Pass `countdown: false` to
+drop it, and note that it needs a `today:` — with none passed no row can be measured
+and no countdown band is drawn. (`#upcoming` is untouched: that view keeps its chips.)
+
+**Priority is the fallback, and only where the countdown is silent.** A todo three
+weeks out earns no countdown band, so a `p0` sitting far out would otherwise read
+exactly like the `p4` beside it; where both could apply the countdown wins, because a
+deadline actually due soon is the more pressing read regardless of how it was
+prioritised. `p0` takes the urgent hue, `p1` soon, `p2` later, each a touch lighter
+than the countdown band of the same colour. `p3` and `p4` are left plain — a ramp of
+three has three steps, and a backlog item colouring itself is the noise the ramp
+exists to cut through. A row with no date is never banded: a wash behind an em dash
+says nothing.
 
 | | |
 |---|---|
 | `--rookery-heat-urgent` | the whole family's first step (defaults to `#b3261e`) |
 | `--rookery-heat-soon` | its second (defaults to `#b3611e`) |
 | `--rookery-heat-later` | its third (defaults to `#b38f1e`) |
-| `--todo-due-urgent` / `--todo-due-soon` / `--todo-due-later` | this package's countdown chip, overriding the ramp |
-| `--todo-priority-0` / `--todo-priority-1` / `--todo-priority-2` | its priority chip, overriding the ramp |
+| `--todo-band-urgent` / `--todo-band-soon` / `--todo-band-later` | the countdown wash on the date cell, overriding the mix of the ramp |
+| `--todo-band-p0` / `--todo-band-p1` / `--todo-band-p2` | the priority wash, same |
+| `--todo-band-fg` | the ink on a banded `soft` date, which is no longer greyed |
+| `--todo-tooltip-bg` / `--todo-tooltip-fg` / `--todo-tooltip-border` / `--todo-tooltip-outline` | the drawn tooltip, falling back to rookery's own `--idea-*` |
 
 **One ramp, two readings, and by default they are the same palette.** A site sets the
-three `--rookery-heat-*` properties once on `:root` and every heat chip in the family
-follows — this package's countdown and priority chips, and `#upcoming`'s countdown
-over in `@rheo/rookery-timeline`. The `--todo-*` properties exist for the site that
-wants urgency-in-time and urgency-in-priority to read differently:
+three `--rookery-heat-*` properties once on `:root` and every heat surface in the
+family follows — this package's six date bands, and `#upcoming`'s countdown chips over
+in `@rheo/rookery-timeline`. The `--todo-band-*` properties exist for the site that
+wants urgency-in-time and urgency-in-priority to read differently, and each replaces
+its band's colour whole rather than feeding a mix:
 
 ```css
 :root {
@@ -426,7 +439,7 @@ wants urgency-in-time and urgency-in-priority to read differently:
   --rookery-heat-soon: #b05c12;
   --rookery-heat-later: #b08a10;
   /* ...and, only if the two should come apart: */
-  --todo-priority-0: #6a3ab2;
+  --todo-band-p0: color-mix(in oklab, #6a3ab2 34%, transparent);
 }
 ```
 

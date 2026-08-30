@@ -207,101 +207,123 @@
     font-weight: 600;
   }
 
-  /* THE COUNTDOWN CHIP ON A `#filter-panel` ROW, at its three bands: urgent is
-   * today, tomorrow and anything overdue; soon is two to seven days; later is eight
-   * to fourteen. Further off draws no chip, so there is no fourth rule.
+  /* THE BAND ON A `#filter-panel` ROW'S DATE CELL. Urgency is painted on the date
+   * itself rather than added as a chip beside it: the badge strip is about what a
+   * todo IS, and a wash says "soon" faster than a word does anyway.
    *
-   * WHY THIS REPEATS RULES @rheo/rookery-timeline ALREADY HAS: those are scoped to
-   * `.upcoming-row`, and a panel row carries `.idea-row` (set by `row-class:` in
-   * `panel.typ`) and nothing of that view's. Same chip, same classes, different row.
+   * SIX BANDS, ONE RAMP. Three from the countdown — urgent is today, tomorrow and
+   * anything overdue; soon is two to seven days; later is eight to fourteen — and
+   * three from PRIORITY, which bands only where the countdown was silent (a todo
+   * further off than a fortnight, or one with no `today:` to measure against). p3 and
+   * p4 get no rule: a ramp of three has three steps, and a backlog item colouring
+   * itself is exactly the noise the ramp exists to cut through.
    *
-   * SET AS CUSTOM PROPERTIES, NOT AS `color`/`background-color`, and that is forced
-   * rather than stylistic: @rheo/rookery's chip rule (`.idea-row-badges > .idea-tag`,
-   * rookery.css) is UNLAYERED, and unlayered CSS beats layered CSS whatever the
-   * specificity — so a `color:` declared inside this layer would lose to it every
-   * time. What that rule does is READ `--idea-tag-color`/`--idea-tag-bg`, and never
-   * set them. The long version is at the foot of rookery-timeline's stylesheet.
+   * The priority washes are a touch lighter than the countdown band of the same hue,
+   * so that where the two channels sit in one column the actual deadline reads as the
+   * firmer statement.
    *
-   * EACH COLOUR IS TWO `var()`s DEEP, and the inner one is the point: this package's
-   * own `--todo-due-*` first, then the family-wide `--rookery-heat-*` ramp, then the
-   * literal. A site sets the ramp ONCE and every heat chip in the family follows —
-   * these rows' countdowns, their priority chips, and `#upcoming`'s countdown.
-   *
-   * THE 14% WASH is rookery's own default (`color-mix(in oklab, currentColor 14%,
-   * transparent)`), so a coloured chip and the plain chip beside it read as one
-   * object rather than as two conventions sharing a row. */
-  .idea-row .idea-tag-due-urgent {
-    --idea-tag-color: var(--todo-due-urgent, var(--rookery-heat-urgent, #b3261e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-due-urgent, var(--rookery-heat-urgent, #b3261e)) 14%,
-      transparent
+   * TWO LAYERS OF `var()`, as everywhere else in this family: the per-band override
+   * `--todo-band-<name>` first, then a mix of the family-wide `--rookery-heat-*`
+   * ramp, then the literal hue. A site sets the ramp ONCE and all six washes follow,
+   * along with `#upcoming`'s countdown chips in @rheo/rookery-timeline. */
+  .idea-row-when[data-countdown] {
+    position: relative;
+    border-radius: 3px;
+    padding: 0 0.3em;
+    margin-left: -0.3em;
+    cursor: help;
+  }
+
+  .idea-row-when.todo-when-urgent {
+    background-color: var(
+      --todo-band-urgent,
+      color-mix(in oklab, var(--rookery-heat-urgent, #b3261e) 38%, transparent)
     );
   }
 
-  .idea-row .idea-tag-due-soon {
-    --idea-tag-color: var(--todo-due-soon, var(--rookery-heat-soon, #b3611e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-due-soon, var(--rookery-heat-soon, #b3611e)) 14%,
-      transparent
+  .idea-row-when.todo-when-soon {
+    background-color: var(
+      --todo-band-soon,
+      color-mix(in oklab, var(--rookery-heat-soon, #b3611e) 30%, transparent)
     );
   }
 
-  .idea-row .idea-tag-due-later {
-    --idea-tag-color: var(--todo-due-later, var(--rookery-heat-later, #b38f1e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-due-later, var(--rookery-heat-later, #b38f1e)) 14%,
-      transparent
+  .idea-row-when.todo-when-later {
+    background-color: var(
+      --todo-band-later,
+      color-mix(in oklab, var(--rookery-heat-later, #b38f1e) 24%, transparent)
     );
   }
 
-  /* THE PRIORITY CHIP ON A `#filter-panel` ROW, on the same ramp as the countdown
-   * beside it: p0 urgent, p1 soon, p2 later. Two kinds of urgency — how close a
-   * deadline is, and how much a todo matters — and one palette, because a reader
-   * scanning the list is asking one question of both.
-   *
-   * NOTHING IN `panel.typ` CHANGES FOR THIS. The panel already projects `priority`
-   * as a facet and already draws the chip wearing rookery's ordinary
-   * `idea-tag idea-tag-p0`; this is the colour and nothing else.
-   *
-   * NO RULE FOR p3 OR p4, deliberately. A ramp of three has three steps, and a
-   * backlog item colouring itself is exactly the noise the ramp exists to cut
-   * through — they keep the default chip.
-   *
-   * `--todo-priority-0|1|2` OVERRIDES THE RAMP for priority alone, which is the one
-   * knob that lets a site read priority in a different palette from time. Both
-   * default to `--rookery-heat-*`, so out of the box they are the same three colours.
-   *
-   * NOT `.idea-tag-todo-p0`, which is the TAG KEY and rides on the row itself (see
-   * the weight rules above, which are `#todos-list`'s and stay weight-only). The chip
-   * wears the FACET VALUE, `p0`. */
-  .idea-row .idea-tag-p0 {
-    --idea-tag-color: var(--todo-priority-0, var(--rookery-heat-urgent, #b3261e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-priority-0, var(--rookery-heat-urgent, #b3261e)) 14%,
-      transparent
+  .idea-row-when.todo-when-p0 {
+    background-color: var(
+      --todo-band-p0,
+      color-mix(in oklab, var(--rookery-heat-urgent, #b3261e) 34%, transparent)
     );
   }
 
-  .idea-row .idea-tag-p1 {
-    --idea-tag-color: var(--todo-priority-1, var(--rookery-heat-soon, #b3611e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-priority-1, var(--rookery-heat-soon, #b3611e)) 14%,
-      transparent
+  .idea-row-when.todo-when-p1 {
+    background-color: var(
+      --todo-band-p1,
+      color-mix(in oklab, var(--rookery-heat-soon, #b3611e) 28%, transparent)
     );
   }
 
-  .idea-row .idea-tag-p2 {
-    --idea-tag-color: var(--todo-priority-2, var(--rookery-heat-later, #b38f1e));
-    --idea-tag-bg: color-mix(
-      in oklab,
-      var(--todo-priority-2, var(--rookery-heat-later, #b38f1e)) 14%,
-      transparent
+  .idea-row-when.todo-when-p2 {
+    background-color: var(
+      --todo-band-p2,
+      color-mix(in oklab, var(--rookery-heat-later, #b38f1e) 22%, transparent)
     );
+  }
+
+  /* A BANDED DATE IS NOT SOFT-GREY. `.idea-row-when.soft` (rookery.css) greys and
+   * italicises the cell to say the date answers a different question than the list
+   * asked. Sitting on a wash it has to hold its own against it, so the ink comes
+   * back; the italic stays, which is the half of the distinction that still reads.
+   *
+   * SET AS A CUSTOM PROPERTY, NOT AS `color`, for the reason the chips here used to
+   * be: rookery.css is UNLAYERED throughout, and unlayered CSS beats layered CSS
+   * whatever the specificity — a `color:` declared inside this layer would lose to
+   * `.idea-row-when.soft` every time. What that rule DOES is read
+   * `--idea-muted-color`, so this overrides the input rather than the output.
+   * `currentColor` in `color` computes to the INHERITED colour, which is the row's
+   * ordinary ink — exactly what "the grey goes" means. */
+  .idea-row-when.soft[data-countdown] {
+    --idea-muted-color: var(--todo-band-fg, currentColor);
+  }
+
+  /* THE PHRASE, ON DEMAND. Drawn rather than handed to `title:`, because a native
+   * tooltip cannot be styled, waits a second before it opens, and would appear BESIDE
+   * this one rather than instead of it — so the markup carries `data-countdown` and an
+   * `aria-label`, and no `title` at all.
+   *
+   * `:focus` rather than `:focus-visible`: the cell is given a `tabindex`, and on a
+   * touch screen a tap is the only hover there is. ABOVE the cell rather than below,
+   * so it never covers the row beneath — the next date down the column is the thing a
+   * reader is comparing this one against. */
+  .idea-row-when[data-countdown]:hover::after,
+  .idea-row-when[data-countdown]:focus::after {
+    content: attr(data-countdown);
+    position: absolute;
+    bottom: calc(100% + 0.35rem);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    padding: 0.15em 0.5em;
+    border: 1px solid var(--todo-tooltip-border, var(--idea-border-color, CanvasText));
+    border-radius: 3px;
+    background-color: var(--todo-tooltip-bg, var(--idea-bg, Canvas));
+    color: var(--todo-tooltip-fg, var(--idea-fg, CanvasText));
+    font-size: 0.85em;
+    font-style: normal;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .idea-row-when[data-countdown]:focus {
+    outline: 1px solid var(--todo-tooltip-outline, var(--idea-link-color, currentColor));
+    outline-offset: 1px;
   }
 
   /* Stats */
