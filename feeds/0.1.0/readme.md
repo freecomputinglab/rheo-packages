@@ -307,7 +307,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 
 ```typst
 #import "@rheo/feeds:0.1.0": feed, configure, spine
-#import "@rheo/rookery:0.5.0": ideas
+#import "@rheo/rookery:0.1.0": ideas
 
 // rookery's `href` is depth-relative; this source runs at bundle root, where
 // the ambient handle is not the site root, so the leading `../` run has to go.
@@ -319,14 +319,14 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 
 #let from-ideas(tags: none, match: "any") = cfg => (
   ideas(tags: tags, match: match)
-    .filter(e => e.href != none and e.updated != none)
+    .filter(e => e.href != none and e.created != none)
     .map(e => (
       id: e.id,
       title: e.text,
       // rookery calls it `href`; the feeds entry model calls it `page`.
       page: root-relative(e.href),
-      updated: e.updated,
-      published: e.minted,
+      updated: e.created,
+      published: e.created,
       summary: e.body,
       categories: e.tags,
     ))

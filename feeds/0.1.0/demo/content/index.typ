@@ -1,5 +1,5 @@
 #import "@rheo/feeds:0.1.0": feed, configure, feeds-modal, mail-icon, spine
-#import "@rheo/rookery:0.5.0": ideas
+#import "@rheo/rookery:0.1.0": ideas
 
 // A project-level feeds SOURCE built on rookery's `ideas(tags:)` — with NO
 // import coupling between the two packages. A source is just a plain
@@ -13,7 +13,7 @@
 // "#ideas — every registered note, as data"): `href` is the note's minted
 // page, or `none` when nothing is minted (plain `typst compile`, or the
 // combined PDF target); `text` is the title as a plain string;
-// `minted`/`updated` are `datetime` or `none`; `tags` is the author's own tag
+// `created` is a `datetime` or `none`; `tags` is the author's own tag
 // list. NOTE the two packages spell the same thing differently — rookery's
 // row calls it `href`, the feeds entry model calls it `page` — which is the
 // whole reason this function exists: reshaping one vocabulary into the other
@@ -52,14 +52,14 @@
 
 #let from-ideas(tags: none, match: "any") = cfg => (
   ideas(tags: tags, match: match)
-    .filter(e => e.href != none and e.updated != none)
+    .filter(e => e.href != none and e.created != none)
     .map(e => (
       id: e.id,
       title: e.text,
       // rookery calls it `href`; the feeds entry model calls it `page`.
       page: root-relative(e.href),
-      updated: e.updated,
-      published: e.minted,
+      updated: e.created,
+      published: e.created,
       // rookery's `body` is the note as plain text. It becomes the entry's
       // `summary` because this feed cannot carry real content — see the
       // `content: none` note on the notes feed below.

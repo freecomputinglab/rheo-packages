@@ -1,4 +1,4 @@
-#import "@rheo/rookery:0.5.0": rookery, idea, tagged-idea
+#import "@rheo/rookery:0.1.0": rookery, idea, tagged-idea
 
 // `#note` is a project-local two-liner as of rookery 0.5.0, not a package
 // export — `tagged-idea` is the factory it is built from.
