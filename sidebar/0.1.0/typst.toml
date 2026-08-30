@@ -1,7 +1,7 @@
 [package]
 name = "sidebar"
 version = "0.1.0"
-entrypoint = "dist/lib.typ"
+entrypoint = "src/lib.typ"
 authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
 license = "MIT"
 description = "A Rheo template for book-style HTML/PDF/EPUB sites with sidebar navigation"
@@ -9,4 +9,8 @@ repository = "https://github.com/freecomputinglab/rheo-packages"
 
 [tool.rheo.html]
 js_scripts = "dist/lib.js"
-css_stylesheet = "dist/sidebar.css"
+css_stylesheet = "src/sidebar.css"
+
+[tool.rheo.source.html]
+js_scripts = ["src/sidebar.js"]
+js_module = true

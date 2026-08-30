@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import replace from "rollup-plugin-replace";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
   plugins: [
@@ -9,12 +8,6 @@ export default defineConfig({
     replace({
       'process.env.NODE_ENV': JSON.stringify('development'),
     }),
-
-    viteStaticCopy({
-      targets: [
-        { src: "src/my-tooltip.typ", dest: "", rename: { stripBase: 1} }
-      ]
-    })
   ],
   build: {
     lib: {

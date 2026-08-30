@@ -50,10 +50,9 @@ jobs:
               echo "no build step for $name — entrypoint ships straight from src/"
             fi
 
-            # A JS package, or a pure-Typst one with its own `build` recipe,
-            # produces dist/; a dist-less pure-Typst package (no package.json,
-            # no `build` recipe) has its manifest entrypoint pointing straight
-            # at src/ instead — ship whichever actually exists.
+            # Every package ships src/ — a built package's entrypoint and
+            # stylesheet live there now, and dist/ (when present) holds ONLY
+            # the JS bundle, so a built package needs BOTH directories.
             #
             # `.marrow.typ` is the third thing a package can ship, and it sits at
             # the package ROOT beside typst.toml rather than under src/ or dist/,
@@ -72,10 +71,9 @@ jobs:
             if [ -f "$dir/.marrow.typ" ]; then
               paths+=(.marrow.typ)
             fi
+            paths+=(src/)
             if [ -d "$dir/dist" ]; then
               paths+=(dist/)
-            else
-              paths+=(src/)
             fi
             tar -czf "$archive" -C "$dir" "${paths[@]}"
 

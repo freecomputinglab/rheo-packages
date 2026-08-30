@@ -179,22 +179,32 @@ edit.
 
 These are two of a kind, deliberately, not a direction of travel:
 `@rheo/rookery-search` shares rookery's name and hard-imports it, and is
-nonetheless an ORDINARY built package — `package.json` + vite → `dist/`, manifest
-pointing at `dist/lib.typ`, `dist/lib.js` and `dist/rookery-search.css`,
-exactly like `sidebar`, `blogfeed`, `justify`, `slides` and `tooltip`. That is
-precisely why search lives in its own package: search is only worth having
-with JavaScript, and rookery is the one package here that ships none.
-Splitting kept that true instead of trading it away. When adding a package,
-the built shape is the default; buildless needs a reason as good as
-rookery's or feeds's.
+nonetheless an ORDINARY built package — `package.json` + vite, exactly like
+`sidebar`, `blogfeed`, `justify`, `slides` and `tooltip`. That is precisely why
+search lives in its own package: search is only worth having with
+JavaScript, and rookery is the one package here that ships none. Splitting
+kept that true instead of trading it away. When adding a package, the built
+shape is the default; buildless needs a reason as good as rookery's or
+feeds's.
+
+The built shape is narrower than "everything lives in `dist/`", though: a
+built package's `entrypoint` and `css_stylesheet` point at `src/` — vite only
+copies those files into `dist/` byte-identically, so the manifest names the
+originals — and `dist/` holds ONLY the built JavaScript bundle (e.g.
+`dist/lib.js`). This is what lets a package be consumed straight off a git
+ref with no build step at all: `src/` is checked in and carries a working
+entrypoint and stylesheet on its own; only the JS bundle is genuinely
+missing outside a release. `justify` is the one exception that also stays
+built end-to-end for its JS — see its `typst.toml` for why.
 
 `.github/workflows/publish-packages.yml` handles three cases per package: a
 `package.json` present means `pnpm install && pnpm run build`; no
 `package.json` but a `build:` recipe in the package's own `Justfile` means
 `just build`; neither means no build step at all. The release archive step
-then tars `dist/` if the build produced one, else `src/` — so a dist-less
-package like `@rheo/rookery` ships its `src/` directly, matching what its
-manifest's entrypoint already points at.
+tars `src/` always, and ADDS `dist/` on top of it when the build produced
+one — so a dist-less package like `@rheo/rookery` ships its `src/` directly,
+and a built package like `sidebar` ships both `src/` (entrypoint, stylesheet)
+and `dist/` (the JS bundle).
 
 ## Cross-package data without an import: the beacon protocol
 
