@@ -28,6 +28,11 @@
 #import "@rheo/rookery-search:0.6.0": panel
 #import "@rheo/rookery:0.6.0": idea-row-body
 #import "@rheo/rookery-timeline:0.1.0": deadline-of, scheduled-of
+// AND AS A MODULE, for `countdown`/`days-until`: the parameter below is also called
+// `countdown`, and a parameter and a function of the same name cannot both be
+// reachable by that name inside the panel. Same reason `#upcoming` imports its own
+// `when.typ` twice.
+#import "@rheo/rookery-timeline:0.1.0" as _tl
 #import "target.typ": *
 #import "tags.typ": *
 #import "todo.typ": epic-of
@@ -104,6 +109,19 @@
   // the earliest date first, because a deadline already behind you is the most urgent
   // thing on the page. Undated rows sort last either way — see `#panel`.
   order: "soonest",
+  // HOW LONG YOU HAVE, as a chip at the right-hand end of the row — the same bands
+  // @rheo/rookery-timeline draws on `#upcoming`, wearing the same
+  // `idea-tag-due-<band>` classes, so one theme colours both surfaces.
+  //
+  // ON BY DEFAULT here, where `#upcoming`'s flag is off: a panel of OUTSTANDING WORK
+  // is read for what is due next, which is the question the chip answers. A row
+  // further off than a fortnight, or with no date at all, draws nothing either way.
+  //
+  // IT NEEDS A `today:`. Nothing in this package may call `datetime.today()` (it
+  // returns 1980-01-01 under a reproducible build and does not error), and unlike the
+  // predicates in `when.typ` a chip has no tag dictionary to resolve a document-date
+  // fallback from — so with no `today:` passed, no row is measured and no chip drawn.
+  countdown: true,
   visible: 8,
   placeholder: "Filter",
   noun: "todos",
@@ -166,10 +184,20 @@
       // on a paged target contributes NOTHING. So the fallback lives here rather than
       // in the panel: an empty `list(..)` item per todo is exactly the silence
       // `target.typ`'s header says this package exists to end.
+      // THE COUNTDOWN IS @rheo/rookery-timeline's, not this package's: `countdown`
+      // maps whole days onto the three bands and the words for them, and deriving a
+      // second copy of `if days <= 7` here is exactly how two surfaces drift apart.
+      let c = if countdown and d != none and today != none {
+        _tl.countdown(_tl.days-until(d, today))
+      } else { none }
       if not _is-markup() {
         return {
           if d != none { [#_fmt-day(d) — ] }
           r.at("label", default: r.at("name", default: ""))
+          // THE SAME WORDS, NO COLOUR, which is what `#upcoming`'s paged branch does
+          // too: a printed page has no chip to tint, and red ink is a decision about
+          // the page rather than about the deadline.
+          if c != none { [ #text(gray, "(" + c.text + ")")] }
         }
       }
       idea-row-body(
@@ -178,11 +206,18 @@
         title: r.at("label", default: r.at("name", default: "")),
         href: r.at("href", default: none),
         // ONE CHIP PER FACET THIS ROW HAS A VALUE FOR, in the caller's facet order, so
-        // the chips read in the same order as the pill groups above them.
-        badges: facets
-          .map(f => r.at(f, default: none))
-          .filter(v => v != none and v != "")
-          .map(v => (text: v.replace("-", " "), tag: v)),
+        // the chips read in the same order as the pill groups above them — and the
+        // countdown APPENDED LAST, which is the whole of "a chip on the right":
+        // rookery's `.idea-row-badges` is `justify-content: flex-end`, so the final
+        // chip is the row's rightmost element and no new column is needed.
+        badges: {
+          let bs = facets
+            .map(f => r.at(f, default: none))
+            .filter(v => v != none and v != "")
+            .map(v => (text: v.replace("-", " "), tag: v))
+          if c != none { bs.push((text: c.text, tag: "due-" + c.level)) }
+          bs
+        },
       )
     }
   }

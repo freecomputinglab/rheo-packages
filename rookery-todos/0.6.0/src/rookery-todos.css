@@ -207,6 +207,56 @@
     font-weight: 600;
   }
 
+  /* THE COUNTDOWN CHIP ON A `#filter-panel` ROW, at its three bands: urgent is
+   * today, tomorrow and anything overdue; soon is two to seven days; later is eight
+   * to fourteen. Further off draws no chip, so there is no fourth rule.
+   *
+   * WHY THIS REPEATS RULES @rheo/rookery-timeline ALREADY HAS: those are scoped to
+   * `.upcoming-row`, and a panel row carries `.idea-row` (set by `row-class:` in
+   * `panel.typ`) and nothing of that view's. Same chip, same classes, different row.
+   *
+   * SET AS CUSTOM PROPERTIES, NOT AS `color`/`background-color`, and that is forced
+   * rather than stylistic: @rheo/rookery's chip rule (`.idea-row-badges > .idea-tag`,
+   * rookery.css) is UNLAYERED, and unlayered CSS beats layered CSS whatever the
+   * specificity — so a `color:` declared inside this layer would lose to it every
+   * time. What that rule does is READ `--idea-tag-color`/`--idea-tag-bg`, and never
+   * set them. The long version is at the foot of rookery-timeline's stylesheet.
+   *
+   * EACH COLOUR IS TWO `var()`s DEEP, and the inner one is the point: this package's
+   * own `--todo-due-*` first, then the family-wide `--rookery-heat-*` ramp, then the
+   * literal. A site sets the ramp ONCE and every heat chip in the family follows —
+   * these rows' countdowns, their priority chips, and `#upcoming`'s countdown.
+   *
+   * THE 14% WASH is rookery's own default (`color-mix(in oklab, currentColor 14%,
+   * transparent)`), so a coloured chip and the plain chip beside it read as one
+   * object rather than as two conventions sharing a row. */
+  .idea-row .idea-tag-due-urgent {
+    --idea-tag-color: var(--todo-due-urgent, var(--rookery-heat-urgent, #b3261e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-due-urgent, var(--rookery-heat-urgent, #b3261e)) 14%,
+      transparent
+    );
+  }
+
+  .idea-row .idea-tag-due-soon {
+    --idea-tag-color: var(--todo-due-soon, var(--rookery-heat-soon, #b3611e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-due-soon, var(--rookery-heat-soon, #b3611e)) 14%,
+      transparent
+    );
+  }
+
+  .idea-row .idea-tag-due-later {
+    --idea-tag-color: var(--todo-due-later, var(--rookery-heat-later, #b38f1e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-due-later, var(--rookery-heat-later, #b38f1e)) 14%,
+      transparent
+    );
+  }
+
   /* Stats */
   .todo-stat-list {
     list-style: none;

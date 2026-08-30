@@ -391,6 +391,45 @@ Rows and graph nodes also wear the note's own `.idea-tag-<key>` classes, so
 `.idea-tag-todo-p0` styles a critical todo on its card, in a list row, and in
 the graph alike.
 
+### The heat ramp: how close, and how urgent
+
+`#filter-panel` draws a **countdown chip** at the right-hand end of every row whose
+date falls within a fortnight — `today`, `tomorrow`, `in 5 days`, `9 days ago` — in
+the three bands `@rheo/rookery-timeline` defines (`countdown`, `when.typ`): urgent is
+today, tomorrow and anything overdue; soon is two to seven days; later is eight to
+fourteen. It is **on by default** here, where `#upcoming`'s own `countdown:` is off,
+because a panel of outstanding work is read for what is due next. Pass
+`countdown: false` to drop it, and note that it needs a `today:` — with none passed
+no row can be measured and no chip is drawn.
+
+Priority wears the **same three colours** on its own chip: `p0` urgent, `p1` soon,
+`p2` later. `p3` and `p4` are left plain — a ramp of three has three steps, and a
+backlog item colouring itself is the noise the ramp exists to cut through.
+
+| | |
+|---|---|
+| `--rookery-heat-urgent` | the whole family's first step (defaults to `#b3261e`) |
+| `--rookery-heat-soon` | its second (defaults to `#b3611e`) |
+| `--rookery-heat-later` | its third (defaults to `#b38f1e`) |
+| `--todo-due-urgent` / `--todo-due-soon` / `--todo-due-later` | this package's countdown chip, overriding the ramp |
+| `--todo-priority-0` / `--todo-priority-1` / `--todo-priority-2` | its priority chip, overriding the ramp |
+
+**One ramp, two readings, and by default they are the same palette.** A site sets the
+three `--rookery-heat-*` properties once on `:root` and every heat chip in the family
+follows — this package's countdown and priority chips, and `#upcoming`'s countdown
+over in `@rheo/rookery-timeline`. The `--todo-*` properties exist for the site that
+wants urgency-in-time and urgency-in-priority to read differently:
+
+```css
+:root {
+  --rookery-heat-urgent: #9c3324;
+  --rookery-heat-soon: #b05c12;
+  --rookery-heat-later: #b08a10;
+  /* ...and, only if the two should come apart: */
+  --todo-priority-0: #6a3ab2;
+}
+```
+
 ## The graph view degrades
 
 **`closed: false` draws the open todos only.** An index page asking "what is
