@@ -257,6 +257,53 @@
     );
   }
 
+  /* THE PRIORITY CHIP ON A `#filter-panel` ROW, on the same ramp as the countdown
+   * beside it: p0 urgent, p1 soon, p2 later. Two kinds of urgency — how close a
+   * deadline is, and how much a todo matters — and one palette, because a reader
+   * scanning the list is asking one question of both.
+   *
+   * NOTHING IN `panel.typ` CHANGES FOR THIS. The panel already projects `priority`
+   * as a facet and already draws the chip wearing rookery's ordinary
+   * `idea-tag idea-tag-p0`; this is the colour and nothing else.
+   *
+   * NO RULE FOR p3 OR p4, deliberately. A ramp of three has three steps, and a
+   * backlog item colouring itself is exactly the noise the ramp exists to cut
+   * through — they keep the default chip.
+   *
+   * `--todo-priority-0|1|2` OVERRIDES THE RAMP for priority alone, which is the one
+   * knob that lets a site read priority in a different palette from time. Both
+   * default to `--rookery-heat-*`, so out of the box they are the same three colours.
+   *
+   * NOT `.idea-tag-todo-p0`, which is the TAG KEY and rides on the row itself (see
+   * the weight rules above, which are `#todos-list`'s and stay weight-only). The chip
+   * wears the FACET VALUE, `p0`. */
+  .idea-row .idea-tag-p0 {
+    --idea-tag-color: var(--todo-priority-0, var(--rookery-heat-urgent, #b3261e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-priority-0, var(--rookery-heat-urgent, #b3261e)) 14%,
+      transparent
+    );
+  }
+
+  .idea-row .idea-tag-p1 {
+    --idea-tag-color: var(--todo-priority-1, var(--rookery-heat-soon, #b3611e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-priority-1, var(--rookery-heat-soon, #b3611e)) 14%,
+      transparent
+    );
+  }
+
+  .idea-row .idea-tag-p2 {
+    --idea-tag-color: var(--todo-priority-2, var(--rookery-heat-later, #b38f1e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--todo-priority-2, var(--rookery-heat-later, #b38f1e)) 14%,
+      transparent
+    );
+  }
+
   /* Stats */
   .todo-stat-list {
     list-style: none;
