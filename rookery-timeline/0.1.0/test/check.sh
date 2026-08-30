@@ -246,8 +246,8 @@ want = {
     "Overdue":   ("idea-tag-due-urgent", "7 days ago"),
     "Due today": ("idea-tag-due-urgent", "today"),
     "Tomorrow":  ("idea-tag-due-urgent", "tomorrow"),
-    "This week": ("idea-tag-due-urgent", "in 6 days"),
-    "Fortnight": ("idea-tag-due-soon", "in 12 days"),
+    "This week": ("idea-tag-due-soon", "in 6 days"),
+    "Fortnight": ("idea-tag-due-later", "in 12 days"),
 }
 if set(due) != set(want) | {"Far off", "Undated"}:
     print(f"FAIL: the countdown list holds {sorted(due)}")

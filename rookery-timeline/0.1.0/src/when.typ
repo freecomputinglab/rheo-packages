@@ -155,6 +155,57 @@
   int(calc.round((_today(today) - on).days()))
 }
 
+// ---- How long you have, as a number and as words --------------------------
+//
+// THESE TWO ARE PUBLIC AND LIVE HERE rather than beside the view that draws them.
+// `#upcoming` (`upcoming.typ`) held them as privates until @rheo/rookery-todos'
+// `#filter-panel` needed the same chip on its own rows — and that file is the one
+// place in this package that reads rookery's note registry, so a consumer importing
+// from it pays for a registry walk to reach two functions over an integer.
+
+// Whole days from the reference date to `d`, NEGATIVE where the date is already
+// behind you. `datetime - datetime` yields a `duration` whose `.days()` is a
+// float, so this rounds to an int — the same idiom `days-at-stage` uses above,
+// rather than a second way of subtracting two dates.
+//
+// `today` IS POSITIONAL AND REQUIRED, unlike every predicate above: this takes two
+// dates rather than a tag dictionary, so there is nothing to resolve a fallback
+// from and no `#context` to resolve it in.
+#let days-until(d, today) = int(calc.round((d - today).days()))
+
+// HOW LONG YOU HAVE, AS WORDS, or `none` where the row should say nothing at all.
+// Returns `(text: .., level: ..)`; the level is a presentation band, and a view
+// turns it into the class a stylesheet colours.
+//
+// THE EDGES ARE WORDS, not arithmetic. `in 1 days` is not something anyone writes,
+// and the three dates a reader acts on today are exactly the three worth naming.
+//
+// OVERDUE IS URGENT, AND HAS NO FLOOR. `#upcoming` sorts ASCENDING, so a date
+// already behind you sits at the TOP of the list — it is the most urgent thing on
+// it, not the stalest, and a row that fell out of the band after a fortnight would
+// go quiet precisely as it got worse.
+//
+// THREE BANDS, and the split at 2 is what makes them three: today, tomorrow and
+// anything overdue are `urgent`, the rest of the week is `soon`, the week after
+// that is `later`. Two bands were a red and an orange; a third is what a red /
+// orange / yellow ramp needs, and it is the same ramp @rheo/rookery-todos colours
+// a todo's priority with.
+//
+// THE CUTOFFS ARE FIXED at 7 and 14 and take no arguments. What a project retunes
+// is the COLOUR — the `--rookery-heat-*` ramp in this package's stylesheet —
+// because a palette is a property of a page and "urgent" is a property of a
+// deadline.
+#let countdown(days) = {
+  if days == none { return none }
+  if days > 14 { return none }
+  if days < -1 { return (text: str(-days) + " days ago", level: "urgent") }
+  if days == -1 { return (text: "yesterday", level: "urgent") }
+  if days == 0 { return (text: "today", level: "urgent") }
+  if days == 1 { return (text: "tomorrow", level: "urgent") }
+  if days <= 7 { return (text: "in " + str(days) + " days", level: "soon") }
+  (text: "in " + str(days) + " days", level: "later")
+}
+
 // ---- Ladder-free by design ------------------------------------------------
 //
 // There is no `is-settled` here, and no `next-stage`. Whether `accepted` ENDS a

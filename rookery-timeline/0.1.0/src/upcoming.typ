@@ -43,6 +43,10 @@
 #import "fragment.typ": *
 #import "read.typ": *
 #import "when.typ": *
+// ALSO AS A MODULE, because `#upcoming`'s own `countdown:` flag shadows the
+// `countdown` function this file calls: a parameter and a function of the same name
+// cannot both be reachable by that name inside the view.
+#import "when.typ" as _when
 
 // The rookery spec is the one the sibling modules use — `lib.typ` names it twice
 // and nothing else here imports rookery at all. Keep the three in step: a spec
@@ -98,37 +102,11 @@
 // `_fmt-day`.
 #let _iso(d) = d.display("[year]-[month]-[day]")
 
-// Whole days from the reference date to `d`, NEGATIVE where the date is already
-// behind you. `datetime - datetime` yields a `duration` whose `.days()` is a
-// float, so this rounds to an int — the same idiom `days-at-stage` uses in
-// `when.typ`, rather than a second way of subtracting two dates.
-#let _days-until(d, today) = int(calc.round((d - today).days()))
-
-// HOW LONG YOU HAVE, AS WORDS, or `none` where the row should say nothing at all.
-// Returns `(text: .., level: ..)`; the level is a presentation band, and the view
-// turns it into the class a stylesheet colours.
-//
-// THE EDGES ARE WORDS, not arithmetic. `in 1 days` is not something anyone writes,
-// and the three dates a reader acts on today are exactly the three worth naming.
-//
-// OVERDUE IS URGENT, AND HAS NO FLOOR. `#upcoming` sorts ASCENDING, so a date
-// already behind you sits at the TOP of the list — it is the most urgent thing on
-// it, not the stalest, and a row that fell out of the band after a fortnight would
-// go quiet precisely as it got worse.
-//
-// THE CUTOFFS ARE FIXED at 7 and 14 and take no arguments. What a project retunes
-// is the COLOUR — two custom properties in this package's stylesheet — because a
-// palette is a property of a page and "urgent" is a property of a deadline.
-#let _countdown(days) = {
-  if days == none { return none }
-  if days > 14 { return none }
-  if days < -1 { return (text: str(-days) + " days ago", level: "urgent") }
-  if days == -1 { return (text: "yesterday", level: "urgent") }
-  if days == 0 { return (text: "today", level: "urgent") }
-  if days == 1 { return (text: "tomorrow", level: "urgent") }
-  if days <= 7 { return (text: "in " + str(days) + " days", level: "urgent") }
-  (text: "in " + str(days) + " days", level: "soon")
-}
+// `#days-until` and `#countdown` USED TO LIVE HERE, as privates. They are in
+// `when.typ` now, and public, because @rheo/rookery-todos' `#filter-panel` draws the
+// same chip on its own rows and cannot reach a private of the one file in this
+// package that reads the note registry. Nothing about them changed in the move
+// except the underscore.
 
 // What to call a note in a row: its authored title where it has one, and rookery's
 // own `label` otherwise — which is never empty (the title flattened, else the
@@ -185,13 +163,13 @@
 //
 // `countdown:` DRAWS HOW LONG YOU HAVE, off by default. With it on, a row whose
 // date falls within a fortnight gains a chip on the right reading `today`,
-// `tomorrow`, `yesterday`, `in 5 days` or `9 days ago`. Two bands: SEVEN DAYS OR
-// LESS — and today, tomorrow, and anything overdue — is `urgent`; eight to
-// fourteen days is `soon`; anything further off, or undated, draws nothing at all.
-// The bands are fixed; their colours are two custom properties in this package's
-// stylesheet, and a project may also theme `due-urgent`/`due-soon` through
-// rookery's own `tags-color`, because the chip wears an ordinary `idea-tag-<tag>`
-// class like any other.
+// `tomorrow`, `yesterday`, `in 5 days` or `9 days ago`. Three bands: today,
+// tomorrow and anything overdue are `urgent`; two to seven days is `soon`; eight to
+// fourteen is `later`; anything further off, or undated, draws nothing at all.
+// The bands are fixed (`countdown`, `when.typ`); their colours are the
+// `--rookery-heat-*` ramp in this package's stylesheet, and a project may also theme
+// `due-urgent`/`due-soon`/`due-later` through rookery's own `tags-color`, because
+// the chip wears an ordinary `idea-tag-<tag>` class like any other.
 //
 // IT IS THE LAST BADGE IN THE STRIP, which is what puts it on the right: rookery's
 // `.idea-row-badges` is `justify-content: flex-end`, so the final chip is the
@@ -298,7 +276,7 @@
       // is one subtraction, and this is the DATA half of the pair — a project
       // feeding these rows into @rheo/rookery-search's `#filter-panel` draws its
       // own urgency column and never calls `#upcoming` at all.
-      in-days: if w.date == none { none } else { _days-until(w.date, _today(today)) },
+      in-days: if w.date == none { none } else { days-until(w.date, _today(today)) },
     )
   })
 
@@ -377,7 +355,7 @@
             // chip to tint, and red ink in a PDF is a decision about the page
             // rather than about the deadline.
             if countdown {
-              let c = _countdown(r.in-days)
+              let c = _when.countdown(r.in-days)
               if c != none { [ #text(gray, "(" + c.text + ")")] }
             }
           }),
@@ -434,7 +412,7 @@
             // rookery's `.idea-row-badges` is `justify-content: flex-end`, so the
             // final chip is the rightmost thing on the row. No new column in
             // `#idea-row`, and so no edit to @rheo/rookery.
-            let c = if countdown { _countdown(r.in-days) } else { none }
+            let c = if countdown { _when.countdown(r.in-days) } else { none }
             if c != none { bs.push((text: c.text, tag: "due-" + c.level)) }
             bs
           },

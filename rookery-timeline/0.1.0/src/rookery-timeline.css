@@ -29,14 +29,22 @@
    `#upcoming` draws its rows with `#idea-row` from @rheo/rookery, so the row's grid,
    its date column and its chips are styled in THAT package's stylesheet — including
    the `--idea-tag-*` properties a themed stage colours itself through. What is left
-   here is the list's own frame, plus three knobs:
+   here is the list's own frame, plus four knobs:
 
      --upcoming-gutter      width of that view's date column, forwarded to the shared
                             row's `--idea-row-gutter` (defaults to --timeline-gutter)
-     --upcoming-due-urgent  the `countdown:` chip at seven days or less, and at
-                            today, tomorrow or overdue (defaults to #b3261e)
-     --upcoming-due-soon    the same chip between eight and fourteen days
-                            (defaults to #b3611e)
+     --upcoming-due-urgent  the `countdown:` chip at today, tomorrow or overdue
+     --upcoming-due-soon    the same chip between two and seven days
+     --upcoming-due-later   the same chip between eight and fourteen days
+
+   THE THREE DUE COLOURS ARE ONE RAMP, and it is deliberately not this package's:
+   each falls back to `--rookery-heat-urgent` / `--rookery-heat-soon` /
+   `--rookery-heat-later`, and only then to a literal (#b3261e / #b3611e / #b38f1e).
+   A site sets those three ONCE — on `:root`, in its own stylesheet — and every heat
+   chip in the rookery family follows, including the due and priority chips
+   @rheo/rookery-todos draws on a `#filter-panel` row. The `--upcoming-due-*`
+   properties are the per-view override, for a page that wants this list's chips to
+   differ from the ramp everything else reads.
 */
 @layer rookery-timeline {
   /* THE RAIL IS ONE ABSOLUTELY-POSITIONED LINE, spanning the list top to bottom.
@@ -252,8 +260,15 @@
   }
 
   /* THE `countdown:` CHIP, at its two bands. Urgent is seven days or less — and
-     today, tomorrow, and anything already overdue; soon is eight to fourteen.
-     Further off draws no chip at all, so there is no third rule to write.
+     today, tomorrow, and anything already overdue; soon is two to seven days;
+     later is eight to fourteen. Further off draws no chip at all, so there is no
+     fourth rule to write.
+
+     EACH COLOUR IS TWO `var()`s DEEP, and the inner one is the point: the view's
+     own `--upcoming-due-*` first, then the family-wide `--rookery-heat-*` ramp,
+     then the literal. A site that sets the ramp themes this chip and
+     @rheo/rookery-todos' due and priority chips in one declaration; a site that
+     wants this list to differ sets the outer property here.
 
      SET AS CUSTOM PROPERTIES, NOT AS `color`/`background-color`, and that is
      forced rather than stylistic. @rheo/rookery's chip rule
@@ -278,12 +293,29 @@
      rule, so the countdown chip and the stage chip beside it read as one object
      rather than as two conventions sharing a row. */
   .upcoming-row .idea-tag-due-urgent {
-    --idea-tag-color: var(--upcoming-due-urgent, #b3261e);
-    --idea-tag-bg: color-mix(in oklab, var(--upcoming-due-urgent, #b3261e) 14%, transparent);
+    --idea-tag-color: var(--upcoming-due-urgent, var(--rookery-heat-urgent, #b3261e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--upcoming-due-urgent, var(--rookery-heat-urgent, #b3261e)) 14%,
+      transparent
+    );
   }
 
   .upcoming-row .idea-tag-due-soon {
-    --idea-tag-color: var(--upcoming-due-soon, #b3611e);
-    --idea-tag-bg: color-mix(in oklab, var(--upcoming-due-soon, #b3611e) 14%, transparent);
+    --idea-tag-color: var(--upcoming-due-soon, var(--rookery-heat-soon, #b3611e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--upcoming-due-soon, var(--rookery-heat-soon, #b3611e)) 14%,
+      transparent
+    );
+  }
+
+  .upcoming-row .idea-tag-due-later {
+    --idea-tag-color: var(--upcoming-due-later, var(--rookery-heat-later, #b38f1e));
+    --idea-tag-bg: color-mix(
+      in oklab,
+      var(--upcoming-due-later, var(--rookery-heat-later, #b38f1e)) 14%,
+      transparent
+    );
   }
 }

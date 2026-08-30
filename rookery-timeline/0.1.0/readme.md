@@ -681,13 +681,19 @@ the right-hand end reading `today`, `tomorrow`, `yesterday`, `in 5 days` or
  1.11.26  Bibliotheca Hertziana
 ```
 
-Two bands, and the cutoffs are fixed:
+Three bands, and the cutoffs are fixed:
 
 | | |
 |---|---|
-| **urgent** | seven days or less — and today, tomorrow, and anything overdue |
-| **soon** | eight to fourteen days |
+| **urgent** | today, tomorrow, and anything overdue |
+| **soon** | two to seven days |
+| **later** | eight to fourteen days |
 | *(nothing)* | further off than a fortnight, or no date at all |
+
+Three rather than two because the colours are a **ramp** — red, orange, yellow — and
+it is the same ramp `@rheo/rookery-todos` colours a todo's priority with. The bands
+themselves are `#countdown(days)`, exported from this package: a pure function of one
+integer, so another package drawing the same chip derives nothing of its own.
 
 **Overdue counts as urgent, and has no floor.** Rows sort ascending, so a date already
 behind you sits at the TOP of the list; a row that fell out of the band after a
@@ -696,8 +702,8 @@ fortnight would go quiet exactly as it got worse. `100 days ago` is a countdown 
 **The edges are words.** Nobody writes `in 1 days`, and the three dates a reader acts
 on today are the three worth naming.
 
-The chip is an ordinary `.idea-tag` wearing `idea-tag-due-urgent` or
-`idea-tag-due-soon`, appended LAST to the row's badge strip — which is what puts it on
+The chip is an ordinary `.idea-tag` wearing `idea-tag-due-urgent`,
+`idea-tag-due-soon` or `idea-tag-due-later`, appended LAST to the row's badge strip — which is what puts it on
 the right, since that strip is `justify-content: flex-end`. So this needs no new
 column in `#idea-row` and nothing at all from `@rheo/rookery`. On a paged target the
 same words render in parentheses after the stage, with no colour.
@@ -805,20 +811,41 @@ hook this package keeps, and where the rule between rows is drawn), and
 `idea-tag-<tag>` classes, so a project theming a tag on a card has already themed it
 here.
 
-The `countdown:` chip adds two classes of this view's own, `.idea-tag-due-urgent` and
-`.idea-tag-due-soon`, riding on an otherwise ordinary `.idea-tag`.
+The `countdown:` chip adds three classes of this view's own,
+`.idea-tag-due-urgent`, `.idea-tag-due-soon` and `.idea-tag-due-later`, riding on an
+otherwise ordinary `.idea-tag`.
 
 Colours come from the rail's own properties (`--timeline-fg`, `--timeline-muted`,
-`--timeline-line`), and there are three knobs of its own:
+`--timeline-line`), and there are four knobs of its own:
 
 | | |
 |---|---|
 | `--upcoming-gutter` | the date column's width, forwarded to the shared row's `--idea-row-gutter` (defaults to `--timeline-gutter`'s 7.5em) |
-| `--upcoming-due-urgent` | the countdown chip at seven days or less, and at today, tomorrow or overdue (defaults to `#b3261e`) |
-| `--upcoming-due-soon` | the same chip between eight and fourteen days (defaults to `#b3611e`) |
+| `--upcoming-due-urgent` | the countdown chip at today, tomorrow or overdue |
+| `--upcoming-due-soon` | the same chip between two and seven days |
+| `--upcoming-due-later` | the same chip between eight and fourteen days |
 
-**There is a second route to those two colours, and it wins.** The chip wears an
-ordinary `idea-tag-<tag>` class, so theming `due-urgent` or `due-soon` through
+**The three due colours are one ramp, and the ramp is not this package's.** Each falls
+back to `--rookery-heat-urgent` / `--rookery-heat-soon` / `--rookery-heat-later`
+before it falls back to a literal (`#b3261e` / `#b3611e` / `#b38f1e`). Set those three
+once on `:root` and every heat chip in the rookery family follows — this list's
+countdown, and the due and priority chips `@rheo/rookery-todos` draws on a
+`#filter-panel` row:
+
+```css
+:root {
+  --rookery-heat-urgent: #9c3324;
+  --rookery-heat-soon: #b05c12;
+  --rookery-heat-later: #b08a10;
+}
+```
+
+The `--upcoming-due-*` properties above are the per-view override, for a page that
+wants this list to differ from everything else reading the ramp.
+
+**There is a third route to those colours, and it wins over both.** The chip wears an
+ordinary `idea-tag-<tag>` class, so theming `due-urgent`, `due-soon` or `due-later`
+through
 rookery's own `tags-color` colours it like any other tag — and those generated rules
 live in `@layer rookery-tags`, declared after this package's layer, so a themed tag
 beats the defaults above without needing to know they exist.
