@@ -7,20 +7,16 @@ A collection of [Rheo](https://rheo.ohrg.org) Typst packages published under the
 Most packages also ship JS via `package.json`/vite — see "Pure-Typst
 packages" below for the one that doesn't.
 
-Two dependencies between packages so far. `@rheo/rookery-search` (fuzzy search
-over a rookery — ranking, a JSON index, an embeddable search bar, and an
-overlay search modal) imports `@rheo/rookery` for its `ideas()` and
-`note-href()` primitives. It is built like every other JS package here;
-rookery is not. A project using it must
-import BOTH in its own `.typ` files — see that package's readme for why.
-
-`@rheo/rookery-todos` then imports `@rheo/rookery-search` in ONE file,
-`panel.typ`, which skins `#filter-panel` into a version whose pills know the
-todo graph. That edge was forbidden until it was needed: `ready` and `blocked`
-are derived in rookery-todos and nowhere else, so a panel that cannot press
-them is the one thing every consuming site hand-rolls. `#todos-search` still
-reaches for nothing in search — see that package's `search.typ` for which half
-of the old rule still holds.
+The rookery family (`core`, `search`, `timeline`, `todos` — formerly
+`rookery`, `rookery-search`, `rookery-timeline`, `rookery-todos` here) moved
+to its own repository, `freecomputinglab/rookery`, under the `@rookery`
+namespace, once `@rookery` needed a repository URL of its own to resolve as
+a git-backed namespace. See that repo's `CLAUDE.md` and this repo's
+`rheo-packages-prerelease-coords` decision record (`br show
+rheo-packages-prerelease-coords-c48`) for why. Nothing in this repo imports
+across that boundary any more — `feeds`'s demo used to source a second feed
+from `@rheo/rookery`'s `ideas(tags:)`; see `feeds/0.1.1/readme.md`,
+"Sourcing from another package", for where that worked example lives on.
 
 ## Build
 
@@ -59,12 +55,14 @@ leaving a self-referential nested symlink that jj then reports as a new file in
 the repo — so `rm -rf` the stale entry first rather than trying to overwrite it,
 and run `jj status` afterwards to confirm nothing landed in the tree.
 
-The rookery family's five entries (including a dangling `rookery-dates`, a
-package that was retired and renamed to `rookery-timeline`) were purged and
-relinked wholesale when the family was reset to an aligned `0.1.0`. The
-`blogfeed`, `feeds`, `justify`, `sidebar`, `slides` and `tooltip` entries are
-set up and working; do not relink the namespace wholesale, which would clobber
-them.
+The rookery family's four entries (`rookery`, `rookery-search`,
+`rookery-timeline`, `rookery-todos`) were removed from this cache namespace
+entirely when the family moved to its own repository — see the top of this
+file. It now resolves under a SEPARATE `rookery` namespace directory
+(`~/.cache/typst/packages/rookery/<pkg>/<version>`), set up per that repo's
+own `CLAUDE.md`. The `blogfeed`, `feeds`, `justify`, `sidebar`, `slides` and
+`tooltip` entries under THIS `rheo` namespace are set up and working; do not
+relink the namespace wholesale, which would clobber them.
 
 Then `just build` the package (skip this for a dist-less pure-Typst package —
 see "Pure-Typst packages" below) and `rheo compile` a test project that
@@ -157,9 +155,6 @@ rheo present at all.
   `crates/core/src/typ/rheo.typ`; the checkout is at `/home/lox/code/_fcl/rheo`
   on this machine, NOT the `/home/lox/code/_rheo/` this line used to cite) —
   readable from package scope without any `ctx:` parameter.
-- `@rheo/rookery` uses this pattern throughout and takes NO `ctx` parameter at
-  all: see `rookery/0.1.0/src/lib.typ`'s `_rheo-ctx()`/`_target()` helpers.
-
 DO NOT assert or panic when rheo is absent under this pattern — that's
 Pattern A's job for packages that genuinely can't function without rheo.
 Pick the pattern by whether the package's primary mode is "always under
@@ -169,23 +164,15 @@ rheo" (A) or "works standalone, rheo optionally enhances it" (B).
 
 Most packages here ship JS (a `package.json` + vite build). A package can
 also be pure Typst (+ CSS) — no `package.json`, no `pnpm-lock.yaml`, no build
-step at all: `@rheo/rookery` points `typst.toml`'s `entrypoint` and
-`css_stylesheet` straight at `src/` — editing `src/` takes effect immediately,
-nothing to rebuild or forget to re-run. `@rheo/feeds` is the same shape
-minus the CSS: `entrypoint` alone, straight at `src/lib.typ`, no
-`css_stylesheet` because it emits XML, not HTML — no `dist/` for either
-package, and nothing to build before `just test`/`rheo compile` picks up an
-edit.
-
-These are two of a kind, deliberately, not a direction of travel:
-`@rheo/rookery-search` shares rookery's name and hard-imports it, and is
-nonetheless an ORDINARY built package — `package.json` + vite, exactly like
-`sidebar`, `blogfeed`, `justify`, `slides` and `tooltip`. That is precisely why
-search lives in its own package: search is only worth having with
-JavaScript, and rookery is the one package here that ships none. Splitting
-kept that true instead of trading it away. When adding a package, the built
-shape is the default; buildless needs a reason as good as rookery's or
-feeds's.
+step at all: `@rheo/feeds` points `typst.toml`'s `entrypoint` straight at
+`src/lib.typ`, no `css_stylesheet` because it emits XML, not HTML — no
+`dist/`, and nothing to build before `just test`/`rheo compile` picks up an
+edit. It is currently the only buildless package left in this repo, now that
+the rookery family (which included both buildless and built packages, and
+was the reason this distinction is documented at all) has moved to its own
+repository — see the top of this file. When adding a package, the built
+shape (`package.json` + vite, like `sidebar`, `blogfeed`, `justify`, `slides`
+and `tooltip`) is the default; buildless needs a reason as good as feeds's.
 
 The built shape is narrower than "everything lives in `dist/`", though: a
 built package's `entrypoint` and `css_stylesheet` point at `src/` — vite only
@@ -202,7 +189,7 @@ built end-to-end for its JS — see its `typst.toml` for why.
 `package.json` but a `build:` recipe in the package's own `Justfile` means
 `just build`; neither means no build step at all. The release archive step
 tars `src/` always, and ADDS `dist/` on top of it when the build produced
-one — so a dist-less package like `@rheo/rookery` ships its `src/` directly,
+one — so a dist-less package like `@rheo/feeds` ships its `src/` directly,
 and a built package like `sidebar` ships both `src/` (entrypoint, stylesheet)
 and `dist/` (the JS bundle).
 
@@ -217,12 +204,13 @@ vertebra, or any package, can emit `#metadata((title: ..., ...))
 <feeds:item>`, and its `items()` source reads every one of them back
 from the bundle root — with nothing importing anything in either direction.
 rheo compiles a whole project in one `typst::compile` pass, so a `query()`
-at bundle root sees a beacon from any vertebra, the same fact rookery's own
-cross-vertebra beacons (`<rheo-meta:<handle>>`) already rely on.
+at bundle root sees a beacon from any vertebra, the same fact `@rookery/core`'s
+(formerly `@rheo/rookery`'s) own cross-vertebra beacons (`<rheo-meta:<handle>>`)
+rely on in its own repository.
 
 This is the FALLBACK, not the first thing to reach for. Where the data
 already has a synchronous accessor — a function you can call directly, the
-way `@rheo/rookery`'s `ideas()` hands back every note as a plain array — call
+way `@rookery/core`'s `ideas()` hands back every note as a plain array — call
 it directly instead, with a small function reshaping its output for the
 consumer and no beacon or `query()` involved. `@rheo/feeds`'s own readme
 carries both worked examples side by side ("Sourcing from another package"

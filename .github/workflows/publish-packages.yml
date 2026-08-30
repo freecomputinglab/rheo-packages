@@ -61,7 +61,9 @@ jobs:
             # So it has to be named here, and leaving it out fails SILENTLY: that
             # function returns None for a missing marrow rather than erroring, so
             # the package installs, compiles, and simply mints none of the pages
-            # it exists to mint. @rheo/rookery is the first package to ship one.
+            # it exists to mint. @rheo/rookery was the first package to ship one, before
+# the rookery family moved to its own repository; @rheo/feeds is the one
+# remaining here.
             #
             # `if` rather than `[ -f ... ] && paths+=(...)`: under `set -e` the
             # && form exits the whole script when the file is absent, which is

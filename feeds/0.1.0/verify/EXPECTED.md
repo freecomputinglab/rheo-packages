@@ -10,6 +10,17 @@ verify` respectively.
 
 Row numbers below match the bead's own matrix.
 
+**NOTE, recorded when the rookery family moved to its own repository
+(`freecomputinglab/rookery`):** `demo/`'s second feed, `notes.xml`, sourced
+from `@rookery/core`'s `ideas(tags:)`, was dropped when this repo stopped
+carrying a working copy of rookery to import against — see
+`demo/content/index.typ` and this package's readme, "Sourcing from another
+package", for where the worked example lives on. Rows 1, 3, 5, 6 and 8 below
+describe assertions made against `notes.xml`/`notes.html` that `demo/check.sh`
+no longer runs; they are left as historical OBSERVED records of a real
+compile rather than rewritten or deleted. The `feed.xml`/non-rookery half of
+each row is unaffected and still pinned.
+
 ## Row 1 — feed author, custom
 
 `demo/content/index.typ` configures `feed.xml` with `author: "The
@@ -99,9 +110,15 @@ on disk. This is the entry model's documented "id defaults to url, but a
 source may set its own" behaviour, not a bug: stated explicitly here rather
 than papered over, as the bead asked.
 
-PASS — pinned by `demo/check.sh` (asserts `id == href` for every `feed.xml`
-entry, and `id.startswith("idea:") and id != href` for every `notes.xml`
-entry).
+PASS at the time this was recorded — pinned by `demo/check.sh` (asserted
+`id == href` for every `feed.xml` entry, and `id.startswith("idea:") and id
+!= href` for every `notes.xml` entry). NO LONGER PINNED here: `notes.xml`
+was dropped from `demo/` when the rookery family moved to its own
+repository (`freecomputinglab/rookery`) and this repo stopped carrying a
+working copy of it. The `id == href` half of this row still holds for
+`feed.xml`; the rookery id exception itself is unexercised until a project
+here depends on `@rookery/core` again. Left as a historical OBSERVED record
+rather than deleted.
 
 ## Row 7 — no configuration, no output
 

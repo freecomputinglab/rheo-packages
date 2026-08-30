@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
-# Asserts on this demo's OUTPUT: two Atom feeds built from disjoint subsets
-# of one small site, the second sourced from @rheo/rookery's `ideas(tags:)`
-# rather than @rheo/feeds's own `<feeds:item>` beacon protocol. Modelled on
-# rookery/0.5.0/demo/rheo/check.sh — greps rather than a test framework,
-# deliberately: the package ships no runner and adding one for a handful of
-# assertions would be more machinery than the thing it checks. Run through
-# `just check`, which builds first. The Atom-parsing helpers it uses are shared
-# with ../verify/run.sh and live in ../verify/atomlib.py — add to that module
-# rather than copying them into a third script.
+# Asserts on this demo's OUTPUT: one Atom feed built from a spine-filtered
+# subset of one small site, with full-page content transcluded into each
+# entry. Modelled on rookery/0.5.0/demo/rheo/check.sh — greps rather than a
+# test framework, deliberately: the package ships no runner and adding one
+# for a handful of assertions would be more machinery than the thing it
+# checks. Run through `just check`, which builds first. The Atom-parsing
+# helpers it uses are shared with ../verify/run.sh and live in
+# ../verify/atomlib.py — add to that module rather than copying them into a
+# third script.
+#
+# A SECOND feed used to live in this demo too — `notes.xml`, sourced from
+# `@rookery/core`'s (formerly `@rheo/rookery`'s) `ideas(tags:)` primitive,
+# and the one place this demo pinned rheo 0.6.0's transclusion of a MINTED
+# (rather than compiled) page's full content into a feed entry. It was
+# dropped, along with the assertions below that pinned it, when the rookery
+# family moved to its own repository and this repo stopped carrying a
+# working copy of it. See content/index.typ for where the example went; the
+# xml:base coverage below still pins ordinary vertebra-page transclusion,
+# which `feed.xml` alone continues to exercise.
 #
 # ALSO pins the parity matrix of bead rheo-packages-parity-qrd (rows 1, 3, 5,
 # 6, 8, 9, 10 land here — see ../verify/ for rows 2, 4, 7, 11, 12, which
@@ -22,10 +32,8 @@ H=build/html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
-# 1. Both feeds exist and are non-empty.
-for f in feed.xml notes.xml; do
-  [ -s "$H/$f" ] || note "$H/$f is missing or empty"
-done
+# 1. The feed exists and is non-empty.
+[ -s "$H/feed.xml" ] || note "$H/feed.xml is missing or empty"
 
 # 2. No `.rheo/` control-asset directory survives into the build output — it
 #    is consumed while minting every page's <head> autodiscovery links, not
@@ -34,47 +42,36 @@ if [ -d "$H/.rheo" ]; then
   note "$H/.rheo/ survived into the build output"
 fi
 
-# 3. Neither feed carries a literal `<rheo-content` placeholder — both must
-#    have been resolved to real, escaped page content by rheo's transclusion
+# 3. The feed carries no literal `<rheo-content` placeholder — it must have
+#    been resolved to real, escaped page content by rheo's transclusion
 #    pass, not left as the marker @rheo/feeds's own `atom(...)` mints. `if !`
 #    rather than `grep ... && note ...`: an AND-list whose first command is
 #    meant to FAIL reads as an accident, and one edit away from tripping
 #    `set -e` (same reasoning the reference check.sh's own comment records).
-for f in feed.xml notes.xml; do
-  if grep -q '<rheo-content' "$H/$f"; then
-    note "$H/$f still carries an unresolved <rheo-content> placeholder"
-  fi
-done
+if grep -q '<rheo-content' "$H/feed.xml"; then
+  note "$H/feed.xml still carries an unresolved <rheo-content> placeholder"
+fi
 
-# 4. Every page's <head> — root AND nested, a vertebra AND a minted note
-#    page (row 5: autodiscovery on every page, root and nested) — carries
-#    BOTH feeds' autodiscovery <link> tags, each with its OWN feed's `title=`
-#    attribute (row 3: the configured `title` is both the feed-level
-#    `<title>` AND the autodiscovery link's `title=`). Checked as one exact
-#    tag string per feed, not href and title separately, so a link with the
-#    WRONG title paired to a RIGHT href would still be caught.
+# 4. Every page's <head> — root AND nested (row 5: autodiscovery on every
+#    page, root and nested) — carries the feed's autodiscovery <link> tag,
+#    with the feed's `title=` attribute (row 3: the configured `title` is
+#    both the feed-level `<title>` AND the autodiscovery link's `title=`).
+#    Checked as one exact tag string, not href and title separately, so a
+#    link with the WRONG title paired to a RIGHT href would still be caught.
 FEED_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/feed.xml" title="Feeds Demo — Posts">'
-NOTES_LINK='<link rel="alternate" type="application/atom+xml" href="https://demo.example.org/notes.xml" title="Feeds Demo — Notes">'
-for p in index.html notes.html \
-  posts/one.html posts/two.html posts/deep/three.html \
-  ideas/alpha.html ideas/alpha-inner.html ideas/beta.html ideas/gamma.html; do
+for p in index.html posts/one.html posts/two.html posts/deep/three.html; do
   head="$(grep -o '<head>.*</head>' "$H/$p" || true)"
   case "$head" in
     *"$FEED_LINK"*) ;;
     *) note "$p's <head> is missing feed.xml's autodiscovery link (exact href+title pairing)" ;;
   esac
-  case "$head" in
-    *"$NOTES_LINK"*) ;;
-    *) note "$p's <head> is missing notes.xml's autodiscovery link (exact href+title pairing)" ;;
-  esac
 done
 
-# 5. Entry sets, disjointness, notes.xml's links, and the rest of the parity
-#    matrix that's easier to get right in a small parser than in nested
-#    greps — same tradeoff the reference check.sh already makes for its own
-#    backlink assertion.
+# 5. The entry set and the rest of the parity matrix that's easier to get
+#    right in a small parser than in nested greps — same tradeoff the
+#    reference check.sh already makes for its own backlink assertion.
 if ! python3 - "$H" ../verify <<'PY'
-import re, sys, pathlib
+import re as _re, sys, pathlib
 # The four Atom-parsing helpers live in ../verify/atomlib.py, shared with
 # ../verify/run.sh — they used to be copied into both scripts and had already
 # drifted by one function. A stdin script has no `__file__`, so the directory
@@ -87,31 +84,19 @@ _checker = Checker()
 fail = _checker.fail
 
 feed_text = (root / "feed.xml").read_text()
-notes_text = (root / "notes.xml").read_text()
 feed_entries = entries(feed_text)
-notes_entries = entries(notes_text)
 
 if len(feed_entries) == 0:
     fail("feed.xml has no entries")
-if len(notes_entries) == 0:
-    fail("notes.xml has no entries")
 
-feed_ids = {field(e, "id") for e in feed_entries}
-notes_ids = {field(e, "id") for e in notes_entries}
-overlap = feed_ids & notes_ids
-if overlap:
-    fail(f"feed.xml and notes.xml share entry ids: {sorted(overlap)}")
-
-# Row 1: feed-level author is per-feed, not document-global — feed.xml and
-# notes.xml configure DIFFERENT custom authors in content/index.typ.
+# Row 1: feed-level author is per-feed, not document-global — feed.xml
+# configures a custom author in content/index.typ.
 if "<author><name>The Editors</name></author>" not in feed_text:
     fail("feed.xml is missing its configured custom <author> (The Editors)")
-if "<author><name>The Rookery</name></author>" not in notes_text:
-    fail("notes.xml is missing its configured custom <author> (The Rookery)")
 
 # Row 6: entry URLs are absolute and correct — base-url + "/" + output_path,
-# including the nested page. For a spine()-sourced entry (feed.xml), `id`
-# defaults to that same URL: <id> must equal the <link> href exactly.
+# including the nested page. For a spine()-sourced entry, `id` defaults to
+# that same URL: <id> must equal the <link> href exactly.
 for e in feed_entries:
     href = link(e)
     eid = field(e, "id")
@@ -138,8 +123,7 @@ elif link(three) != "https://demo.example.org/posts/deep/three.html":
 # `https://demo.example.org/posts/deep/three.html` and WRONGLY against the site
 # root. A base taken from `cfg.base-url` would pass a root-only fixture and fail
 # every nested page in a real site.
-import re as _re
-for e in feed_entries + notes_entries:
+for e in feed_entries:
     title = field(e, "title")
     m = _re.search(r'<content type="[a-z]+"([^>]*)>', e)
     if not m:
@@ -161,68 +145,15 @@ if three_entry is not None:
     if b and b.group(1) == "https://demo.example.org":
         fail("the nested post's xml:base is the SITE ROOT; ./../two.html cannot resolve against it")
 
-# A MINTED PAGE'S FULL CONTENT REACHES THE FEED. This is the assertion that
-# pins rheo 0.6.0's transclusion of minted pages: through feeds 0.1.0 the same
-# config was impossible and notes.xml carried `content: none` with a comment
-# calling the limitation permanent.
-#
-# Three things, because two of them fail SILENTLY and would otherwise ship: a
-# `<content>` element per entry, no literal `<rheo-content` placeholder anywhere
-# in the file (on a below-floor rheo that string reaches real readers as
-# well-formed XML carrying garbage), and content that actually looks like the
-# note's rendered body rather than an empty element.
-for e in notes_entries:
-    body = field(e, "content")
-    title = field(e, "title")
-    if body is None:
-        fail(f"notes.xml entry {title!r} has no <content> — minted-page transclusion is not reaching the feed")
-    elif not body.strip():
-        fail(f"notes.xml entry {title!r} has an EMPTY <content>")
-    elif "idea-" not in body:
-        fail(f"notes.xml entry {title!r} has <content> that does not look like a rendered note body")
-if "<rheo-content" in notes_text:
-    fail("notes.xml ships a literal <rheo-content> placeholder — the transclusion did not resolve")
-
-# Row 6 (rookery exception, stated explicitly rather than papered over): a
-# notes.xml entry's <id> is rookery's OWN note id (e.g. "idea:beta"), NOT a
-# URL — the entry model's documented "id defaults to url, but a source may
-# set its own" behaviour. `<link href>` is still the real absolute URL.
-for e in notes_entries:
-    eid = field(e, "id")
-    href = link(e)
-    if not (eid and eid.startswith("idea:")):
-        fail(f"notes.xml entry {field(e, 'title')!r} has id {eid!r}, expected an \"idea:*\" rookery id")
-    if eid == href:
-        fail(f"notes.xml entry {field(e, 'title')!r} has id == link href ({eid!r}); "
-             f"expected the rookery id and the URL to be DIFFERENT")
-
-# notes.xml's entries: absolute URL ending in ideas/<slug>.html, matching a
-# real minted file on disk — including the note nested inside another
-# note's body (alpha-inner).
-seen_slugs = set()
-for e in notes_entries:
-    href = link(e)
-    m = re.match(r"^https://[^/]+/(ideas/[\w-]+\.html)$", href or "")
-    if not m:
-        fail(f"notes.xml entry link is not an absolute ideas/<slug>.html URL: {href!r}")
-        continue
-    rel = m.group(1)
-    seen_slugs.add(rel)
-    if not (root / rel).is_file():
-        fail(f"notes.xml entry links to {href}, no such file at {root / rel}")
-
-if "ideas/alpha-inner.html" not in seen_slugs:
-    fail("notes.xml is missing the nested note's entry (ideas/alpha-inner.html)")
-
 # Row 8: a vertebra excluded from EVERY source (index.html: not under
-# posts/, not an idea) still gets its own HTML page built. "True by
-# construction" is exactly what silently stops being true, so assert it.
+# posts/) still gets its own HTML page built. "True by construction" is
+# exactly what silently stops being true, so assert it.
 if not (root / "index.html").is_file():
     fail("index.html (excluded from every feed source) was not built")
-all_titles = {field(e, "title") for e in feed_entries + notes_entries}
+all_titles = {field(e, "title") for e in feed_entries}
 if "Index" in all_titles:
     fail("index.html leaked into a feed as an entry despite matching no source")
-all_hrefs = {link(e) for e in feed_entries + notes_entries}
+all_hrefs = {link(e) for e in feed_entries}
 if any((href or "").endswith("/index.html") for href in all_hrefs):
     fail("some entry links to index.html despite matching no source")
 
@@ -307,15 +238,15 @@ grep -q 'href="mailto:demo@example.org?subject=subscribe"' $H/index.html \
 grep -q 'getElementById("subscribe-dialog")' $H/index.html \
   || note "index.html should carry the modal script, scoped to the dialog's id"
 
-# 12. THE LOAD-BEARING NEGATIVE. notes.html is built by the same project, from
-# the same bundle, and reaches @rheo/feeds the same way — but never calls
-# `feeds-modal`. Importing the package must therefore add nothing to it. If any
-# of these three fire, the modal has stopped being opt-in-by-call, which is the
-# entire reason it emits its CSS and JS inline instead of declaring a
-# `[tool.rheo.html]` bundle.
+# 12. THE LOAD-BEARING NEGATIVE. posts/one.html is built by the same
+# project, from the same bundle, and reaches @rheo/feeds the same way — but
+# never calls `feeds-modal`. Importing the package must therefore add
+# nothing to it. If any of these three fire, the modal has stopped being
+# opt-in-by-call, which is the entire reason it emits its CSS and JS inline
+# instead of declaring a `[tool.rheo.html]` bundle.
 for pattern in 'subscribe-dialog' '@layer feeds-modal' 'subscribe-btn'; do
-  grep -q "$pattern" $H/notes.html \
-    && note "notes.html calls no feeds-modal, so it must not carry '$pattern'"
+  grep -q "$pattern" $H/posts/one.html \
+    && note "posts/one.html calls no feeds-modal, so it must not carry '$pattern'"
 done
 
 if [ "$fail" -ne 0 ]; then

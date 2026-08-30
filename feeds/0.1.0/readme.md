@@ -31,7 +31,7 @@ described near the bottom of this file.
 ## Requirements
 
 - typst >= 0.15.
-- **rheo >= 0.6.0, and this one is not optional.** Unlike `@rheo/rookery`, which
+- **rheo >= 0.6.0, and this one is not optional.** Unlike `@rookery/core`, which
   is a real Typst package that rheo merely enhances, this package has no
   standalone mode worth having: a feed of nothing is nothing. Three rheo
   surfaces carry it, all three landed together after v0.5.2, and none is
@@ -302,12 +302,17 @@ replaces.
 
 Reach for this first whenever the data you want to syndicate already has a
 synchronous accessor — a function you can call, right now, that hands back an
-array. `@rheo/rookery`'s `ideas(tags:)` is exactly that, and this is the
-recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
+array. `@rookery/core`'s (formerly `@rheo/rookery`'s) `ideas(tags:)` is
+exactly that. This recipe used to live, verbatim, in
+`demo/content/index.typ`, building a second feed (`notes.xml`) alongside the
+one the demo still ships; it was dropped from the demo when the rookery
+family moved to its own repository (`freecomputinglab/rookery`) and this
+repo stopped carrying a working copy of it to import against. The pattern
+itself is unchanged and worth keeping here as a worked example:
 
 ```typst
 #import "@rheo/feeds:0.1.0": feed, configure, spine
-#import "@rheo/rookery:0.1.0": ideas
+#import "@rookery/core:0.1.0": ideas
 
 // rookery's `href` is depth-relative; this source runs at bundle root, where
 // the ambient handle is not the site root, so the leading `../` run has to go.
@@ -347,7 +352,7 @@ recipe `demo/content/index.typ` uses, verbatim, to build `notes.xml`:
 Neither package imports the other, in either direction. `ideas()` is
 rookery's own public API, called here by the *project*; `from-ideas` is
 nothing more than a plain function shaped `cfg => (entries)`, the same shape
-every source has, and `@rheo/feeds` never sees `@rheo/rookery` at all. The
+every source has, and `@rheo/feeds` never sees `@rookery/core` at all. The
 parentheses wrapping the `.filter(...).map(...)` chain are load-bearing, not
 decorative: written across several lines without them, the chained calls fall
 outside the `#let`'s single expression and back into markup, which renders as
@@ -436,15 +441,17 @@ that isn't a dictionary, or a dictionary with no non-empty `title`, fails the
 build naming the label and what was found, rather than being silently
 dropped.
 
-`@rheo/rookery` is the first emitter in this repo, and an OPT-IN one: with
-`#show: rookery.with(syndicate: true)` its `.marrow.typ` attaches a
-`<feeds:item>` beacon to each minted note page, carrying that note's id, title,
-page, dates and tags. It costs a project that never asks for it nothing.
+`@rookery/core` (formerly `@rheo/rookery`, now published from its own
+repository, `freecomputinglab/rookery`) was the first emitter this package's
+docs pointed to, and an OPT-IN one: with `#show: rookery.with(syndicate:
+true)` its `.marrow.typ` attaches a `<feeds:item>` beacon to each minted note
+page, carrying that note's id, title, page, dates and tags. It costs a
+project that never asks for it nothing.
 
 That does not make the beacon the recommended path to a rookery feed. The
-demo's `notes.xml` still goes through `ideas(tags:)` directly (above), because
-rookery HAS an accessor and calling it beats querying for what it emitted. The
-beacon earns its place where no such accessor exists — which is exactly why
+`ideas(tags:)` recipe above goes through the accessor directly, because
+rookery HAS an accessor and calling it beats querying for what it emitted.
+The beacon earns its place where no such accessor exists — which is exactly why
 rookery offers both and defaults to neither.
 
 ## The subscribe modal
@@ -503,7 +510,7 @@ in its `icon`.
 
 ### Why this package still ships no bundle
 
-A reader arriving from `@rheo/rookery-search` will expect the modal's CSS and JS
+A reader arriving from `@rookery/search` will expect the modal's CSS and JS
 to come from a `[tool.rheo.html]` bundle in `typst.toml`, the way that package
 ships its own. This one deliberately has no bundle at all, and the modal carries
 its `<style>` and `<script>` inline in the content it returns.
@@ -517,7 +524,7 @@ imports `@rheo/feeds` for `configure(...)` and had not named its own assets in
 `rheo.toml`. Emitting inline instead means a project that never calls
 `feeds-modal` produces exactly the output it produced before this function
 existed — which `demo/check.sh` pins directly, by asserting that the demo's
-`notes.html` carries no modal markup, no stylesheet and no script.
+`posts/one.html` carries no modal markup, no stylesheet and no script.
 
 Pass `styles: false` or `script: false` to suppress either, for a project that
 would rather write its own. With `script: false` the dialog still closes on
@@ -665,24 +672,26 @@ up from anywhere under this directory.
 
 ## Demo
 
-`demo/` is a runnable proof of this package's headline capability: one
-project, two Atom feeds built from different subsets of the same small site.
+`demo/` is a runnable proof of this package's headline capability: a project
+building an Atom feed from a subset of its own site.
 
 - `feed.xml` — the three dated posts under `demo/content/posts/`, selected by
   filtering the spine on each vertebra's handle (the `spine()` example
   above). One of them (`posts/deep/three.typ`) is nested a directory deep, to
   show the entry model doesn't care.
-- `notes.xml` — the notes tagged `note` on `demo/content/notes.typ`, sourced
-  through `ideas(tags:)` exactly as shown in "Sourcing from another package"
-  above.
+
+A SECOND feed used to live here too — `notes.xml`, sourced through
+`ideas(tags:)` from `@rookery/core` (formerly `@rheo/rookery`) exactly as
+shown in "Sourcing from another package" above. It was dropped when the
+rookery family moved to its own repository (`freecomputinglab/rookery`) and
+this repo stopped carrying a working copy of it to import against; see that
+section for where the worked example lives on.
 
 Needs the same rheo >= 0.6.0 the PACKAGE needs — see "Requirements" at the top
 for the floor and the evidence; it is not a constraint peculiar to this demo.
 Below the floor the package's own guard fails the compile, so `rheo compile demo`
 on an older rheo reports the version problem rather than the demo appearing to
-half-work. With a rheo at or above the floor on `PATH`
-(and this package reachable through the namespace symlink above, so
-`@rheo/rookery` resolves from the same checkout):
+half-work. With a rheo at or above the floor on `PATH`:
 
 ```sh
 rheo compile demo   # from the package root — or: just demo
@@ -690,23 +699,13 @@ rheo compile demo   # from the package root — or: just demo
 ```
 
 OBSERVED (rheo 0.6.0, this package's own build — `just check` prints
-`demo OK`): both feeds compiled to valid, non-empty Atom with disjoint entry
-sets. Every page's `<head>` — the root vertebra, the nested one, and every
-minted note page alike — carried both feeds' autodiscovery
-`<link rel="alternate" type="application/atom+xml">` tags, minted once as
-`.rheo/head.html` and spliced into every page rheo compiled, not just the one
-vertebra that called `configure(...)`. `notes.xml`'s entries linked to
-absolute URLs ending in `ideas/<slug>.html`, each matching a real minted file
-on disk — including the note nested inside another note's body
-(`ideas/alpha-inner.html`).
-
-The two feeds differ in what they carry, for the structural reason described
-under "Sourcing from another package" above. `feed.xml`'s posts are compiled
-vertebrae, so its `<content>` was resolved to the real escaped HTML of each
-page and retained no `<rheo-content>` placeholder. `notes.xml`'s notes are
-minted pages, which cannot be transcluded, so that feed is configured
-`content: none` and its entries carry rookery's plain-text `body` as
-`<summary>` instead.
+`demo OK`): the feed compiled to valid, non-empty Atom. Every page's
+`<head>` — the root vertebra and every nested one alike — carried the feed's
+autodiscovery `<link rel="alternate" type="application/atom+xml">` tag,
+minted once as `.rheo/head.html` and spliced into every page rheo compiled,
+not just the one vertebra that called `configure(...)`. `feed.xml`'s posts
+are compiled vertebrae, so its `<content>` was resolved to the real escaped
+HTML of each page and retained no `<rheo-content>` placeholder.
 
 ## Verify
 
@@ -717,9 +716,8 @@ build), a project that imports the package but never calls `configure(...)`
 (must mint nothing), and per-entry overrides composed over `spine()` (see
 "Per-entry overrides" above). `demo/check.sh` itself pins the rest of the
 matrix — feed/entry authorship, the feed title doubling as the autodiscovery
-link's own `title=`, autodiscovery on every page, entry URL correctness
-(including the `id`-is-not-a-url exception `notes.xml`'s rookery-sourced
-entries take), an excluded page still being built, and an entry's timestamp
+link's own `title=`, autodiscovery on every page, entry URL correctness, an
+excluded page still being built, and an entry's timestamp
 tracking its own `#set document(date: ..)`.
 
 Same rheo >= 0.6.0 floor as `demo/` above, for the same reason — it is the

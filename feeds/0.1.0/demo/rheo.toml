@@ -1,8 +1,7 @@
-# Exercises @rheo/feeds's headline capability: ONE project, TWO Atom feeds
-# built from different subsets of the site — a spine-filtered feed of posts
-# (feed.xml) and a project-level feed sourced from @rheo/rookery's
-# `ideas(tags:)` (notes.xml), with no import coupling between the two
-# packages. See content/index.typ for the one `configure(...)` call.
+# Exercises @rheo/feeds's headline capability: a spine-filtered feed of
+# posts (feed.xml). See content/index.typ for the one `configure(...)` call,
+# and for where a second feed sourced from @rookery/core's `ideas(tags:)`
+# used to live.
 #
 # Needs an UNRELEASED rheo (>= 0.6.0, currently the feat/transclusion line):
 # `<rheo-content>` transclusion and `.rheo/` control assets (the
