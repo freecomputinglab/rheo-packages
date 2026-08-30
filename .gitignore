@@ -1,5 +1,16 @@
 .direnv/**
 
+# Build output and installed dependencies, ignored repo-wide as well as by each
+# package's own .gitignore. The per-package files are not enough on their own:
+# they are tracked content, so deleting a package directory takes its .gitignore
+# with it, and whatever `node_modules/` and `dist/` are left on disk become
+# visible at that exact moment. That has happened twice here — 9028 files
+# snapshotted during the 0.1.0 reset, 113MB during the rookery extraction.
+**/node_modules/
+**/dist/
+**/build/
+**/.direnv/
+
 # Beads is machine-local in this repo, as it is everywhere else. Nothing under
 # `.beads/` is tracked — not the db, not its locks, and not `issues.jsonl`.
 # Tracking the export was tried here (see the CLAUDE.md note) and reverted: br
