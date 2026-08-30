@@ -49,18 +49,42 @@
 //
 // NO `tags`, `extra` OR `attrs` — those all describe the `<li>`, and a caller reaching
 // for this function has its own.
+//
+// `when-class:` AND `when-attrs:` ARE THE SAME HOLE AS `attrs:` (below), ONE LEVEL IN.
+// A consumer that wants to say something about the DATE — @rheo/rookery-todos bands the
+// cell by how close a deadline is, and hangs the phrase off it as a tooltip — could
+// otherwise only reach that span by re-emitting all four of them, which is the fifth
+// hand copy this file's header exists to prevent. It is not a breach of "the row asks
+// no questions": the CALLER computes the band and the label; the row still asks nothing
+// about what a date means, it only carries what it was handed. Core defines no
+// `.idea-row-when-*` classes of its own and styles none of them — those names belong to
+// the consumer, exactly as `data-panel-*` on the `<li>` does.
+//
+// ADDITIVE: with neither passed, the emitted markup is byte-identical to what it was
+// before they existed. `when-attrs` merges UNDER the computed `class`, for the same
+// reason `attrs:` does — a caller cannot accidentally drop the cell's own classes.
 #let idea-row-body(
   when: none,
   iso: none,
   soft: false,
+  when-class: (),
+  when-attrs: (:),
   title: [],
   href: none,
   badges: (),
   cells: (),
 ) = {
+  // A BARE STRING IS WRAPPED, the same courtesy `#upcoming`'s `stage:` extends: one
+  // extra class is the common case, and `when-class: "todo-when-urgent"` is what a
+  // caller writes first.
+  let when-class = if type(when-class) == str { (when-class,) } else { when-class }
   html.elem(
     "span",
-    attrs: (class: if soft { "idea-row-when soft" } else { "idea-row-when" }),
+    attrs: when-attrs
+      + (
+        class: (("idea-row-when",) + (if soft { ("soft",) } else { () }) + when-class)
+          .join(" "),
+      ),
     if when == none { [—] } else if iso == none { when } else {
       html.elem("time", attrs: (datetime: iso), when)
     },
@@ -115,6 +139,8 @@
   when: none,
   iso: none,
   soft: false,
+  when-class: (),
+  when-attrs: (:),
   title: [],
   href: none,
   badges: (),
@@ -145,6 +171,8 @@
       when: when,
       iso: iso,
       soft: soft,
+      when-class: when-class,
+      when-attrs: when-attrs,
       title: title,
       href: href,
       badges: badges,
