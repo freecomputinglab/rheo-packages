@@ -74,15 +74,20 @@ before anything reads them, so they cannot disagree:
 - **Closing twice is refused** — `done:` together with `timeline: (closed: ..)`
   leaves the date the todo closed on unknowable, so write one of them.
 
-## 0.6.0 — a todo's dates are one log
+## 0.1.0 — a todo's dates are one log
 
-**Breaking.** A close requires a `datetime`; `closed: true` is refused.
+The first release of this package, version-aligned with `@rheo/rookery`,
+`@rheo/rookery-search` and `@rheo/rookery-timeline`; an alpha lineage up to
+0.6.0 preceded it and has been retired. The one thing worth carrying forward
+from it is the shape of a todo's dates, because a project coming off the alpha
+has call sites to change.
 
-A todo already had a lifecycle — filed, scheduled, activated, closed — and it was
+A todo has a lifecycle — filed, scheduled, activated, closed — and it used to be
 spread across three owners: rookery core's `minted`/`updated`,
-`@rheo/rookery-timeline`' two date keys, and this package's own valued `todo-closed`.
-That last one was a dated event wearing a tag's clothes. As of 0.6.0 every date a
-todo carries lives in one timeline:
+`@rheo/rookery-timeline`'s two date keys, and this package's own valued
+`todo-closed`. That last one was a dated event wearing a tag's clothes. Every
+date a todo carries now lives in one timeline, and a close REQUIRES a
+`datetime` — `closed: true` is refused:
 
 ```typst
 #todo("ship", deadline: d, timeline: (activated: d2, closed: d3))[...]
@@ -105,8 +110,9 @@ todo carries lives in one timeline:
   core's `updated`, which fell back to the DOCUMENT's date — so on any project
   that did not hand-write an `updated:` per todo, "stale" reported how old the
   document was. It reads the log's last entry now.
-- **`updated:` is gone from `#idea`**, so passing it to `#todo` does nothing.
-  Rookery 0.6.0 removed the field.
+- **`updated:` is gone from `#idea`**, so passing it to `#todo` does nothing —
+  and does it silently, since the argument lands in `#idea`'s positional sink
+  rather than erroring. Rookery removed the field.
 
 Migrating: change every `closed: true` to `done: <the date it closed>`, and every
 `closed: <datetime>` to `done: <datetime>`. If you read `closed-on`, it now comes

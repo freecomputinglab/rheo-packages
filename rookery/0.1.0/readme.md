@@ -22,204 +22,74 @@ created: none, show-date: false, show-tags: false, ..args)`, where
 the sink accepts the body alone, `(name, body)`, or `(<name>, body)` — the name
 may be a string or a Typst label, identically.
 
-## 0.6.0
+## 0.1.0
 
-**0.6.0 IS A BREAKING RELEASE.** It was additive over 0.5.0 when it was first cut
-— exclude-tags, invisible-tags and the derived label, all below — and then took
-the lifecycle work, which removes one note field and renames another. If you read
-a 0.6.0 that only described the three additive features, these two are new to you:
+This is the first release of `@rheo/rookery`, and of the three packages that
+sit beside it — `@rheo/rookery-search`, `@rheo/rookery-timeline` and
+`@rheo/rookery-todos`. The four are version-aligned, and they are meant to be
+read and installed as one family: a project on `rookery:0.1.0` should be on
+`rookery-search:0.1.0` too, because the note registry's state key is NOT
+versioned and two packages disagreeing about the record shape fail at compile
+time rather than politely.
 
-**`minted` is now `created`.** The `#idea(minted:)` parameter, the registry
-record's field and every `#ideas()` row's field. Nothing else about it changed:
-same resolution order (the explicit argument, then the document's own
-`#set document(date:)`, then nothing), same date-descending sort behind
-`#ideas-outline(sort: "date")`. The word `minted` still means a minted PAGE
-throughout this package, which is most of its uses, and none of those moved.
+There was an alpha lineage before this, numbered 0.1.0 through 0.6.0, and it
+has been retired wholesale rather than carried forward. Nothing was published
+from it that anybody but this machine's own four sites ever installed, so the
+numbering was describing a history no reader shared. What the alpha lineage
+argued its way towards is the package documented below, and the argument now
+lives where it belongs — in the prose about each surface, rather than in a
+sequence of deltas from versions that no longer exist.
 
-`@rheo/rookery-timeline` carried a one-line shim for exactly this gap and said so:
-"'created' is the word a reader of a todo list wants and `minted` is the word
-rookery uses". The rename resolves that comment.
+### Migrating from the alpha lineage
 
-**`updated` is REMOVED.** No parameter, no record field, no `#ideas()` row field.
-A note's card hat, a `#window` summary's hat and a minted page's hat all show
-`created` now.
+If you are one of the four projects that WAS on it, four changes will bite, and
+the first is the only one that bites silently.
 
-Every one of those three hats had a comment arguing that "the date a reader wants
-off the top of a card is when the note was last touched". That argument is right
-and this package was the wrong place to answer it: a hand-maintained `updated:` is
-a second date the author has to remember, and it can contradict what actually
-happened to the note. A note's LIFECYCLE belongs to `@rheo/rookery-timeline`, which
-as of 0.6.0 stores a dated LOG and derives last-touched from it:
+**`updated` is REMOVED.** No parameter, no record field, no `#ideas()` row
+field. A note's card hat, a `#window` summary's hat and a minted page's hat all
+show `created`.
+
+Drop `updated:` from every call site. It is not accepted, and — this is the part
+worth reading twice — a note that passes it anyway does NOT error: the argument
+is silently swallowed by `#idea`'s positional sink, and the note builds looking
+exactly as though the date had been honoured. Every one of the three hats
+carried a comment arguing that "the date a reader wants off the top of a card is
+when the note was last touched", and that argument is right; this package was
+simply the wrong place to answer it, because a hand-maintained `updated:` is a
+second date the author has to remember and it can contradict what actually
+happened to the note. A note's lifecycle belongs to `@rheo/rookery-timeline`,
+which stores a dated log and derives last-touched from it:
 
 ```typ
 #import "@rheo/rookery-timeline:0.1.0": updated-of
 #context updated-of(row, tag-data().at(row.id))   // last log entry, else `created`
 ```
 
-Migrating: drop `updated:` from every call site — it is not accepted, and a note
-passing it silently loses the argument to `#idea`'s positional sink rather than
-erroring. If you were relying on it to show a last-touched date, put the dates in
-a log instead; that package's readme has the shape.
+**`minted` is now `created`** — the `#idea(minted:)` parameter, the registry
+record's field, and every `#ideas()` row's field. Nothing else about it moved:
+the same resolution order (the explicit argument, then the document's own `#set
+document(date:)`, then nothing), and the same date-descending sort behind
+`#ideas-outline(sort: "date")`. The word `minted` still means a minted PAGE
+throughout this package, which is most of its uses, and none of those changed.
 
-**Tag values can be projected onto a row: `tag-index`.** A declared projection,
-flattened to scalars, merged onto every `#ideas()` row in one walk — the supported
-way to filter or sort by a tag VALUE without walking `tag-data()` per view. See
-"Projecting tag values".
+**`note` and `todo` are not exported.** `tagged-idea(tag, value: none)` is the
+factory you build your own constructors from, and two lines restore the old
+pair verbatim, after which every existing call site works unchanged:
 
-**The whole tag dictionary, on request: `ideas(values: true)`.** A `tags-dict`
-field carrying every value, for Typst-side rendering that a scalar projection
-cannot serve. See "Three tiers of tag data".
+```typst
+#import "@rheo/rookery:0.1.0": tagged-idea
+#let note = tagged-idea("note")
+#let todo = tagged-idea("todo")
+```
 
-**Notes can be excluded from a build by tag.** `exclude-tags:` on `#idea` and
-`#tagged-idea`, composed with the `rookery-exclude` / `rookery-include`
-`sys.inputs` keys, drops a note from a build entirely — no output, no registry
-entry, no minted page, no search index entry, no feed item, no backlink. This is
-for a build script producing different subsections of one rookery: a public site
-without the `protected` notes, a dev build that keeps them. It is an ARGUMENT
-rather than a `rookery.with()` knob, and it has to be — see "Excluding notes from
-a build" for why, and for the one hazard (`@`-references) it cannot rescue.
-
-**A tag can be made invisible.** `rookery.with(invisible-tags: (..))` suppresses a
-tag's pill, its `idea-tag-<tag>` class and its generated `tags-color` rule
-everywhere, while leaving it fully filterable. For a tag used at the build level
-that should leave no visual trace. See "Invisible tags".
-
-**A titleless note names itself from its body.** The first 60 characters as plain
-text, with `...` when there is more, published as `#ideas()`'s new `label` field.
-See "Derived labels". This is what makes the bare `#idea[body]` form nameable —
-before it, an auto-numbered note's minted page was titled `1`, its index row showed
-its bare id, and `#ideas-outline` skipped it.
-
-A LABEL, NOT A HEADING: it is used wherever the note is referred to, and
-deliberately not printed above the note's own body, where it would render the body
-twice. A titleless note's own heading is as empty as it was in 0.5.0.
-
-NOT BREAKING for the two tag parameters: both default to `()`, and a project that
-sets neither gets exactly 0.5.0's behaviour.
-
-THE DERIVED LABEL IS A BEHAVIOUR CHANGE, though no signature moved, and a project
-whose notes are all explicitly titled sees nothing. What differs, for one that uses
-the bare form:
-
-- an untitled note now APPEARS in `#ideas-outline`, where it was skipped;
-- its minted page's `<title>` names its opening words, not its slug — though its
-  `<h1>` stays empty, as before;
-- its `ideas/index.html` row and its `<feeds:item>` title do the same;
-- a depth-exhausted `#window` on it renders a named row, not a bare permalink;
-- a `#window` summary on it is named rather than blank;
-- a `@idea:1` reference renders the label instead of the id;
-- `#ideas()` gains a `label` field. `title` and `text` are UNCHANGED — still the
-  authored title — so nothing reading them is affected.
-
-A note with an EMPTY body is unaffected in every one of those: it derives nothing
-and has no label.
-
-## 0.5.0
-
-**A note's tags are a DICTIONARY.** Keys are tag names, values are arbitrary
-Typst values, and a plain tag's value is `none` — so a tag can carry metadata
-instead of only naming itself. `tags: none`, `tags: "draft"`, `tags: ("a", "b")`
-and `tags: (a: 1)` are all accepted and all normalize to that one shape. See
-"Tags".
-
-`note` and `todo` are GONE, replaced by `tagged-idea(tag, value: none)`, a
-factory you build your own constructors from. `tag-data()` and `tag-value()` are
-new, and `#ideas-outline`'s `filter:` now receives the tag dictionary. See
-"Migrating from 0.4.1" below for the four breaking changes in full.
-
-**A `#window` emitted from inside a `#context` block now produces a backlink.**
-The backlink walk reads a page's content at `#show: rookery` time and cannot
-enter a context block, so such a window announced itself to nobody and every
-note it transcluded lost its backlink from the page transcluding it. This is not
-a corner case: any package that computes which notes to window must do so inside
-a context block, because reading the registry needs one. `#window`'s announce
-marker is now labelled, and the backlink walk picks those up by `query()` —
-which runs after layout — resolving each one's page with
-`state("rheo-handle").at(el.location())`. A tag-selected window remains the documented
-exception — see "Referencing a note".
-
-`@rheo/rookery-search` 0.5.0 ships in lockstep and is REQUIRED: the note
-registry's state key is not versioned, so an older search package sharing a
-document with this one reads these records and fails.
-
-### Migrating from 0.4.1
-
-1. **`note` and `todo` are no longer exported.** Two lines restore them
-   verbatim, and every existing call site then works unchanged:
-
-   ```typst
-   #import "@rheo/rookery:0.1.0": tagged-idea
-   #let note = tagged-idea("note")
-   #let todo = tagged-idea("todo")
-   ```
-
-2. **`#ideas-outline(filter:)` receives the tag DICTIONARY**, not an array of
-   names. `t => "phd" in t` is unaffected — `in` tests keys. A predicate using
-   an array method must be rewritten: `t.map(..)`, `t.any(..)`, `t.all(..)` and
-   `t.at(0)` no longer work, because a dictionary has no `.any`/`.all` and its
-   `.at` takes a key rather than an index.
-
-3. **Tag order is unspecified.** `#ideas().tags` and `#tags-of()` still hand
-   back an array of names, but nothing guarantees the sequence any more. Sort
-   it yourself if you depended on it.
-
-4. **`show-tags:` renders pills for flat tags only** — those whose value is
-   `none`. CSS classes are unaffected and still cover every key, so a stylesheet
-   needs no changes.
-
-Nothing else moved. `#idea`, `#window`, `#hyperlink`, `#ideas()`, dates,
-footnotes, bibliographies and minted pages all behave exactly as they did.
-
-## 0.4.0
-
-`#note-path(id)` is new, and every `#ideas()` row now carries the matching
-`page` field: an output path measured from the site root rather than from the
-calling page, for a caller that has no page of its own to measure from — a feed
-config, a sitemap, anything invoked once from shared code. `#note-href()` is
-unchanged and remains the right call from a vertebra. See "Reading the rookery
-as data".
-
-An idea's hat can show its tags as pills, opt-in via `show-tags`, and the hat's
-label size is themeable through `label-size` alongside the `label-font` that
-landed in 0.3.0. The theme is published once per page as a `:root` rule, so a
-package layered on top of rookery inherits it instead of restating it —
-`@rheo/rookery-search` 0.4.0 is the first to do so.
-
-A tag can carry its own colour, `theme: (tags-color: (draft: rgb("#3366ff")))`,
-delivered as a generated `.idea-tag-<tag>` rule in `@layer rookery-tags` rather
-than as a style on the pill. That is what makes it reach every surface wearing the
-tag's class — the hat pill, an outline row's marker, and `@rheo/rookery-search`'s
-modal chips, which JavaScript builds in the browser — and what lets a project's
-own unlayered stylesheet override it. A themed tag's name must be usable as a CSS
-class, since it becomes one. See "Per-tag colour: `tags-color`".
-
-Rookery mints an `ideas/index.html` landing page for the whole rookery by
-default now — every note linked to its own page, with its date and its tags.
-Set `index-page: false` to opt out. See "A landing page for the whole rookery"
-below.
-
-A citation written inside a `#footnote` now belongs to the idea the footnote was
-written in, which is what this readme always said it did. Before this it was
-dropped: the author-date marker rendered and no references block was emitted
-anywhere, so a reader met a citation with nothing on the site saying what it
-cited. A `#window` or `@idea:` reference written inside a footnote registers its
-backlink now for the same reason — one walk, two symptoms.
-
-Minted note pages can carry an opt-in `<feeds:item>` beacon,
-`#show: rookery.with(syndicate: true)`, default off. See "A feed is another"
-below for when to reach for it and when to source a feed from `#ideas()`
-directly instead.
-
-## 0.3.0
-
-`#ideas()` rows now carry a `tags` field — additive, part of the field-list
-contract documented in the comment above `ideas()`, and safe for a downstream
-package to rely on from this release. `#ideas-outline()` (and the rest of the
-outline/`#ideas()` family) gained their `tags:`/`match:`/`filter:` parameters
-in the same release. A new `label-font` theme key also landed:
-`#ideas-outline()`'s "Contents" title now renders in that face, as a hat,
-matching the rest of the theme system — see "The theme" and "The click
-budget" below.
+**`#ideas-outline(filter:)` receives the tag DICTIONARY**, not an array of
+names. `t => "phd" in t` is unaffected, because `in` tests keys. A predicate
+reaching for an array method has to be rewritten: `t.map(..)`, `t.any(..)`,
+`t.all(..)` and `t.at(0)` no longer work, since a dictionary has no
+`.any`/`.all` and its `.at` takes a key rather than an index. While you are in
+there, note that tag ORDER is unspecified — `#ideas().tags` and `#tags-of()`
+still hand back an array of names, but nothing guarantees the sequence, so sort
+it yourself if you were depending on it.
 
 ## Setup, and the `idea:` prefix
 
@@ -498,7 +368,7 @@ Three ways, pick by how much ceremony you want:
   either and the two are orthogonal. Under a paged target, where there is
   nothing to click, `folded` is ignored and the body always shows.
 
-  `show-date: true` shows the note's `updated` date at the right-hand end of the
+  `show-date: true` shows the note's `created` date at the right-hand end of the
   hat, opposite the permalink — off by default. See "Dates" below.
 
   `show-tags: true` shows the note's tags as a row of pills in the hat, between

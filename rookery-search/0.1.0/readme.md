@@ -24,78 +24,39 @@ spelled out below.
 #search-bar()
 ```
 
-## 0.6.0
+## 0.1.0
 
-**`#panel` — a faceted filter over a `tag-index` projection.** A different surface
-from the bar and the modal, and the difference is the point: those two rank the
-whole corpus against a query and pop a dropdown, while a panel filters a list that
-is ALREADY ON THE PAGE, by facets you declare. See "#panel" below.
+The first release of this package, alongside `@rheo/rookery`,
+`@rheo/rookery-timeline` and `@rheo/rookery-todos`, which share the number
+deliberately. An alpha lineage numbered up to 0.6.0 preceded it and has been
+retired wholesale; what it worked out is described below as the package rather
+than as a sequence of deltas.
 
-**`#filter-panel` — the same chrome over TAGS instead of facets.** Its rows are the
-ideas carrying one tag, its pills are tag names you write down, and pressing two of
-them keeps a row carrying EITHER (`pill-match: "all"` intersects instead). It takes one
-call and no site-side wrapper, and its
-rows are `#idea-row` from `@rheo/rookery`, shared with that package's other lists. See
-"#filter-panel" below.
+**ROOKERY AND ROOKERY-SEARCH MOVE IN LOCKSTEP, and this is a real footgun
+rather than a version-pinning nicety.** The note registry's state key is not
+versioned, so a document that ends up with one version of rookery and a
+different version of this package has two readers disagreeing about the record
+shape, and the build fails inside a `state` read rather than anywhere that
+names the mismatch. Install the two at the same version, always.
 
-**The browse ordering reads `created`.** Rookery 0.6.0 removed its `updated` field,
-and the empty-query listing sorted on it. Left alone that branch would have found
-`none` on every row, dropped every note into the undated bucket, and silently
-reverted the default listing to id order — no error, just the wrong answer.
+### Migrating from the alpha lineage
 
-**The JSON island's date key renamed with it**, `updated` → `created`. A key named
-`updated` carrying a creation date is exactly the drift the rest of this package's
-comments exist to prevent, and `just parity` keeps the Typst and JS halves reading
-the same one. If you built your own UI on `readIndex`, read `row.created`.
+**The JSON island's date key is `created`, not `updated`.** Rookery has no
+`updated` field at all any more — the question it answered belongs to
+`@rheo/rookery-timeline`'s log — and a key named `updated` carrying a creation
+date is exactly the drift the rest of this package's comments exist to prevent.
+The empty-query browse listing sorts on `created` for the same reason: left
+reading the old key it would have found `none` on every row, dropped every note
+into the undated bucket, and quietly reverted the default listing to id order,
+with no error and the wrong answer. If you built your own UI on `readIndex`,
+read `row.created`.
 
-## 0.4.0
-
-- **The theme comes from rookery's `:root` rule now**, rather than being
-  copied into this package. Retheme the rookery and the search bar, the modal
-  and the result rows follow, with nothing to keep in sync. Requires
-  `@rheo/rookery:0.1.0`, which this version imports.
-- **The default browse listing — the empty query — sorts dated notes
-  newest-first**, instead of by id. An undated note still sorts after every
-  dated one.
-- **The corpus is compressed once per build under rheo**, in this package's new
-  `.marrow.typ`, rather than once per emitted page. MEASURED on a 200-note,
-  40-page synthetic rookery: 10.9s to 6.3s, with byte-identical islands. See
-  "The corpus is compressed once per build" below for the two cases that still
-  compress inline.
-
-## 0.3.0
-
-- **Breaking: the island's `body` field is no longer prose.** It used to be a
-  prefix of the note's own text; it is now a weight-ordered list of the
-  note's most distinctive terms — keyword soup, not readable prose. Anything
-  that read the island JSON and rendered `body` as text now renders keyword
-  soup instead. Read a note's prose from its own minted page instead —
-  `note-href()` plus a `fetch`, which is what `#search-modal`'s preview pane
-  itself now does. See "The preview pane fetches the note's page" below.
-- **A row now carries a `tags` key** when the note has any tags, omitted
-  entirely when it has none. MEASURED over a 40-note corpus: +723 bytes,
-  +1.4%.
-- **A `tags:` query grammar exists now** (`tags:draft window`, and so on) —
-  see "Filtering by tag" below for the grammar itself.
-- **Tag chips render on result rows, and keyboard navigation works in
-  `#search-bar`'s dropdown** — see "Working it from the keyboard" below.
-- **Both `#search-bar` and `#search-modal` now pick up rookery's own theme**
-  even in a site header, for the first time: `--idea-*` custom properties reach
-  them by inheriting rookery's document-scope `:root` rule (`@rheo/rookery`
-  publishes it once per page), the same rule any other element on the page
-  inherits from — no per-container copy needed on this package's side. The
-  last-resort fallback colour of every rule moved from `rgba(0, 0, 0, 0.25)` to
-  rookery's own `rgba(128, 0, 255, 0.12)`. A site with no explicit theme
-  override sees a visible colour change.
-- **Focusing the search-bar input or the modal input now thickens the
-  input's own rule/border**, rather than drawing the browser's default blue
-  focus ring.
-- **The JavaScript ranking port now counts extended grapheme clusters** (via
-  `Intl.Segmenter`) rather than UTF-16 code points. A haystack containing a
-  combining mark or a multi-codepoint emoji now scores differently than it
-  did before. Typst-side scoring is unaffected — it already counted clusters.
-  This is a JS-only change, relevant only to a site with non-ASCII or emoji
-  note titles/ids.
+**The island's `body` field is not prose.** It used to be a prefix of the
+note's own text; it is a weight-ordered list of the note's most distinctive
+terms — keyword soup, and unreadable as a summary. Anything rendering `body` as
+text renders soup. Read a note's prose from its own minted page instead,
+`note-href()` plus a `fetch`, which is what `#search-modal`'s own preview pane
+does; see "The preview pane fetches the note's page" below.
 
 ## Import both packages, in your own files
 
