@@ -33,20 +33,38 @@ of the old rule still holds.
 ## Local development against a live rheo project
 
 `@rheo/<pkg>` resolves from the Typst package cache
-(`~/.cache/typst/packages/rheo/<pkg>`). The whole NAMESPACE is symlinked at once
-on this machine, so every package and every version directory already resolves
-live out of the repo with no per-package step:
+(`~/.cache/typst/packages/rheo/<pkg>/<version>`).
+
+**`~/.cache/typst/packages/rheo` IS A REAL DIRECTORY ON THIS MACHINE, not a
+symlink to this repo, and its contents are a MIX.** An earlier version of this
+section claimed the whole namespace was symlinked at once so that every package
+and every version directory resolved live out of the repo with no per-package
+step. That was false, and the falsehood is what made a whole class of bug
+invisible: some version directories in there are symlinks into this repo, and
+others are DOWNLOADED COPIES of a published release. A downloaded copy wins
+silently — you edit `src/`, nothing changes in the build, and there is no error
+anywhere saying you are compiling against a tarball from three months ago.
+
+So a package that is renumbered, newly cut, or being edited needs its own cache
+entry checked BY HAND:
 
 ```sh
-ln -sfn "$PWD" ~/.cache/typst/packages/rheo   # one time, per machine
+ls -la ~/.cache/typst/packages/rheo/<pkg>/     # symlink, or a real directory?
+ln -s "$PWD/<pkg>/<version>" ~/.cache/typst/packages/rheo/<pkg>/<version>
 ```
 
-Do NOT symlink a single package into the cache
-(`ln -sfn "$PWD/<pkg>" ~/.cache/typst/packages/rheo/<pkg>`). Under the namespace
-symlink the link argument resolves back into the repo, where `<pkg>/` already
-exists — and `ln -sfn TARGET DIR` on an existing directory writes the link
-*inside* it, leaving a self-referential `<pkg>/<pkg>` symlink that jj reports as
-a new file.
+Note the link path ends in the VERSION and must not exist yet. `ln -sfn TARGET
+DIR` where `DIR` already exists as a directory writes the link *inside* it,
+leaving a self-referential nested symlink that jj then reports as a new file in
+the repo — so `rm -rf` the stale entry first rather than trying to overwrite it,
+and run `jj status` afterwards to confirm nothing landed in the tree.
+
+The rookery family's five entries (including a dangling `rookery-dates`, a
+package that was retired and renamed to `rookery-timeline`) were purged and
+relinked wholesale when the family was reset to an aligned `0.1.0`. The
+`blogfeed`, `feeds`, `justify`, `sidebar`, `slides` and `tooltip` entries are
+set up and working; do not relink the namespace wholesale, which would clobber
+them.
 
 Then `just build` the package (skip this for a dist-less pure-Typst package —
 see "Pure-Typst packages" below) and `rheo compile` a test project that
@@ -135,9 +153,10 @@ rheo present at all.
   not per-file) — a package needing the CURRENT file's own handle still
   needs Pattern A's `rheo-context()` or `state("rheo-handle")` below.
 - The CURRENT OUTPUT PAGE's own handle (if needed) is `state("rheo-handle")`,
-  which rheo publishes per page in `rheo-page-init`
-  (`/home/lox/code/_rheo/rheo/crates/core/src/typ/rheo.typ:70-75`) — readable
-  from package scope without any `ctx:` parameter.
+  which rheo publishes per page in `rheo-page-init` (rheo core's
+  `crates/core/src/typ/rheo.typ`; the checkout is at `/home/lox/code/_fcl/rheo`
+  on this machine, NOT the `/home/lox/code/_rheo/` this line used to cite) —
+  readable from package scope without any `ctx:` parameter.
 - `@rheo/rookery` uses this pattern throughout and takes NO `ctx` parameter at
   all: see `rookery/0.1.0/src/lib.typ`'s `_rheo-ctx()`/`_target()` helpers.
 
