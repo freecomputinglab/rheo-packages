@@ -67,3 +67,25 @@ The shared spine layer other views in this package are built on:
 
 All of it works with no rheo present: every accessor reads off `sys.inputs`
 and falls back to an empty stand-in rather than asserting or panicking.
+
+## Blog index
+
+Ported from `@rheo/blogfeed` 0.1.1, now DEPRECATED in favour of this package.
+`posts()` returns dated spine vertebrae newest-first; `blogfeed(...)` renders
+them as a `<ul class="post-list">`:
+
+```typ
+#import "@rheo/sitemap:0.1.0": blogfeed, date-cell, post-date
+
+#blogfeed(meta: e => date-cell(post-date(e).display("[month repr:long] [day padding:none], [year]")))
+```
+
+`filter-bar`, `tags-cell`, `date-range` and `week-range` carry over unchanged.
+`feed` is kept as an alias of `blogfeed` for callers migrating from
+`@rheo/blogfeed`.
+
+**Migration note:** `blogfeed`'s `href:` default changed from
+`entry => entry.handle + ".html"` to `entry => handle-url(entry.handle, from:
+current-handle())`. The old default only produced correct links from the site
+root; a nested page would double its own path segment. Pass an explicit
+`href:` to keep the old (root-only) behavior.

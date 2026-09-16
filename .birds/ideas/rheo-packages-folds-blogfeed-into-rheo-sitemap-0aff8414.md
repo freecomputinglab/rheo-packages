@@ -7,7 +7,7 @@ labels:
 - sitemap-package
 deps:
 - blocked-by:rheo-packages-creates-the-rheo-sitemap-package-core-428d0697
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/blogfeed.typ, sitemap/0.1.0/src/blogfeed.js, sitemap/0.1.0/src/sitemap.css, sitemap/0.1.0/src/lib.typ, sitemap/0.1.0/readme.md
 
