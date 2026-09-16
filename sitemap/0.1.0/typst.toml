@@ -8,4 +8,9 @@ description = "Spine-derived views for Rheo projects: a tree(1)-style sitemap, a
 repository = "https://github.com/freecomputinglab/rheo-packages"
 
 [tool.rheo.html]
+js_scripts = "dist/lib.js"
 css_stylesheet = "src/sitemap.css"
+
+[tool.rheo.source.html]
+js_scripts = ["src/index.js"]
+js_module = true

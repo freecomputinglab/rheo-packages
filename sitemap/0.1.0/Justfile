@@ -1,2 +1,3 @@
-default:
-    @echo "sitemap: pure Typst package, entrypoint is src/lib.typ directly — nothing to build"
+build:
+    pnpm install
+    pnpm run build

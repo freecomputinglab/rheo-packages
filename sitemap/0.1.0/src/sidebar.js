@@ -2,6 +2,11 @@ const toggle = document.querySelector('.sidebar-toggle');
 const sidebar = document.querySelector('.sidebar');
 const topbar = document.querySelector('.topbar');
 
+// Page rendered no sidebar/topbar (e.g. sitemap-only view) — nothing to wire up.
+if (!toggle || !sidebar || !topbar) {
+  // no-op
+} else {
+
 // Create backdrop element
 const backdrop = document.createElement('div');
 backdrop.className = 'sidebar-backdrop';
@@ -99,3 +104,5 @@ document.addEventListener('keydown', (e) => {
     if (nextLink) nextLink.click();
   }
 });
+
+}

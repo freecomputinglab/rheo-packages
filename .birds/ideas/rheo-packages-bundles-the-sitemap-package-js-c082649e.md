@@ -7,7 +7,7 @@ labels:
 - sitemap-package
 deps:
 - blocked-by:rheo-packages-folds-sidebar-into-rheo-sitemap-90a0faaf
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/package.json, sitemap/0.1.0/vite.config.js, sitemap/0.1.0/src/index.js, sitemap/0.1.0/typst.toml, sitemap/0.1.0/Justfile, sitemap/0.1.0/.gitignore
 
