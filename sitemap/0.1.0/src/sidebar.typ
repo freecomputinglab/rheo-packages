@@ -193,7 +193,14 @@
       html.elem("style")[#css]
     }
 
-    div("topbar")[
+    // Wrapper scopes sitemap.css's sidebar block (see banner comment there) to
+    // this template's own markup, so a project importing only `sitemap()` or
+    // `blogfeed()` never inherits the sidebar layout. A plain `div` creates no
+    // containing block, so `.topbar`/`.sidebar` keep `position: fixed` against
+    // the viewport — do not add `transform`/`filter`/`perspective`/
+    // `will-change`/`contain: paint`/`backdrop-filter` to this wrapper.
+    div("rheo-sidebar-layout")[
+    #div("topbar")[
       #button("sidebar-toggle", "Toggle sidebar")[
         #span("hamburger")
       ]
@@ -204,7 +211,7 @@
       ]
     ]
 
-    nav-elem("sidebar")[
+    #nav-elem("sidebar")[
       #div("banner")[]
       #ul("sidebar-nav")[
         #for node in nav {
@@ -265,9 +272,9 @@
       ]
     ]
 
-    div("content")[#doc]
+    #div("content")[#doc]
 
-    div("nav-arrows desktop-nav")[
+    #div("nav-arrows desktop-nav")[
       #if prev-page != none {
         a-with-class(prev-page.url, "nav-arrow prev-arrow")[
           #span("arrow-icon")[←]
@@ -282,7 +289,7 @@
       }
     ]
 
-    div("nav-arrows mobile-nav")[
+    #div("nav-arrows mobile-nav")[
       #if prev-page != none {
         a-with-class(prev-page.url, "nav-arrow prev-arrow")[
           #span("arrow-icon")[←]
@@ -295,6 +302,7 @@
           #span("arrow-icon")[→]
         ]
       }
+    ]
     ]
   } else {
     if target() == "paged" {

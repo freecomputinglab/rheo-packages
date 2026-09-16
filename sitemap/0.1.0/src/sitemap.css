@@ -353,31 +353,36 @@
    Sidebar — the book-style nav/topbar/prev-next shell, ported from
    @rheo/sidebar 0.1.1
 
-   NOT SCOPED to a wrapper class, unlike the intent for this block: the
-   package manifest allows one `css_stylesheet` per package, injected into
-   every project that imports ANY view here, so a project using only
-   `#sitemap()` or `#blogfeed()` would otherwise inherit a whole page
-   template's layout rules (body reset, fixed topbar/sidebar, content
-   margins) for free. That is exactly what scoping under `.rheo-sidebar-layout`
-   was meant to prevent.
+   SCOPED to `.rheo-sidebar-layout`, a wrapper `div` `sidebar.typ` now emits
+   around the topbar/nav/content/arrows shell (not the `<style>` accent-color
+   override, which stays outside it at the top of the document). The package
+   manifest allows one `css_stylesheet` per package, injected into every
+   project that imports ANY view here, so an importer using only `#sitemap()`
+   or `#blogfeed()` must see none of this block's rules take effect.
 
-   MEASURED against the actual `sidebar()` template (`sidebar.typ`): it has no
-   single outermost element to carry that class. `target() == "html"` emits
-   `div.topbar`, `nav.sidebar`, `div.content` and two `div.nav-arrows` as
-   SIBLINGS directly into the page body — there is no wrapping element the
-   template already produces, and adding one is a page-level restructure this
-   bird was told not to invent. So the block below is appended verbatim,
-   unscoped, same as `@rheo/sidebar` shipped it. Scoping it — behind a wrapper
-   element, or a `body:has(nav.sidebar)` compound selector, or by narrowing
-   `sitemap()`/`blogfeed()`'s own selectors' specificity instead — is left to
-   a human call, not made here.
+   HYBRID scoping, deliberately: every rule below whose selector targets an
+   element inside the wrapper is prefixed `.rheo-sidebar-layout `. Two rules
+   cannot be reached that way, because a descendant class cannot scope a
+   `body` or `:root` rule — those are merged into one
+   `body:has(.rheo-sidebar-layout)` rule instead: the page-reset properties
+   (`padding`/`margin`/`overflow-x`) and all ten CSS variables, previously on
+   `:root`. `:has()` degrades gracefully in a browser that lacks it: no reset,
+   default variable values, everything else still scoped correctly — not a
+   broken page.
+
+   TWO EXCEPTIONS stay unprefixed: `.sidebar-backdrop` and
+   `.sidebar-backdrop.visible`, marked below, because `sidebar.js` appends
+   that element to `document.body` OUTSIDE the wrapper.
    ============================================ */
-
 
 /* ============================================
-   CSS Variables — override in your project's style.css
+   CSS Variables + Base Reset — merged onto one rule because a wrapper class
+   cannot scope `:root` or `body`; declaring the variables on `body` still
+   makes them inherit to every descendant, including `.sidebar-backdrop`
+   (outside the wrapper but still under `body`). Override in your project's
+   style.css.
    ============================================ */
-:root {
+body:has(.rheo-sidebar-layout) {
   --sidebar-width: 260px;
   --topbar-height: 40px;
   --sidebar-bg: #f9f6f0;
@@ -388,19 +393,14 @@
   --arrow-color: #3d2645;
   --sidebar-link-color: #555;
   --background-color: #f9f6f0;
-}
-
-/* ============================================
-   Base Reset
-   ============================================ */
-body {
   padding: 0;
   margin: 0;
   overflow-x: hidden;
 }
 
 /* ============================================
-   Sidebar Backdrop
+   Sidebar Backdrop — NOT prefixed: sidebar.js appends this element to
+   document.body, outside .rheo-sidebar-layout.
    ============================================ */
 .sidebar-backdrop {
   position: fixed;
@@ -423,7 +423,7 @@ body {
 /* ============================================
    Topbar
    ============================================ */
-.topbar {
+.rheo-sidebar-layout .topbar {
   position: fixed;
   top: 0;
   left: var(--sidebar-width);
@@ -438,7 +438,7 @@ body {
   transition: left 0.3s ease;
 }
 
-.sidebar-toggle {
+.rheo-sidebar-layout .sidebar-toggle {
   background: none;
   border: none;
   cursor: pointer;
@@ -449,7 +449,7 @@ body {
   transition: left 0.3s ease;
 }
 
-.hamburger {
+.rheo-sidebar-layout .hamburger {
   display: block;
   width: 20px;
   height: 2px;
@@ -458,8 +458,8 @@ body {
   transition: background-color 0.3s ease;
 }
 
-.hamburger::before,
-.hamburger::after {
+.rheo-sidebar-layout .hamburger::before,
+.rheo-sidebar-layout .hamburger::after {
   content: '';
   position: absolute;
   width: 20px;
@@ -469,15 +469,15 @@ body {
   transition: transform 0.3s ease, top 0.3s ease;
 }
 
-.hamburger::before {
+.rheo-sidebar-layout .hamburger::before {
   top: -6px;
 }
 
-.hamburger::after {
+.rheo-sidebar-layout .hamburger::after {
   top: 6px;
 }
 
-.topbar-title {
+.rheo-sidebar-layout .topbar-title {
   font-weight: 500;
   font-size: 16px;
   color: var(--text-color);
@@ -486,21 +486,21 @@ body {
   justify-content: center;
 }
 
-.topbar-title img {
+.rheo-sidebar-layout .topbar-title img {
   height: 24px;
   width: auto;
   display: block;
   object-fit: contain;
 }
 
-.topbar > a {
+.rheo-sidebar-layout .topbar > a {
   text-decoration: none;
 }
 
 /* ============================================
    Sidebar Navigation
    ============================================ */
-nav.sidebar {
+.rheo-sidebar-layout nav.sidebar {
   width: var(--sidebar-width);
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
@@ -513,18 +513,18 @@ nav.sidebar {
   transition: transform 0.3s ease;
 }
 
-.banner {
+.rheo-sidebar-layout .banner {
   height: var(--topbar-height);
 }
 
-.banner a {
+.rheo-sidebar-layout .banner a {
   display: flex;
   flex-direction: row;
   margin: 0 1em;
   height: 100%;
 }
 
-.banner img {
+.rheo-sidebar-layout .banner img {
   padding-top: 8px;
   height: 50%;
   width: auto;
@@ -533,18 +533,18 @@ nav.sidebar {
   object-position: left center;
 }
 
-.sidebar-nav {
+.rheo-sidebar-layout .sidebar-nav {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.sidebar-nav li {
+.rheo-sidebar-layout .sidebar-nav li {
   margin-bottom: 2px;
 }
 
 /* Group header (non-clickable) */
-.sidebar-nav li.section-label {
+.rheo-sidebar-layout .sidebar-nav li.section-label {
   margin-top: 1.5rem;
   margin-bottom: 0.4rem;
   padding: 0.5rem 12px 0.25rem;
@@ -557,12 +557,12 @@ nav.sidebar {
   border-top: 1px solid var(--border-color);
 }
 
-.sidebar-nav li.section-label:first-child {
+.rheo-sidebar-layout .sidebar-nav li.section-label:first-child {
   margin-top: 0;
   border-top: none;
 }
 
-.sidebar-nav a {
+.rheo-sidebar-layout .sidebar-nav a {
   display: block;
   padding: 4px 12px;
   color: var(--sidebar-link-color);
@@ -570,52 +570,52 @@ nav.sidebar {
   transition: background-color 0.2s;
 }
 
-.subsection-nav {
+.rheo-sidebar-layout .subsection-nav {
   list-style: none;
   padding-left: 20px;
   margin: 0;
   pointer-events: auto;
 }
 
-.subsection-nav a {
+.rheo-sidebar-layout .subsection-nav a {
   padding: 2px 12px;
 }
 
-.sidebar-nav a:hover {
+.rheo-sidebar-layout .sidebar-nav a:hover {
   background-color: #e8e8e8;
   color: #000;
 }
 
 /* Active item */
-.sidebar-nav li.active > a,
-.sidebar-nav li.active > p > a {
+.rheo-sidebar-layout .sidebar-nav li.active > a,
+.rheo-sidebar-layout .sidebar-nav li.active > p > a {
   background-color: var(--accent-color);
   color: #000;
   font-weight: 500;
 }
 
 /* Parent of active item (chapter containing the active subsection) */
-.sidebar-nav li.active-parent > a {
+.rheo-sidebar-layout .sidebar-nav li.active-parent > a {
   color: var(--accent-color);
   font-weight: 500;
 }
 
 /* Chapter number span */
-.chapter-num {
+.rheo-sidebar-layout .chapter-num {
   font-weight: 700;
 }
 
 /* ============================================
    Content Area
    ============================================ */
-.content {
+.rheo-sidebar-layout .content {
   margin-left: var(--sidebar-width);
   margin-top: var(--topbar-height);
   min-height: calc(100vh - var(--topbar-height) - 14rem);
   transition: margin-left 0.3s ease;
 }
 
-[role="doc-endnotes"] {
+.rheo-sidebar-layout [role="doc-endnotes"] {
   margin-left: var(--sidebar-width);
 }
 
@@ -625,42 +625,42 @@ nav.sidebar {
 
 /* Desktop: show hamburger, enable sidebar collapse */
 @media (min-width: 769px) {
-  .sidebar-toggle {
+  .rheo-sidebar-layout .sidebar-toggle {
     display: block;
   }
 
-  nav.sidebar.hidden {
+  .rheo-sidebar-layout nav.sidebar.hidden {
     transform: translateX(-100%);
   }
 
-  .topbar.sidebar-closed {
+  .rheo-sidebar-layout .topbar.sidebar-closed {
     left: 0;
   }
 
-  .sidebar-closed ~ .content,
-  .sidebar-closed ~ [role="doc-endnotes"] {
+  .rheo-sidebar-layout .sidebar-closed ~ .content,
+  .rheo-sidebar-layout .sidebar-closed ~ [role="doc-endnotes"] {
     margin-left: 0;
   }
 }
 
 /* Mobile */
 @media (max-width: 768px) {
-  .topbar {
+  .rheo-sidebar-layout .topbar {
     left: 0;
     z-index: 100;
   }
 
-  .topbar.sidebar-open {
+  .rheo-sidebar-layout .topbar.sidebar-open {
     z-index: 102;
     background-color: transparent;
     border-bottom: none;
   }
 
-  .topbar.sidebar-open .topbar-title {
+  .rheo-sidebar-layout .topbar.sidebar-open .topbar-title {
     opacity: 0;
   }
 
-  .sidebar-toggle {
+  .rheo-sidebar-layout .sidebar-toggle {
     display: block;
     position: fixed;
     top: 11px;
@@ -668,40 +668,40 @@ nav.sidebar {
     z-index: 1;
   }
 
-  .topbar.sidebar-open .sidebar-toggle {
+  .rheo-sidebar-layout .topbar.sidebar-open .sidebar-toggle {
     position: fixed;
     left: 15px;
   }
 
   /* Hamburger → X animation */
-  .sidebar-open .hamburger {
+  .rheo-sidebar-layout .sidebar-open .hamburger {
     background-color: transparent;
   }
 
-  .sidebar-open .hamburger::before {
+  .rheo-sidebar-layout .sidebar-open .hamburger::before {
     top: 0;
     transform: rotate(45deg);
   }
 
-  .sidebar-open .hamburger::after {
+  .rheo-sidebar-layout .sidebar-open .hamburger::after {
     top: 0;
     transform: rotate(-45deg);
   }
 
-  .content {
+  .rheo-sidebar-layout .content {
     margin-left: 0;
   }
 
-  nav.sidebar {
+  .rheo-sidebar-layout nav.sidebar {
     transform: translateX(-100%);
     z-index: 101;
   }
 
-  nav.sidebar:not(.hidden) {
+  .rheo-sidebar-layout nav.sidebar:not(.hidden) {
     transform: translateX(0);
   }
 
-  [role="doc-endnotes"] {
+  .rheo-sidebar-layout [role="doc-endnotes"] {
     margin-left: 0;
   }
 }
@@ -709,7 +709,7 @@ nav.sidebar {
 /* ============================================
    Navigation Arrows
    ============================================ */
-.nav-arrows {
+.rheo-sidebar-layout .nav-arrows {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -720,7 +720,7 @@ nav.sidebar {
   transition: margin-left 0.3s ease;
 }
 
-.nav-arrow {
+.rheo-sidebar-layout .nav-arrow {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -734,19 +734,19 @@ nav.sidebar {
   min-width: 120px;
 }
 
-.nav-arrow:hover {
+.rheo-sidebar-layout .nav-arrow:hover {
   background-color: var(--accent-color);
   border-color: var(--accent-color);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
-.nav-arrow .arrow-icon {
+.rheo-sidebar-layout .nav-arrow .arrow-icon {
   font-size: 1.2em;
   font-weight: bold;
   color: var(--arrow-color);
 }
 
-.nav-arrow .arrow-text {
+.rheo-sidebar-layout .nav-arrow .arrow-text {
   font-size: 0.9rem;
   color: var(--arrow-color);
   overflow: hidden;
@@ -754,68 +754,68 @@ nav.sidebar {
   white-space: nowrap;
 }
 
-.prev-arrow {
+.rheo-sidebar-layout .prev-arrow {
   justify-content: flex-start;
   margin-right: auto;
   margin-left: 2rem;
 }
 
-.next-arrow {
+.rheo-sidebar-layout .next-arrow {
   justify-content: flex-end;
   margin-left: auto;
   flex-direction: row-reverse;
 }
 
-.desktop-nav {
+.rheo-sidebar-layout .desktop-nav {
   display: flex;
 }
 
-.mobile-nav {
+.rheo-sidebar-layout .mobile-nav {
   display: none;
 }
 
 @media (max-width: 768px) {
-  .desktop-nav {
+  .rheo-sidebar-layout .desktop-nav {
     display: none;
   }
 
-  .mobile-nav {
+  .rheo-sidebar-layout .mobile-nav {
     display: flex;
   }
 
-  .nav-arrows {
+  .rheo-sidebar-layout .nav-arrows {
     margin-left: 0;
     padding: 0 1rem 2rem 1rem;
   }
 
-  .mobile-nav .nav-arrow {
+  .rheo-sidebar-layout .mobile-nav .nav-arrow {
     flex: 1;
     min-width: auto;
   }
 
-  .mobile-nav .arrow-text {
+  .rheo-sidebar-layout .mobile-nav .arrow-text {
     font-size: 0.85rem;
   }
 
-  .prev-arrow {
+  .rheo-sidebar-layout .prev-arrow {
     margin-left: 0;
   }
 }
 
 @media (min-width: 769px) {
-  .sidebar-closed ~ .nav-arrows {
+  .rheo-sidebar-layout .sidebar-closed ~ .nav-arrows {
     margin-left: 0;
   }
 }
 
 @media (min-width: 768px) {
-  .desktop-nav .arrow-text {
+  .rheo-sidebar-layout .desktop-nav .arrow-text {
     max-width: 250px;
   }
 }
 
 @media (min-width: 1024px) {
-  .desktop-nav .arrow-text {
+  .rheo-sidebar-layout .desktop-nav .arrow-text {
     max-width: 350px;
   }
 }

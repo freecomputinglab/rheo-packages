@@ -6,7 +6,7 @@ priority: 3
 labels:
 - sitemap-package
 deps: []
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/sidebar.typ, sitemap/0.1.0/src/sitemap.css, sitemap/0.1.0/readme.md
 

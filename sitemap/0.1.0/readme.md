@@ -111,9 +111,14 @@ the call site.
 
 **Migration note from `@rheo/sidebar`:** same API, same class names
 (`.sidebar`, `.topbar`, `.content`, `.nav-arrow`, …) and the same bundled
-`sidebar.js`. Nothing to change at a call site beyond the import path.
-`sidebar.css`'s page-shell rules (body reset, fixed topbar/sidebar, content
-margins) are carried over unscoped — the template has no single wrapper
-element to hang a scoping class on, so a project that imports only
-`#sitemap()` or `#blogfeed()` still receives them. A project that already
-overrides this package's CSS is unaffected either way.
+`sidebar.js`. One change: the rendered HTML now has an extra wrapper,
+`div.rheo-sidebar-layout`, around the topbar/nav/content/arrows shell, and
+every layout rule in `sitemap.css`'s sidebar block is scoped to it — so a
+project that imports only `#sitemap()` or `#blogfeed()` no longer inherits
+this template's page-shell rules. The package's CSS variables (`--sidebar-width`,
+`--sidebar-bg`, `--border-color`, …) are now declared on
+`body:has(.rheo-sidebar-layout)` rather than `:root`, because a wrapper class
+can't scope a `:root` or `body` rule. If your project overrides these
+variables in its own `:root`, re-check that the override still wins — the
+package's declaration is no longer on `:root` and the specificity has
+changed.
