@@ -4,4 +4,4 @@
 
 = Posts
 
-#blogfeed(meta: e => date-cell[#post-date(e).display()])
+#blogfeed(ctx: rheo-context(), meta: e => date-cell[#post-date(e).display()])

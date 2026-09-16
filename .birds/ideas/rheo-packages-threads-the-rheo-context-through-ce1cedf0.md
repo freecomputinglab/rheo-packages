@@ -6,7 +6,7 @@ priority: 4
 labels:
 - sitemap-package
 deps: []
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/blogfeed.typ, sitemap/0.1.0/readme.md, sitemap/0.1.0/demo/rheo/content/posts/index.typ, blogfeed/0.1.1/readme.md
 

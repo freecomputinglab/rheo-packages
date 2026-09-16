@@ -71,13 +71,25 @@ and falls back to an empty stand-in rather than asserting or panicking.
 ## Blog index
 
 Ported from `@rheo/blogfeed` 0.1.1, now DEPRECATED in favour of this package.
-`posts()` returns dated spine vertebrae newest-first; `blogfeed(...)` renders
-them as a `<ul class="post-list">`:
+`posts(ctx:)` returns dated spine vertebrae newest-first, each merged with its
+resolved document metadata; `blogfeed(...)` renders them as a
+`<ul class="post-list">`. Like `sitemap()`, `blogfeed()` needs `ctx:
+rheo-context()` — a package's scope cannot see rheo's per-vertebra injection,
+and `metadata-of` is a function so it cannot travel through `sys.inputs`:
 
 ```typ
 #import "@rheo/sitemap:0.1.0": blogfeed, date-cell, post-date
 
-#blogfeed(meta: e => date-cell(post-date(e).display("[month repr:long] [day padding:none], [year]")))
+#blogfeed(ctx: rheo-context(), meta: e => date-cell(post-date(e).display("[month repr:long] [day padding:none], [year]")))
+```
+
+Drop the argument at every call site with the same prelude trick as
+`#sitemap()` above:
+
+```typ
+// in the project's `[spine] prelude` file
+#import "@rheo/sitemap:0.1.0": blogfeed as _blogfeed
+#let blogfeed = _blogfeed.with(ctx: rheo-context())
 ```
 
 `filter-bar`, `tags-cell`, `date-range` and `week-range` carry over unchanged.
@@ -89,6 +101,12 @@ them as a `<ul class="post-list">`:
 current-handle())`. The old default only produced correct links from the site
 root; a nested page would double its own path segment. Pass an explicit
 `href:` to keep the old (root-only) behavior.
+
+**Migration note:** `posts()` now takes `ctx:` and asserts it is present — the
+published `@rheo/blogfeed` read metadata straight off the spine entry
+(`entry.metadata.at(...)`), which no longer exists under rheo 0.6.x. A row is
+now a spine entry merged with its resolved metadata, so `entry.date` and
+`entry.keywords` replace `entry.metadata.date` / `entry.metadata.keywords`.
 
 ## Sidebar template
 

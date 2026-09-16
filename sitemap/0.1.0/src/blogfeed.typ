@@ -21,17 +21,36 @@
 
 // ---- Spine → posts ---------------------------------------------------------
 
-/// The document `date` of a spine entry, or `none` if it declares none.
-#let post-date(entry) = entry.metadata.at("date", default: none)
+/// The document `date` of a merged row (see `posts()`), or `none`.
+#let post-date(entry) = entry.at("date", default: none)
 
-/// The document `keywords` of a spine entry (used as tags), or `()`.
-#let post-tags(entry) = entry.metadata.at("keywords", default: ())
+/// The document `keywords` of a merged row (see `posts()`), used as tags, or
+/// `()`.
+#let post-tags(entry) = entry.at("keywords", default: ())
 
-/// Every dated spine vertebra, newest first. Undated pages (the index, chrome)
-/// are dropped.
-#let posts() = {
-  let dated = entries().filter(entry => post-date(entry) != none)
-  dated.sorted(key: post-date).rev()
+/// Every dated spine vertebra, newest first, as a spine entry merged with its
+/// resolved document metadata. Undated pages (the index, chrome) are dropped.
+///
+/// Pattern A (this repo's `CLAUDE.md`): `ctx` is the ONLY way this can read
+/// document metadata — a package's scope cannot see rheo's per-vertebra
+/// injection, and `metadata-of` is a function so it cannot travel through
+/// `sys.inputs`. Unlike `sitemap`'s own `ctx: none` guard, a feed rendering
+/// nothing looks identical to a site with no posts, so this asserts instead of
+/// silently returning `()`. Must be called inside `#context`.
+#let posts(ctx: none) = {
+  assert(
+    type(ctx) == dictionary and "metadata-of" in ctx,
+    message: "@rheo/sitemap: blogfeed needs the per-file `rheo-context` injected by "
+      + "Rheo, for the document dates it sorts on. Call it as "
+      + "`#blogfeed(ctx: rheo-context())` and compile the project with Rheo "
+      + "(https://rheo.ohrg.org).",
+  )
+  let meta = ctx.metadata-of
+  entries()
+    .map(e => e + meta(e.handle))
+    .filter(e => post-date(e) != none)
+    .sorted(key: post-date)
+    .rev()
 }
 
 // ---- Date formatting -------------------------------------------------------
@@ -94,7 +113,10 @@
 /// formats (PDF/EPUB) get nothing, since the spine itself carries the posts
 /// there.
 ///
-/// - `entries`:   rows to render (default: `posts()`).
+/// - `ctx`:       the per-file `rheo-context()`, needed to build the default
+///                `entries` (`posts(ctx: ctx)`) — see `posts()`. Not needed
+///                when `entries` is passed explicitly.
+/// - `entries`:   rows to render (default: `posts(ctx: ctx)`).
 /// - `title`:     `entry => content` for the left column (default: the
 ///                document title, falling back to the file handle).
 /// - `href`:      `entry => link target` (default: the entry's handle,
@@ -104,6 +126,7 @@
 /// - `data-tags`: `entry => space-joined tag string` for the filter JS, or
 ///                `none` to omit the attribute.
 #let blogfeed(
+  ctx: none,
   entries: none,
   title: entry => entry.at("title", default: entry.handle),
   // Ported from @rheo/blogfeed's `entry => entry.handle + ".html"`, which is
@@ -114,7 +137,7 @@
   meta: none,
   data-tags: none,
 ) = context if target() == "html" {
-  let rows = if entries == none { posts() } else { entries }
+  let rows = if entries == none { posts(ctx: ctx) } else { entries }
   html.elem("ul", attrs: (class: "post-list"))[
     #for e in rows {
       let li-attrs = (class: "post-item")
