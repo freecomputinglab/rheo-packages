@@ -6,7 +6,7 @@ priority: 3
 labels:
 - sitemap-package
 deps: []
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/typst.toml, sitemap/0.1.0/src/core.typ, sitemap/0.1.0/src/tree.typ, sitemap/0.1.0/src/lib.typ, sitemap/0.1.0/src/sitemap.css, sitemap/0.1.0/readme.md, sitemap/0.1.0/Justfile, sitemap/0.1.0/flake.nix, sitemap/0.1.0/.gitignore
 

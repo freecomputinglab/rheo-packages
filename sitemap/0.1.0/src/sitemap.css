@@ -1,0 +1,116 @@
+/* ============================================
+   Sitemap
+
+   `tree.typ`'s `sitemap()`, which draws a spine the way `tree(1)` draws a
+   directory: one row per page, box rules down the left, the file as the node and
+   its title beside it.
+
+   NOT A LIST, and that is the whole of this block. A `ul`/`li` pair indents a
+   nested list by a margin per level, which is the same information the rules
+   carry drawn twice; the rows here are FLAT siblings, and a row's whole ancestry
+   is one empty cell per level in front of its name.
+
+   THE RULES ARE BORDERS ON THOSE CELLS rather than the box-drawing characters a
+   terminal uses. MEASURED with the characters: a glyph is drawn to the font's own
+   height and not to the line BOX, so every point of leading opens a hole and the
+   vertical rule reads as a column of dashes — at 1.25 line height and still at
+   1.05, which is tighter than anything else on most sites. A border stretches to
+   its row, so it meets the row below it at any leading and in any font, which
+   matters twice over here: the monospace stack is whatever the reader's system
+   has and the box block is not certain to be in it, so the characters were not
+   even the page's to set.
+
+   Every `var(--x)` below carries a fallback: this stylesheet ships into an
+   arbitrary project, which may define none of these variables at all. A project
+   that defines them keeps its own look; one that does not still gets a readable
+   tree.
+   ============================================ */
+.sitemap {
+  font-family: var(--mono-font, ui-monospace, monospace);
+  font-size: var(--label-size, 0.85rem);
+  margin: 1em 0;
+  /* The rules grow a cell per level and a deep row must not wrap: a wrapped row
+     is a rule pointing at the wrong parent. So the block scrolls rather than the
+     page, which is what a `pre` block here already does. */
+  overflow-x: auto;
+}
+
+/* `stretch`, so every cell is as tall as the row whatever the row's own content
+   does — that is what makes one row's rule meet the next one's. `pre` keeps the
+   file names from breaking at a hyphen, which a narrow screen would otherwise do
+   inside the one column that has to stay whole. */
+.sitemap-row {
+  display: flex;
+  align-items: stretch;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* One level of nesting, and the geometry of a `tree` prefix restated in lengths:
+   the stem sits a third of the way into the cell and the arm runs from it to
+   within a hair of the next one, which is `│   ` and `├── ` — a rule, two dashes,
+   a space — at whatever width the cell is set to.
+
+   `flex: 0 0` and not a width alone: a flex item shrinks below its stated width
+   by default, which at a narrow viewport would pull the tree's rules out of
+   column. */
+.sitemap-cell {
+  --stem: 0.35em;
+  flex: 0 0 1.6em;
+  position: relative;
+}
+
+/* THE THREE STROKES, each drawn from the cell's own middle so they meet whatever
+   the row height is: a stem runs the full height, an elbow stops at the middle,
+   and a tee is a stem with the elbow's arm on it. The 1px borders take `--edge`,
+   faint on purpose, since the tree's shape should be readable down the column and
+   invisible while reading across one row. */
+.sitemap-stem::before,
+.sitemap-tee::before,
+.sitemap-elbow::before {
+  content: "";
+  position: absolute;
+  left: var(--stem, 0.35em);
+  top: 0;
+  border-left: 1px solid var(--edge, rgba(128, 128, 128, 0.4));
+}
+
+.sitemap-stem::before,
+.sitemap-tee::before {
+  bottom: 0;
+}
+
+.sitemap-elbow::before {
+  height: 50%;
+}
+
+.sitemap-tee::after,
+.sitemap-elbow::after {
+  content: "";
+  position: absolute;
+  left: var(--stem, 0.35em);
+  right: 0.3em;
+  top: 50%;
+  border-top: 1px solid var(--edge, rgba(128, 128, 128, 0.4));
+}
+
+/* The file, which is what a reader clicks. The gap is the arm's own — the rule
+   stops short of the text rather than the text standing off the rule. */
+.sitemap-name {
+  padding-left: 0.15em;
+}
+
+/* A directory with no landing page — a node in the tree and not a page, so it is
+   named in the ink a link would take without being one. */
+.sitemap-dir {
+  color: var(--text-color, inherit);
+}
+
+/* The title, where the file does not already say it. Set in a muted ink and off
+   the mono grid: the file column is a reading of the directory and this one is
+   prose. */
+.sitemap-title {
+  margin-left: 1.2em;
+  font-family: var(--heading-font, inherit);
+  color: var(--muted-color, #666);
+}
