@@ -7,7 +7,7 @@ labels:
 - sitemap-package
 deps:
 - blocked-by:rheo-packages-folds-blogfeed-into-rheo-sitemap-0aff8414
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/sidebar.typ, sitemap/0.1.0/src/sidebar.js, sitemap/0.1.0/src/sitemap.css, sitemap/0.1.0/src/lib.typ, sitemap/0.1.0/readme.md
 

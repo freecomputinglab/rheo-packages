@@ -89,3 +89,31 @@ them as a `<ul class="post-list">`:
 current-handle())`. The old default only produced correct links from the site
 root; a nested page would double its own path segment. Pass an explicit
 `href:` to keep the old (root-only) behavior.
+
+## Sidebar template
+
+Ported from `@rheo/sidebar` 0.1.1, now DEPRECATED in favour of this package.
+Book-style site navigation: a sidebar, a topbar, and prev/next arrows, with
+the nav built from the spine the same way `sitemap()` and `blogfeed()` read
+it.
+
+```typ
+#import "@rheo/sitemap:0.1.0": sidebar
+
+#show: sidebar.with(title: "My Book")
+```
+
+No `ctx:` argument — unlike this readme's other two views, `sidebar()` never
+took one, in 0.1.1 or here. It reads the spine and the current page's handle
+straight off `sys.inputs`/`state("rheo-handle")`, the same feature-detect
+route `core.typ`'s own accessors use, so nothing needs threading through from
+the call site.
+
+**Migration note from `@rheo/sidebar`:** same API, same class names
+(`.sidebar`, `.topbar`, `.content`, `.nav-arrow`, …) and the same bundled
+`sidebar.js`. Nothing to change at a call site beyond the import path.
+`sidebar.css`'s page-shell rules (body reset, fixed topbar/sidebar, content
+margins) are carried over unscoped — the template has no single wrapper
+element to hang a scoping class on, so a project that imports only
+`#sitemap()` or `#blogfeed()` still receives them. A project that already
+overrides this package's CSS is unaffected either way.
