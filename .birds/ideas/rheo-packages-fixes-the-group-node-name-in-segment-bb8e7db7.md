@@ -7,7 +7,7 @@ labels:
 - sitemap-package
 deps:
 - blocked-by:rheo-packages-threads-the-rheo-context-through-ce1cedf0
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/core.typ, sitemap/0.1.0/readme.md
 

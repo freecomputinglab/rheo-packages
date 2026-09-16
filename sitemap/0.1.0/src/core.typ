@@ -59,12 +59,19 @@
 //                      `digitaltheory/index.typ` into the directory's own node, so
 //                      printing the file would put `index.typ` on the tree eleven
 //                      times and never name the directory
-//   `clusters/`        a group node: a directory with no `index.typ`, which has no
+//   `guide/`           a group node: a directory with no `index.typ`, which has no
 //                      path of its own at all
 //
-// The last of those is why `depth` is threaded through. A group node knows only its
-// children, so its name is read off the first path found below it, at the depth the
-// node itself sits at — `clusters/aicre/index.typ` at depth 0 is `clusters`.
+// The last of those cannot be read off a descendant's PATH: a path carries the
+// project's `content_dir` prefix (or lack of one) but the spine tree does not, so
+// `segs.at(depth)` on a path picks up the wrong segment whenever the two disagree.
+// MEASURED against rheo 0.6.3 with `content_dir` unset and pages under `content/`: a
+// page at `content/guide/deep.typ` has path `content/guide/deep.typ` (three segments)
+// but handle `guide:deep` (two segments), and the group node for `guide/` sits at tree
+// depth 0 — `first-path(group).split("/").at(0)` gives `"content"`, not `"guide"`. A
+// handle carries no such prefix and is depth-aligned with the tree by construction, so
+// the group's name is read off a descendant's HANDLE instead: `first-handle(group)` is
+// `"guide:deep"`, and `.split(":").at(0)` is exactly `"guide"`.
 #let first-path(n) = {
   if n.path != none { return n.path }
   for k in n.children {
@@ -74,12 +81,23 @@
   none
 }
 
+// Same recursive shape as `first-path`, over `handle` instead of `path`.
+#let first-handle(n) = {
+  if n.handle != none { return n.handle }
+  for k in n.children {
+    let h = first-handle(k)
+    if h != none { return h }
+  }
+  none
+}
+
 #let segment(n, depth) = {
   let p = first-path(n)
   if p == none { return "?" }
   let segs = p.split("/")
   if n.path == none {
-    segs.at(depth, default: "?") + "/"
+    let h = first-handle(n)
+    if h == none { "?/" } else { h.split(":").at(depth, default: "?") + "/" }
   } else if segs.len() > 1 and segs.last() == "index.typ" {
     segs.at(segs.len() - 2) + "/"
   } else {
