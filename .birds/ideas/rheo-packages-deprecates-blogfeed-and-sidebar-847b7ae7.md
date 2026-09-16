@@ -7,7 +7,7 @@ labels:
 - sitemap-package
 deps:
 - blocked-by:rheo-packages-folds-sidebar-into-rheo-sitemap-90a0faaf
-closed: false
+closed: true
 ---
 Touches: blogfeed/0.1.1/readme.md, sidebar/0.1.1/readme.md, CLAUDE.md, readme.md
 

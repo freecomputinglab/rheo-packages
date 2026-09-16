@@ -1,5 +1,14 @@
 # @rheo/sidebar
 
+> **Deprecated.** Superseded by `@rheo/sitemap`, which exports `sidebar` with
+> the same API and the same class names. `#import "@rheo/sitemap:0.1.0":
+> sidebar` then `#show: sidebar.with(title: ...)` — unchanged; `sidebar()`
+> takes no `ctx:` in either package, it feature-detects via
+> `state("rheo-handle")` and `sys.inputs`. Difference: `@rheo/sitemap`'s
+> sidebar scopes its CSS variables to `body:has(.rheo-sidebar-layout)` instead
+> of `:root`, so a project that overrode those variables in its own `:root`
+> should check the override still wins.
+
 Book-style site navigation for [rheo](https://rheo.ohrg.org) projects: a
 sidebar, a topbar, and prev/next arrows.
 
