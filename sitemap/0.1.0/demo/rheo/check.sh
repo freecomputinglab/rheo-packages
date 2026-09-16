@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# Asserts on this demo's OUTPUT, not merely that the build succeeded.
+#
+# `@rheo/sitemap` derives all three of its views — tree, feed, nav — from
+# rheo's own spine, so a regression in the walk compiles clean and ships a
+# wrong site. Run through `just check`, which builds first.
+#
+# Two of these assertions are currently known to fail against real rheo
+# 0.6.3 output, for reasons outside this demo/check — see the comments at
+# each one. They are asserted as the CORRECT behavior on purpose: an
+# assertion bent to match a bug would certify the bug instead of catching
+# it, which is the one thing this file exists to avoid.
+set -euo pipefail
+cd "$(dirname "$0")"
+H=build/html
+fail=0
+note() { echo "FAIL: $*"; fail=1; }
+
+# Landing pages for a directory FOLD into the directory's own node — a
+# vertebra at content/posts/index.typ is written to posts.html, not
+# posts/index.html. See core.typ's own `first-path` comment.
+for f in index.html posts.html posts/first.html posts/second.html guide/deep.html; do
+  [ -f "$H/$f" ] || note "no page at $f"
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "demo/rheo FAILED"
+  exit 1
+fi
+
+python3 - "$H" <<'PY' || fail=1
+import os, re, sys
+
+H = sys.argv[1]
+bad = 0
+def fail(m):
+    global bad
+    print(f"FAIL: {m}")
+    bad = 1
+
+def read(page):
+    return open(os.path.join(H, page)).read()
+
+index = read("index.html")
+
+# ---- THE TREE --------------------------------------------------------------
+
+if 'class="sitemap"' not in index:
+    fail("index.html: no div.sitemap")
+
+rows = re.findall(r'<div class="sitemap-row">', index)
+# root + guide + guide:deep + index + posts + posts:first + posts:second
+if len(rows) != 7:
+    fail(f"index.html: {len(rows)} .sitemap-row, expected 7 (root + 6 nodes) — is the walk visiting every node?")
+
+# `guide/` has no index.typ and `[spine] auto_index = false` in this demo's
+# rheo.toml keeps rheo from synthesizing one, so it is a real GROUP node:
+# no handle, no page, named off the first path beneath it. It must be
+# CELL TEXT "guide/", not a link.
+#
+# KNOWN BUG (out of scope for this bird — no src/ changes here): core.typ's
+# `segment()` reads a group node's name as `segs.at(depth)`, where `segs`
+# comes from splitting the full vertebra path. Real rheo paths are prefixed
+# with the content directory's own name (`content/guide/deep.typ`, not
+# `guide/deep.typ`), so `depth` 0 lands on `"content"` rather than `"guide"`
+# — this assertion currently fails, reading "content/" instead of "guide/".
+dir_cells = re.findall(r'<span class="sitemap-name sitemap-dir">([^<]*)</span>', index)
+if "guide/" not in dir_cells:
+    fail(f"index.html: no .sitemap-dir cell reading 'guide/' (got {dir_cells}) — is a group node's name read from the wrong path segment?")
+if re.search(r'<a[^>]*>\s*<span class="sitemap-name sitemap-dir">guide/</span>', index):
+    fail("index.html: guide/ dir cell is wrapped in a link — a group node has no page to link to")
+
+if 'href="./guide/deep.html"' not in index:
+    fail("index.html: no sitemap-name link to guide/deep.html")
+
+# ---- THE TITLE RULE ---------------------------------------------------------
+
+titles = re.findall(r'<span class="sitemap-title">([^<]*)</span>', index)
+if "The first post" not in titles:
+    fail(f"index.html: 'The first post' missing from .sitemap-title cells, got {titles}")
+if "Second" in titles:
+    fail("index.html: second.typ's title merely restates its stem and should print no .sitemap-title")
+
+# ---- THE FEED ----------------------------------------------------------------
+#
+# KNOWN BUG (out of scope for this bird — no src/ changes here): blogfeed.typ's
+# `post-date`/`post-tags` read `entry.metadata`, a key real rheo spine-flat
+# entries never carry (they carry only handle/path/title/synthesized; a
+# page's `#set document` fields are reachable only via `ctx.metadata-of`,
+# the same restriction tree.typ's own `titled()` works around with its
+# `ctx:` parameter — blogfeed() has no such parameter). `just demo` fails
+# to compile at all as soon as a page calls `blogfeed()`, so nothing below
+# this comment can pass until that is fixed upstream.
+
+feed = read("posts.html")
+if '<ul class="post-list">' not in feed:
+    fail("posts.html: no ul.post-list")
+
+items = re.findall(r'<li class="post-item">.*?</li>', feed, re.S)
+if len(items) != 2:
+    fail(f"posts.html: {len(items)} li.post-item, expected 2")
+
+# posts.html sits at the site root (its own handle "posts" has no `:`
+# segment), so hrefs are the full path from root — "posts/first.html", not
+# "first.html".
+hrefs = re.findall(r'<a href="([^"]+)" class="post-link"', feed)
+if hrefs != ["posts/second.html", "posts/first.html"]:
+    fail(f"posts.html: post-link hrefs are {hrefs}, expected ['posts/second.html', 'posts/first.html'] (newest first)")
+
+# ---- THE NAV -----------------------------------------------------------------
+
+pages = ["index.html", "posts.html", "posts/first.html", "posts/second.html", "guide/deep.html"]
+
+for page in pages:
+    h = read(page)
+    if 'class="sidebar"' not in h:
+        fail(f"{page}: no nav.sidebar")
+
+    hrefs = re.findall(r'<a href="([^"]+)"', h)
+    nav_hrefs = [u for u in hrefs if u.endswith(".html")]
+
+    base = os.path.dirname(os.path.join(H, page))
+    broken = [u for u in nav_hrefs if not os.path.isfile(os.path.normpath(os.path.join(base, u)))]
+    if broken:
+        fail(f"{page}: nav links resolve to no file: {broken}")
+
+    depth = page.count("/")
+    if depth > 0 and not any(u.startswith("../") for u in nav_hrefs):
+        fail(f"{page}: nested page but no nav url carries a ../ prefix: {nav_hrefs}")
+    if depth == 0 and any(u.startswith("../") for u in nav_hrefs):
+        fail(f"{page}: root page but a nav url carries a ../ prefix: {nav_hrefs}")
+
+    if 'class="active"' not in h:
+        fail(f"{page}: no active nav entry — is the current handle marking its own nav item?")
+
+# ---- THE BUNDLE ----------------------------------------------------------------
+
+for page in pages:
+    h = read(page)
+    if "lib.js" not in h:
+        fail(f"{page}: no reference to the built lib.js bundle")
+    css_links = re.findall(r'<link[^>]+sitemap\.css', h)
+    if len(css_links) != 1:
+        fail(f"{page}: sitemap.css linked {len(css_links)} times, expected 1")
+
+if not bad:
+    print("  tree: 7 rows, guide/ named and unlinked, title rule holds")
+    print("  feed: 2 posts, newest first, root-relative hrefs")
+    print("  nav: links resolve, depth-relative, active marked")
+    print("  bundle: lib.js + sitemap.css referenced once per page")
+sys.exit(bad)
+PY
+
+if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

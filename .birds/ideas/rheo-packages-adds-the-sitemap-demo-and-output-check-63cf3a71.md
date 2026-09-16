@@ -8,7 +8,7 @@ labels:
 deps:
 - blocked-by:rheo-packages-bundles-the-sitemap-package-js-c082649e
 - blocked-by:rheo-packages-scopes-the-sidebar-css-to-a-wrapper-c073075b
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/demo/rheo/rheo.toml, sitemap/0.1.0/demo/rheo/content, sitemap/0.1.0/demo/rheo/check.sh, sitemap/0.1.0/Justfile
 
