@@ -1,9 +1,10 @@
 // blogfeed — client-side tag filtering for the index feed.
 //
 // Auto-injected on every page of an importing site, but inert unless the page
-// actually rendered a `.filter-container` (i.e. `filter-bar(...)`). Clicking a
-// `.filter-btn` toggles it: posts whose `data-tags` intersect the active set
-// stay visible and the rest get `.hidden`. With nothing active, everything shows.
+// actually rendered a `.sitemap-filter-container` (i.e. `filter-bar(...)`).
+// Clicking a `.sitemap-filter-btn` toggles it: posts whose `data-tags`
+// intersect the active set stay visible and the rest get
+// `.sitemap-post-hidden`. With nothing active, everything shows.
 //
 // Active filters are colored by click order (1st, 2nd, 3rd, …), not by
 // identity, so re-clicking builds a fresh sequence each time. `active` is a
@@ -24,10 +25,10 @@ function setOrderClass(el, index) {
 }
 
 function initBlogfeed() {
-  const buttons = Array.from(document.querySelectorAll(".filter-btn"));
+  const buttons = Array.from(document.querySelectorAll(".sitemap-filter-btn"));
   if (buttons.length === 0) return;
 
-  const items = Array.from(document.querySelectorAll(".post-item"));
+  const items = Array.from(document.querySelectorAll(".sitemap-post-item"));
   const active = new Set();
 
   // Attach a tooltip bubble built from each button's data-tooltip.
@@ -35,7 +36,7 @@ function initBlogfeed() {
     const text = button.getAttribute("data-tooltip");
     if (!text) continue;
     const tip = document.createElement("div");
-    tip.className = "tooltip";
+    tip.className = "sitemap-filter-tooltip";
     tip.textContent = text;
     button.appendChild(tip);
   }
@@ -48,15 +49,15 @@ function initBlogfeed() {
         .split(" ")
         .filter(Boolean);
       const show = active.size === 0 || tags.some((t) => active.has(t));
-      item.classList.toggle("hidden", !show);
+      item.classList.toggle("sitemap-post-hidden", !show);
     }
     for (const button of buttons) {
       setOrderClass(button, order.indexOf(button.getAttribute("data-filter")));
     }
     // Highlight tag pills whose tag is currently active.
-    for (const label of document.querySelectorAll(".tag-label")) {
+    for (const label of document.querySelectorAll(".sitemap-tag-label")) {
       const tagClass = Array.from(label.classList).find(
-        (c) => c.startsWith("tag-") && c !== "tag-label",
+        (c) => c.startsWith("tag-"),
       );
       const tag = tagClass ? tagClass.slice("tag-".length) : null;
       const index = tag !== null ? order.indexOf(tag) : -1;

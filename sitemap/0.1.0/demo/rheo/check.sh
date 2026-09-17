@@ -5,11 +5,10 @@
 # rheo's own spine, so a regression in the walk compiles clean and ships a
 # wrong site. Run through `just check`, which builds first.
 #
-# Two of these assertions are currently known to fail against real rheo
-# 0.6.3 output, for reasons outside this demo/check — see the comments at
-# each one. They are asserted as the CORRECT behavior on purpose: an
-# assertion bent to match a bug would certify the bug instead of catching
-# it, which is the one thing this file exists to avoid.
+# Every assertion below is asserted as the CORRECT behavior: a failure means
+# the code is wrong, not that the assertion should be relaxed. An assertion
+# bent to match a bug would certify the bug instead of catching it, which is
+# the one thing this file exists to avoid.
 set -euo pipefail
 cd "$(dirname "$0")"
 H=build/html
@@ -84,28 +83,19 @@ if "Second" in titles:
     fail("index.html: second.typ's title merely restates its stem and should print no .sitemap-title")
 
 # ---- THE FEED ----------------------------------------------------------------
-#
-# KNOWN BUG (out of scope for this bird — no src/ changes here): blogfeed.typ's
-# `post-date`/`post-tags` read `entry.metadata`, a key real rheo spine-flat
-# entries never carry (they carry only handle/path/title/synthesized; a
-# page's `#set document` fields are reachable only via `ctx.metadata-of`,
-# the same restriction tree.typ's own `titled()` works around with its
-# `ctx:` parameter — blogfeed() has no such parameter). `just demo` fails
-# to compile at all as soon as a page calls `blogfeed()`, so nothing below
-# this comment can pass until that is fixed upstream.
 
 feed = read("posts.html")
-if '<ul class="post-list">' not in feed:
-    fail("posts.html: no ul.post-list")
+if '<ul class="sitemap-post-list">' not in feed:
+    fail("posts.html: no ul.sitemap-post-list")
 
-items = re.findall(r'<li class="post-item">.*?</li>', feed, re.S)
+items = re.findall(r'<li class="sitemap-post-item">.*?</li>', feed, re.S)
 if len(items) != 2:
-    fail(f"posts.html: {len(items)} li.post-item, expected 2")
+    fail(f"posts.html: {len(items)} li.sitemap-post-item, expected 2")
 
 # posts.html sits at the site root (its own handle "posts" has no `:`
 # segment), so hrefs are the full path from root — "posts/first.html", not
 # "first.html".
-hrefs = re.findall(r'<a href="([^"]+)" class="post-link"', feed)
+hrefs = re.findall(r'<a href="([^"]+)" class="sitemap-post-link"', feed)
 if hrefs != ["posts/second.html", "posts/first.html"]:
     fail(f"posts.html: post-link hrefs are {hrefs}, expected ['posts/second.html', 'posts/first.html'] (newest first)")
 

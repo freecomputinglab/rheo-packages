@@ -7,7 +7,7 @@ labels:
 - sitemap-review
 deps:
 - blocked-by:rheo-packages-names-the-root-index-node-from-its-adbc04fb
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/sitemap.css, sitemap/0.1.0/src/blogfeed.typ, sitemap/0.1.0/src/blogfeed.js, sitemap/0.1.0/demo/rheo/check.sh
 

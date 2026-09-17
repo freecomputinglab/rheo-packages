@@ -75,19 +75,19 @@
 // ---- Meta cells (right-hand column content for a row) ----------------------
 
 /// A muted date/label cell, e.g. `date-cell(week-range(post-date(e)))`.
-#let date-cell(body) = span("post-date")[#body]
+#let date-cell(body) = span("sitemap-post-date")[#body]
 
-/// A row of tag pills — one `.tag-label.tag-<id>` per tag. Pairs with
+/// A row of tag pills — one `.sitemap-tag-label.tag-<id>` per tag. Pairs with
 /// `filter-bar`, whose buttons the JS uses to toggle these.
-#let tags-cell(tags) = span("post-tags")[
-  #for tag in tags { span("tag-label tag-" + tag)[#tag] }
+#let tags-cell(tags) = span("sitemap-post-tags")[
+  #for tag in tags { span("sitemap-tag-label tag-" + tag)[#tag] }
 ]
 
 // ---- Rendering -------------------------------------------------------------
 
 /// The optional filter bar. `tags` is an array of `(id: "WiG", tooltip: "…")`.
-/// Renders `.filter-btn`s that the bundled JS wires up to toggle `.post-item`
-/// visibility by their `data-tags`. HTML target only.
+/// Renders `.sitemap-filter-btn`s that the bundled JS wires up to toggle
+/// `.sitemap-post-item` visibility by their `data-tags`. HTML target only.
 ///
 /// `colors`: optional array of hex strings (e.g. `("#1976d2", "#e63946")`)
 /// overriding the default click-order palette, in order — `colors.at(0)`
@@ -102,14 +102,14 @@
       .join(" ")
     html.elem("style")[#(":root { " + decls + " }")]
   }
-  div("filter-container")[
+  div("sitemap-filter-container")[
     #for t in tags {
-      button("filter-btn tag-" + t.id, t.id, t.at("tooltip", default: t.id))[#t.id]
+      button("sitemap-filter-btn tag-" + t.id, t.id, t.at("tooltip", default: t.id))[#t.id]
     }
   ]
 }
 
-/// Render the feed as `<ul class="post-list">`. HTML target only — paged
+/// Render the feed as `<ul class="sitemap-post-list">`. HTML target only — paged
 /// formats (PDF/EPUB) get nothing, since the spine itself carries the posts
 /// there.
 ///
@@ -138,13 +138,13 @@
   data-tags: none,
 ) = context if target() == "html" {
   let rows = if entries == none { posts(ctx: ctx) } else { entries }
-  html.elem("ul", attrs: (class: "post-list"))[
+  html.elem("ul", attrs: (class: "sitemap-post-list"))[
     #for e in rows {
-      let li-attrs = (class: "post-item")
+      let li-attrs = (class: "sitemap-post-item")
       if data-tags != none { li-attrs.insert("data-tags", data-tags(e)) }
       html.elem("li", attrs: li-attrs)[
-        #html.elem("a", attrs: (href: href(e), class: "post-link"))[
-          #span("post-title")[#title(e)]
+        #html.elem("a", attrs: (href: href(e), class: "sitemap-post-link"))[
+          #span("sitemap-post-title")[#title(e)]
           #if meta != none { meta(e) }
         ]
       ]
