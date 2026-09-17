@@ -1,4 +1,4 @@
-#import "core.typ": current-handle, handle-url, spine
+#import "core.typ": current-handle, handle-url, spine as spine-of
 
 // HTML element helpers
 #let div(_class, ..body) = html.elem("div", attrs: (class: _class), ..body)
@@ -69,7 +69,7 @@
 /// which is correct only at the root.
 #let nav-from-context(spine: auto, from: none) = {
   let spine = if spine == auto {
-    spine()
+    spine-of()
   } else { spine }
   spine.map(node => {
     let handle = node.at("handle", default: none)

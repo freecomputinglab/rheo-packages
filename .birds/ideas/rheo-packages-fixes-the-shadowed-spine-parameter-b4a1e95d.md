@@ -6,7 +6,7 @@ priority: 4
 labels:
 - sitemap-review
 deps: []
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/sidebar.typ
 
