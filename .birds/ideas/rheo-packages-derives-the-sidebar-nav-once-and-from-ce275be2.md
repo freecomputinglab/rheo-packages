@@ -7,7 +7,7 @@ labels:
 - sitemap-review
 deps:
 - blocked-by:rheo-packages-links-by-handle-label-not-hand-rolled-6ba5f39f
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/sidebar.typ
 

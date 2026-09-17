@@ -36,24 +36,35 @@
 // taken here: it changes the rendered markup and the stylesheet with it, which
 // is a bigger change than this bead, and three-level spines are rare enough
 // that flattening is a fair default until one exists to design against.
-#let _flatten-descendants(node, from: none) = {
+#let _flatten-descendants(node, from: none, ctx: none) = {
   let out = ()
   for child in node.at("children", default: ()) {
     let handle = child.at("handle", default: none)
     if handle != none {
-      out += ((
+      // rheo's spine `title` is PATH-DERIVED — it is never the page's own
+      // `#set document(title: ..)`. The authored title is only reachable
+      // through `metadata-of`, which is a `query()` and so needs `#context`
+      // and a `ctx` from the call site. Fall back to the spine title when
+      // there is no ctx.
+      let spine-title = child.at("title", default: handle)
+      let label-text = if ctx == none {
+        spine-title
+      } else {
+        (ctx.metadata-of)(handle).at("title", default: spine-title)
+      }
+      out.push((
         id: handle,
-        title: child.at("title", default: handle),
+        title: label-text,
         // `url: none` + `handle:` means: let the renderer emit
         // `link(label(handle))` and rheo's own link rule resolve it. `from:`
         // is no longer consulted here — see the comment on `nav-from-context`.
         url: none,
         handle: handle,
-      ),)
+      ))
     }
     // Recurse REGARDLESS of whether this child was itself clickable: a group
     // nested inside a chapter contributes its own children, not itself.
-    out += _flatten-descendants(child, from: from)
+    out += _flatten-descendants(child, from: from, ctx: ctx)
   }
   out
 }
@@ -76,14 +87,25 @@
 /// It stays as a parameter, and is still honoured wherever a caller passes an
 /// explicit, already-`url:`-bearing nav (see `sidebar()`'s `nav:` argument),
 /// which this function does not itself produce.
-#let nav-from-context(spine: auto, from: none) = {
+///
+/// `ctx:` is optional. When supplied (a `rheo-context()` handle), each node's
+/// label prefers the page's own authored document title, read via
+/// `(ctx.metadata-of)(handle)` — a `query()`, so at most one per node. With no
+/// `ctx`, labels fall back to rheo's path-derived spine `title`, exactly as
+/// before this parameter existed.
+#let nav-from-context(spine: auto, from: none, ctx: none) = {
   let spine = if spine == auto {
     spine-of()
   } else { spine }
   spine.map(node => {
     let handle = node.at("handle", default: none)
-    let title = node.at("title", default: if handle == none { "" } else { handle })
-    let items = _flatten-descendants(node, from: from)
+    let spine-title = node.at("title", default: if handle == none { "" } else { handle })
+    let title = if ctx == none or handle == none {
+      spine-title
+    } else {
+      (ctx.metadata-of)(handle).at("title", default: spine-title)
+    }
+    let items = _flatten-descendants(node, from: from, ctx: ctx)
     if handle == none {
       (title: title, items: items)
     } else {
@@ -95,16 +117,25 @@
 /// Renders a book-style site with sidebar navigation, topbar, and prev/next arrows.
 ///
 /// nav: array of nav nodes. Each node is either:
-///   - A group (no `url`): `(title: "Section", items: ((id: "p1", title: "Page", url: "./p1.html"), ...))`
+///   - A group (no `id`): `(title: "Section", items: ((id: "p1", title: "Page", url: "./p1.html"), ...))`
 ///     Renders as a non-clickable section header with indented child links.
-///   - A chapter (has `url`): `(id: "ch", title: "Chapter", url: "./ch.html", items: (...))`
+///   - A chapter (has `id`): `(id: "ch", title: "Chapter", url: "./ch.html", items: (...))`
 ///     Renders as a clickable top-level link with optional child links.
+///   Either kind of node may carry a `url:` (an explicit, already-resolved
+///   href — what a caller passing `nav:` supplies) or a `handle:` (resolved
+///   by rheo's own link rule at render time — what the spine-derived path
+///   produces). A derived chapter has `url: none` too, so the group/chapter
+///   split is decided by `id`, never by `url`.
 ///   Items at either level may include an optional `num` field for numbered display.
 ///
 /// current: id string of the active page (matches `id` at any level in nav)
 /// title: site/book title string, used for document title and topbar text
 /// home-url: URL the topbar title links to (default "/")
 /// logo: optional content shown in topbar instead of title text (e.g. image(...))
+/// ctx: optional `rheo-context()` handle. Pass it
+///   (`#show: sidebar.with(ctx: rheo-context())`) to label the nav with
+///   pages' real document titles; omit it and the nav falls back to rheo's
+///   path-derived spine titles, exactly as before this parameter existed.
 #let sidebar(
   nav: (),
   current: none,
@@ -112,6 +143,7 @@
   home-url: "/",
   logo: none,
   accent-color: none,
+  ctx: none,
   doc,
 ) = {
   // `nav` and `current` both DEFAULT TO THE SPINE as of 0.1.1, so a project
@@ -128,7 +160,7 @@
   // inside the context blocks below rather than computed once out here.
   let explicit-nav = nav
   let nav-for(cur) = if explicit-nav.len() > 0 { explicit-nav } else {
-    nav-from-context(from: cur)
+    nav-from-context(from: cur, ctx: ctx)
   }
 
   // Flatten all clickable items in nav order for prev/next computation. Each
@@ -144,15 +176,15 @@
       let node-id = node.at("id", default: none)
       let node-items = node.at("items", default: ())
       if node-url != none or node-handle != none {
-        flat-items = flat-items + ((id: node-id, title: node.title, url: node-url, handle: node-handle),)
+        flat-items.push((id: node-id, title: node.title, url: node-url, handle: node-handle))
       }
       for item in node-items {
-        flat-items = flat-items + ((
+        flat-items.push((
           id: item.id,
           title: item.title,
           url: item.at("url", default: none),
           handle: item.at("handle", default: none),
-        ),)
+        ))
       }
     }
     flat-items
@@ -163,30 +195,17 @@
   // context, and the title depends on `current`. MEASURED that `set document`
   // works from inside a context block — the whole title machinery moved in here
   // so the active page can name itself without the author passing `current:`.
-  context {
-    let current = if current != none { current } else { current-handle() }
-    let flat-items = flatten(nav-for(current))
-
-    let current-index = if current != none {
-      flat-items.position(p => p.id == current)
-    } else {
-      none
-    }
-
-    let current-title = if current-index != none {
-      flat-items.at(current-index).title
-    } else { "" }
-
-    let doc-title = if current-title != "" and title != "" {
-      current-title + " | " + title
-    } else if current-title != "" {
-      current-title
-    } else {
-      title
-    }
-    set document(title: doc-title)
-  }
-
+  // A single outer context resolves `current`, derives `nav`, and runs
+  // `flatten` ONCE — two separate blocks used to do all three of those twice
+  // per page. The `set document(title: ...)` call stays isolated in its own
+  // plain `{ }` block, though, as the sole statement in it: MEASURED that a
+  // `set document(...)` followed by further content in the SAME block (the
+  // render below) is visible to a page's own exported <title>, but leaks into
+  // what OTHER pages' metadata beacons read back for THIS page's title (via
+  // `metadata-of`) — showing the composite "Page | Site title" instead of the
+  // page's own bare title. Isolating the `set` as a block's only statement,
+  // the same shape it had before this merge (its own `context { ... }`),
+  // avoids that leak while still computing `nav`/`flatten` only once.
   context {
   let current = if current != none { current } else { current-handle() }
   let nav = nav-for(current)
@@ -197,6 +216,19 @@
   } else {
     none
   }
+
+  let current-title = if current-index != none {
+    flat-items.at(current-index).title
+  } else { "" }
+
+  let doc-title = if current-title != "" and title != "" {
+    current-title + " | " + title
+  } else if current-title != "" {
+    current-title
+  } else {
+    title
+  }
+  { set document(title: doc-title) }
 
   let prev-page = if current-index != none and current-index > 0 {
     flat-items.at(current-index - 1)
