@@ -8,7 +8,7 @@ labels:
 deps:
 - blocked-by:rheo-packages-fixes-the-shadowed-spine-parameter-b4a1e95d
 - blocked-by:rheo-packages-scopes-and-prefixes-the-blogfeed-css-b015cd16
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/demo/rheo/content/_template.typ, sitemap/0.1.0/demo/rheo/check.sh
 

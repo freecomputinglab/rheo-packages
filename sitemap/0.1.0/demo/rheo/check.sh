@@ -108,6 +108,13 @@ for page in pages:
     if 'class="sidebar"' not in h:
         fail(f"{page}: no nav.sidebar")
 
+    # The wrapper `@rheo/sitemap`'s own sidebar view emits, and the scope every
+    # layout rule in sitemap.css's sidebar block hangs off. `@rheo/sidebar 0.1.1`
+    # emits no such wrapper, so this is what proves the demo is exercising THIS
+    # package's view and not the deprecated one.
+    if 'class="rheo-sidebar-layout"' not in h:
+        fail(f"{page}: no div.rheo-sidebar-layout — is the demo still importing @rheo/sidebar instead of @rheo/sitemap?")
+
     hrefs = re.findall(r'<a href="([^"]+)"', h)
     nav_hrefs = [u for u in hrefs if u.endswith(".html")]
 
@@ -134,6 +141,8 @@ for page in pages:
     css_links = re.findall(r'<link[^>]+sitemap\.css', h)
     if len(css_links) != 1:
         fail(f"{page}: sitemap.css linked {len(css_links)} times, expected 1")
+    if "rheo/sidebar/" in h:
+        fail(f"{page}: links an asset from the deprecated @rheo/sidebar package")
 
 if not bad:
     print("  tree: 7 rows, guide/ named and unlinked, title rule holds")
