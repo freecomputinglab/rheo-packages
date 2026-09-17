@@ -1,11 +1,20 @@
 # @rheo/sitemap
 
-Spine-derived views for Rheo projects. This version ships one view, `sitemap`:
-a `tree(1)`-style listing of the project's spine — one row per page, box rules
-down the left, the file as the node and its title beside it — plus the shared
-spine-walking layer (`core.typ`) that later views in this package build on.
+Spine-derived views for Rheo projects, all built on one shared spine-walking
+layer (`core.typ`). This package ships three views:
 
-Buildless: pure Typst plus one stylesheet, no JavaScript, no `dist/`.
+- `sitemap` — a `tree(1)`-style listing of the project's spine: one row per
+  page, box rules down the left, the file as the node and its title beside it.
+- `blogfeed` — a dated post index derived from the spine ("Blog index" below).
+- `sidebar` — a book-style page shell with a sidebar, topbar, and prev/next
+  arrows ("Sidebar template" below).
+
+Not buildless: the package ships Typst plus one stylesheet (`src/sitemap.css`)
+plus one JavaScript bundle, built by vite from `package.json`/`src/index.js`
+into `dist/lib.js`. `typst.toml`'s `entrypoint` and `css_stylesheet` point at
+`src/`, and only the JS bundle lives in `dist/` — so `src/` alone is enough to
+consume the package straight off a git ref, and `just build` is only needed to
+produce `dist/lib.js` before a demo or test project will pick up a JS change.
 
 ## Usage
 
@@ -73,7 +82,7 @@ and falls back to an empty stand-in rather than asserting or panicking.
 Ported from `@rheo/blogfeed` 0.1.1, now DEPRECATED in favour of this package.
 `posts(ctx:)` returns dated spine vertebrae newest-first, each merged with its
 resolved document metadata; `blogfeed(...)` renders them as a
-`<ul class="post-list">`. Like `sitemap()`, `blogfeed()` needs `ctx:
+`<ul class="sitemap-post-list">`. Like `sitemap()`, `blogfeed()` needs `ctx:
 rheo-context()` — a package's scope cannot see rheo's per-vertebra injection,
 and `metadata-of` is a function so it cannot travel through `sys.inputs`:
 
@@ -96,17 +105,34 @@ Drop the argument at every call site with the same prelude trick as
 `feed` is kept as an alias of `blogfeed` for callers migrating from
 `@rheo/blogfeed`.
 
-**Migration note:** `blogfeed`'s `href:` default changed from
-`entry => entry.handle + ".html"` to `entry => handle-url(entry.handle, from:
-current-handle())`. The old default only produced correct links from the site
-root; a nested page would double its own path segment. Pass an explicit
-`href:` to keep the old (root-only) behavior.
+**Migration note:** `blogfeed`'s `href:` default is now `none`, meaning: emit
+`#link(label(entry.handle))` and let rheo's own `rheo-link-rule` — installed
+on every spine document — resolve it, per format and per depth, validated
+against the spine. That is correct even for content transcluded onto pages at
+different depths, which a hand-computed relative path is not. `handle-url`
+(and `handle-path`/`rel-prefix`, the arithmetic it is built from) are still
+exported for a caller that wants to pass an explicit `href:` instead.
 
 **Migration note:** `posts()` now takes `ctx:` and asserts it is present — the
 published `@rheo/blogfeed` read metadata straight off the spine entry
 (`entry.metadata.at(...)`), which no longer exists under rheo 0.6.x. A row is
 now a spine entry merged with its resolved metadata, so `entry.date` and
 `entry.keywords` replace `entry.metadata.date` / `entry.metadata.keywords`.
+
+**Migration note:** every class this view emits now carries a `sitemap-`
+prefix — `.post-list` → `.sitemap-post-list`, `.post-item` →
+`.sitemap-post-item`, `.post-title` → `.sitemap-post-title`, `.post-date` →
+`.sitemap-post-date`, `.post-tags` → `.sitemap-post-tags`, `.post-link` →
+`.sitemap-post-link`, `.tag-label` → `.sitemap-tag-label`,
+`.filter-container` → `.sitemap-filter-container`, `.filter-btn` →
+`.sitemap-filter-btn`, `.tooltip` → `.sitemap-filter-tooltip`, and a hidden
+post item's marker class changed from `.post-item.hidden` to
+`.sitemap-post-item.sitemap-post-hidden`. A project styling any of the old
+names from its own stylesheet needs to move to the prefixed ones. The rename
+happened because a package manifest carries one `css_stylesheet`, which rheo
+links into every page of every project importing any view here, and rheo
+offers no per-package CSS scoping — so generic names like `.hidden` and
+`.tooltip` collided with whatever a host project already used them for.
 
 ## Sidebar template
 
@@ -121,11 +147,19 @@ it.
 #show: sidebar.with(title: "My Book")
 ```
 
-No `ctx:` argument — unlike this readme's other two views, `sidebar()` never
-took one, in 0.1.1 or here. It reads the spine and the current page's handle
-straight off `sys.inputs`/`state("rheo-handle")`, the same feature-detect
-route `core.typ`'s own accessors use, so nothing needs threading through from
-the call site.
+`sidebar()` reads the spine and the current page's handle straight off
+`sys.inputs`/`state("rheo-handle")`, the same feature-detect route `core.typ`'s
+own accessors use, so nothing needs threading through from the call site by
+default. It also takes an **optional** `ctx:` (a `rheo-context()` handle):
+
+```typ
+#show: sidebar.with(title: "My Book", ctx: rheo-context())
+```
+
+With `ctx:`, the nav and the prev/next arrow labels prefer each page's own
+authored `#set document(title: ...)` over rheo's path-derived spine title.
+Omitting `ctx:` keeps the previous behaviour — labels fall back to the
+path-derived spine title, exactly as before this parameter existed.
 
 **Migration note from `@rheo/sidebar`:** same API, same class names
 (`.sidebar`, `.topbar`, `.content`, `.nav-arrow`, …) and the same bundled

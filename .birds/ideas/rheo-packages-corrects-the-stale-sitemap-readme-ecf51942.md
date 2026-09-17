@@ -9,7 +9,7 @@ deps:
 - blocked-by:rheo-packages-links-by-handle-label-not-hand-rolled-6ba5f39f
 - blocked-by:rheo-packages-scopes-and-prefixes-the-blogfeed-css-b015cd16
 - blocked-by:rheo-packages-derives-the-sidebar-nav-once-and-from-ce275be2
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/readme.md
 
