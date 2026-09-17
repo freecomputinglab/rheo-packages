@@ -166,3 +166,38 @@ Run from `sitemap/0.1.0`:
    rg -c 'sitemap-post-list' demo/rheo/build/html/posts.html   # 1
    rg -c 'class="post-list"' demo/rheo/build/html/posts.html   # 0
    ```
+
+# Two stale comments in `check.sh`, to fix in the same flight
+
+`sitemap/0.1.0/demo/rheo/check.sh` carries two comments that were true when written and
+are now false. This bird already edits that file (VERIFY step 3 below), so correct them
+here rather than leaving them to mislead the next reader.
+
+1. **The file header, lines 8-12**, says:
+
+   ```
+   # Two of these assertions are currently known to fail against real rheo
+   # 0.6.3 output, for reasons outside this demo/check — see the comments at
+   # each one. They are asserted as the CORRECT behavior on purpose: an
+   # assertion bent to match a bug would certify the bug instead of catching
+   # it, which is the one thing this file exists to avoid.
+   ```
+
+   Both of those bugs are fixed and `just check` now passes in full. Delete the paragraph.
+   Keep the sentence it contains about not bending an assertion to match a bug — that rule
+   is still the point of the file — by rewriting the paragraph as a short standing note:
+   an assertion here is asserted as the CORRECT behaviour, so a failure means the code is
+   wrong, not that the assertion should be relaxed.
+
+2. **The `KNOWN BUG` block at lines 88-95**, immediately under the `---- THE FEED ----`
+   banner, says `blogfeed.typ`'s `post-date`/`post-tags` read `entry.metadata`, that
+   `blogfeed()` "has no such parameter" for `ctx:`, and that "`just demo` fails to compile
+   at all as soon as a page calls `blogfeed()`". All three are false now: `blogfeed.typ`
+   line 40 defines `posts(ctx: none)` and asserts on it, `blogfeed()` takes `ctx:` at line
+   129, `demo/rheo/content/posts/index.typ` calls `#blogfeed(ctx: rheo-context(), ...)`,
+   and the demo compiles and passes. Delete the block. The assertions below it are correct
+   and stay — only the comment goes.
+
+   MEASURED: `rg -c 'KNOWN BUG' demo/rheo/check.sh` currently reports `1`, which is this
+   block. After this change it must report `0`, which SUPERSEDES the older VERIFY step
+   elsewhere in this bird expecting `1`.
