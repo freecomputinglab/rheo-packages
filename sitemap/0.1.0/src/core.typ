@@ -10,6 +10,21 @@
 // The flat spine, or an empty one where there is no rheo.
 #let entries() = context-of().at("spine-flat", default: ())
 
+// NOT THE DEFAULT ANY MORE — kept as the escape hatch for a caller passing an
+// explicit `href:`/`url:`, or a project not under rheo at all.
+//
+// Under rheo, every spine `#document` installs `rheo-link-rule` as a `#show
+// link:` rule (rheo core's `crates/core/src/typ/rheo.typ`), which rewrites
+// `#link(<handle>)` into a per-format, depth-correct href at realization
+// time and validates the target against the spine — see
+// `/home/lox/code/_fcl/rheo/docs/link-rule.md`. That is format- and
+// depth-aware in a way this string arithmetic is not: `handle-path` hardcodes
+// `.html`, which is wrong for EPUB's `.xhtml` and meaningless for a page with
+// no separate file at all (a `synthesized: true` spine node). Prefer
+// `link(label(handle))` and let the rule resolve it; reach for these only
+// when there is no rheo build to install the rule, or a caller wants an
+// explicit href string rather than a rewritten link.
+//
 // A handle's output path, measured FROM THE SITE ROOT.
 //
 // A handle's `:` segments are DIRECTORIES in the output, not part of the
@@ -26,13 +41,16 @@
 // bare `guide/intro.html` works from the root and resolves to
 // `guide/guide/intro.html` from inside `guide/`. `@rheo/sidebar`'s
 // `_rel-prefix` does the identical arithmetic for the identical reason.
+// Also part of the escape hatch above — `rheo-link-rule` does this same
+// arithmetic itself, correctly, whenever the rule is installed.
 #let rel-prefix(handle) = {
   if handle == none { return "" }
   let depth = handle.split(":").len() - 1
   if depth == 0 { "" } else { range(depth).map(x => "../").join() }
 }
 
-// A tree node's URL as written on the page currently being rendered.
+// A tree node's URL as written on the page currently being rendered. Escape
+// hatch — see the comment above `handle-path`.
 #let handle-url(handle, from: none) = rel-prefix(from) + handle-path(handle)
 
 // The handle of the page being compiled, or `none` outside rheo.

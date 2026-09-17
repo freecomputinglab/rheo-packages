@@ -93,11 +93,14 @@ if len(items) != 2:
     fail(f"posts.html: {len(items)} li.sitemap-post-item, expected 2")
 
 # posts.html sits at the site root (its own handle "posts" has no `:`
-# segment), so hrefs are the full path from root — "posts/first.html", not
-# "first.html".
-hrefs = re.findall(r'<a href="([^"]+)" class="sitemap-post-link"', feed)
-if hrefs != ["posts/second.html", "posts/first.html"]:
-    fail(f"posts.html: post-link hrefs are {hrefs}, expected ['posts/second.html', 'posts/first.html'] (newest first)")
+# segment), so hrefs are the full path from root — "./posts/first.html", not
+# "first.html". The class sits on a wrapping span, not the anchor itself —
+# `link()` takes no class attribute, so blogfeed() emits
+# `link(label(handle))` (resolved by rheo's own link rule, hence the "./"
+# rheo's rule itself prefixes) inside `span.sitemap-post-link`.
+hrefs = re.findall(r'<span class="sitemap-post-link"><a href="([^"]+)">', feed)
+if hrefs != ["./posts/second.html", "./posts/first.html"]:
+    fail(f"posts.html: post-link hrefs are {hrefs}, expected ['./posts/second.html', './posts/first.html'] (newest first)")
 
 # ---- THE NAV -----------------------------------------------------------------
 

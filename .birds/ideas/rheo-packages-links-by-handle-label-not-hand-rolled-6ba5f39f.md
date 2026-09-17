@@ -9,7 +9,7 @@ deps:
 - blocked-by:rheo-packages-fixes-the-shadowed-spine-parameter-b4a1e95d
 - blocked-by:rheo-packages-names-the-root-index-node-from-its-adbc04fb
 - blocked-by:rheo-packages-scopes-and-prefixes-the-blogfeed-css-b015cd16
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/core.typ, sitemap/0.1.0/src/blogfeed.typ, sitemap/0.1.0/src/sidebar.typ
 

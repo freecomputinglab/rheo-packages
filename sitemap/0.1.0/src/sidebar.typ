@@ -1,4 +1,4 @@
-#import "core.typ": current-handle, handle-url, spine as spine-of
+#import "core.typ": current-handle, spine as spine-of
 
 // HTML element helpers
 #let div(_class, ..body) = html.elem("div", attrs: (class: _class), ..body)
@@ -44,7 +44,11 @@
       out += ((
         id: handle,
         title: child.at("title", default: handle),
-        url: handle-url(handle, from: from),
+        // `url: none` + `handle:` means: let the renderer emit
+        // `link(label(handle))` and rheo's own link rule resolve it. `from:`
+        // is no longer consulted here — see the comment on `nav-from-context`.
+        url: none,
+        handle: handle,
       ),)
     }
     // Recurse REGARDLESS of whether this child was itself clickable: a group
@@ -64,9 +68,14 @@
 /// A node with a handle is a CHAPTER: a clickable top-level link.
 /// Either way its descendants become `items`.
 ///
-/// `from:` is the handle of the page the nav is being rendered ON, which every
-/// url is made relative to. Omit it and the urls come out site-root-relative,
-/// which is correct only at the root.
+/// `from:` was the handle of the page the nav is being rendered ON, back when
+/// every url here was computed by hand (`handle-url(..., from: from)`). The
+/// derived path now carries a bare `handle:` per node instead and leaves
+/// resolving it — depth included — to rheo's own `rheo-link-rule` at
+/// `link(label(handle))` realization time, so `from:` is unused on that path.
+/// It stays as a parameter, and is still honoured wherever a caller passes an
+/// explicit, already-`url:`-bearing nav (see `sidebar()`'s `nav:` argument),
+/// which this function does not itself produce.
 #let nav-from-context(spine: auto, from: none) = {
   let spine = if spine == auto {
     spine-of()
@@ -78,7 +87,7 @@
     if handle == none {
       (title: title, items: items)
     } else {
-      (id: handle, title: title, url: handle-url(handle, from: from), items: items)
+      (id: handle, title: title, url: none, handle: handle, items: items)
     }
   })
 }
@@ -122,18 +131,28 @@
     nav-from-context(from: cur)
   }
 
-  // Flatten all clickable items in nav order for prev/next computation
+  // Flatten all clickable items in nav order for prev/next computation. Each
+  // flat entry carries BOTH `url` and `handle` — a node from an explicit
+  // `nav:` array has a `url` and no `handle`; a node derived from the spine
+  // (`nav-from-context`) has a `handle` and `url: none` — so the renderer
+  // below picks whichever is present.
   let flatten(nav) = {
     let flat-items = ()
     for node in nav {
       let node-url = node.at("url", default: none)
+      let node-handle = node.at("handle", default: none)
       let node-id = node.at("id", default: none)
       let node-items = node.at("items", default: ())
-      if node-url != none {
-        flat-items = flat-items + ((id: node-id, title: node.title, url: node-url),)
+      if node-url != none or node-handle != none {
+        flat-items = flat-items + ((id: node-id, title: node.title, url: node-url, handle: node-handle),)
       }
       for item in node-items {
-        flat-items = flat-items + ((id: item.id, title: item.title, url: item.url),)
+        flat-items = flat-items + ((
+          id: item.id,
+          title: item.title,
+          url: item.at("url", default: none),
+          handle: item.at("handle", default: none),
+        ),)
       }
     }
     flat-items
@@ -187,6 +206,16 @@
     flat-items.at(current-index + 1)
   } else { none }
 
+  // A prev/next arrow, either an explicit `url` (old `a-with-class` path) or
+  // a spine-derived `handle` resolved through rheo's link rule. The class
+  // cannot ride on `link()` itself, so it moves onto a wrapping `span` on the
+  // handle path — same reason `blogfeed()` wraps its post link in a span.
+  let link-arrow(page, cls, body) = if page.url != none {
+    a-with-class(page.url, cls)[#body]
+  } else {
+    span(cls)[#link(label(page.handle), body)]
+  }
+
   if target() == "html" {
     if accent-color != none {
       let css = ":root { --accent-color: " + accent-color + "; }"
@@ -216,23 +245,31 @@
       #ul("sidebar-nav")[
         #for node in nav {
           let node-url = node.at("url", default: none)
+          let node-handle = node.at("handle", default: none)
           let node-id = node.at("id", default: none)
           let node-items = node.at("items", default: ())
           let node-num = node.at("num", default: none)
 
-          if node-url == none {
+          // Group vs. chapter is decided by `id`, not `url`: a derived
+          // chapter now carries `url: none` and a `handle` instead, so `url`
+          // alone can no longer tell a chapter from a group. A group never
+          // has an `id` in either shape (explicit `nav:` or spine-derived).
+          if node-id == none {
             // Group: non-clickable section header with child links
             li("section-label")[
               #span("section-title")[#node.title]
               #ul("subsection-nav")[
                 #for item in node-items {
                   let item-num = item.at("num", default: none)
+                  let item-url = item.at("url", default: none)
+                  let item-handle = item.at("handle", default: none)
                   let class = if item.id == current { "active" } else { "" }
+                  let item-body = [
+                    #if item-num != none { span("chapter-num")[#item-num] }
+                    #item.title
+                  ]
                   li(class)[
-                    #a(item.url)[
-                      #if item-num != none { span("chapter-num")[#item-num] }
-                      #item.title
-                    ]
+                    #if item-url != none { a(item-url)[#item-body] } else { link(label(item-handle), item-body) }
                   ]
                 }
               ]
@@ -247,21 +284,25 @@
             } else {
               ""
             }
+            let node-body = [
+              #if node-num != none { span("chapter-num")[#node-num] }
+              #node.title
+            ]
             li(top-class)[
-              #a(node-url)[
-                #if node-num != none { span("chapter-num")[#node-num] }
-                #node.title
-              ]
+              #if node-url != none { a(node-url)[#node-body] } else { link(label(node-handle), node-body) }
               #if node-items.len() > 0 {
                 ul("subsection-nav")[
                   #for item in node-items {
                     let item-num = item.at("num", default: none)
+                    let item-url = item.at("url", default: none)
+                    let item-handle = item.at("handle", default: none)
                     let class = if item.id == current { "active" } else { "" }
+                    let item-body = [
+                      #if item-num != none { span("chapter-num")[#item-num] }
+                      #item.title
+                    ]
                     li(class)[
-                      #a(item.url)[
-                        #if item-num != none { span("chapter-num")[#item-num] }
-                        #item.title
-                      ]
+                      #if item-url != none { a(item-url)[#item-body] } else { link(label(item-handle), item-body) }
                     ]
                   }
                 ]
@@ -276,31 +317,31 @@
 
     #div("nav-arrows desktop-nav")[
       #if prev-page != none {
-        a-with-class(prev-page.url, "nav-arrow prev-arrow")[
+        link-arrow(prev-page, "nav-arrow prev-arrow", [
           #span("arrow-icon")[←]
           #span("arrow-text")[#prev-page.title]
-        ]
+        ])
       }
       #if next-page != none {
-        a-with-class(next-page.url, "nav-arrow next-arrow")[
+        link-arrow(next-page, "nav-arrow next-arrow", [
           #span("arrow-text")[#next-page.title]
           #span("arrow-icon")[→]
-        ]
+        ])
       }
     ]
 
     #div("nav-arrows mobile-nav")[
       #if prev-page != none {
-        a-with-class(prev-page.url, "nav-arrow prev-arrow")[
+        link-arrow(prev-page, "nav-arrow prev-arrow", [
           #span("arrow-icon")[←]
           #span("arrow-text")[Previous]
-        ]
+        ])
       }
       #if next-page != none {
-        a-with-class(next-page.url, "nav-arrow next-arrow")[
+        link-arrow(next-page, "nav-arrow next-arrow", [
           #span("arrow-text")[Next]
           #span("arrow-icon")[→]
-        ]
+        ])
       }
     ]
     ]

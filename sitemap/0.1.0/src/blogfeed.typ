@@ -8,7 +8,7 @@
 // adds the optional tag filter that the bundled JS wires up. rheo auto-injects
 // this package's CSS/JS via its `typst.toml` `[tool.rheo.html]`.
 
-#import "core.typ": current-handle, entries, handle-url
+#import "core.typ": entries
 
 // ---- HTML element helpers --------------------------------------------------
 #let div(_class, ..body) = html.elem("div", attrs: (class: _class), ..body)
@@ -119,8 +119,8 @@
 /// - `entries`:   rows to render (default: `posts(ctx: ctx)`).
 /// - `title`:     `entry => content` for the left column (default: the
 ///                document title, falling back to the file handle).
-/// - `href`:      `entry => link target` (default: the entry's handle,
-///                resolved from the CURRENT page — see below).
+/// - `href`:      `entry => link target` override, or `none` (default) to let
+///                rheo's own link rule resolve the entry's handle.
 /// - `meta`:      `entry => content` for the right column, or `none`
 ///                (e.g. `date-cell(...)` or `tags-cell(...)`).
 /// - `data-tags`: `entry => space-joined tag string` for the filter JS, or
@@ -129,11 +129,10 @@
   ctx: none,
   entries: none,
   title: entry => entry.at("title", default: entry.handle),
-  // Ported from @rheo/blogfeed's `entry => entry.handle + ".html"`, which is
-  // only correct from the site root: a nested page linking to `guide/intro`
-  // needs a `../` per level to get there first. `handle-url` does that
-  // arithmetic — the same function `sidebar` uses for the identical reason.
-  href: entry => handle-url(entry.handle, from: current-handle()),
+  // `none` means: emit `#link(<handle>)` and let rheo's own `rheo-link-rule`
+  // resolve it — format- and depth-correct, and validated against the spine.
+  // Pass a closure to override with an explicit href string.
+  href: none,
   meta: none,
   data-tags: none,
 ) = context if target() == "html" {
@@ -142,10 +141,15 @@
     #for e in rows {
       let li-attrs = (class: "sitemap-post-item")
       if data-tags != none { li-attrs.insert("data-tags", data-tags(e)) }
+      let inner = [
+        #span("sitemap-post-title")[#title(e)]
+        #if meta != none { meta(e) }
+      ]
       html.elem("li", attrs: li-attrs)[
-        #html.elem("a", attrs: (href: href(e), class: "sitemap-post-link"))[
-          #span("sitemap-post-title")[#title(e)]
-          #if meta != none { meta(e) }
+        #span("sitemap-post-link")[
+          #if href == none { link(label(e.handle), inner) } else {
+            html.elem("a", attrs: (href: href(e)), inner)
+          }
         ]
       ]
     }
