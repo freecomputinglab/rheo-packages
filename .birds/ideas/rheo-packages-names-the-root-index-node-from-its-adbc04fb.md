@@ -6,7 +6,7 @@ priority: 3
 labels:
 - sitemap-review
 deps: []
-closed: false
+closed: true
 ---
 Touches: sitemap/0.1.0/src/core.typ, sitemap/0.1.0/demo/rheo/check.sh
 

@@ -99,7 +99,18 @@
     let h = first-handle(n)
     if h == none { "?/" } else { h.split(":").at(depth, default: "?") + "/" }
   } else if segs.len() > 1 and segs.last() == "index.typ" {
-    segs.at(segs.len() - 2) + "/"
+    // An index-folded node names its DIRECTORY, and the directory name has to come
+    // off the handle, not the path: a path carries the project's `content_dir`
+    // prefix and a handle does not, so `segs.at(segs.len() - 2)` reads `content`
+    // for the site root's own `content/index.typ`. Same reason the group-node
+    // branch above reads a handle — see the comment on `first-path`.
+    let h = n.handle
+    if h == none { segs.at(segs.len() - 2) + "/" } else {
+      let parts = h.split(":")
+      // A single-segment `index` handle IS the site root: rheo folds it into the
+      // tree's own first row, so it has no directory of its own to name.
+      if parts.len() == 1 and parts.last() == "index" { "." } else { parts.last() + "/" }
+    }
   } else {
     segs.last()
   }

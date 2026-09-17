@@ -57,13 +57,6 @@ if len(rows) != 7:
 # rheo.toml keeps rheo from synthesizing one, so it is a real GROUP node:
 # no handle, no page, named off the first path beneath it. It must be
 # CELL TEXT "guide/", not a link.
-#
-# KNOWN BUG (out of scope for this bird — no src/ changes here): core.typ's
-# `segment()` reads a group node's name as `segs.at(depth)`, where `segs`
-# comes from splitting the full vertebra path. Real rheo paths are prefixed
-# with the content directory's own name (`content/guide/deep.typ`, not
-# `guide/deep.typ`), so `depth` 0 lands on `"content"` rather than `"guide"`
-# — this assertion currently fails, reading "content/" instead of "guide/".
 dir_cells = re.findall(r'<span class="sitemap-name sitemap-dir">([^<]*)</span>', index)
 if "guide/" not in dir_cells:
     fail(f"index.html: no .sitemap-dir cell reading 'guide/' (got {dir_cells}) — is a group node's name read from the wrong path segment?")
@@ -72,6 +65,15 @@ if re.search(r'<a[^>]*>\s*<span class="sitemap-name sitemap-dir">guide/</span>',
 
 if 'href="./guide/deep.html"' not in index:
     fail("index.html: no sitemap-name link to guide/deep.html")
+
+# The site root's own landing page (content/index.typ) is the tree's first row.
+# No row may be labelled with the project's content directory — that is the
+# `content/` leak this assertion exists to catch.
+names = re.findall(r'<span class="sitemap-name(?: sitemap-dir)?">(?:<a[^>]*>)?([^<]*)(?:</a>)?</span>', index)
+if any(n == "content/" for n in names):
+    fail(f"index.html: a sitemap row is labelled 'content/' (got {names}) — is an index-folded node named from its path instead of its handle?")
+if "posts/" not in names:
+    fail(f"index.html: no sitemap row labelled 'posts/' (got {names}) — did the index-folded directory name regress?")
 
 # ---- THE TITLE RULE ---------------------------------------------------------
 
