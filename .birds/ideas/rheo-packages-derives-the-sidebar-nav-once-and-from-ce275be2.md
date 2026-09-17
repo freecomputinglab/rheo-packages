@@ -175,3 +175,28 @@ Run from `sitemap/0.1.0`:
    `rg -o '<a href="posts.html">[^<]*' demo/rheo/build/html/index.html` no longer prints
    `Index`. **Revert that temporary demo edit before finishing** — this bird does not own
    the demo.
+
+# One stale doc comment, to fix in the same flight
+
+`sidebar()`'s own doc comment in `sitemap/0.1.0/src/sidebar.typ` (the block starting
+`/// Renders a book-style site with sidebar navigation`) still describes the group-vs-chapter
+distinction in terms of `url`:
+
+```
+///   - A group (no `url`): `(title: "Section", items: (...))`
+///   - A chapter (has `url`): `(id: "ch", title: "Chapter", url: "./ch.html", items: (...))`
+```
+
+That is no longer how the code decides. A node derived from the spine now carries
+`url: none` and a `handle:` instead, because resolving the link is left to rheo's own
+`rheo-link-rule` at `link(label(handle))` realization time — so a derived CHAPTER has no
+`url` either, and the renderer discriminates on `node-id == none` instead (a group has no
+`id` in either shape). Verify that by reading the branch in `sidebar()` before rewriting
+the comment.
+
+Correct the comment to say: a group is a node with no `id` and renders as a non-clickable
+section header; a chapter has an `id` and renders as a clickable top-level link. Note that
+a node may carry either a `url:` (an explicit, already-resolved href, which a caller
+passing `nav:` supplies) or a `handle:` (resolved by rheo's link rule), and that the
+derived path produces the latter. Keep the rest of the comment — the `num` field, `current`,
+`title`, `home-url`, `logo` — as it is.
