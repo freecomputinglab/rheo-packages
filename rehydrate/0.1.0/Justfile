@@ -1,0 +1,9 @@
+build:
+    pnpm install
+    pnpm run build
+
+# Node's own `--test` glob, not a bare directory: `node --test test/` errors on
+# this machine's Node (v24), which tries to `require` "test" as a module rather
+# than scan the directory.
+test:
+    node --test test/*.test.mjs
