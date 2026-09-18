@@ -7,7 +7,7 @@ labels:
 - rehydrate-justify
 deps:
 - blocked-by:rheo-packages-ships-the-rehydrate-helper-package-9ffb793f
-closed: false
+closed: true
 ---
 Touches: justify/0.1.2/typst.toml, justify/0.1.2/src/lib.ts, justify/0.1.2/package.json, justify/0.1.2/readme.md
 
