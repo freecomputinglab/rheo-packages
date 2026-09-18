@@ -1,0 +1,31 @@
+[package]
+name = "rehydrate"
+version = "0.1.0"
+entrypoint = "src/lib.typ"
+authors = ["The Free Computing Lab <https://freecomputinglab.ohrg.org>"]
+license = "MIT"
+description = "Survives a `rheo watch` DOM morph: per-key listener wirings, a duplicate-append guard, and hook registration"
+repository = "https://github.com/freecomputinglab/rheo-packages"
+
+# DIRECTLY UNDER `[tool.rheo]`, before any `[tool.rheo.<format>]` subtable:
+# TOML assigns a bare key to the most recent table header, so a subtable placed
+# above this line would capture `min_version` into itself instead.
+#
+# 0.6.4 is the release that understands `js_rehydrate` at all. A package
+# declaring it under an older rheo would have the key silently ignored and get
+# a full reload, which is the failure this floor exists to turn into an error.
+[tool.rheo]
+min_version = "0.6.4"
+
+[tool.rheo.html]
+js_scripts = "dist/lib.js"
+js_rehydrate = true
+
+# `js_rehydrate` is repeated rather than inherited: rheo merges the source block
+# over the release one KEY BY KEY, so a key absent here would not fall back to
+# the block above and a source-mode consumer would get a reload instead of a
+# patch.
+[tool.rheo.source.html]
+js_scripts = ["src/lib.js"]
+js_module = true
+js_rehydrate = true

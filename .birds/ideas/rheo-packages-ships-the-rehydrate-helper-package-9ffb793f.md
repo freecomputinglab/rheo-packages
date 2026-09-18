@@ -6,7 +6,7 @@ priority: 5
 labels:
 - rehydrate-helper-package
 deps: []
-closed: false
+closed: true
 ---
 Touches: rehydrate/0.1.0/typst.toml, rehydrate/0.1.0/package.json, rehydrate/0.1.0/vite.config.js, rehydrate/0.1.0/Justfile, rehydrate/0.1.0/readme.md, rehydrate/0.1.0/src/lib.typ, rehydrate/0.1.0/src/lib.js, rehydrate/0.1.0/test/rehydrate.test.mjs
 
