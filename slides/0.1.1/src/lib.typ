@@ -1,0 +1,89 @@
+// Depended on for its JavaScript, not for any Typst API it exports: this import
+// is what puts `@rheo/rehydrate`'s script on the page, which `dist/lib.js` then
+// reads as the `RheoRehydrate` global to rebuild the deck's styles and title bar
+// after a `rheo watch` morph.
+#import "@rheo/rehydrate:0.1.0"
+
+#let _slide-title = state("rheo-slide-title", none)
+
+#let _transitions = ("none", "fade", "slide", "convex", "concave", "zoom")
+
+#let slide(title: auto, transition: auto, inline: false, body) = {
+  assert(
+    transition == auto or transition == none or transition in _transitions,
+    message: "Unknown slide transition: " + repr(transition),
+  )
+  if title != auto {
+    _slide-title.update(title)
+  }
+  context if target() == "html" {
+    let current = _slide-title.get()
+    let title-elem = if current != none {
+      html.elem("div", attrs: (class: "rheo-slide-title", hidden: ""), current)
+    } else { [] }
+    let attrs = (:)
+    if transition != auto and transition != none {
+      attrs.insert("data-transition", transition)
+    }
+    html.elem("section", attrs: attrs, title-elem + body)
+  } else {
+    box(
+      fill: rgb("#ff4444"),
+      stroke: 2pt + rgb("#ff0000"),
+      inset: (x: 8pt, y: 4pt),
+      radius: 4pt,
+      text(fill: white, weight: "bold", size: 0.9em)[SLIDE],
+    )
+    if inline { body }
+  }
+}
+
+#let _themes = (
+  "beige",
+  "black",
+  "black-contrast",
+  "blood",
+  "dracula",
+  "league",
+  "moon",
+  "night",
+  "serif",
+  "simple",
+  "sky",
+  "solarized",
+  "white",
+  "white-contrast",
+)
+
+#let template(theme: "black", title: none, transition: none, first-slide: none, doc) = {
+  assert(theme in _themes, message: "Unknown slides theme: " + theme)
+  assert(
+    transition == none or transition in _transitions,
+    message: "Unknown slides transition: " + repr(transition),
+  )
+  assert(
+    first-slide != none or title != none,
+    message: "`template` requires `first-slide` or `title`",
+  )
+  if first-slide == none {
+    first-slide = heading(level: 1, title)
+  }
+  let after-cover = if title != none { _slide-title.update(title) } else { [] }
+  context if target() == "html" {
+    let reveal-attrs = (class: "reveal", "data-theme": theme)
+    if transition != none { reveal-attrs.insert("data-transition", transition) }
+    html.elem(
+      "div",
+      attrs: reveal-attrs,
+      html.elem(
+        "div",
+        attrs: (class: "slides"),
+        slide(first-slide) + after-cover + doc,
+      ),
+    )
+  } else {
+    slide(first-slide)
+    after-cover
+    doc
+  }
+}

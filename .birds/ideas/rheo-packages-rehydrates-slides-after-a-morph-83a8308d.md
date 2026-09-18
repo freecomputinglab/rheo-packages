@@ -7,7 +7,7 @@ labels:
 - rehydrate-slides
 deps:
 - blocked-by:rheo-packages-ships-the-rehydrate-helper-package-9ffb793f
-closed: false
+closed: true
 ---
 Touches: slides/0.1.1/typst.toml, slides/0.1.1/src/lib.ts, slides/0.1.1/package.json, slides/0.1.1/readme.md
 
