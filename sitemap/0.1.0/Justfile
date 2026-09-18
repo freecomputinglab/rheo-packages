@@ -1,0 +1,9 @@
+build:
+    pnpm install
+    pnpm run build
+
+demo:
+    rheo compile demo/rheo
+
+check: build demo
+    ./demo/rheo/check.sh

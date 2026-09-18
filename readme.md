@@ -19,3 +19,6 @@ Once you have cloned the repo as per above, you can import these packages throug
 ```typ
 #import "@rheo/slides:0.1.0": slides
 ```
+
+`@rheo/sitemap` also ships spine-derived views (`sitemap`, `blogfeed`,
+`sidebar`) built on one shared spine walk.

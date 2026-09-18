@@ -1,0 +1,7 @@
+version = "0.6.0"
+title = "@rheo/sitemap demo"
+
+# `_template.typ` is a library, not a page.
+[spine]
+exclude = ["_template.typ"]
+auto_index = false

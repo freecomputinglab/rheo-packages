@@ -1,0 +1,825 @@
+/* ============================================
+   Sitemap
+
+   `tree.typ`'s `sitemap()`, which draws a spine the way `tree(1)` draws a
+   directory: one row per page, box rules down the left, the file as the node and
+   its title beside it.
+
+   NOT A LIST, and that is the whole of this block. A `ul`/`li` pair indents a
+   nested list by a margin per level, which is the same information the rules
+   carry drawn twice; the rows here are FLAT siblings, and a row's whole ancestry
+   is one empty cell per level in front of its name.
+
+   THE RULES ARE BORDERS ON THOSE CELLS rather than the box-drawing characters a
+   terminal uses. MEASURED with the characters: a glyph is drawn to the font's own
+   height and not to the line BOX, so every point of leading opens a hole and the
+   vertical rule reads as a column of dashes — at 1.25 line height and still at
+   1.05, which is tighter than anything else on most sites. A border stretches to
+   its row, so it meets the row below it at any leading and in any font, which
+   matters twice over here: the monospace stack is whatever the reader's system
+   has and the box block is not certain to be in it, so the characters were not
+   even the page's to set.
+
+   Every `var(--x)` below carries a fallback: this stylesheet ships into an
+   arbitrary project, which may define none of these variables at all. A project
+   that defines them keeps its own look; one that does not still gets a readable
+   tree.
+   ============================================ */
+.sitemap {
+  font-family: var(--mono-font, ui-monospace, monospace);
+  font-size: var(--label-size, 0.85rem);
+  margin: 1em 0;
+  /* The rules grow a cell per level and a deep row must not wrap: a wrapped row
+     is a rule pointing at the wrong parent. So the block scrolls rather than the
+     page, which is what a `pre` block here already does. */
+  overflow-x: auto;
+}
+
+/* `stretch`, so every cell is as tall as the row whatever the row's own content
+   does — that is what makes one row's rule meet the next one's. `pre` keeps the
+   file names from breaking at a hyphen, which a narrow screen would otherwise do
+   inside the one column that has to stay whole. */
+.sitemap-row {
+  display: flex;
+  align-items: stretch;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* One level of nesting, and the geometry of a `tree` prefix restated in lengths:
+   the stem sits a third of the way into the cell and the arm runs from it to
+   within a hair of the next one, which is `│   ` and `├── ` — a rule, two dashes,
+   a space — at whatever width the cell is set to.
+
+   `flex: 0 0` and not a width alone: a flex item shrinks below its stated width
+   by default, which at a narrow viewport would pull the tree's rules out of
+   column. */
+.sitemap-cell {
+  --stem: 0.35em;
+  flex: 0 0 1.6em;
+  position: relative;
+}
+
+/* THE THREE STROKES, each drawn from the cell's own middle so they meet whatever
+   the row height is: a stem runs the full height, an elbow stops at the middle,
+   and a tee is a stem with the elbow's arm on it. The 1px borders take `--edge`,
+   faint on purpose, since the tree's shape should be readable down the column and
+   invisible while reading across one row. */
+.sitemap-stem::before,
+.sitemap-tee::before,
+.sitemap-elbow::before {
+  content: "";
+  position: absolute;
+  left: var(--stem, 0.35em);
+  top: 0;
+  border-left: 1px solid var(--edge, rgba(128, 128, 128, 0.4));
+}
+
+.sitemap-stem::before,
+.sitemap-tee::before {
+  bottom: 0;
+}
+
+.sitemap-elbow::before {
+  height: 50%;
+}
+
+.sitemap-tee::after,
+.sitemap-elbow::after {
+  content: "";
+  position: absolute;
+  left: var(--stem, 0.35em);
+  right: 0.3em;
+  top: 50%;
+  border-top: 1px solid var(--edge, rgba(128, 128, 128, 0.4));
+}
+
+/* The file, which is what a reader clicks. The gap is the arm's own — the rule
+   stops short of the text rather than the text standing off the rule. */
+.sitemap-name {
+  padding-left: 0.15em;
+}
+
+/* A directory with no landing page — a node in the tree and not a page, so it is
+   named in the ink a link would take without being one. */
+.sitemap-dir {
+  color: var(--text-color, inherit);
+}
+
+/* The title, where the file does not already say it. Set in a muted ink and off
+   the mono grid: the file column is a reading of the directory and this one is
+   prose. */
+.sitemap-title {
+  margin-left: 1.2em;
+  font-family: var(--heading-font, inherit);
+  color: var(--muted-color, #666);
+}
+
+/* ============================================
+   Blogfeed — the spine-derived post list, ported from @rheo/blogfeed 0.1.1
+   ============================================ */
+/* blogfeed — styles for the spine-derived post list and optional tag filter.
+   Themeable colors read the host site's variables when present, falling back to
+   neutral defaults so the package looks right on its own. Override any
+   `--blogfeed-*` (or the underlying host variable) in your project's stylesheet.
+   Declared on the feed's own roots rather than `:root`, since `filter-bar()` and
+   `blogfeed()` render as siblings (not nested) and each subtree needs the
+   variables in scope. */
+.sitemap-post-list,
+.sitemap-filter-container {
+  --blogfeed-text: var(--text-color, #1a1a1a);
+  --blogfeed-muted: var(--dark-grey-color, rgb(128, 128, 128));
+  --blogfeed-grey: var(--grey-color, #e2e2e2);
+  --blogfeed-accent: var(--primary-color, #9abddc);
+  --blogfeed-card-bg: #f8f8f8;
+  --blogfeed-card-border: #eeeeee;
+  --blogfeed-card-hover: #f0f0f0;
+
+  /* Active filters are colored by click order, not identity: 1st click is
+     always blue, 2nd red, and so on — cycling if more than 6 are active.
+     Bright, saturated base tones read as car-paint colors once the gloss
+     gradient (below) lays a specular highlight over them. */
+  --blogfeed-order-1: #1976d2; /* blue */
+  --blogfeed-order-2: #e63946; /* red */
+  --blogfeed-order-3: #ff8c00; /* orange */
+  --blogfeed-order-4: #ffd60a; /* yellow */
+  --blogfeed-order-5: #9d4edd; /* purple */
+  --blogfeed-order-6: #22c55e; /* green */
+
+  /* Glossy specular sheen: a bright diagonal band near the top edge fading
+     into the base color — the standard "glossy button" trick, tuned to
+     look like clear-coated paint, without any drop shadow. */
+  --blogfeed-gloss: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.25) 18%,
+    rgba(255, 255, 255, 0) 45%
+  );
+}
+
+/* ============================================
+   Filter bar (optional; wired up by the bundled JS)
+   ============================================ */
+.sitemap-filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 1.5em 0;
+}
+
+.sitemap-filter-btn {
+  position: relative;
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 4px solid var(--blogfeed-grey);
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  color: var(--blogfeed-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sitemap-filter-btn:hover {
+  background-color: #e0e0e0;
+  border-color: var(--blogfeed-accent);
+}
+
+.sitemap-filter-btn.active {
+  font-weight: bold;
+  color: #fff;
+  background-color: var(--blogfeed-accent);
+  border-color: var(--blogfeed-accent);
+}
+
+.sitemap-filter-btn.active[class*="order-"] {
+  background-image: var(--blogfeed-gloss);
+}
+
+.sitemap-filter-btn.active.order-1 { background-color: var(--blogfeed-order-1); border-color: var(--blogfeed-order-1); }
+.sitemap-filter-btn.active.order-2 { background-color: var(--blogfeed-order-2); border-color: var(--blogfeed-order-2); }
+.sitemap-filter-btn.active.order-3 { background-color: var(--blogfeed-order-3); border-color: var(--blogfeed-order-3); }
+.sitemap-filter-btn.active.order-4 { background-color: var(--blogfeed-order-4); border-color: var(--blogfeed-order-4); color: #1a1a1a; }
+.sitemap-filter-btn.active.order-5 { background-color: var(--blogfeed-order-5); border-color: var(--blogfeed-order-5); }
+.sitemap-filter-btn.active.order-6 { background-color: var(--blogfeed-order-6); border-color: var(--blogfeed-order-6); }
+
+/* Tooltip bubble the JS attaches inside each filter button. */
+.sitemap-filter-btn .sitemap-filter-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #333;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+  pointer-events: none;
+}
+
+.sitemap-filter-btn .sitemap-filter-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent #333 transparent;
+}
+
+.sitemap-filter-btn:hover .sitemap-filter-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============================================
+   Post list
+   ============================================ */
+.sitemap-post-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+
+.sitemap-post-item {
+  margin: 0 0 8px 0;
+  padding: 0;
+  background-color: var(--blogfeed-card-bg);
+  border: 1px solid var(--blogfeed-card-border);
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.sitemap-post-item:hover {
+  background-color: var(--blogfeed-card-hover);
+}
+
+.sitemap-post-item.sitemap-post-hidden {
+  display: none;
+}
+
+.sitemap-post-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: var(--blogfeed-text);
+}
+
+/* The card's background shift is the hover affordance; cancel any global
+   `a:hover` underline/opacity inherited from the host stylesheet. */
+.sitemap-post-link:hover {
+  text-decoration: none;
+  color: var(--blogfeed-text);
+  opacity: 1;
+}
+
+.sitemap-post-title {
+  flex: 1;
+}
+
+/* Right-hand meta column — a muted date/label … */
+.sitemap-post-date {
+  margin-left: 12px;
+  color: var(--blogfeed-muted);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* … or a row of tag pills. */
+.sitemap-post-tags {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.sitemap-tag-label {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  font-weight: bold;
+  border-radius: 3px;
+  background-color: var(--blogfeed-grey);
+  color: var(--blogfeed-muted);
+}
+
+.sitemap-tag-label.active {
+  background-color: var(--blogfeed-accent);
+  color: #fff;
+}
+
+.sitemap-tag-label.active[class*="order-"] {
+  background-image: var(--blogfeed-gloss);
+}
+
+.sitemap-tag-label.active.order-1 { background-color: var(--blogfeed-order-1); }
+.sitemap-tag-label.active.order-2 { background-color: var(--blogfeed-order-2); }
+.sitemap-tag-label.active.order-3 { background-color: var(--blogfeed-order-3); }
+.sitemap-tag-label.active.order-4 { background-color: var(--blogfeed-order-4); color: #1a1a1a; }
+.sitemap-tag-label.active.order-5 { background-color: var(--blogfeed-order-5); }
+.sitemap-tag-label.active.order-6 { background-color: var(--blogfeed-order-6); }
+
+/* ============================================
+   Mobile
+   ============================================ */
+@media (max-width: 600px) {
+  .sitemap-post-link {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sitemap-post-date,
+  .sitemap-post-tags {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .sitemap-filter-container {
+    gap: 6px;
+  }
+
+  .sitemap-filter-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+/* ============================================
+   Sidebar — the book-style nav/topbar/prev-next shell, ported from
+   @rheo/sidebar 0.1.1
+
+   SCOPED to `.rheo-sidebar-layout`, a wrapper `div` `sidebar.typ` now emits
+   around the topbar/nav/content/arrows shell (not the `<style>` accent-color
+   override, which stays outside it at the top of the document). The package
+   manifest allows one `css_stylesheet` per package, injected into every
+   project that imports ANY view here, so an importer using only `#sitemap()`
+   or `#blogfeed()` must see none of this block's rules take effect.
+
+   HYBRID scoping, deliberately: every rule below whose selector targets an
+   element inside the wrapper is prefixed `.rheo-sidebar-layout `. Two rules
+   cannot be reached that way, because a descendant class cannot scope a
+   `body` or `:root` rule — those are merged into one
+   `body:has(.rheo-sidebar-layout)` rule instead: the page-reset properties
+   (`padding`/`margin`/`overflow-x`) and all ten CSS variables, previously on
+   `:root`. `:has()` degrades gracefully in a browser that lacks it: no reset,
+   default variable values, everything else still scoped correctly — not a
+   broken page.
+
+   TWO EXCEPTIONS stay unprefixed: `.sidebar-backdrop` and
+   `.sidebar-backdrop.visible`, marked below, because `sidebar.js` appends
+   that element to `document.body` OUTSIDE the wrapper.
+   ============================================ */
+
+/* ============================================
+   CSS Variables + Base Reset — merged onto one rule because a wrapper class
+   cannot scope `:root` or `body`; declaring the variables on `body` still
+   makes them inherit to every descendant, including `.sidebar-backdrop`
+   (outside the wrapper but still under `body`). Override in your project's
+   style.css.
+   ============================================ */
+body:has(.rheo-sidebar-layout) {
+  --sidebar-width: 260px;
+  --topbar-height: 40px;
+  --sidebar-bg: #f9f6f0;
+  --border-color: #3d2645;
+  --text-color: #333;
+  --accent-color: #b893c7;
+  --arrow-bg: #f9f6f0;
+  --arrow-color: #3d2645;
+  --sidebar-link-color: #555;
+  --background-color: #f9f6f0;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* ============================================
+   Sidebar Backdrop — NOT prefixed: sidebar.js appends this element to
+   document.body, outside .rheo-sidebar-layout.
+   ============================================ */
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================
+   Topbar
+   ============================================ */
+.rheo-sidebar-layout .topbar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: var(--topbar-height);
+  background-color: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 98;
+  transition: left 0.3s ease;
+}
+
+.rheo-sidebar-layout .sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  position: absolute;
+  left: 15px;
+  display: none;
+  transition: left 0.3s ease;
+}
+
+.rheo-sidebar-layout .hamburger {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-color);
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.rheo-sidebar-layout .hamburger::before,
+.rheo-sidebar-layout .hamburger::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-color);
+  left: 0;
+  transition: transform 0.3s ease, top 0.3s ease;
+}
+
+.rheo-sidebar-layout .hamburger::before {
+  top: -6px;
+}
+
+.rheo-sidebar-layout .hamburger::after {
+  top: 6px;
+}
+
+.rheo-sidebar-layout .topbar-title {
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rheo-sidebar-layout .topbar-title img {
+  height: 24px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.rheo-sidebar-layout .topbar > a {
+  text-decoration: none;
+}
+
+/* ============================================
+   Sidebar Navigation
+   ============================================ */
+.rheo-sidebar-layout nav.sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 99;
+  transition: transform 0.3s ease;
+}
+
+.rheo-sidebar-layout .banner {
+  height: var(--topbar-height);
+}
+
+.rheo-sidebar-layout .banner a {
+  display: flex;
+  flex-direction: row;
+  margin: 0 1em;
+  height: 100%;
+}
+
+.rheo-sidebar-layout .banner img {
+  padding-top: 8px;
+  height: 50%;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.rheo-sidebar-layout .sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.rheo-sidebar-layout .sidebar-nav li {
+  margin-bottom: 2px;
+}
+
+/* Group header (non-clickable) */
+.rheo-sidebar-layout .sidebar-nav li.section-label {
+  margin-top: 1.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0.5rem 12px 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--border-color);
+  pointer-events: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.rheo-sidebar-layout .sidebar-nav li.section-label:first-child {
+  margin-top: 0;
+  border-top: none;
+}
+
+.rheo-sidebar-layout .sidebar-nav a {
+  display: block;
+  padding: 4px 12px;
+  color: var(--sidebar-link-color);
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.rheo-sidebar-layout .subsection-nav {
+  list-style: none;
+  padding-left: 20px;
+  margin: 0;
+  pointer-events: auto;
+}
+
+.rheo-sidebar-layout .subsection-nav a {
+  padding: 2px 12px;
+}
+
+.rheo-sidebar-layout .sidebar-nav a:hover {
+  background-color: #e8e8e8;
+  color: #000;
+}
+
+/* Active item */
+.rheo-sidebar-layout .sidebar-nav li.active > a,
+.rheo-sidebar-layout .sidebar-nav li.active > p > a {
+  background-color: var(--accent-color);
+  color: #000;
+  font-weight: 500;
+}
+
+/* Parent of active item (chapter containing the active subsection) */
+.rheo-sidebar-layout .sidebar-nav li.active-parent > a {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+/* Chapter number span */
+.rheo-sidebar-layout .chapter-num {
+  font-weight: 700;
+}
+
+/* ============================================
+   Content Area
+   ============================================ */
+.rheo-sidebar-layout .content {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--topbar-height);
+  min-height: calc(100vh - var(--topbar-height) - 14rem);
+  transition: margin-left 0.3s ease;
+}
+
+.rheo-sidebar-layout [role="doc-endnotes"] {
+  margin-left: var(--sidebar-width);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+/* Desktop: show hamburger, enable sidebar collapse */
+@media (min-width: 769px) {
+  .rheo-sidebar-layout .sidebar-toggle {
+    display: block;
+  }
+
+  .rheo-sidebar-layout nav.sidebar.hidden {
+    transform: translateX(-100%);
+  }
+
+  .rheo-sidebar-layout .topbar.sidebar-closed {
+    left: 0;
+  }
+
+  .rheo-sidebar-layout .sidebar-closed ~ .content,
+  .rheo-sidebar-layout .sidebar-closed ~ [role="doc-endnotes"] {
+    margin-left: 0;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .rheo-sidebar-layout .topbar {
+    left: 0;
+    z-index: 100;
+  }
+
+  .rheo-sidebar-layout .topbar.sidebar-open {
+    z-index: 102;
+    background-color: transparent;
+    border-bottom: none;
+  }
+
+  .rheo-sidebar-layout .topbar.sidebar-open .topbar-title {
+    opacity: 0;
+  }
+
+  .rheo-sidebar-layout .sidebar-toggle {
+    display: block;
+    position: fixed;
+    top: 11px;
+    left: 15px;
+    z-index: 1;
+  }
+
+  .rheo-sidebar-layout .topbar.sidebar-open .sidebar-toggle {
+    position: fixed;
+    left: 15px;
+  }
+
+  /* Hamburger → X animation */
+  .rheo-sidebar-layout .sidebar-open .hamburger {
+    background-color: transparent;
+  }
+
+  .rheo-sidebar-layout .sidebar-open .hamburger::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
+  .rheo-sidebar-layout .sidebar-open .hamburger::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  .rheo-sidebar-layout .content {
+    margin-left: 0;
+  }
+
+  .rheo-sidebar-layout nav.sidebar {
+    transform: translateX(-100%);
+    z-index: 101;
+  }
+
+  .rheo-sidebar-layout nav.sidebar:not(.hidden) {
+    transform: translateX(0);
+  }
+
+  .rheo-sidebar-layout [role="doc-endnotes"] {
+    margin-left: 0;
+  }
+}
+
+/* ============================================
+   Navigation Arrows
+   ============================================ */
+.rheo-sidebar-layout .nav-arrows {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3rem;
+  margin-left: var(--sidebar-width);
+  padding: 0 2rem 2rem 2rem;
+  transition: margin-left 0.3s ease;
+}
+
+.rheo-sidebar-layout .nav-arrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--arrow-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.rheo-sidebar-layout .nav-arrow:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.rheo-sidebar-layout .nav-arrow .arrow-icon {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--arrow-color);
+}
+
+.rheo-sidebar-layout .nav-arrow .arrow-text {
+  font-size: 0.9rem;
+  color: var(--arrow-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rheo-sidebar-layout .prev-arrow {
+  justify-content: flex-start;
+  margin-right: auto;
+  margin-left: 2rem;
+}
+
+.rheo-sidebar-layout .next-arrow {
+  justify-content: flex-end;
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.rheo-sidebar-layout .desktop-nav {
+  display: flex;
+}
+
+.rheo-sidebar-layout .mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .rheo-sidebar-layout .desktop-nav {
+    display: none;
+  }
+
+  .rheo-sidebar-layout .mobile-nav {
+    display: flex;
+  }
+
+  .rheo-sidebar-layout .nav-arrows {
+    margin-left: 0;
+    padding: 0 1rem 2rem 1rem;
+  }
+
+  .rheo-sidebar-layout .mobile-nav .nav-arrow {
+    flex: 1;
+    min-width: auto;
+  }
+
+  .rheo-sidebar-layout .mobile-nav .arrow-text {
+    font-size: 0.85rem;
+  }
+
+  .rheo-sidebar-layout .prev-arrow {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .rheo-sidebar-layout .sidebar-closed ~ .nav-arrows {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .rheo-sidebar-layout .desktop-nav .arrow-text {
+    max-width: 250px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rheo-sidebar-layout .desktop-nav .arrow-text {
+    max-width: 350px;
+  }
+}

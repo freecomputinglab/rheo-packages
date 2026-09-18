@@ -1,5 +1,15 @@
 # @rheo/blogfeed
 
+> **Deprecated.** Superseded by `@rheo/sitemap`, which exports `blogfeed` with
+> the same API. This package is unchanged and keeps working. New projects
+> should `#import "@rheo/sitemap:0.1.0": blogfeed`. One behavior difference:
+> `@rheo/sitemap`'s `blogfeed` defaults `href:` to `handle-url(entry.handle,
+> from: current-handle())`, relative to the page it renders on, where this
+> package's default (`entry => entry.handle + ".html"`) is correct only at the
+> site root. This package does not build against rheo 0.6.x at all — the spine
+> entries it reads document metadata off no longer carry it — and the fix
+> lives only in `@rheo/sitemap`.
+
 Derive a blog index/feed from a [Rheo](https://rheo.ohrg.org) spine, with an
 optional client-side tag filter. Ships the Typst API, the post-list/filter CSS,
 and the filtering JS — all auto-injected into the HTML target.

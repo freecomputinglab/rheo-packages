@@ -5,7 +5,9 @@ A collection of [Rheo](https://rheo.ohrg.org) Typst packages published under the
 `blogfeed/0.1.1/`) and mirrors the same layout: `typst.toml`, `src/`, a
 `Justfile` that builds `dist/` (the published entrypoint), and `flake.nix`.
 Most packages also ship JS via `package.json`/vite — see "Pure-Typst
-packages" below for the one that doesn't.
+packages" below for the one that doesn't. `sitemap` is the consolidated
+spine-view package — `sitemap`, `blogfeed` and `sidebar` views built on one
+shared spine walk — see "Consolidation into `@rheo/sitemap`" below.
 
 The rookery family (`core`, `search`, `timeline`, `todos` — formerly
 `rookery`, `rookery-search`, `rookery-timeline`, `rookery-todos` here) moved
@@ -159,6 +161,27 @@ DO NOT assert or panic when rheo is absent under this pattern — that's
 Pattern A's job for packages that genuinely can't function without rheo.
 Pick the pattern by whether the package's primary mode is "always under
 rheo" (A) or "works standalone, rheo optionally enhances it" (B).
+
+## Consolidation into `@rheo/sitemap`
+
+`@rheo/sitemap` (`sitemap/0.1.0/`) owns the shared spine walk —
+`context-of()`, `spine()`, `entries()`, `walk()`, `segment()`, `handle-url()`,
+`current-handle()`, all in `sitemap/0.1.0/src/core.typ` — and exports three
+views built on it: `sitemap`, `blogfeed` (ported from `@rheo/blogfeed`) and
+`sidebar` (ported from `@rheo/sidebar`). Any new view over the spine belongs
+in this package, not a package of its own.
+
+`@rheo/blogfeed` and `@rheo/sidebar` are deprecated in favor of `@rheo/sitemap`
+but not deleted: their `src/` is what `@rheo/sitemap` was ported from, and
+that history stays readable. Both keep building and resolving at their
+existing versions.
+
+One constraint this consolidation raised, which will govern the next view
+added to this package: a package manifest carries ONE `css_stylesheet`, so
+every view in `@rheo/sitemap` shares `src/sitemap.css`, and rheo injects it
+into any project importing any part of the package. A view whose rules would
+restyle a page that never renders it must be scoped behind a wrapper class
+the view itself emits (see `sidebar`'s `.rheo-sidebar-layout`).
 
 ## Pure-Typst packages
 
