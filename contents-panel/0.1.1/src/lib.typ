@@ -55,15 +55,35 @@
 
 // ---- Text extraction -----------------------------------------------------
 
-// Content -> plain string. A heading's body is content, and both the slug and
-// the contents label need it as text. Same shape as `@rheo/sitemap`'s
+// A markup space, as an element function. Typst gives a run of whitespace in
+// markup its own element rather than folding it into the neighbouring text,
+// and that element carries NO fields at all — no `text`, no `children`, no
+// `body` — so every branch below misses it.
+#let _SPACE = [ ].func()
+
+// Content -> plain string, for the slug. Same shape as `@rheo/sitemap`'s
 // `core.typ` `plain`, restated rather than imported: this package deliberately
 // has no dependency on that one.
+//
+// THE SPACE CASE IS NOT AN EDGE CASE. Any heading mixing text with inline
+// markup is a sequence whose word gaps are `_SPACE` elements, and without the
+// branch below they vanish: `== Planning with \`beads\`` came out
+// "Planning withbeads", both as the row's label and — worse, because it is a
+// url — as the anchor `#planning-withbeads`. MEASURED on waterline's
+// ohrg.org: 5 rows across 3 posts, every one of them a heading carrying a
+// `raw` or an `emph`. A heading of plain text has no `_SPACE` children to
+// lose, which is why this survived the demo.
+//
+// `linebreak` collapses to a space for the same reason a browser does it: a
+// row is one line, and the two halves of a broken heading must not run
+// together into one word.
 #let plain(c) = {
   if type(c) == str {
     c
   } else if type(c) != content {
     ""
+  } else if c.func() == _SPACE or c.func() == linebreak {
+    " "
   } else if c.has("text") {
     c.text
   } else if c.has("children") {
@@ -72,6 +92,59 @@
     plain(c.body)
   } else {
     ""
+  }
+}
+
+// Content -> content, for the row's label, keeping the heading's own inline
+// markup: a `raw` stays a `<code>`, an `emph` stays an `<em>`. The label used
+// to be `plain(..)`, which threw all of it away and rendered
+// "Enter:Typst" where the heading reads "Enter: _Typst_".
+//
+// LINKS ARE UNWRAPPED, and that is the one thing this cannot pass through: a
+// row IS an `<a>`, and an `<a>` inside an `<a>` is invalid HTML that browsers
+// repair by closing the outer one early — which would break the row's own
+// jump-to-section behaviour. MEASURED on waterline's ohrg.org, where six
+// headings across three posts are a bare `#link(..)[..]`. So a link
+// contributes its body and loses its href, which a reader loses nothing by:
+// the destination is one click away in the section the row points at.
+//
+// THE POLICY IS AN ALLOWLIST, and it has to be that way round. A row is a
+// `<span>` inside an `<a>`, so only INLINE content may survive; anything
+// structural is unwrapped to its body. Passing unrecognised elements through
+// untouched was tried first and is wrong — `separator:` can point at
+// anything, and this package's own `sections.typ` demo points it at a figure
+// whose label is a `figure.caption`, which rendered a `<figcaption>` inside
+// the row. Unwrapping by default cannot produce that class of bug; the cost
+// is that an unlisted inline element loses its markup rather than its text.
+//
+// `_INLINE` is therefore the set of wrappers worth rebuilding. Extend it
+// rather than adding another branch.
+#let _INLINE = (emph, strong, underline, strike, highlight, super, sub)
+
+#let rich(c) = {
+  if type(c) == str {
+    c
+  } else if type(c) != content {
+    []
+  } else if c.func() == _SPACE or c.has("text") {
+    // Text and `raw` both carry `text`, so a `raw` keeps its `<code>` — which
+    // is the case that prompted all this: `== Planning with \`beads\``.
+    c
+  } else if c.func() in _INLINE {
+    (c.func())(rich(c.body))
+  } else if c.has("children") {
+    c.children.map(rich).join()
+  } else if c.has("body") {
+    // Unwrapped: `link` (an `<a>` inside an `<a>` is invalid HTML that
+    // browsers repair by closing the outer one early, breaking the row's own
+    // jump-to-section), `figure.caption`, and every other structural
+    // wrapper. MEASURED on waterline's ohrg.org: six headings across three
+    // posts are a bare `#link(..)[..]`. A link contributes its body and
+    // loses its href, which costs a reader nothing — the destination is one
+    // click away in the section the row points at.
+    rich(c.body)
+  } else {
+    c
   }
 }
 
@@ -560,7 +633,10 @@
               if numbered {
                 html.elem("span", attrs: (class: "rheo-contents-num"), nums.at(i))
               }
-              html.elem("span", attrs: (class: "rheo-contents-label"), plain(h.title))
+              // `rich`, not `plain`: the row keeps the heading's own inline
+              // markup. `plain` is still what the SLUG is built from — an id
+              // is a string and has no use for an `<em>`.
+              html.elem("span", attrs: (class: "rheo-contents-label"), rich(h.title))
             },
           )
         }
