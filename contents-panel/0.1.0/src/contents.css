@@ -1,0 +1,658 @@
+/* ============================================
+   @rheo/contents-panel
+
+   A contents box pinned beside the article, each row filling left-to-right as
+   the reader moves through the section it names.
+
+   TWO OBJECTS, TWO PREFIXES, and the split is the same one `src/panel.typ`
+   makes. `.rheo-panel-*` and `--rheo-panel-*` are the FRAME: the aside's
+   position, the left and bottom rules, the hat, the title, the arrow — every
+   part of the box that has nothing to do with contents, and everything a
+   project gets by calling `frame` around something else. `.rheo-contents-*`
+   and `--rheo-contents-*` are the LIST: the rows, the numbers, the thread down
+   the left of a group, the two progress fills.
+
+   Where the list has to restyle a part of the frame — the hat is also the
+   page-progress track — the rule is written as a DESCENDANT of
+   `.rheo-contents-box`, so the frame needs no hook per part and a bare frame
+   is left alone.
+
+   EVERYTHING TUNABLE IS A CUSTOM PROPERTY, and every one of them is declared
+   on `:root` with a two-step fallback: the project's own
+   variable if it has one, then a literal that reads acceptably in a project
+   that defines nothing at all. So `--color-link: rebeccapurple` in a project's
+   `:root` recolours the active rows and the numbers with no knowledge of this
+   package, and `--rheo-panel-accent: rebeccapurple` overrides just this
+   package without touching anything else.
+
+   Declared on `:root`, and every RULE that paints something scoped to a
+   `.rheo-panel-*` or `.rheo-contents-*` class. That split is the point of this
+   repo's CLAUDE.md rule: rheo injects a package's stylesheet into every page of
+   a project that imports it anywhere, so a rule that restyles a page which
+   never renders the box would be a bug. A custom property DECLARATION restyles
+   nothing on its own — no element selects on it — so it is safe on `:root` and
+   the rules below stay scoped.
+
+   These were on `body:has(.rheo-contents-aside)` first, which was worse for
+   the reason it exists to serve: a project overriding a variable in its own
+   `body { .. }` rule LOST, because `body:has(..)` is the more specific
+   selector. On `:root` the project always wins, whether it overrides on
+   `:root`, on `body`, or inside a media query of its own.
+
+   TWO RULES ARE NOT HERE — the breakpoint below which the box is not drawn,
+   and the padding that keeps the article clear of it. Both are emitted per
+   page by `src/lib.typ`, because both are keyed to a breakpoint and A CUSTOM
+   PROPERTY CANNOT BE USED IN AN `@media` QUERY. See `lib.typ`'s `breakpoint:`
+   comment.
+   ============================================ */
+
+
+:root {
+  /* ---- The frame -------------------------------------------------------- */
+
+  /* Geometry */
+  --rheo-panel-width: 16rem;
+  --rheo-panel-gap: 2.5rem;
+  --rheo-panel-top: 2rem;
+  /* Distance from the edge of the viewport the panel is anchored to. ONE OF
+     THESE IS LIVE AT A TIME, chosen by `side:` — the default `side: right`
+     reads `--rheo-panel-right` and leaves `left: auto`, and `side: left`
+     does the reverse. Setting the one that is not live has no effect, which
+     is the intended failure: a project that moves the panel states the side
+     once, in Typst, rather than having two half-applied offsets. */
+  --rheo-panel-right: 2rem;
+  --rheo-panel-left: 2rem;
+  /* ONE SIZE FOR THE WHOLE PANEL. Set on `.rheo-panel-box` so the header,
+     the numbers and the labels all inherit it — there is no second place to
+     keep in step. */
+  --rheo-panel-font-size: 0.75rem;
+  /* Clearance between the project's sticky header and the top of the hat,
+     applied ONLY while the panel is pinned. At rest the panel is aligned to
+     the first section instead, and adding this there would push it out of
+     that alignment. */
+  --rheo-panel-top-gap: 0.75rem;
+  /* Breathing room above the title INSIDE the hat. The page-progress track is
+     the hat's own background, so without this the fill starts flush against
+     the top of the letterforms. */
+  --rheo-panel-hat-pad-top: 0.25rem;
+  /* The hat: a short rule, then the title. `--rheo-panel-rule-width` is
+     its thickness and `--rheo-panel-pad` its length. */
+  --rheo-panel-rule-width: 2px;
+  --rheo-panel-pad: 0.5em;
+  /* The hat's rule length. Normally derived from the padding, but settable on
+     its own because an `em` here resolves against the PANEL's font size, which
+     need not be the font size the thing it is matching was drawn at. */
+  --rheo-panel-hat-width: calc(var(--rheo-panel-pad) + var(--rheo-panel-rule-width));
+  /* The title's face. Monospace by default — the title is a label on a rule,
+     not prose, and it reads as one. */
+  --rheo-panel-title-font: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  /* Colour. Each one defers to a project variable before its own literal. */
+  --rheo-panel-accent: var(--color-link, #2563eb);
+  --rheo-panel-title-fg: var(--color-muted, #9ca3af);
+  --rheo-panel-bg: var(--rheo-panel-page-bg);
+  /* The frame: the box's left and bottom rules. Defaults to the accent rather
+     than to a neutral `--color-border`, because the frame is the same object
+     an idea's left rule is — a coloured edge marking the block, not a hairline
+     dividing it. */
+  --rheo-panel-border: var(--rheo-panel-accent);
+  /* The page's own background, which the box paints itself with. Wrong here
+     and the box reads as a pale rectangle over the article. */
+  --rheo-panel-page-bg: var(--color-bg, #ffffff);
+
+  /* ---- The list -------------------------------------------------------- */
+
+  /* The list scrolls inside the box past this. Bounded by the viewport, since
+     a fixed box taller than the screen would run off the bottom of it. */
+  --rheo-contents-max-height: calc(100vh - var(--rheo-panel-top) - 6rem);
+  --rheo-contents-radius: 3px;
+  /* Between a row's number and its label. */
+  --rheo-contents-num-gap: 0.6em;
+  /* The row face. `inherit` by default, so the rows read as part of whatever
+     the page is set in; the rookery block below points it at rookery's own
+     label font. */
+  --rheo-contents-font: inherit;
+  /* WHICH WAY A PROGRESS BAR GROWS, and it follows the TEXT, not the side of
+     the page the panel is pinned to: a fill tracks how far through a section
+     the reader is, and "further through" is whichever way that reader's script
+     runs. A left-hand rail on an LTR site still fills left-to-right.
+     A custom property rather than a logical gradient keyword, because there is
+     no usable one — `linear-gradient(to inline-end, ..)` is specified but not
+     implemented anywhere. The `:dir(rtl)` block at the foot of the list section
+     flips this, and the two gradients below read it. */
+  --rheo-contents-fill-dir: right;
+
+  --rheo-contents-fg: var(--color-secondary, #6b7280);
+  /* The rows' own accent. The frame's by default, so a project setting one
+     colour gets a box that agrees with itself. */
+  --rheo-contents-accent: var(--rheo-panel-accent);
+  --rheo-contents-num-fg: var(--color-muted, #9ca3af);
+  --rheo-contents-rule: var(--color-muted, #9ca3af);
+  /* The progress fill. Derived from the accent so that setting the accent
+     alone is enough, and overridable on its own when it is not. */
+  --rheo-contents-fill: color-mix(in srgb, var(--rheo-contents-accent) 14%, transparent);
+  /* The page-progress wash behind the title. A touch darker than a row's
+     fill: the row fill sits under small type in a narrow band and the title
+     is the larger, more open target, so the same value reads lighter there.
+     9% was tried first and is not legible as a bar at all. */
+  --rheo-contents-page-fill: color-mix(in srgb, var(--rheo-contents-accent) 20%, transparent);
+}
+
+/* `fixed`, not a sticky child of a flex column, because there is no column:
+   see the header comment and `lib.typ`. The practical difference from the
+   reference design is that the box is pinned from the first pixel of scroll
+   rather than travelling with the page until it reaches the top — which for a
+   box whose whole job is to report where the reader is in the page is arguably
+   the better behaviour anyway.
+
+   Anchored to an edge of the VIEWPORT — the right by default. A page whose
+   content is centred in a narrower column therefore gets the box out in its
+   margin, and `lib.typ`'s `reserve:` padding guarantees that margin is wide
+   enough. */
+.rheo-panel-aside {
+  position: fixed;
+  top: var(--rheo-panel-top);
+  right: var(--rheo-panel-right);
+  width: var(--rheo-panel-width);
+  z-index: 20;
+}
+
+/* ---- `side: left` -------------------------------------------------------
+   WHICH SIDE OF THE PAGE, WHICH IS NOT WHICH WAY THE TEXT RUNS. These are two
+   different axes and this package keeps them apart:
+
+     - THE FRAME is side-axis. Its rule, the padding off that rule and the hat
+       hanging over it all sit on the edge FACING AWAY FROM the prose, so they
+       mirror when the panel moves and stay put when the text direction
+       changes. That is this block.
+     - THE LIST is text-axis. The subsection thread, the indent, the numbers'
+       alignment and the fill direction all follow the reader's script, so they
+       are written as logical properties further down and mirror under
+       `:dir(rtl)` at either side of the page.
+
+   `direction: rtl` on the aside was the first design and is wrong for exactly
+   this reason: it would have flipped the frame and the text together, so a
+   left-hand rail on an LTR site came out with its labels reversed.
+
+   ONE CLASS, DELIBERATELY, not `.rheo-panel-aside.rheo-panel-side-left`. Each
+   rule here undoes a default above it in this same file and beats it on source
+   order, which leaves the whole block at the same weight (0,1,0) the defaults
+   already sit at. Two classes would have been more robust WITHIN the package
+   and worse outside it: a project overriding the panel's position writes
+   something like `body .rheo-panel-aside` (0,1,1) — waterline does — and that
+   must keep winning. A package rule that outweighs the project's own is the
+   failure mode to avoid here, not a package rule that is easy to override. */
+.rheo-panel-side-left {
+  right: auto;
+  left: var(--rheo-panel-left);
+}
+
+/* The frame's chrome, mirrored. Kept HERE, beside the anchor it belongs with,
+   rather than beside each default it undoes further down: the whole of what
+   `side: left` does should be readable in one place, and each of these is a
+   descendant selector (0,2,0) against a bare-class default (0,1,0), so it wins
+   on specificity and its position in the file does not matter. */
+.rheo-panel-side-left .rheo-panel-box {
+  /* The rule moves to the edge facing AWAY from the prose, which is now the
+     right, and the content is padded off it from that side. */
+  border-left: none;
+  border-right: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
+  padding: 0 var(--rheo-panel-pad) var(--rheo-panel-pad) 0;
+}
+
+.rheo-panel-side-left .rheo-panel-header {
+  /* The hat is a flex row of [rule][title]…[arrow]; reversed it is
+     [arrow]…[title][rule], so the short rule still meets the frame's own rule
+     at the corner. `.rheo-panel-top`'s `margin-left: auto` needs no mirror: an
+     auto margin absorbs the free space, which in `row-reverse` collects on the
+     arrow's left, so the same declaration pushes it to the far end either
+     way. */
+  flex-direction: row-reverse;
+  margin-left: 0;
+  margin-right: calc(-1 * (var(--rheo-panel-pad) + var(--rheo-panel-rule-width)));
+}
+
+/* The page-progress track still stops short of the hat's own rule, which is
+   now the RIGHT-hand end — so the track starts flush at the left instead of
+   being inset there. `background-size` already subtracts the rule's length, so
+   an offset of zero is what leaves the gap at the other end. The gradient's
+   own direction is NOT touched: it follows the text (see
+   `--rheo-contents-fill-dir`), and moving the panel does not move the text. */
+.rheo-panel-side-left .rheo-contents-box .rheo-panel-header {
+  background-position: 0 0;
+}
+
+/* ---- Adopting the rookery's theme --------------------------------------
+   Applied with `frame(rookery: true)` — which `contents` passes under
+   `separator: idea` — where `panel.typ` adds `.rheo-panel-rookery` to the
+   aside.
+
+   `@rookery/core` publishes its palette as inline custom properties on the
+   `.idea-box` it wraps each idea in — `--idea-date-color`, `--idea-link-color`
+   and the rest — and in that mode this package's aside is emitted INSIDE that
+   box, so the values are already inherited and simply need mapping onto the
+   names the rules below read. Nothing is imported and nothing is hardcoded but
+   rookery's published variable names.
+
+   Every mapping keeps the package's own default as its fallback, so a rookery
+   that leaves one of these unset still gets a readable box rather than an
+   unresolved `var()`.
+
+   `--idea-link-color` for the progress fill is not an approximation: it is
+   rookery's own hover fill, a translucent wash of the accent, which is exactly
+   what the fill wants to be. */
+.rheo-panel-rookery {
+  --rheo-panel-accent: var(--idea-date-color, var(--color-link, #2563eb));
+  --rheo-panel-border: var(--idea-border-color, var(--color-border, #e5e7eb));
+  --rheo-panel-title-fg: var(--idea-date-color, var(--color-muted, #9ca3af));
+  --rheo-contents-rule: var(--idea-border-color, var(--color-muted, #9ca3af));
+  --rheo-contents-fill: var(--idea-link-color, color-mix(in srgb, var(--rheo-contents-accent) 14%, transparent));
+  /* Mixed from rookery's accent rather than taken from one of its washes:
+     `--idea-fold-color` (its faintest) does not read as a bar at all, and
+     `--idea-link-color` — a row's fill — reads light behind the larger title.
+     Same 20% as the default above, so the two agree.
+
+     Mixed HERE rather than inherited from the `:root` default, because a
+     custom property substitutes its `var()`s where it is DECLARED: that
+     default is a mix of `--rheo-contents-accent` and had already resolved to
+     the package's blue before this block changed the accent. MEASURED: the
+     track came out blue on a green site. Declaring it on this element, where
+     `--idea-date-color` is in scope, is what makes the mix come out green.
+
+     `--rheo-contents-accent` is redeclared here for the same reason: it
+     defaults to the frame's accent, and that default had already resolved
+     before this block reached it. */
+  --rheo-contents-accent: var(--idea-date-color, var(--color-link, #2563eb));
+  --rheo-contents-page-fill: color-mix(
+    in srgb,
+    var(--idea-date-color, var(--rheo-panel-accent)) 20%,
+    transparent
+  );
+  /* A row names a section, and a rookery renders that section's own heading in
+     the label face — so the row wears it too, or the panel and the sections it
+     points at read as two different kinds of object. */
+  --rheo-contents-font: var(--idea-label-font, inherit);
+  --rheo-panel-title-font: var(--idea-label-font, monospace);
+  /* The panel is sized as an idea's hat is, so the two read as one system. */
+  --rheo-panel-font-size: var(--idea-label-size, 0.75rem);
+  --rheo-panel-rule-width: var(--idea-rule-width, 2px);
+  --rheo-panel-pad: var(--idea-pad, 0.5em);
+}
+
+/* ---- Replayed inside something narrower than a page ---------------------
+   A rookery re-renders an idea's stored body in places that are not the page
+   it was written on: `@rookery/search`'s preview pane, and `#window`, which
+   transcludes one note into another. In rookery mode the panel is emitted
+   inside the idea it lists, so it travels with the body into both.
+
+   It cannot be a pinned rail there. `position: fixed` escapes any ancestor
+   and floats the panel over the whole viewport rather than over the pane —
+   which is what it did, and why an earlier version of this block hid it in a
+   preview outright. Hiding was the wrong answer: the contents of a week are
+   as useful in a preview of that week as anywhere else, and the package
+   already has a form that fits a narrow container, the one a phone gets.
+
+   So these containers get that form: in the flow, full width, no hat. The hat
+   is dropped for the same reason it is on a phone — it names the thing the
+   panel belongs to, and in a preview or a window that name is already
+   directly above it — and the page-progress fill goes with it, being drawn
+   behind the title and meaningless for a block that is not tracking a scroll.
+
+   Two classes deep, so this beats a project's own `body .rheo-panel-aside`
+   rule pinning the panel at wide viewports: a container is not a width, and
+   the viewport is still wide when the pane is not. */
+.rookery-search-preview .rheo-panel-aside,
+[data-rookery="window"] .rheo-panel-aside {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin: 0 0 1.5rem;
+  left: auto;
+  right: auto;
+}
+
+.rookery-search-preview .rheo-panel-header,
+[data-rookery="window"] .rheo-panel-header {
+  display: none;
+}
+
+.rookery-search-preview .rheo-contents-list,
+[data-rookery="window"] .rheo-contents-list {
+  max-height: 50vh;
+}
+
+/* INSIDE A WINDOW THE FIGURE AND GROUND SWAP. A window paints itself with
+   `--idea-fold-color` whenever it is hovered or folded — rookery's
+   `[data-rookery="window"]:not([data-rookery-no-bg]):hover` — so the ground
+   the panel sits on is already the wash its own fills are made of. Left
+   alone, the panel is a white block on a washed field and its two progress
+   fills, being washes of the same accent, have nothing to read against.
+
+   So the panel takes the wash as its ground and fills with the page colour
+   instead: light bars on a tinted panel rather than tinted bars on a light
+   one. The ground is set unconditionally rather than only on hover, so the
+   panel does not change colour under the pointer while the window around it
+   does.
+
+   Only windows. A search preview has its own ground and is not tinted, so
+   the page-side colours are still the right way round there. */
+[data-rookery="window"] .rheo-panel-aside {
+  --rheo-panel-bg: var(--idea-fold-color, var(--rheo-panel-page-bg));
+  --rheo-contents-fill: var(--rheo-panel-page-bg);
+  --rheo-contents-page-fill: var(--rheo-panel-page-bg);
+}
+
+/* The anchor `lib.typ` stamps before each tracked heading. It must occupy no
+   space at all — it sits between the previous section's last paragraph and the
+   next heading, where any height would read as a stray gap. `scroll-margin-top`
+   is for arriving by fragment link from outside the page, where the script's
+   own offsetting does not run. */
+.rheo-contents-anchor {
+  display: block;
+  height: 0;
+  scroll-margin-top: calc(var(--rheo-panel-top) + 1rem);
+}
+
+/* Painted with the page's own background rather than left transparent: a
+   project that opts out of `reserve:` has its article running underneath the
+   box, and text showing through the gaps between rows is unreadable. On a page
+   that does reserve the room, this is invisible. */
+/* FRAMED LIKE AN IDEA. `@rookery/core` draws a note as a left rule with the
+   content padded off it — `[data-rookery="box"] { border-left: var(--idea-rule-width)
+   solid var(--idea-border-color); padding-left: var(--idea-pad) }` — and the hat
+   hanging out over the top of that rule. The panel takes the same shape, plus a
+   bottom rule to close it off, since unlike an idea it has a definite end.
+
+   No `border-radius`: the rules are square on an idea and a rounded panel
+   beside square ideas reads as a different kind of object. */
+.rheo-panel-box {
+  background: var(--rheo-panel-bg);
+  font-size: var(--rheo-panel-font-size);
+  /* Establishes a block formatting context, so the header's negative top
+     margin lifts the HEADER rather than collapsing out through the box and
+     dragging the box's own top edge — and the frame's corner with it — up
+     with it. The box has no top border or padding to stop it otherwise. */
+  display: flow-root;
+  border-left: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
+  border-bottom: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
+  /* Padded on ONE side only, where the frame's rule is — the left here, and
+     the right under `side: left`, which mirrors this rule. Not on both:
+     the two progress fills — a row's, and the page's behind the title — are
+     backgrounds on elements that span the content box, so any right padding
+     stops them short of the frame and they no longer finish flush with the
+     right-hand end of the bottom rule. A symmetric inset was tried and reads
+     tidier while the bars are part-full, and wrong at the foot of the page,
+     which is the moment they are meant to say "that is all of it". */
+  padding: 0 0 var(--rheo-panel-pad) var(--rheo-panel-pad);
+}
+
+/* THE HAT, and it is the same object rookery draws on an idea: a short rule
+   running in from the left, then the name sitting on the end of it. Modelled
+   on `@rookery/core`'s `[data-rookery="tab"]` — a flex row whose `::before` is
+   a `border-top` as long as the card's padding — so that on a rookery the
+   panel and the ideas it lists wear the same hat rather than two different
+   headers.
+
+   No `border-bottom` under it: the rule IS the header's edge, and a second
+   line below the title would read as a box around the label. */
+.rheo-panel-header {
+  display: flex;
+  /* The rule sits at the BOTTOM of the hat's line box, so the title rests on
+     top of it. That is rookery's default idea hat. The weeknote's outermost
+     idea is a special case whose rule cuts through the middle of its label,
+     and the panel deliberately does not copy that one. */
+  align-items: flex-end;
+  gap: 0.3em;
+  /* One line, of a known height: the lift below is half of it, so the height
+     must not depend on whatever the arrow's line box happens to be. */
+  line-height: 1;
+  height: 1em;
+  padding: var(--rheo-panel-hat-pad-top) 0 0.35rem;
+  color: var(--rheo-panel-title-fg);
+  /* Pulled back over the box's own left rule, so the hat's short rule starts
+     at the OUTER edge of the frame and the label sits just past it — the same
+     negative margin rookery gives an idea's tab. */
+  margin-left: calc(-1 * (var(--rheo-panel-pad) + var(--rheo-panel-rule-width)));
+  /* LIFTED CLEAR OF THE BOX, by its own height, so the whole hat sits above
+     the box's top edge and its bottom-aligned rule lands exactly on that
+     edge — title on top of the rule, rule meeting the left border as a
+     corner. This is `--idea-hat-lift` (`label-size + 1px`) restated against
+     this element's own font size, which is the same quantity.
+     Half a height was tried first and centres the title ON the rule, which
+     is the weeknote outer idea's special case rather than the default one.
+
+     EXACTLY one line, with no extra pixel. Rookery's own lift is
+     `label-size + 1px` and it pays that pixel back with a `margin-bottom: 1px`
+     on the label; borrowing the lift without the compensation left the hat's
+     rule sitting 1px above the box's top edge, which is the hairline gap
+     between the hat and the left border.
+
+     The hat's own top padding is added back in, because `height` is the
+     CONTENT height: padding pushes the content box — and with it the
+     bottom-aligned rule — down by exactly that much, which would reopen the
+     gap the paragraph above closed. */
+  margin-top: calc(-1em - var(--rheo-panel-hat-pad-top));
+}
+
+/* THE HAT IS ALSO THE PAGE-PROGRESS TRACK, and only on a contents box — how
+   far through the document the reader is, as against a row's fill, which is
+   how far through one section. `--rheo-contents-page-progress` is set by the
+   script. A gradient rather than a child element, so nothing is added to the
+   markup and the title sits over it with no stacking to arrange.
+
+   Scoped to `.rheo-contents-box` rather than written onto the hat itself: a
+   frame with no list tracks no scroll, and a gradient stuck at 0% is a rule
+   that paints nothing and still has to be read by anyone debugging one. */
+.rheo-contents-box .rheo-panel-header {
+  background-image: linear-gradient(
+    to var(--rheo-contents-fill-dir),
+    var(--rheo-contents-page-fill) 0 var(--rheo-contents-page-progress, 0%),
+    transparent var(--rheo-contents-page-progress, 0%)
+  );
+  /* The track starts at the RIGHT-HAND TIP OF THE HAT RULE, not at the
+     header's left edge. The header begins outside the frame — it is pulled
+     back over the left border so the rule can start there — so a full-width
+     track began under the rule itself and read as the bar having a permanent
+     head start. Positioning and sizing the background instead of insetting
+     the element keeps the rule, the title and the arrow where they are. */
+  background-repeat: no-repeat;
+  background-position: var(--rheo-panel-hat-width) 0;
+  background-size: calc(100% - var(--rheo-panel-hat-width)) 100%;
+}
+
+.rheo-panel-header::before {
+  content: "";
+  flex: 0 0 auto;
+  width: var(--rheo-panel-hat-width);
+  border-top: var(--rheo-panel-rule-width) solid var(--rheo-panel-accent);
+}
+
+.rheo-panel-title {
+  font-family: var(--rheo-panel-title-font);
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.rheo-panel-top {
+  margin-left: auto;
+  display: inline-flex;
+  /* Half again the panel's text size. At the same size as the rows it read as
+     another row rather than as a control, and it is the one thing in the hat
+     meant to be clicked. */
+  font-size: 1.5em;
+  line-height: 1;
+  /* Centred on the hat rather than sharing the title's baseline. The hat is
+     also the page-progress track, and a glyph this much taller than the line
+     would otherwise stand proud of the top of the track and stay uncovered
+     when the bar reaches the end of the page. Centred on the content box, its
+     overhang falls inside the hat's own padding, so the fill covers it
+     completely at 100%. */
+  align-self: center;
+  text-decoration: none;
+  color: var(--rheo-panel-title-fg);
+  transition: color 0.15s ease;
+}
+
+.rheo-panel-top:hover {
+  color: var(--rheo-panel-accent);
+}
+
+.rheo-contents-list {
+  display: flex;
+  flex-direction: column;
+  /* No side padding: the box's own `padding-left` already sets the content
+     edge, and a second indent here would push the rows off the hat's label. */
+  padding: 0.15rem 0 0;
+  max-height: var(--rheo-contents-max-height);
+  overflow-y: auto;
+}
+
+/* A grid and not a flex row, so every number sits in a column of one width and
+   the labels line up whatever the numbers run to. `minmax(_, auto)` lets that
+   column grow for `10.10` rather than wrapping it. */
+.rheo-contents-link {
+  font-family: var(--rheo-contents-font);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(1.1em, auto) 1fr;
+  align-items: baseline;
+  gap: var(--rheo-contents-num-gap);
+  /* LOGICAL, like everything else about a row: the trailing space is at the
+     END of the line, wherever the reader's script ends. The row's geometry
+     follows the text and not the side of the page the panel is pinned to —
+     see the `side: left` block above for the other axis. */
+  padding-block: 0.1rem;
+  padding-inline: 0 0.3rem;
+  border-radius: var(--rheo-contents-radius);
+  line-height: 1.5;
+  text-decoration: none;
+  color: var(--rheo-contents-fg);
+  transition: color 0.15s ease;
+}
+
+.rheo-contents-link:hover {
+  color: var(--rheo-contents-accent);
+}
+
+/* Subsections hang off a thread running down the START EDGE of their group —
+   the left on an LTR page, the right on an RTL one. The run ends at the next
+   top-level row, or at the end of the list, and that last row draws only the
+   top half of the thread to close it off. */
+.rheo-contents-sub {
+  padding-inline-start: 1.55em;
+  grid-template-columns: minmax(2.1em, auto) 1fr;
+}
+
+.rheo-contents-sub::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0.6em;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--rheo-contents-rule);
+  opacity: 0.45;
+}
+
+.rheo-contents-sub:last-child::before,
+.rheo-contents-sub:has(+ .rheo-contents-link:not(.rheo-contents-sub))::before {
+  bottom: auto;
+  height: 50%;
+}
+
+.rheo-contents-sub::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0.6em;
+  top: 50%;
+  width: 0.5em;
+  height: 1px;
+  background: var(--rheo-contents-rule);
+  opacity: 0.45;
+}
+
+/* One row, one line. A wrapped label would move every row below it as the
+   reader scrolls, which is the one thing a progress rail must not do. */
+.rheo-contents-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rheo-contents-num {
+  font-family: var(--rheo-contents-font, var(--mono-font, ui-monospace, SFMono-Regular, Menlo, monospace));
+  font-variant-numeric: tabular-nums;
+  /* `end`, not `right`: the numbers are ranged against the label column, and
+     which side that is depends on the script. */
+  text-align: end;
+  color: var(--rheo-contents-num-fg);
+}
+
+.rheo-contents-link.passed,
+.rheo-contents-link.passed .rheo-contents-num,
+.rheo-contents-link.active .rheo-contents-num {
+  color: var(--rheo-contents-accent);
+}
+
+/* ONLY the section being read is filled, so the fill reads as a progress bar
+   rather than as a highlight over everything above the reader. Both the
+   top-level row and the subsection within it are active at once, so both fill.
+   `--rheo-contents-progress` is set per row by `contents.js`.
+
+   Underlined as well as filled, because the fill alone is a colour cue: a
+   heavier weight or a wider glyph would reflow the row as it became active,
+   and an underline does not. */
+.rheo-contents-link.active {
+  color: var(--rheo-contents-accent);
+  background: linear-gradient(
+    to var(--rheo-contents-fill-dir),
+    var(--rheo-contents-fill) 0%,
+    var(--rheo-contents-fill) var(--rheo-contents-progress, 0%),
+    transparent var(--rheo-contents-progress, 0%),
+    transparent 100%
+  );
+}
+
+.rheo-contents-link.active .rheo-contents-label {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* THE ONE THING LOGICAL PROPERTIES CANNOT CARRY. Everything else about a row
+   mirrors on its own — the thread, the indent, the numbers — because it is
+   written as `inset-inline-start`, `padding-inline-start`, `text-align: end`.
+   A gradient has no such form: `to inline-end` is specified and implemented
+   nowhere, so the direction has to be a value this block can swap.
+   On the ASIDE rather than on each row, so one match covers both fills; the
+   custom property inherits down to them. `:dir()` reads the element's RESOLVED
+   direction, which it inherits, so this matches an aside inside an RTL
+   document without needing a descendant selector for the ancestor case. */
+.rheo-panel-aside:dir(rtl) {
+  --rheo-contents-fill-dir: left;
+}
+
+/* LIGHT BY DEFAULT, deliberately, and there is no `prefers-color-scheme: dark`
+   block here. One was written and removed: it swapped the literal fallbacks on
+   a dark system, which meant a project with a light-only design got a contents
+   box that went dark underneath it whenever the READER's system was dark — the
+   package overriding the site's own decision about its palette.
+
+   A project's theme still reaches the box, by the route it already takes:
+   every variable defers to a project one first, so wherever a site puts its
+   own dark palette — a media query, a `[data-theme]` attribute, a class — the
+   box follows it, because the site's declaration wins the `var()` before the
+   literal is ever reached. What the package no longer does is guess.
+   `--color-bg`, `--color-link`, `--color-secondary`, `--color-muted` and
+   `--color-border` are the hooks; `--rheo-panel-*` overrides just the frame
+   and `--rheo-contents-*` just the list.
+*/
+
+/* The box animates on scroll and the rows transition on hover. Neither is
+   information — the fill and the underline carry that — so drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .rheo-panel-top,
+  .rheo-contents-link {
+    transition: none;
+  }
+}
