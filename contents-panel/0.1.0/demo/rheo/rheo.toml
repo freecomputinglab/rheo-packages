@@ -1,0 +1,6 @@
+version = "0.6.0"
+title = "@rheo/contents-panel demo"
+
+[spine]
+exclude = []
+auto_index = false

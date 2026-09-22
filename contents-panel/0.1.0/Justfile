@@ -1,0 +1,18 @@
+# Bundles `src/` into `dist/`, which `typst.toml` points at. `dist/` is
+# gitignored, so this must run before a project compiling against the package
+# sees an edit.
+build:
+    pnpm install
+    pnpm run build
+
+# The rheo half of this package's coverage: the demo's page carries enough
+# real headings, including two identical ones, to exercise slug derivation
+# and dedup, and per-section scroll progress against the actual spine.
+demo:
+    rheo compile demo/rheo
+
+# Asserts on the OUTPUT — that the contents box, its layout wrapper, and every
+# anchor/link pair agree on ids, that duplicate headings got distinct slugs,
+# and that the responsive `<style>` was hoisted into `<head>`.
+check: build demo
+    ./demo/rheo/check.sh

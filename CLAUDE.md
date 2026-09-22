@@ -62,9 +62,10 @@ The rookery family's four entries (`rookery`, `rookery-search`,
 entirely when the family moved to its own repository — see the top of this
 file. It now resolves under a SEPARATE `rookery` namespace directory
 (`~/.cache/typst/packages/rookery/<pkg>/<version>`), set up per that repo's
-own `CLAUDE.md`. The `blogfeed`, `feeds`, `justify`, `sidebar`, `slides` and
-`tooltip` entries under THIS `rheo` namespace are set up and working; do not
-relink the namespace wholesale, which would clobber them.
+own `CLAUDE.md`. The `blogfeed`, `contents-panel`, `feeds`, `justify`,
+`sidebar`, `slides` and `tooltip` entries under THIS `rheo` namespace are set
+up and working; do not relink the namespace wholesale, which would clobber
+them.
 
 Then `just build` the package (skip this for a dist-less pure-Typst package —
 see "Pure-Typst packages" below) and `rheo compile` a test project that
@@ -194,8 +195,9 @@ edit. It is currently the only buildless package left in this repo, now that
 the rookery family (which included both buildless and built packages, and
 was the reason this distinction is documented at all) has moved to its own
 repository — see the top of this file. When adding a package, the built
-shape (`package.json` + vite, like `sidebar`, `blogfeed`, `justify`, `slides`
-and `tooltip`) is the default; buildless needs a reason as good as feeds's.
+shape (`package.json` + vite, like `sidebar`, `blogfeed`, `contents-panel`,
+`justify`, `slides` and `tooltip`) is the default; buildless needs a reason as
+good as feeds's.
 
 The built shape is narrower than "everything lives in `dist/`", though: a
 built package's `entrypoint` and `css_stylesheet` point at `src/` — vite only
