@@ -30,7 +30,7 @@ H=build/html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
-for f in index.html sections.html nested.html plain.html frame.html; do
+for f in index.html sections.html nested.html plain.html side.html frame.html; do
   [ -f "$H/$f" ] || note "no page at $f"
 done
 
@@ -62,7 +62,7 @@ NUM = r'<span class="rheo-contents-num">([^<]*)</span>'
 ANCHOR = r'<div class="rheo-contents-anchor"[^>]*id="([^"]+)"'
 
 pages = {}
-for name in ("index.html", "sections.html", "nested.html", "plain.html"):
+for name in ("index.html", "sections.html", "nested.html", "plain.html", "side.html"):
     h = read(name)
     if h is None:
         continue
@@ -134,13 +134,24 @@ for name, p in pages.items():
     #    that mode exists precisely so a project can own every width-keyed
     #    rule itself, and a stray one from the package would silently fight
     #    the project's own.
+    #
+    #    `side.html` passes `side: left` and so must reserve the room on the
+    #    LEFT. The side is asserted BOTH WAYS — `padding-left` present and
+    #    `padding-right` absent — because the failure worth catching is not a
+    #    missing rule but a panel moved with its reservation left behind on
+    #    the old side, which compiles, renders, and puts the box on top of the
+    #    prose.
     head = h[: h.find("</head>")]
     has_bp = bool(re.search(r"<style>[^<]*@media\s*\(max-width:", head))
-    has_reserve = "padding-right" in head
+    want_pad = "padding-left" if name == "side.html" else "padding-right"
+    wrong_pad = "padding-right" if name == "side.html" else "padding-left"
+    has_reserve = want_pad in head
     if name == "plain.html":
         if has_bp:
             fail("plain.html: breakpoint: none still emitted an @media rule")
-        if has_reserve:
+        # Either side counts as a stray rule here; `breakpoint: none` emits no
+        # `reserve` padding at all.
+        if "padding-left" in head or "padding-right" in head:
             fail("plain.html: breakpoint: none still emitted a `reserve` rule")
         if "<style>" in head:
             fail("plain.html: an empty <style> was hoisted with nothing to put in it")
@@ -149,9 +160,40 @@ for name, p in pages.items():
             fail(f"{name}: no breakpoint @media rule hoisted into <head>")
         if not has_reserve:
             fail(f"{name}: no `reserve` padding rule hoisted into <head>")
+        if wrong_pad in head:
+            fail(f"{name}: `reserve` padded {wrong_pad}, the side the panel is not on")
     # The TAG, not the bare name: the demo's prose discusses the wrapper.
     if re.search(r"</?rheo-head[\s>]", h):
         fail(f"{name}: a literal <rheo-head> tag survives — the hoist did not run")
+
+# 6d. `side: left` IS TWO EMISSIONS THAT MUST AGREE, and they are produced on
+#     different code paths — the class on the aside comes from `panel.typ`,
+#     the `reserve` padding side from `lib.typ`'s hoisted `<style>` (asserted
+#     above). Either alone is a bug that compiles and renders: the class
+#     without the padding puts the box over the prose, the padding without the
+#     class clears a column the box is not in.
+#
+#     The negative half matters as much: `rheo-panel-side-left` on a page that
+#     did not ask for it would mirror the frame of every default panel.
+for name, p in pages.items():
+    has_class = "rheo-panel-side-left" in p["html"]
+    if name == "side.html" and not has_class:
+        fail("side.html: side: left did not put rheo-panel-side-left on the aside")
+    if name != "side.html" and has_class:
+        fail(f"{name}: rheo-panel-side-left on a panel that did not ask for it")
+
+# 6e. THE LIST DOES NOT MIRROR WITH THE FRAME. `side:` is a side-of-the-page
+#     switch, not a text direction, so the rows on `side.html` must come out
+#     byte-identical in structure to a default page's: same subsection class,
+#     same numbering, same order. A `direction: rtl` implementation — which is
+#     what this package first reached for — passes every assertion above and
+#     fails here, because it would have reversed the labels too.
+if "side.html" in pages:
+    p = pages["side.html"]
+    if not any("rheo-contents-sub" in c for c, _ in p["links"]):
+        fail("side.html: no subsection row — the list's own geometry was lost")
+    if p["nums"] != ["1", "1.1", "1.2", "1.3", "1.4"]:
+        fail(f"side.html: numbering differs from a default page's: {p['nums']}")
 
 # 6c. THE FRAME WITHOUT THE LIST. `frame.typ` calls `frame` and never
 #     `contents`, which is the mode the frame was pulled out of this package

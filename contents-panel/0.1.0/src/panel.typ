@@ -41,6 +41,20 @@
 //   navigation; `contents` passes `nav`, which its list of section links
 //   genuinely is. A panel of prose emitted as a `nav` is a navigation landmark
 //   with no links in it, which is worse than no landmark.
+// `side` — which edge of the page the panel is pinned to, `right` (the
+//   default) or `left`. Typst's own alignment values rather than strings, the
+//   same way `contents` takes `heading` itself for `separator:`.
+//
+//   THIS IS NOT A TEXT DIRECTION and does not touch one. It mirrors the frame
+//   — the rule, the padding off it, the hat hanging over it — because those
+//   sit on the edge facing away from the prose. The list inside keeps reading
+//   whichever way the script runs, so a left-hand rail on an LTR page has its
+//   rule on the right and its labels still left-to-right. `contents.css`'s
+//   `side: left` block is the whole of the difference, and its header explains
+//   why `direction: rtl` was the wrong mechanism for it.
+//
+//   `contents` forwards this AND derives its `reserve:` padding side from it,
+//   so a project states the side once.
 // `rookery` — adopt `@rookery/core`'s `--idea-*` palette, which the panel
 //   inherits when it is emitted inside an idea's box (and which `contents.js`
 //   copies across where it is not). See "Adopting the rookery's theme" in
@@ -70,6 +84,7 @@
   top: false,
   aria-label: none,
   element: "div",
+  side: right,
   rookery: false,
   offset-selector: none,
   align-selector: none,
@@ -78,6 +93,14 @@
   box-attrs: (:),
   body,
 ) = {
+  // Caught here rather than left to produce a panel that silently stays on the
+  // right: `side: "left"` (the string, which is the natural guess) and
+  // `side: start` (the logical alignment, which is the other one) are both
+  // wrong in a way nothing downstream would report.
+  assert(
+    side == left or side == right,
+    message: "@rheo/contents-panel: `side:` must be `left` or `right`, got " + repr(side),
+  )
   let box = (class: _classes("rheo-panel-box", box-class))
   if aria-label != none { box.insert("aria-label", aria-label) }
   // Read by `contents.js` off the box, not the aside: the script finds the box
@@ -101,6 +124,10 @@
       attrs: (
         class: _classes(
           "rheo-panel-aside",
+          // Only the non-default side gets a class. The right-hand panel is
+          // what `.rheo-panel-aside` already describes, so a
+          // `rheo-panel-side-right` would be a class with no rules behind it.
+          if side == left { "rheo-panel-side-left" },
           if rookery { "rheo-panel-rookery" },
           aside-class,
         ),

@@ -54,8 +54,14 @@
   --rheo-panel-width: 16rem;
   --rheo-panel-gap: 2.5rem;
   --rheo-panel-top: 2rem;
-  /* Distance from the right edge of the viewport. */
+  /* Distance from the edge of the viewport the panel is anchored to. ONE OF
+     THESE IS LIVE AT A TIME, chosen by `side:` — the default `side: right`
+     reads `--rheo-panel-right` and leaves `left: auto`, and `side: left`
+     does the reverse. Setting the one that is not live has no effect, which
+     is the intended failure: a project that moves the panel states the side
+     once, in Typst, rather than having two half-applied offsets. */
   --rheo-panel-right: 2rem;
+  --rheo-panel-left: 2rem;
   /* ONE SIZE FOR THE WHOLE PANEL. Set on `.rheo-panel-box` so the header,
      the numbers and the labels all inherit it — there is no second place to
      keep in step. */
@@ -106,6 +112,15 @@
      the page is set in; the rookery block below points it at rookery's own
      label font. */
   --rheo-contents-font: inherit;
+  /* WHICH WAY A PROGRESS BAR GROWS, and it follows the TEXT, not the side of
+     the page the panel is pinned to: a fill tracks how far through a section
+     the reader is, and "further through" is whichever way that reader's script
+     runs. A left-hand rail on an LTR site still fills left-to-right.
+     A custom property rather than a logical gradient keyword, because there is
+     no usable one — `linear-gradient(to inline-end, ..)` is specified but not
+     implemented anywhere. The `:dir(rtl)` block at the foot of the list section
+     flips this, and the two gradients below read it. */
+  --rheo-contents-fill-dir: right;
 
   --rheo-contents-fg: var(--color-secondary, #6b7280);
   /* The rows' own accent. The frame's by default, so a project setting one
@@ -130,15 +145,81 @@
    box whose whole job is to report where the reader is in the page is arguably
    the better behaviour anyway.
 
-   Anchored to the right edge of the VIEWPORT. A page whose content is centred
-   in a narrower column therefore gets the box out in its right margin, and
-   `lib.typ`'s `reserve:` padding guarantees that margin is wide enough. */
+   Anchored to an edge of the VIEWPORT — the right by default. A page whose
+   content is centred in a narrower column therefore gets the box out in its
+   margin, and `lib.typ`'s `reserve:` padding guarantees that margin is wide
+   enough. */
 .rheo-panel-aside {
   position: fixed;
   top: var(--rheo-panel-top);
   right: var(--rheo-panel-right);
   width: var(--rheo-panel-width);
   z-index: 20;
+}
+
+/* ---- `side: left` -------------------------------------------------------
+   WHICH SIDE OF THE PAGE, WHICH IS NOT WHICH WAY THE TEXT RUNS. These are two
+   different axes and this package keeps them apart:
+
+     - THE FRAME is side-axis. Its rule, the padding off that rule and the hat
+       hanging over it all sit on the edge FACING AWAY FROM the prose, so they
+       mirror when the panel moves and stay put when the text direction
+       changes. That is this block.
+     - THE LIST is text-axis. The subsection thread, the indent, the numbers'
+       alignment and the fill direction all follow the reader's script, so they
+       are written as logical properties further down and mirror under
+       `:dir(rtl)` at either side of the page.
+
+   `direction: rtl` on the aside was the first design and is wrong for exactly
+   this reason: it would have flipped the frame and the text together, so a
+   left-hand rail on an LTR site came out with its labels reversed.
+
+   ONE CLASS, DELIBERATELY, not `.rheo-panel-aside.rheo-panel-side-left`. Each
+   rule here undoes a default above it in this same file and beats it on source
+   order, which leaves the whole block at the same weight (0,1,0) the defaults
+   already sit at. Two classes would have been more robust WITHIN the package
+   and worse outside it: a project overriding the panel's position writes
+   something like `body .rheo-panel-aside` (0,1,1) — waterline does — and that
+   must keep winning. A package rule that outweighs the project's own is the
+   failure mode to avoid here, not a package rule that is easy to override. */
+.rheo-panel-side-left {
+  right: auto;
+  left: var(--rheo-panel-left);
+}
+
+/* The frame's chrome, mirrored. Kept HERE, beside the anchor it belongs with,
+   rather than beside each default it undoes further down: the whole of what
+   `side: left` does should be readable in one place, and each of these is a
+   descendant selector (0,2,0) against a bare-class default (0,1,0), so it wins
+   on specificity and its position in the file does not matter. */
+.rheo-panel-side-left .rheo-panel-box {
+  /* The rule moves to the edge facing AWAY from the prose, which is now the
+     right, and the content is padded off it from that side. */
+  border-left: none;
+  border-right: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
+  padding: 0 var(--rheo-panel-pad) var(--rheo-panel-pad) 0;
+}
+
+.rheo-panel-side-left .rheo-panel-header {
+  /* The hat is a flex row of [rule][title]…[arrow]; reversed it is
+     [arrow]…[title][rule], so the short rule still meets the frame's own rule
+     at the corner. `.rheo-panel-top`'s `margin-left: auto` needs no mirror: an
+     auto margin absorbs the free space, which in `row-reverse` collects on the
+     arrow's left, so the same declaration pushes it to the far end either
+     way. */
+  flex-direction: row-reverse;
+  margin-left: 0;
+  margin-right: calc(-1 * (var(--rheo-panel-pad) + var(--rheo-panel-rule-width)));
+}
+
+/* The page-progress track still stops short of the hat's own rule, which is
+   now the RIGHT-hand end — so the track starts flush at the left instead of
+   being inset there. `background-size` already subtracts the rule's length, so
+   an offset of zero is what leaves the gap at the other end. The gradient's
+   own direction is NOT touched: it follows the text (see
+   `--rheo-contents-fill-dir`), and moving the panel does not move the text. */
+.rheo-panel-side-left .rheo-contents-box .rheo-panel-header {
+  background-position: 0 0;
 }
 
 /* ---- Adopting the rookery's theme --------------------------------------
@@ -294,7 +375,8 @@
   display: flow-root;
   border-left: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
   border-bottom: var(--rheo-panel-rule-width) solid var(--rheo-panel-border);
-  /* Padded on the left only, where the frame's rule is. NOT on the right:
+  /* Padded on ONE side only, where the frame's rule is — the left here, and
+     the right under `side: left`, which mirrors this rule. Not on both:
      the two progress fills — a row's, and the page's behind the title — are
      backgrounds on elements that span the content box, so any right padding
      stops them short of the frame and they no longer finish flush with the
@@ -363,7 +445,7 @@
    that paints nothing and still has to be read by anyone debugging one. */
 .rheo-contents-box .rheo-panel-header {
   background-image: linear-gradient(
-    to right,
+    to var(--rheo-contents-fill-dir),
     var(--rheo-contents-page-fill) 0 var(--rheo-contents-page-progress, 0%),
     transparent var(--rheo-contents-page-progress, 0%)
   );
@@ -435,7 +517,12 @@
   grid-template-columns: minmax(1.1em, auto) 1fr;
   align-items: baseline;
   gap: var(--rheo-contents-num-gap);
-  padding: 0.1rem 0.3rem 0.1rem 0;
+  /* LOGICAL, like everything else about a row: the trailing space is at the
+     END of the line, wherever the reader's script ends. The row's geometry
+     follows the text and not the side of the page the panel is pinned to —
+     see the `side: left` block above for the other axis. */
+  padding-block: 0.1rem;
+  padding-inline: 0 0.3rem;
   border-radius: var(--rheo-contents-radius);
   line-height: 1.5;
   text-decoration: none;
@@ -447,18 +534,19 @@
   color: var(--rheo-contents-accent);
 }
 
-/* Subsections hang off a thread running down the left of their group. The run
-   ends at the next top-level row, or at the end of the list, and that last row
-   draws only the top half of the thread to close it off. */
+/* Subsections hang off a thread running down the START EDGE of their group —
+   the left on an LTR page, the right on an RTL one. The run ends at the next
+   top-level row, or at the end of the list, and that last row draws only the
+   top half of the thread to close it off. */
 .rheo-contents-sub {
-  padding-left: 1.55em;
+  padding-inline-start: 1.55em;
   grid-template-columns: minmax(2.1em, auto) 1fr;
 }
 
 .rheo-contents-sub::before {
   content: "";
   position: absolute;
-  left: 0.6em;
+  inset-inline-start: 0.6em;
   top: 0;
   bottom: 0;
   width: 1px;
@@ -475,7 +563,7 @@
 .rheo-contents-sub::after {
   content: "";
   position: absolute;
-  left: 0.6em;
+  inset-inline-start: 0.6em;
   top: 50%;
   width: 0.5em;
   height: 1px;
@@ -494,7 +582,9 @@
 .rheo-contents-num {
   font-family: var(--rheo-contents-font, var(--mono-font, ui-monospace, SFMono-Regular, Menlo, monospace));
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  /* `end`, not `right`: the numbers are ranged against the label column, and
+     which side that is depends on the script. */
+  text-align: end;
   color: var(--rheo-contents-num-fg);
 }
 
@@ -515,7 +605,7 @@
 .rheo-contents-link.active {
   color: var(--rheo-contents-accent);
   background: linear-gradient(
-    to right,
+    to var(--rheo-contents-fill-dir),
     var(--rheo-contents-fill) 0%,
     var(--rheo-contents-fill) var(--rheo-contents-progress, 0%),
     transparent var(--rheo-contents-progress, 0%),
@@ -527,6 +617,19 @@
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+/* THE ONE THING LOGICAL PROPERTIES CANNOT CARRY. Everything else about a row
+   mirrors on its own — the thread, the indent, the numbers — because it is
+   written as `inset-inline-start`, `padding-inline-start`, `text-align: end`.
+   A gradient has no such form: `to inline-end` is specified and implemented
+   nowhere, so the direction has to be a value this block can swap.
+   On the ASIDE rather than on each row, so one match covers both fills; the
+   custom property inherits down to them. `:dir()` reads the element's RESOLVED
+   direction, which it inherits, so this matches an aside inside an RTL
+   document without needing a descendant selector for the ancestor case. */
+.rheo-panel-aside:dir(rtl) {
+  --rheo-contents-fill-dir: left;
 }
 
 /* LIGHT BY DEFAULT, deliberately, and there is no `prefers-color-scheme: dark`

@@ -333,12 +333,17 @@
 //   package emits per page instead of shipping in `contents.css`; keeping it
 //   out of the stylesheet also means an author-set breakpoint has no default
 //   rule at another width left over to fight with.
-// `reserve` — a CSS selector to pad on the right, so the page's own content
-//   stays clear of the box. `"body"` by default, and `none` to opt out for a
-//   project whose layout already leaves a right margin wide enough. The box is
-//   `position: fixed` (see the long comment further down on why it cannot be a
-//   column in a flex row), so it takes no space in the flow and something has
-//   to make room for it.
+// `side` — which edge the panel is pinned to, `right` (the default) or
+//   `left`. Forwarded to `frame`, which is where it is documented; the only
+//   thing it does HERE is pick the side `reserve:` pads, so the room made for
+//   the box is on the side the box is actually on. Stated once, in other
+//   words, rather than once in Typst and again in the project's stylesheet.
+// `reserve` — a CSS selector to pad on the side the panel is on, so the page's
+//   own content stays clear of the box. `"body"` by default, and `none` to opt
+//   out for a project whose layout already leaves a wide enough margin there.
+//   The box is `position: fixed` (see the long comment further down on why
+//   it cannot be a column in a flex row), so it takes no space in the flow
+//   and something has to make room for it.
 // `offset-selector` — optional CSS selector for the project's own sticky
 //   header. When given, the script measures that element, pins the box flush
 //   beneath it, and scrolls a clicked section to just below it. When `none`,
@@ -359,11 +364,19 @@
   numbered: true,
   top: true,
   breakpoint: "64rem",
+  side: right,
   reserve: "body",
   offset-selector: none,
   align-selector: none,
   doc,
 ) = {
+  // Same check `frame` makes, for the reason given at the `reserve:` rule
+  // below: that rule uses `side` and is emitted on pages that build no frame.
+  assert(
+    side == left or side == right,
+    message: "@rheo/contents-panel: `side:` must be `left` or `right`, got " + repr(side),
+  )
+
   // ---- Which headings are on THIS output page --------------------------
   //
   // `region` brackets the page: stepped once just before the document and once
@@ -472,6 +485,7 @@
       // A list of links to the page's own sections is navigation, so the box
       // is a `nav` here where a bare frame's is a `div`.
       element: "nav",
+      side: side,
       rookery: rookery,
       // In rookery mode the aside is emitted INSIDE the idea box it lists the
       // sections of, so it inherits that box's inline `--idea-*` theme;
@@ -561,9 +575,14 @@
     // is read as a unary plus opening a new statement rather than as a
     // continuation of the previous one.
     if reserve != none {
+      // PADDED ON THE SIDE THE PANEL IS ON. `frame` also asserts on `side`,
+      // but not usefully for this rule: the frame is only built when the page
+      // has entries, and this rule is emitted either way, so the check has to
+      // happen here too for it to be reached on every page.
       (
         "@media not all and (max-width: " + breakpoint + ") { " + reserve
-          + " { padding-right: calc(var(--rheo-panel-width, 16rem)"
+          + " { " + (if side == left { "padding-left" } else { "padding-right" })
+          + ": calc(var(--rheo-panel-width, 16rem)"
           + " + 2 * var(--rheo-panel-gap, 2.5rem)); } }"
       )
     }

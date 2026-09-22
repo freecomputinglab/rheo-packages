@@ -146,6 +146,7 @@ of it.
 | `top` | draw the jump-to-top arrow (default `false`) |
 | `aria-label` | the landmark's accessible name |
 | `element` | the tag the box is, inside the aside (default `div`) |
+| `side` | which edge the panel is pinned to, `right` (default) or `left` |
 | `rookery` | adopt `@rookery/core`'s `--idea-*` palette |
 | `offset-selector` | selector for the project's sticky header, if it has one |
 | `align-selector` | selector to line the panel up with before scrolling |
@@ -285,6 +286,36 @@ to the first section instead, and adding it there would break that alignment.
 The hat overhangs the box's top edge, so it is the hat and not the box's edge
 that has to clear the header.
 
+### Which side, and why that is not a text direction
+
+`side: left` moves the panel to the other edge. It is `frame`'s argument, so a
+bare frame takes it too, and `contents` forwards it *and* derives the side its
+`reserve:` padding goes on — the side is stated once rather than once in Typst
+and again in the project's stylesheet. The offsets are `--rheo-panel-right`
+and `--rheo-panel-left`; only the one matching `side:` is read.
+
+What moves with it is the **frame**: the rule, the padding off that rule, the
+hat's negative margin and the page-progress track's inset. Those sit on the
+edge facing away from the prose, so they mirror when the panel does.
+
+What does **not** move is the **list**. The subsection thread, the indent, the
+numbers' alignment and both progress fills follow the reader's script, not the
+side of the page — a left-hand rail on an LTR site has its rule on the right
+and its rows still running left to right. They are written as
+`inset-inline-start`, `padding-inline-start` and `text-align: end`, so they
+also mirror correctly under `:dir(rtl)` at either side.
+
+`direction: rtl` on the aside was the first design and is wrong for exactly
+this reason: it flips both axes at once, so moving the panel reversed the
+labels with it. The one thing logical properties cannot carry is a gradient —
+`linear-gradient(to inline-end, …)` is specified and implemented nowhere — so
+the two fills read `--rheo-contents-fill-dir`, which a `:dir(rtl)` rule flips.
+
+`demo/rheo/content/side.typ` is the worked case. `check.sh` asserts both
+halves of the switch, positively and negatively, because either half alone
+compiles and renders: the class without the padding puts the box over the
+prose, and the padding without the class clears a column the box is not in.
+
 ## When the sections are not headings
 
 `separator:` is the escape hatch, and it exists because a vertebra's sections
@@ -418,7 +449,8 @@ Two things this needs, both measured:
 | `numbered` | draw `1`/`1.1` numbers (default `true`) |
 | `top` | draw the jump-to-top arrow (default `true`) |
 | `breakpoint` | CSS length below which the panel drops into the flow, or `none` |
-| `reserve` | selector to pad on the right (default `"body"`, `none` to opt out) |
+| `side` | which edge the panel is pinned to, `right` (default) or `left` |
+| `reserve` | selector to pad on the panel's side (default `"body"`, `none` to opt out) |
 | `offset-selector` | selector for the project's sticky header, if it has one |
 | `align-selector` | selector to line the panel up with before scrolling |
 

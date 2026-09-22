@@ -153,12 +153,30 @@
       return gapPx;
     };
 
+    // THE PANEL, OR SOMETHING AROUND IT, IS WHAT IS PINNED. Usually the aside
+    // itself is the `position: fixed` element and this walk stops at once. It
+    // is not always: a project with TWO panels in one column cannot pin both —
+    // there is one `--rheo-panel-top` for the page — so it pins the column and
+    // stacks the panels inside it as ordinary blocks. MEASURED on waterline's
+    // weeknotes index, which does exactly that: testing the aside's own
+    // position read `static`, `setTop` returned, and the column fell back to
+    // the stylesheet's pre-script guess for its offset.
+    //
+    // What the guard is really for is the NARROW layout, where the panel is in
+    // the flow and `top` does nothing — and in that layout nothing above it is
+    // fixed either, so asking about ancestors answers the same question
+    // correctly in both cases.
+    const pinned = () => {
+      for (let el = aside; el && el !== document.body; el = el.parentElement) {
+        if (getComputedStyle(el).position === "fixed") return true;
+      }
+      return false;
+    };
+
     // Publish it for the stylesheet. On `body`, which is an ancestor of both
     // the box and the anchors, and an inline style so it beats any rule.
     function setTop() {
-      // Only meaningful while the panel is pinned. Below the breakpoint it is
-      // an ordinary block in the flow and `top` does nothing.
-      if (getComputedStyle(aside).position !== "fixed") return;
+      if (!pinned()) return;
       if (!offsetSelector && !alignSelector) return;
       // The hat now sits ABOVE the box's top edge, so neither bound can be
       // applied to that edge directly. Both offsets below are MEASURED from
