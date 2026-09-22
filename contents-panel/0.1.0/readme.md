@@ -22,8 +22,14 @@ top-level row filling while its own subsections scroll past.
 
 ## What it emits
 
-A `<nav class="rheo-contents-box">` inside an `<aside>`, plus one empty
+A `<nav class="rheo-panel-box rheo-contents-box">` inside an
+`<aside class="rheo-panel-aside rheo-contents-aside">`, plus one empty
 `<div class="rheo-contents-anchor" id="...">` before each entry to scroll to.
+
+**Two prefixes, on the same two elements.** `rheo-panel-*` is the frame — the
+aside's position, the two rules, the hat, the title, the arrow — and
+`rheo-contents-*` is the list. A project's own layout rules belong on the
+first, which is also all a bare `frame` emits; see *The frame on its own*.
 
 **The document is not wrapped in anything**, and that is not a stylistic
 choice. `#show: contents` at the top of a vertebra composes *outside* the
@@ -47,7 +53,7 @@ fills to show how far through **the whole page** they are — set as
 `--rheo-contents-page-progress` on the box and drawn as a gradient behind the
 title, so nothing is added to the markup.
 
-`--rheo-contents-hat-pad-top` gives the title room above it inside the hat,
+`--rheo-panel-hat-pad-top` gives the title room above it inside the hat,
 so the fill does not start flush against the top of the letterforms. It is
 added back into the hat's lift: `height` is the content height, so padding
 would otherwise push the bottom-aligned rule down and reopen the corner.
@@ -85,10 +91,10 @@ close it — which an idea has no need of and a contents list
 does, having a definite end. Square, not rounded: a rounded panel beside
 square ideas reads as a different kind of object.
 
-`--rheo-contents-border` is the frame's colour (the accent by default, not a
+`--rheo-panel-border` is the frame's colour (the accent by default, not a
 neutral hairline — it marks the block rather than dividing it),
-`--rheo-contents-rule-width` its thickness, `--rheo-contents-pad` the content
-inset, and `--rheo-contents-title-font` the title's face (monospace by
+`--rheo-panel-rule-width` its thickness, `--rheo-panel-pad` the content
+inset, and `--rheo-panel-title-font` the title's face (monospace by
 default — it is a label on a rule, not prose).
 
 Padding is on the left only, where the rule is. Not on the right: both
@@ -97,7 +103,7 @@ right padding stops them short of the frame and they no longer finish level
 with the right-hand end of the bottom rule — which is exactly the moment, at
 the foot of the page, when they are meant to say "that is all of it".
 
-`--rheo-contents-hat-width` is the hat rule's length, separable from the
+`--rheo-panel-hat-width` is the hat rule's length, separable from the
 padding it is normally derived from because an `em` here resolves against the
 *panel's* font size, which need not be the size the thing it matches was drawn
 at. In rookery mode the script copies that length and the padding across
@@ -105,35 +111,92 @@ at. In rookery mode the script copies that length and the padding across
 8.8px hat against the idea's 12.7px, since the idea's box is set larger than
 the panel.
 
-One size governs the whole panel: `--rheo-contents-font-size`, set on the box
+One size governs the whole panel: `--rheo-panel-font-size`, set on the box
 so the header, the numbers and the labels all inherit it. In rookery mode it
 takes `--idea-label-size`, so the panel is sized as an idea's hat is.
+
+## The frame on its own
+
+That shape is a function, and `contents` is one caller of it:
+
+```typst
+#import "@rheo/contents-panel:0.1.0": frame
+
+#frame(cap-text: "about the author")[
+  Prose the page hands it, rather than a list the package derived.
+]
+```
+
+The reason to want it is that every fiddly part of this package is in the
+frame, not the list: the hat's lift, the corner it makes with the left rule,
+the negative margin pulling it back over that rule, the track that starts at
+the rule's tip. A project wanting a second panel beside its pages — an
+about-the-author note on a homepage, where a contents list has nothing to
+report — had to restate all of it and keep the copy in step.
+
+A bare frame has no rows, so `contents.js` leaves it alone after one thing:
+where it sits. That part is frame-level — see *Where it sits* — and the two
+selectors that drive it are `frame` arguments. Everything else the script does
+belongs to the list, and a panel that is not the page's contents reports none
+of it.
+
+| | |
+| --- | --- |
+| `cap-text` | the name on the hat, or `none` for no hat at all |
+| `top` | draw the jump-to-top arrow (default `false`) |
+| `aria-label` | the landmark's accessible name |
+| `element` | the tag the box is, inside the aside (default `div`) |
+| `rookery` | adopt `@rookery/core`'s `--idea-*` palette |
+| `offset-selector` | selector for the project's sticky header, if it has one |
+| `align-selector` | selector to line the panel up with before scrolling |
+| `aside-class` / `box-class` / `box-attrs` | what a caller hangs its own rules and data attributes on |
+
+`element` is `div` by default and `nav` for a contents box, which is what a
+list of links to the page's own sections is. A panel of prose emitted as a
+`nav` is a navigation landmark with no links in it, which is worse than no
+landmark at all.
+
+On the paged and EPUB targets a frame emits its body and nothing else — the
+hat and the rules are a pinned box's furniture, and there is nothing to pin on
+a page.
+
+`demo/rheo/content/frame.typ` is the worked example, asserted in `check.sh`:
+the frame comes out a frame, `cap-text` reaches the hat, and none of the list's
+classes ride along.
 
 ## Colours
 
 Every colour is a custom property, declared on `:root` with a two-step
 fallback: a project variable first, then a literal that reads acceptably in a
 project defining nothing. Declarations sit on `:root` but every rule that
-paints is scoped to a `.rheo-contents-*` class, so the stylesheet restyles
-nothing on a page that does not render the box — and a project overriding a
-variable in its own `body { .. }` rule wins, which it did not when the
-declarations lived on `body:has(.rheo-contents-aside)`.
+paints is scoped to a `.rheo-panel-*` or `.rheo-contents-*` class, so the
+stylesheet restyles nothing on a page that does not render the box — and a
+project overriding a variable in its own `body { .. }` rule wins, which it did
+not when the declarations lived on `body:has(.rheo-contents-aside)`.
 
 | variable | falls back to | then |
 | --- | --- | --- |
+| `--rheo-panel-accent` | `--color-link` | `#2563eb` |
+| `--rheo-panel-title-fg` | `--color-muted` | `#9ca3af` |
+| `--rheo-panel-border` | `--rheo-panel-accent` | |
+| `--rheo-panel-page-bg` | `--color-bg` | `#ffffff` |
+| `--rheo-panel-bg` | `--rheo-panel-page-bg` | |
+| `--rheo-contents-accent` | `--rheo-panel-accent` | |
 | `--rheo-contents-fg` | `--color-secondary` | `#6b7280` |
-| `--rheo-contents-accent` | `--color-link` | `#2563eb` |
 | `--rheo-contents-num-fg` | `--color-muted` | `#9ca3af` |
 | `--rheo-contents-rule` | `--color-muted` | `#9ca3af` |
-| `--rheo-contents-title-fg` | `--color-muted` | `#9ca3af` |
-| `--rheo-contents-border` | `--color-border` | `#e5e7eb` |
-| `--rheo-contents-page-bg` | `--color-bg` | `#ffffff` |
-| `--rheo-contents-bg` | `--rheo-contents-page-bg` | |
 | `--rheo-contents-fill` | derived from the accent | |
 
 So `--color-link: rebeccapurple` in a project's `:root` recolours the active
-rows with no knowledge of this package, and `--rheo-contents-accent:
-rebeccapurple` recolours just this package without touching anything else.
+rows with no knowledge of this package, `--rheo-panel-accent: rebeccapurple`
+recolours the whole box, and `--rheo-contents-accent: rebeccapurple` just the
+rows.
+
+The rows' accent defaults to the frame's rather than to `--color-link` again,
+so a project setting one colour gets a box that agrees with itself. The
+rookery block redeclares both, because a custom property substitutes its
+`var()`s where it is **declared** — the row accent had already resolved
+against the frame's default before that block changed it.
 
 **The palette is light by default and the package never switches it.** A
 `prefers-color-scheme: dark` block was written and removed: it swapped the
@@ -143,8 +206,9 @@ overriding the site's own decision. A project's dark theme still reaches the
 box by the route it already takes, since every variable defers to the
 project's before its own literal, wherever the project declares it.
 
-Geometry is tunable the same way: `--rheo-contents-width`, `-gap`, `-right`,
-`-top`, `-max-height`, `-radius`, `-font-size`.
+Geometry is tunable the same way: `--rheo-panel-width`, `-gap`, `-right`,
+`-top`, `-font-size`, plus the list's own `--rheo-contents-max-height` and
+`-radius`.
 
 The breakpoint is **not** a variable, because a custom property cannot be used
 in an `@media` query. It is the `breakpoint:` argument, and the two rules keyed
@@ -190,7 +254,17 @@ is the conventional shape on a phone anyway.
 ## Where it sits
 
 `position: fixed`, and the script publishes the offset as
-`--rheo-contents-top`:
+`--rheo-panel-top`. **This is the one part of the script every panel gets**,
+`frame` included: a pinned box has to clear whatever covers the top of the
+viewport, and CSS can measure neither that element nor the thing the panel is
+meant to line up with. Both arguments are therefore `frame`'s, and `contents`
+forwards them.
+
+Measured on waterline's weeknotes index, whose about panel is a bare frame:
+before this, its hat cleared the header by a hand-written `calc()` restating
+the header's height, the content's leading and the hat's own overhang, and
+still landed a pixel or two off the first card's tab. With the selectors it is
+measured, and it rises and pins like a week's.
 
 - `offset-selector:` names a sticky header. The script takes that element's
   **bottom edge**, recomputed every frame — not its height. Measured on
@@ -205,7 +279,7 @@ is the conventional shape on a phone anyway.
   middle, both measured live, so the two read as sharing a line whatever
   either is sized at.
 
-`--rheo-contents-top-gap` (0.75rem) is the clearance between the header and
+`--rheo-panel-top-gap` (0.75rem) is the clearance between the header and
 the top of the hat, applied only while pinned — at rest the panel is aligned
 to the first section instead, and adding it there would break that alignment.
 The hat overhangs the box's top edge, so it is the hat and not the box's edge
@@ -276,9 +350,9 @@ have to happen at once — all of them mirroring `@rookery/core`'s own
 `@rookery/core` publishes its palette as inline custom properties on the
 `.idea-box` it wraps each idea in — `--idea-date-color`, `--idea-link-color`,
 `--idea-border-color`, `--idea-label-font`. In `separator: idea` mode the panel
-is emitted *inside* that box, so it already inherits them, and `lib.typ` adds
-`.rheo-contents-rookery` to the aside so `contents.css` can map them onto its
-own variables. The accent, the rules, the title and the row face all follow the
+is emitted *inside* that box, so it already inherits them, and `frame`'s
+`rookery:` adds `.rheo-panel-rookery` to the aside so `contents.css` can map
+them onto its own variables. The accent, the rules, the title and the row face all follow the
 rookery; the progress fill takes `--idea-link-color`, which is rookery's own
 hover wash of the accent and so is what the fill wants to be anyway.
 
@@ -321,7 +395,7 @@ colours stay as they are there.
 Two things this needs, both measured:
 
 - The container rules are two classes deep, so they beat a project's own
-  `body .rheo-contents-aside` pinning rule. A container is not a width, and
+  `body .rheo-panel-aside` pinning rule. A container is not a width, and
   the viewport is still wide when the pane is not.
 - The windowed-echo guard has to be **relative**. The guard exists so a page's
   panel does not list ideas merely echoed onto it by a window; but a panel
@@ -331,6 +405,8 @@ Two things this needs, both measured:
   resolved to zero entries and the page rendered none at all.
 
 ## Arguments
+
+`contents`'s own; `frame`'s are in *The frame on its own* above.
 
 | | |
 | --- | --- |

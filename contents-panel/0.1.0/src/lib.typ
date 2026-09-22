@@ -46,6 +46,13 @@
 // same text yield the SAME id. Neither is usable as a link target. `slug` below
 // drops punctuation and `_ids` deduplicates.
 
+// ---- The frame -----------------------------------------------------------
+//
+// Re-exported, so `frame` is importable from this package's entrypoint and a
+// project can take the box's shape without its list — see `panel.typ`, which
+// owns everything the two halves share.
+#import "panel.typ": frame
+
 // ---- Text extraction -----------------------------------------------------
 
 // Content -> plain string. A heading's body is content, and both the slug and
@@ -335,7 +342,7 @@
 // `offset-selector` — optional CSS selector for the project's own sticky
 //   header. When given, the script measures that element, pins the box flush
 //   beneath it, and scrolls a clicked section to just below it. When `none`,
-//   `--rheo-contents-top` is used as-is.
+//   `--rheo-panel-top` is used as-is.
 // `align-selector` — optional CSS selector for something the panel should line
 //   up with BEFORE the reader has scrolled, typically the first section's own
 //   header. The script takes whichever of this and the sticky-header offset is
@@ -452,32 +459,29 @@
     doc
   }
 
+  // The list, inside the frame `panel.typ` draws. Nothing about the hat, the
+  // rules, the arrow or where the panel sits is decided here — this function
+  // owns the rows, and hands the rest over.
   let box-of(all, ids, levels, heading-text) = {
     let nums = _numbers(all, levels)
-    let box-attrs = (class: "rheo-contents-box", "aria-label": "Contents")
-    if offset-selector != none {
-      box-attrs.insert("data-offset-selector", offset-selector)
-    }
-    if align-selector != none {
-      box-attrs.insert("data-align-selector", align-selector)
-    }
 
-    html.elem("nav", attrs: box-attrs, {
-      html.elem("div", attrs: (class: "rheo-contents-header"), {
-        html.elem("span", attrs: (class: "rheo-contents-title"), heading-text)
-        if top {
-          html.elem(
-            "a",
-            attrs: (
-              class: "rheo-contents-top",
-              href: "#",
-              title: "Top",
-              "aria-label": "Back to top",
-            ),
-            "\u{2191}",
-          )
-        }
-      })
+    frame(
+      cap-text: heading-text,
+      top: top,
+      aria-label: "Contents",
+      // A list of links to the page's own sections is navigation, so the box
+      // is a `nav` here where a bare frame's is a `div`.
+      element: "nav",
+      rookery: rookery,
+      // In rookery mode the aside is emitted INSIDE the idea box it lists the
+      // sections of, so it inherits that box's inline `--idea-*` theme;
+      // `panel.typ`'s `rookery:` adds the class `contents.css` maps them
+      // under. Off a rookery there is no theme to adopt and the class is
+      // absent.
+      offset-selector: offset-selector,
+      align-selector: align-selector,
+      aside-class: "rheo-contents-aside",
+      box-class: "rheo-contents-box",
       html.elem("div", attrs: (class: "rheo-contents-list"), {
         for (i, h) in all.enumerate() {
           let depth-i = _rung(levels, h.depth)
@@ -500,8 +504,8 @@
             },
           )
         }
-      })
-    })
+      }),
+    )
   }
 
   // Both rules are emitted here rather than living in `contents.css` because
@@ -538,14 +542,14 @@
     // which is the conventional shape on a phone anyway.
     (
       "@media (max-width: " + breakpoint + ") {"
-        + " .rheo-contents-aside { position: static; width: auto; max-width: none;"
+        + " .rheo-panel-aside { position: static; width: auto; max-width: none;"
         + " margin: 0 0 1.5rem; }"
         // NO HAT ON A PHONE. The hat's whole job is to label a box floating
         // beside the text; in the flow, directly under the page's own title,
         // it repeats that title and the rule reads as a stray mark. The
         // page-progress fill goes with it — it is drawn behind the title —
         // and is no loss, since a static block does not track scrolling.
-        + " .rheo-contents-header { display: none; }"
+        + " .rheo-panel-header { display: none; }"
         // Shorter than the pinned rail, which is sized against the viewport it
         // is fixed in; here the list is pushing the article down the page.
         + " .rheo-contents-list { max-height: 50vh; } }"
@@ -559,8 +563,8 @@
     if reserve != none {
       (
         "@media not all and (max-width: " + breakpoint + ") { " + reserve
-          + " { padding-right: calc(var(--rheo-contents-width, 16rem)"
-          + " + 2 * var(--rheo-contents-gap, 2.5rem)); } }"
+          + " { padding-right: calc(var(--rheo-panel-width, 16rem)"
+          + " + 2 * var(--rheo-panel-gap, 2.5rem)); } }"
       )
     }
   }
@@ -581,9 +585,9 @@
   // use this package at all.
   //
   // So `doc` stays exactly where it was, at the top level, and the box is
-  // emitted as its SIBLING and positioned by CSS alone. `contents.css` scopes
-  // its variables to `body:has(.rheo-contents-aside)` for the same reason:
-  // there is no wrapper class to hang them on.
+  // emitted as its SIBLING and positioned by CSS alone. `contents.css`
+  // declares its variables on `:root` for the same reason: there is no wrapper
+  // element to hang them on.
   context {
     if target() != "html" {
       // PDF and EPUB get the document untouched, and no brackets either. A
@@ -611,23 +615,7 @@
           } else {
             title
           }
-          html.elem(
-            "aside",
-            attrs: (
-              // In rookery mode the aside is emitted INSIDE the idea box it
-              // lists the sections of, so it inherits that box's inline
-              // `--idea-*` theme. `contents.css` maps those onto this
-              // package's own variables under this class, and only under it:
-              // off a rookery there is no theme to adopt and the class is
-              // absent. See "Adopting the rookery's theme" in `contents.css`.
-              class: if rookery {
-                "rheo-contents-aside rheo-contents-rookery"
-              } else {
-                "rheo-contents-aside"
-              },
-            ),
-            box-of(r.all, r.ids, r.levels, heading-text),
-          )
+          box-of(r.all, r.ids, r.levels, heading-text)
         }
       }
       body

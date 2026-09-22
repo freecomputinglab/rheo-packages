@@ -13,12 +13,15 @@
 # sections, links to ids that existed nowhere, a flat page rendered as
 # subsections of nothing. Those are the failures these assertions catch.
 #
-# Three pages, each carrying its own hazard: `index.typ` uses the default
+# Five pages, each carrying its own hazard: `index.typ` uses the default
 # `separator: heading` with duplicate headings, `sections.typ` overrides
-# `separator:` with a figure kind whose entries are flat, and `nested.typ`
-# goes three heading levels deep. More than one page is itself load-bearing —
-# a single-page demo could not catch the bug where `query()` returns the whole
-# project's elements rather than the page's.
+# `separator:` with a figure kind whose entries are flat, `nested.typ` goes
+# three heading levels deep, `plain.typ` passes `breakpoint: none` and must
+# carry no width-keyed rule at all, and `frame.typ` calls `frame` without
+# `contents` and so must come out a frame with none of the list's classes on
+# it. More than one page is itself load-bearing — a single-page demo could not
+# catch the bug where `query()` returns the whole project's elements rather
+# than the page's.
 #
 # Run through `just check`, which builds first.
 set -euo pipefail
@@ -27,7 +30,7 @@ H=build/html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
-for f in index.html sections.html nested.html plain.html; do
+for f in index.html sections.html nested.html plain.html frame.html; do
   [ -f "$H/$f" ] || note "no page at $f"
 done
 
@@ -76,9 +79,16 @@ for name in ("index.html", "sections.html", "nested.html", "plain.html"):
 for name, p in pages.items():
     h = p["html"]
 
-    # 1. Exactly one box, in exactly one aside.
+    # 1. Exactly one box, in exactly one aside, wearing BOTH prefixes. The
+    #    frame's classes (`rheo-panel-*`, from `src/panel.typ`) and the list's
+    #    (`rheo-contents-*`) sit on the same two elements: the frame carries
+    #    the shape and a project's own layout rules, the list carries the rows
+    #    and every rule that restyles a frame part for a contents box. A box
+    #    missing either half is styled by half the stylesheet.
     for pat, what in (
-        (r'<nav class="rheo-contents-box"', "rheo-contents-box"),
+        (r'<nav class="[^"]*\brheo-panel-box\b', "rheo-panel-box"),
+        (r'<nav class="[^"]*\brheo-contents-box\b', "rheo-contents-box"),
+        (r'<aside class="[^"]*\brheo-panel-aside\b', "rheo-panel-aside"),
         (r'<aside class="[^"]*\brheo-contents-aside\b', "rheo-contents-aside"),
     ):
         n = len(re.findall(pat, h))
@@ -142,6 +152,36 @@ for name, p in pages.items():
     # The TAG, not the bare name: the demo's prose discusses the wrapper.
     if re.search(r"</?rheo-head[\s>]", h):
         fail(f"{name}: a literal <rheo-head> tag survives — the hoist did not run")
+
+# 6c. THE FRAME WITHOUT THE LIST. `frame.typ` calls `frame` and never
+#     `contents`, which is the mode the frame was pulled out of this package
+#     for — the box's shape around prose a page hands it. Two ways for that to
+#     regress, and both compile clean: the frame comes out carrying the list's
+#     classes anyway (styled by rules meant for rows it has not got, and picked
+#     up by a script with nothing to do to it), or `cap-text` does not reach the
+#     hat and the panel is a bordered block with no name on it.
+fh = read("frame.html")
+if fh is not None:
+    for pat, what in (
+        (r'<aside class="[^"]*\brheo-panel-aside\b', "rheo-panel-aside"),
+        (r'<div class="[^"]*\brheo-panel-box\b', "rheo-panel-box"),
+        (r'<div class="rheo-panel-header"', "rheo-panel-header"),
+    ):
+        n = len(re.findall(pat, fh))
+        if n != 1:
+            fail(f"frame.html: expected exactly one {what}, found {n}")
+    if not re.search(r'<span class="rheo-panel-title">about the author</span>', fh):
+        fail("frame.html: `cap-text` did not reach the hat's title")
+    for gone in (
+        "rheo-contents-aside",
+        "rheo-contents-box",
+        "rheo-contents-list",
+        "rheo-contents-link",
+        "rheo-contents-anchor",
+        "data-offset-selector",
+    ):
+        if gone in fh:
+            fail(f"frame.html: a bare frame must not carry {gone}")
 
 # 6b. DEEP LEVELS ARE FLATTENED, NOT DROPPED. `nested.html` uses three heading
 #     depths. Keeping only the two shallowest silently omitted every `===`,

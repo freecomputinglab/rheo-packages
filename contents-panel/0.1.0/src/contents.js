@@ -16,26 +16,31 @@
   // put the document inside a container without breaking any template that
   // sets document metadata. So everything here is found from the aside, and
   // the section anchors are found by id from the document at large.
-  const ASIDE = ".rheo-contents-aside";
+  const ASIDE = ".rheo-panel-aside";
 
+  // Scroll fires far more often than a frame renders, and the work below reads
+  // layout. Coalesce to one pass per frame.
+  function coalesce(fn) {
+    let queued = false;
+    return () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        fn();
+      });
+    };
+  }
+
+  // TWO HALVES, AND EVERY PANEL GETS THE FIRST. Where a panel sits is part of
+  // the frame — a pinned box has to clear whatever covers the top of the
+  // viewport, and CSS cannot measure that element — so `setTop` runs for any
+  // `.rheo-panel-aside` carrying the selectors to measure against, including a
+  // bare `frame` with no list in it. The rows, their fills and the page
+  // progress are the list's, and only a contents box has those.
   function setup(aside) {
-    const box = aside.querySelector(".rheo-contents-box");
-    const list = aside.querySelector(".rheo-contents-list");
-    const links = Array.from(aside.querySelectorAll(".rheo-contents-link"));
-    if (!box || !list || links.length === 0) return;
-
-    // Each link's target, resolved once. A link whose anchor is missing is
-    // dropped rather than left to throw on every scroll event — that should not
-    // happen (lib.typ writes both ends), but a stale cached page can.
-    const sections = [];
-    for (const link of links) {
-      const href = link.getAttribute("href") || "";
-      const el = href.startsWith("#") ? document.getElementById(href.slice(1)) : null;
-      if (el) {
-        sections.push({ link, el, level: parseInt(link.dataset.level, 10) || 1 });
-      }
-    }
-    if (sections.length === 0) return;
+    const box = aside.querySelector(".rheo-panel-box");
+    if (!box) return;
 
     // ---- Adopting the rookery's theme -----------------------------------
     //
@@ -56,7 +61,7 @@
     // onto the aside, where the existing CSS mapping picks them up. Copying
     // the variables rather than the resolved colours keeps the mapping in the
     // stylesheet, where it can be overridden.
-    if (aside.classList.contains("rheo-contents-rookery")) {
+    if (aside.classList.contains("rheo-panel-rookery")) {
       const donor = aside.closest("[data-rookery='box']") || document.querySelector("[data-rookery='box']");
       if (donor && donor !== aside) {
         const from = getComputedStyle(donor);
@@ -81,11 +86,11 @@
         // the idea's 12.7px. Copying the computed pixels makes the two the
         // same length whatever either is set in.
         const donorPad = from.paddingLeft;
-        if (donorPad && donorPad !== "0px") aside.style.setProperty("--rheo-contents-pad", donorPad);
+        if (donorPad && donorPad !== "0px") aside.style.setProperty("--rheo-panel-pad", donorPad);
         const tab = donor.querySelector("[data-rookery='tab']");
         if (tab) {
           const w = getComputedStyle(tab, "::before").width;
-          if (w && w !== "auto") aside.style.setProperty("--rheo-contents-hat-width", w);
+          if (w && w !== "auto") aside.style.setProperty("--rheo-panel-hat-width", w);
         }
       }
     }
@@ -130,7 +135,7 @@
       return r.top + r.height / 2;
     };
 
-    // `--rheo-contents-top-gap` is a CSS length, and only CSS can resolve
+    // `--rheo-panel-top-gap` is a CSS length, and only CSS can resolve
     // `rem`/`em` reliably — so it is resolved by measuring a throwaway element
     // of that height, in the panel's own context, rather than by guessing at a
     // root font size. Cached, and recomputed on resize, since it cannot change
@@ -138,7 +143,7 @@
     let gapPx = null;
     const topGap = () => {
       if (gapPx !== null) return gapPx;
-      const token = getComputedStyle(aside).getPropertyValue("--rheo-contents-top-gap").trim();
+      const token = getComputedStyle(aside).getPropertyValue("--rheo-panel-top-gap").trim();
       if (!token) return (gapPx = 0);
       const probe = document.createElement("div");
       probe.style.cssText = `position:absolute;visibility:hidden;width:0;height:${token}`;
@@ -160,8 +165,8 @@
       // the live layout rather than modelled, so they stay right whatever the
       // hat is sized or styled as.
       const asideTop = aside.getBoundingClientRect().top;
-      const header = box.querySelector(".rheo-contents-header");
-      const title = box.querySelector(".rheo-contents-title");
+      const header = box.querySelector(".rheo-panel-header");
+      const title = box.querySelector(".rheo-panel-title");
       // How far the hat overhangs the top of the box.
       const overhang = header ? asideTop - header.getBoundingClientRect().top : 0;
       // Where the title's middle sits relative to that same edge.
@@ -169,13 +174,52 @@
       const titleMid = titleRect ? titleRect.top + titleRect.height / 2 - asideTop : 0;
 
       // Pinned: the HAT clears the header, not the box's edge, and clears it
-      // by `--rheo-contents-top-gap` rather than sitting flush against it.
+      // by `--rheo-panel-top-gap` rather than sitting flush against it.
       let v = offsetBottom() + overhang + topGap();
       const a = alignTop();
       // At rest: the title's middle sits on the target's middle.
       if (a !== null) v = Math.max(v, a - titleMid);
-      document.body.style.setProperty("--rheo-contents-top", v + "px");
+      document.body.style.setProperty("--rheo-panel-top", v + "px");
     }
+
+    // ---- A BARE FRAME STOPS HERE ----------------------------------------
+    //
+    // `frame` is callable on its own, and an about-the-author box beside a
+    // homepage is a `.rheo-panel-aside` with no list inside it. Everything
+    // below belongs to the rows: which section is being read, how far through
+    // it the reader is, and the page progress behind the title. A panel that
+    // is not the page's contents reports none of that.
+    //
+    // What it does keep is `setTop`, on the same scroll listener a contents
+    // box gets it on: the header's bottom edge moves until the header sticks,
+    // and a panel aligned to something in the flow has to rise with it. With
+    // neither selector there is nothing to measure and no listener is added.
+    const list = aside.querySelector(".rheo-contents-list");
+    const links = Array.from(aside.querySelectorAll(".rheo-contents-link"));
+    if (!list || links.length === 0) {
+      if (!offsetSelector && !alignSelector) return;
+      const onScrollTop = coalesce(setTop);
+      window.addEventListener("scroll", onScrollTop, { passive: true });
+      window.addEventListener("resize", () => {
+        gapPx = null;
+        onScrollTop();
+      });
+      setTop();
+      return;
+    }
+
+    // Each link's target, resolved once. A link whose anchor is missing is
+    // dropped rather than left to throw on every scroll event — that should not
+    // happen (lib.typ writes both ends), but a stale cached page can.
+    const sections = [];
+    for (const link of links) {
+      const href = link.getAttribute("href") || "";
+      const el = href.startsWith("#") ? document.getElementById(href.slice(1)) : null;
+      if (el) {
+        sections.push({ link, el, level: parseInt(link.dataset.level, 10) || 1 });
+      }
+    }
+    if (sections.length === 0) return;
 
     function update() {
       // The header moves as the page scrolls until it sticks, so the panel's
@@ -255,7 +299,7 @@
       });
     }
 
-    const toTop = box.querySelector(".rheo-contents-top");
+    const toTop = box.querySelector(".rheo-panel-top");
     if (toTop) {
       toTop.addEventListener("click", (e) => {
         e.preventDefault();
@@ -263,17 +307,7 @@
       });
     }
 
-    // Scroll fires far more often than a frame renders, and `update` reads
-    // layout for every section. Coalesce to one pass per frame.
-    let queued = false;
-    const onScroll = () => {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(() => {
-        queued = false;
-        update();
-      });
-    };
+    const onScroll = coalesce(update);
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", () => {
