@@ -13,15 +13,19 @@
 # sections, links to ids that existed nowhere, a flat page rendered as
 # subsections of nothing. Those are the failures these assertions catch.
 #
-# Five pages, each carrying its own hazard: `index.typ` uses the default
+# Six pages, each carrying its own hazard: `index.typ` uses the default
 # `separator: heading` with duplicate headings, `sections.typ` overrides
 # `separator:` with a figure kind whose entries are flat, `nested.typ` goes
 # three heading levels deep, `plain.typ` passes `breakpoint: none` and must
-# carry no width-keyed rule at all, and `frame.typ` calls `frame` without
+# carry no width-keyed rule at all, `frame.typ` calls `frame` without
 # `contents` and so must come out a frame with none of the list's classes on
-# it. More than one page is itself load-bearing — a single-page demo could not
-# catch the bug where `query()` returns the whole project's elements rather
-# than the page's.
+# it, and `hidden.typ` hides one of its three headings with CSS — the static
+# HTML still lists all three rows, and only the runtime script in a real
+# browser hides the one whose target has no layout box, so that page is
+# asserted separately, through headless Chromium, rather than by the static
+# regex checks below. More than one page is itself load-bearing — a
+# single-page demo could not catch the bug where `query()` returns the whole
+# project's elements rather than the page's.
 #
 # Run through `just check`, which builds first.
 set -euo pipefail
@@ -30,7 +34,7 @@ H=build/html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
-for f in index.html sections.html nested.html plain.html side.html frame.html wrapped.html; do
+for f in index.html sections.html nested.html plain.html side.html frame.html wrapped.html hidden.html; do
   [ -f "$H/$f" ] || note "no page at $f"
 done
 
@@ -360,5 +364,68 @@ if not bad:
     )
 sys.exit(bad)
 PY
+
+# 11. RUNTIME VISIBILITY, on hidden.html. The static HTML above lists all
+#     three rows — `query(heading)` sees the hidden one same as any other, and
+#     the regex checks above cannot tell the two apart. What must not happen
+#     is the SCRIPT treating a row as though its target were on the page:
+#     `contents.js` hides a row whose target has no layout box
+#     (`getClientRects()` is empty), which needs a real layout engine to
+#     assert on, so this runs through headless Chromium rather than the regex
+#     checks above.
+if command -v chromium >/dev/null 2>&1; then
+  hidden_copy="$H/_hidden_check.html"
+  cp "$H/hidden.html" "$hidden_copy"
+  python3 - "$hidden_copy" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+js = """<script>
+// contents.js's own script tag carries `defer`, so it runs after parsing but
+// before `load` — this listener has to wait for `load` too, or it reads the
+// rows before that script has had a chance to hide any of them.
+window.addEventListener('load', () => {
+  const rows = [...document.querySelectorAll('.rheo-contents-link')];
+  const hidden = rows.filter((r) => r.hidden);
+  const out = {
+    total: rows.length,
+    hiddenCount: hidden.length,
+    hiddenLabels: hidden.map((r) => r.querySelector('.rheo-contents-label').textContent),
+  };
+  document.title = btoa(JSON.stringify(out));
+});
+</script>"""
+open(p, "w").write(s.replace("</body>", js + "</body>"))
+PY
+  # `file://` needs an ABSOLUTE path — a relative one is not an error, it
+  # loads Chromium's own no-such-scheme page, whose title is the url itself,
+  # so the base64 decode below fails on the literal string instead of a
+  # helpful "no title" report.
+  dom=$(timeout 60 chromium --headless=new --disable-gpu --no-sandbox \
+    --window-size=1440,900 --virtual-time-budget=3000 \
+    --dump-dom "file://$(realpath "$hidden_copy")" 2>/dev/null)
+  rm -f "$hidden_copy"
+  title=$(printf '%s' "$dom" | grep -o '<title>[^<]*</title>' | sed 's#</\?title>##g')
+  if [ -z "$title" ]; then
+    note "hidden.html: headless Chromium produced no title output"
+  else
+    python3 -c "
+import base64, json, sys
+data = json.loads(base64.b64decode(sys.argv[1]))
+bad = False
+if data['total'] != 3:
+    print(f'FAIL: hidden.html: expected 3 rows in the DOM, got {data[\"total\"]}'); bad = True
+if data['hiddenCount'] != 1:
+    print(f'FAIL: hidden.html: expected exactly one hidden row, got {data[\"hiddenCount\"]}'); bad = True
+if data['hiddenLabels'] != ['Hidden']:
+    print(f'FAIL: hidden.html: wrong row hidden at runtime: {data[\"hiddenLabels\"]}'); bad = True
+if not bad:
+    print('  hidden.html: 3 rows, 1 hidden at runtime (Hidden), 2 visible')
+sys.exit(1 if bad else 0)
+" "$title" || fail=1
+  fi
+else
+  note "hidden.html: chromium not on PATH — runtime visibility not checked"
+fi
 
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

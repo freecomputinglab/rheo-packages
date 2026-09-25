@@ -239,6 +239,19 @@
     }
     if (sections.length === 0) return;
 
+    // A heading a consuming package hides with CSS (`display: none`) gets no
+    // row: `getClientRects()` is empty for an element with no layout boxes,
+    // which is true of a hidden ancestor too, so this needs no class list of
+    // its own to check against. Re-run on resize, since a media query can
+    // change what is rendered.
+    const rendered = (el) => el !== null && el.getClientRects().length > 0;
+    function updateVisibility() {
+      for (const section of sections) {
+        section.link.hidden = !rendered(section.el);
+      }
+    }
+    updateVisibility();
+
     function update() {
       // The header moves as the page scrolls until it sticks, so the panel's
       // offset is re-published here rather than only at load.
@@ -265,15 +278,20 @@
       const pageProgress = scrollable > 0 ? Math.min(Math.max(scrollY / scrollable, 0), 1) : 1;
       box.style.setProperty("--rheo-contents-page-progress", pageProgress * 100 + "%");
 
+      // A hidden row is not a section: it takes no part in the active-row or
+      // progress tracking below, so a heading a consuming package hid does not
+      // pin the reading position or count as passed.
+      const visible = sections.filter((section) => !section.link.hidden);
+
       let activeLink = null;
-      sections.forEach((section, i) => {
+      visible.forEach((section, i) => {
         // A section runs until the next heading at the same depth or
         // shallower. That is what keeps a top-level heading active, and still
         // filling, while its own subsections scroll past.
         let end = docHeight;
-        for (let j = i + 1; j < sections.length; j++) {
-          if (sections[j].level <= section.level) {
-            end = top(sections[j].el);
+        for (let j = i + 1; j < visible.length; j++) {
+          if (visible[j].level <= section.level) {
+            end = top(visible[j].el);
             break;
           }
         }
@@ -329,6 +347,7 @@
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", () => {
+      updateVisibility();
       gapPx = null;
       setTop();
       onScroll();
