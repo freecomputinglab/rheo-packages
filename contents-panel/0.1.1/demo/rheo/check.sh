@@ -30,7 +30,7 @@ H=build/html
 fail=0
 note() { echo "FAIL: $*"; fail=1; }
 
-for f in index.html sections.html nested.html plain.html side.html frame.html; do
+for f in index.html sections.html nested.html plain.html side.html frame.html wrapped.html; do
   [ -f "$H/$f" ] || note "no page at $f"
 done
 
@@ -224,6 +224,33 @@ if fh is not None:
     ):
         if gone in fh:
             fail(f"frame.html: a bare frame must not carry {gone}")
+
+# 6f. `wrap:` HANDS THE ASIDE TO ITS OWN CONTAINER. `wrapped.html` passes
+#     `wrap:` to put the aside inside a `.demo-wrap` div rather than pinning
+#     it. Two ways for that to regress and both compile clean: the aside
+#     emitted OUTSIDE the wrapper (so the CSS attribute selector floats free
+#     of anything that positions it), or the attribute missing (so a wrapped
+#     panel still tries to pin itself fixed). The contents links are checked
+#     too, because wrapping the panel must not touch what it lists.
+wrh = read("wrapped.html")
+if wrh is not None:
+    if not re.search(
+        r'<div class="demo-wrap">\s*<aside class="[^"]*\brheo-panel-aside\b[^"]*"'
+        r'[^>]*\bdata-rheo-panel-wrapped="wrapped"',
+        wrh,
+    ):
+        fail("wrapped.html: the aside is not a direct, wrapped child of .demo-wrap")
+    if not re.search(r'<a[^>]*\brheo-contents-link\b', wrh):
+        fail("wrapped.html: no contents links rendered")
+
+# 6g. NO OTHER PAGE IS WRAPPED. `data-rheo-panel-wrapped` must appear only
+#     where `wrap:` was actually passed — a page that leaked it would still
+#     drop its own panel into the flow with nothing pinning it.
+for _name, _h in [(n, p["html"]) for n, p in pages.items()] + (
+    [("frame.html", fh)] if fh is not None else []
+):
+    if "data-rheo-panel-wrapped" in _h:
+        fail(f"{_name}: carries data-rheo-panel-wrapped without wrap:")
 
 # 6b. DEEP LEVELS ARE FLATTENED, NOT DROPPED. `nested.html` uses three heading
 #     depths. Keeping only the two shallowest silently omitted every `===`,

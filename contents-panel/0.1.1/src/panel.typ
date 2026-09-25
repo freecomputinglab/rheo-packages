@@ -79,6 +79,10 @@
 //   `.rheo-contents-box`, and every rule of its own that restyles a frame part
 //   is written as a descendant of the latter, so the frame needs no hook per
 //   part.
+// `wrapped` — the aside carries `data-rheo-panel-wrapped`, and `contents.css`
+//   drops it back into the flow. Set by `contents` when its own `wrap:`
+//   caller hands the aside to a container of its own; `frame` itself takes no
+//   part in the wrapping, it only stamps the attribute the CSS keys on.
 #let frame(
   cap-text: none,
   top: false,
@@ -91,6 +95,7 @@
   aside-class: none,
   box-class: none,
   box-attrs: (:),
+  wrapped: false,
   body,
 ) = {
   // Caught here rather than left to produce a panel that silently stays on the
@@ -108,6 +113,19 @@
   if offset-selector != none { box.insert("data-offset-selector", offset-selector) }
   if align-selector != none { box.insert("data-align-selector", align-selector) }
 
+  let aside = (
+    class: _classes(
+      "rheo-panel-aside",
+      // Only the non-default side gets a class. The right-hand panel is
+      // what `.rheo-panel-aside` already describes, so a
+      // `rheo-panel-side-right` would be a class with no rules behind it.
+      if side == left { "rheo-panel-side-left" },
+      if rookery { "rheo-panel-rookery" },
+      aside-class,
+    ),
+  )
+  if wrapped { aside.insert("data-rheo-panel-wrapped", "wrapped") }
+
   // PAGED AND EPUB TARGETS GET THE BODY ALONE. `html.elem` is ignored outside
   // the html target and warns per call, so a frame on a vertebra that also
   // builds to PDF would otherwise emit a warning and drop its own content on
@@ -121,17 +139,7 @@
   } else {
     html.elem(
       "aside",
-      attrs: (
-        class: _classes(
-          "rheo-panel-aside",
-          // Only the non-default side gets a class. The right-hand panel is
-          // what `.rheo-panel-aside` already describes, so a
-          // `rheo-panel-side-right` would be a class with no rules behind it.
-          if side == left { "rheo-panel-side-left" },
-          if rookery { "rheo-panel-rookery" },
-          aside-class,
-        ),
-      ),
+      attrs: aside,
       html.elem(element, attrs: box + box-attrs, {
         if cap-text != none {
           html.elem("div", attrs: (class: "rheo-panel-header"), {

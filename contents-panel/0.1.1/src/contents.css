@@ -342,6 +342,18 @@
   --rheo-contents-page-fill: var(--rheo-panel-page-bg);
 }
 
+/* `wrap:` hands the aside to a container of the caller's own choosing, so the
+   container places it and this package must not: the aside drops out of
+   `position: fixed` and back into the flow it is now part of. `contents.js`'s
+   `setTop` only positions a panel that is still fixed, so it needs no change
+   here — it simply finds nothing to do. */
+.rheo-panel-aside[data-rheo-panel-wrapped] {
+  position: static;
+  width: auto;
+  top: auto;
+  right: auto;
+}
+
 /* The anchor `lib.typ` stamps before each tracked heading. It must occupy no
    space at all — it sits between the previous section's last paragraph and the
    next heading, where any height would read as a stray gap. `scroll-margin-top`

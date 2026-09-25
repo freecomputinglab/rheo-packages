@@ -6,7 +6,7 @@ priority: 3
 labels:
 - feat-horizontal-footnotes
 deps: []
-closed: false
+closed: true
 ---
 Touches: contents-panel/0.1.1/src/lib.typ, contents-panel/0.1.1/src/contents.css, contents-panel/0.1.1/demo/rheo/content/wrapped.typ, contents-panel/0.1.1/demo/rheo/check.sh
 

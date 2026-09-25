@@ -476,6 +476,11 @@
 //   rises with it until it pins under the header — which is what `position:
 //   sticky` would do if the panel could be a column, and it cannot (see
 //   below).
+// `wrap` — a function applied to the finished panel (the aside) before it is
+//   emitted, so a caller can place the panel in a container of its own
+//   choosing instead of the package pinning it with `position: fixed`. When
+//   given, the aside carries `data-rheo-panel-wrapped` and the CSS drops it
+//   back into the flow, since its container now decides where it sits.
 #let contents(
   title: auto,
   separator: heading,
@@ -489,6 +494,7 @@
   reserve: "body",
   offset-selector: none,
   align-selector: none,
+  wrap: none,
   doc,
 ) = {
   // Same check `frame` makes, for the reason given at the `reserve:` rule
@@ -496,6 +502,15 @@
   assert(
     side == left or side == right,
     message: "@rheo/contents-panel: `side:` must be `left` or `right`, got " + repr(side),
+  )
+  assert(
+    wrap == none or type(wrap) == function,
+    message: "@rheo/contents-panel: `wrap` must be none or a function — got " + repr(wrap),
+  )
+  assert(
+    wrap == none or reserve == none,
+    message: "@rheo/contents-panel: `wrap` and `reserve` cannot be combined — a wrapped "
+      + "panel is in the flow and reserves nothing; pass `reserve: none`",
   )
 
   // ---- Which headings are on THIS output page --------------------------
@@ -615,6 +630,10 @@
       align-selector: align-selector,
       aside-class: "rheo-contents-aside",
       box-class: "rheo-contents-box",
+      // Marks the aside for `contents.css`'s wrapped rule and lets `wrap`
+      // below (a plain `contents`-level closure, not a `frame` parameter)
+      // decide the container the aside is emitted into.
+      wrapped: wrap != none,
       html.elem("div", attrs: (class: "rheo-contents-list"), {
         for (i, h) in all.enumerate() {
           let depth-i = _rung(levels, h.depth)
@@ -756,7 +775,8 @@
           } else {
             title
           }
-          box-of(r.all, r.ids, r.levels, heading-text)
+          let box = box-of(r.all, r.ids, r.levels, heading-text)
+          if wrap != none { wrap(box) } else { box }
         }
       }
       body
