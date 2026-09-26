@@ -25,6 +25,8 @@ top-level row filling while its own subsections scroll past.
 A `<nav class="rheo-panel-box rheo-contents-box">` inside an
 `<aside class="rheo-panel-aside rheo-contents-aside">`, plus one empty
 `<div class="rheo-contents-anchor" id="...">` before each entry to scroll to.
+Under `separator: idea` there is no anchor: a row links to the idea's own id
+(`#idea:26w38-rheo`), which rookery already puts on its heading.
 
 **Two prefixes, on the same two elements.** `rheo-panel-*` is the frame — the
 aside's position, the two rules, the hat, the title, the arrow — and
@@ -384,6 +386,11 @@ Measured on `26w38`, that lists the week's seven sections, numbered `1`–`7`,
 every anchor resolving. Without `levels: (1,)` you get eight rows, because the
 week itself is an idea enclosing all of them — correct containment, but usually
 not the contents box you want.
+
+Each row links to the idea's own id rather than to an anchor this package
+stamps, so the panel works on a minted `/ideas/<id>` page too. There rookery
+replays the note's stored body under its own `show figure` rule, which claims
+every idea before an outer rule could put an anchor beside it.
 
 `idea` is a plain function, not an element, so it cannot be queried and this
 package cannot compare it against anything it is allowed to import. It is

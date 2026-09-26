@@ -172,10 +172,18 @@
 // Deduplicated slugs, in document order. A repeat gets `-2`, `-3`, … — the
 // first occurrence keeps the bare slug, so an existing link to it survives a
 // later heading being added with the same text.
+//
+// An entry carrying its own `id` (an idea, see `_idea-entries`) links to that
+// instead, and gets no anchor of its own.
 #let _ids(all) = {
   let seen = (:)
   let out = ()
   for h in all {
+    let own = h.at("id", default: none)
+    if own != none {
+      out.push(own)
+      continue
+    }
     let base = slug(plain(h.title))
     let n = seen.at(base, default: 0) + 1
     seen.insert(base, n)
@@ -334,7 +342,11 @@
     let name = pv.at("title", default: none)
     if name == none { name = pv.at("label", default: none) }
     if name == none { continue }
-    out.push((title: name, depth: idea-depth, loc: el.location()))
+    // The idea's own id, already on its heading wherever it renders. A
+    // minted page replays the note's stored body under rookery's own inner
+    // `show figure` rule, which claims each figure before the anchor rule
+    // below can, so an anchor stamped there is never emitted.
+    out.push((title: name, depth: idea-depth, loc: el.location(), id: pv.at("id", default: none)))
   }
   out
 }
@@ -598,7 +610,7 @@
       context {
         let r = resolve()
         let i = r.all.position(h => h.loc == it.location())
-        if i != none {
+        if i != none and r.all.at(i).at("id", default: none) == none {
           html.elem("div", attrs: (class: "rheo-contents-anchor", id: r.ids.at(i)))
         }
       }
