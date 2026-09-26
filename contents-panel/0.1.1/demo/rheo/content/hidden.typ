@@ -17,6 +17,10 @@ Filler so the page scrolls far enough for the box to have work to do.
 Filler after the hidden heading, so it still occupies a band of the
 document even though nothing on the page shows it.
 
+// `outlined: false` is the compile-time way out: the default separator skips
+// it, so `Unlisted` is rendered but gets no row at all.
+#heading(outlined: false)[Unlisted]
+
 = Visible Two
 
 More filler under the third heading.

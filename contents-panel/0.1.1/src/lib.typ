@@ -395,9 +395,10 @@
 //   where the document sets no title. MEASURED: `document.title` resolves per
 //   vertebra under rheo, not to some bundle-wide value, despite the whole
 //   project compiling as one Typst document.
-// `separator` — the Typst SELECTOR whose matches become the rows. `heading` by
-//   default, and the reason it is a parameter at all is that a vertebra's
-//   sections are not always headings.
+// `separator` — the Typst SELECTOR whose matches become the rows.
+//   `heading.where(outlined: true)` by default, so a heading Typst's own
+//   `#outline` would skip gets no row either. The reason it is a parameter at
+//   all is that a vertebra's sections are not always headings.
 //
 //   MEASURED against waterline's weeknotes: that template hands its body to
 //   rookery's `#ideate` with `separator: heading.where(level: 2)`, which
@@ -483,7 +484,7 @@
 //   back into the flow, since its container now decides where it sits.
 #let contents(
   title: auto,
-  separator: heading,
+  separator: heading.where(outlined: true),
   title-of: auto,
   depth-of: auto,
   levels: auto,

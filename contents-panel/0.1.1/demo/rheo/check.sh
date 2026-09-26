@@ -428,4 +428,13 @@ else
   note "hidden.html: chromium not on PATH — runtime visibility not checked"
 fi
 
+# 12. `outlined: false`, on hidden.html. The heading renders, and the default
+#     separator gives it no row.
+grep -q '>Unlisted</h2>' "$H/hidden.html" || note "hidden.html: the outlined: false heading did not render"
+if grep -q 'rheo-contents-label">Unlisted<' "$H/hidden.html"; then
+  note "hidden.html: the outlined: false heading got a row"
+else
+  echo "  hidden.html: outlined: false heading rendered, no row"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "demo/rheo OK"; else echo "demo/rheo FAILED"; exit 1; fi

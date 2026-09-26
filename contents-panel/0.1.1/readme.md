@@ -316,6 +316,14 @@ halves of the switch, positively and negatively, because either half alone
 compiles and renders: the class without the padding puts the box over the
 prose, and the padding without the class clears a column the box is not in.
 
+## Headings left out of the outline
+
+The default separator is `heading.where(outlined: true)`, so a heading marked
+`outlined: false` gets no row, exactly as Typst's own `#outline` skips it. That
+is how a package can keep a heading it renders but hides out of the panel:
+`@rookery/core` marks an idea's References heading `outlined: false` when
+horizontal citations replace it with margin notes.
+
 ## When the sections are not headings
 
 `separator:` is the escape hatch, and it exists because a vertebra's sections
